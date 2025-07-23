@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_extensions",
 ]
 
 MIDDLEWARE = [
@@ -185,3 +186,8 @@ LOG_HANDLERS = configure_logging(
 # django-stubs
 
 django_stubs_ext.monkeypatch()
+
+
+# django-extensions
+
+SHELL_PLUS = "ipython"
