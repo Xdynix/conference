@@ -3,7 +3,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
 export PYTHONUTF8 := "1"
 
-default: lint
+default: lint test
 
 # set up development environment
 dev-setup:
@@ -13,3 +13,7 @@ dev-setup:
 # execute linters
 lint:
     uv run pre-commit run --all-files
+
+# execute tests
+test *args:
+    uv run pytest --cov . {{ args }}

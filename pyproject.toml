@@ -13,6 +13,12 @@ lint = [
     "pre-commit>=4.2.0",
     "ruff>=0.12.4",
 ]
+test = [
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+    "pytest-mock>=3.14.1",
+    "pytest-randomly>=3.16.0",
+]
 
 [tool.uv]
 default-groups = "all"
@@ -50,3 +56,30 @@ ignore = [
 [tool.mypy]
 strict = true
 cache_dir = ".cache/mypy"
+
+[tool.pytest.ini_options]
+cache_dir = ".cache/pytest"
+addopts = [
+    "--doctest-modules",
+    "--import-mode", "importlib",
+    "--cov-config", "pyproject.toml",
+    "--cov-report", "term",
+    "--cov-report", "html",
+    "--cov-fail-under", "100",
+]
+
+[tool.coverage.run]
+branch = true
+data_file = ".cache/coverage/data.db"
+disable_warnings = ["no-data-collected"]
+
+[tool.coverage.report]
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@overload",
+]
+
+[tool.coverage.html]
+directory = "var/cov-report"
