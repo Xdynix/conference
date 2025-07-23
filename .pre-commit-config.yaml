@@ -53,3 +53,8 @@ repos:
         entry: uv run mypy
         language: system
         types: [ python ]
+      - id: django-migration
+        name: check Django migrations
+        entry: uv run manage.py makemigrations --check --dry-run
+        language: system
+        pass_filenames: false
