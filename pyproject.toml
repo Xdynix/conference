@@ -5,6 +5,7 @@ requires-python = "==3.13.*"
 dependencies = [
     "django-stubs[compatible-mypy]~=5.2",
     "django[argon2]~=5.2",
+    "python-decouple>=3.8",
 ]
 
 [dependency-groups]
@@ -65,6 +66,7 @@ ignore = [
 [tool.mypy]
 strict = true
 cache_dir = ".cache/mypy"
+mypy_path = "etc/stubs"
 plugins = [
     "mypy_django_plugin.main",
 ]
