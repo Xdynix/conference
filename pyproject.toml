@@ -5,6 +5,7 @@ requires-python = "==3.13.*"
 dependencies = [
     "django-stubs[compatible-mypy]~=5.2",
     "django[argon2]~=5.2",
+    "loguru>=0.7.3",
     "python-decouple>=3.8",
 ]
 

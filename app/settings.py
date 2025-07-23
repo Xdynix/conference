@@ -5,6 +5,8 @@ from pathlib import Path
 import django_stubs_ext
 from decouple import Csv, config
 
+from app.logging import configure_logging
+
 # Common
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -64,6 +66,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # TODO: Add logging middleware: bind request context (request, response, session).
 ]
 
 ROOT_URLCONF = "app.urls"
@@ -167,6 +170,16 @@ EMAIL_SUBJECT_PREFIX = config("EMAIL_SUBJECT_PREFIX", default="[Django] ")
 SERVER_EMAIL = config("SERVER_EMAIL", default="no-reply@localhost")
 
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="no-reply@localhost")
+
+
+# Logging
+
+LOGGING_CONFIG = None
+
+LOG_HANDLERS = configure_logging(
+    log_dir=config("LOG_DIR", default=DATA_DIR / "log", cast=Path),
+    debug=DEBUG,
+)
 
 
 # django-stubs
