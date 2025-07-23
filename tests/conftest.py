@@ -30,3 +30,18 @@ def editable_auto_now_add_field() -> None:
 def weak_password_hasher(settings: LazySettings) -> None:
     # Use weak password hasher in testing to increase speed.
     settings.PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
+
+@pytest.fixture(autouse=True)
+def disable_serve_static(settings: LazySettings) -> None:
+    settings.STORAGES = {
+        **settings.STORAGES,
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+    settings.MIDDLEWARE = [
+        middleware
+        for middleware in settings.MIDDLEWARE
+        if middleware != "servestatic.middleware.ServeStaticMiddleware"
+    ]
