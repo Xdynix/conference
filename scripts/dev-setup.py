@@ -54,6 +54,8 @@ def ensure_env_var_file() -> None:
     ALLOWED_HOSTS={allowed_hosts}
 
     EMAIL_BACKEND=django.core.mail.backends.filebased.EmailBackend
+
+    SITE_NAME=Django-Dev
     """
     dot_env_content = dot_env_content.format(
         secret_key=secret_key,

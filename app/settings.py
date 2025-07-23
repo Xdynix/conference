@@ -50,13 +50,13 @@ SESSION_COOKIE_HTTPONLY = True
 # Application Definition
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_extensions",
+    "app.admin",
 ]
 
 MIDDLEWARE = [
@@ -203,3 +203,8 @@ django_stubs_ext.monkeypatch()
 # django-extensions
 
 SHELL_PLUS = "ipython"
+
+
+# Site
+
+SITE_NAME = config("SITE_NAME", default="Django")
