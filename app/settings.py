@@ -120,6 +120,8 @@ PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.ScryptPasswordHasher",
 ]
 
+SESSION_SERIALIZER = "app.utils.orjson.ORJSONSerializer"
+
 
 # Internationalization
 
