@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "django_extensions",
     "mailer",
     "app.admin",
+    "app.scheduler",
 ]
 
 MIDDLEWARE = [
