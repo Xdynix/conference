@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_extensions",
+    "mailer",
     "app.admin",
 ]
 
@@ -157,10 +158,14 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Email
 
-EMAIL_BACKEND = config(
+EMAIL_BACKEND = "mailer.backend.DbBackend"
+
+MAILER_EMAIL_BACKEND: str = config(
     "EMAIL_BACKEND",
     default="django.core.mail.backends.smtp.EmailBackend",
-)  # TODO: Use async email backend.
+)
+
+MAILER_EMPTY_QUEUE_SLEEP = 5
 
 EMAIL_FILE_PATH = config("EMAIL_FILE_PATH", default=DATA_DIR / "emails", cast=str)
 
