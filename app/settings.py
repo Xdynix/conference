@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "ninja",
     "app.admin",
     "app.core",
+    "app.misc",
     "app.scheduler",
 ]
 
@@ -218,3 +219,5 @@ SHELL_PLUS = "ipython"
 # Site
 
 SITE_NAME = config("SITE_NAME", default="Django")
+
+FAVICON_TEXT = config("FAVICON_TEXT", default="💡")
