@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "django_extensions",
     "mailer",
     "app.admin",
+    "app.core",
     "app.scheduler",
 ]
 
@@ -107,6 +108,8 @@ DATABASES = {
 
 
 # Authentication
+
+AUTH_USER_MODEL = "core.User"
 
 AUTH_PASSWORD_VALIDATORS = [
     {
