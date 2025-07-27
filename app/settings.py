@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django_extensions",
     "mailer",
+    "ninja",
     "app.admin",
     "app.core",
     "app.scheduler",

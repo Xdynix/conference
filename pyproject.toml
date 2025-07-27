@@ -6,6 +6,7 @@ dependencies = [
     "apscheduler>=3.11.0",
     "django-extensions>=4.1",
     "django-mailer>=2.3.2",
+    "django-ninja>=1.4.3",
     "django-stubs[compatible-mypy]~=5.2",
     "django[argon2]~=5.2",
     "ipython>=9.4.0",
@@ -105,6 +106,11 @@ addopts = [
     "--cov-report", "term",
     "--cov-report", "html",
     "--cov-fail-under", "100",
+]
+filterwarnings = [
+    "error",
+    # https://github.com/vitalik/django-ninja/issues/1093  # TODO: Remove once fixed.
+    "ignore:Support for class-based `config` is deprecated, use ConfigDict instead.:DeprecationWarning",
 ]
 DJANGO_SETTINGS_MODULE = "app.settings"
 

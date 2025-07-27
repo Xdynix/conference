@@ -1,10 +1,15 @@
+from functools import partial
+from uuid import uuid4
+
 import pytest
 from django.apps import apps
 from django.conf import LazySettings
 from django.db import models
+from django.test import Client
 from django.utils import timezone
 from loguru import logger
 
+from app.ninja.core import AppNinjaAPI
 from app.settings import LOG_HANDLERS
 
 
@@ -45,3 +50,22 @@ def disable_serve_static(settings: LazySettings) -> None:
         for middleware in settings.MIDDLEWARE
         if middleware != "servestatic.middleware.ServeStaticMiddleware"
     ]
+
+
+@pytest.fixture
+def api() -> AppNinjaAPI:
+    """`AppNinjaAPI` instance for testing.
+
+    Creates an API instance with the same configuration as production but uses a unique
+    URL namespace to avoid conflicts when registering test routes alongside the main
+    application routes.
+    """
+    return AppNinjaAPI.build(urls_namespace=f"test-{uuid4().hex}")
+
+
+@pytest.fixture
+def api_client(client: Client) -> Client:
+    for method in ("post", "put", "patch", "delete"):
+        func = getattr(client, method)
+        setattr(client, method, partial(func, content_type="application/json"))
+    return client
