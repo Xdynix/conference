@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "app.core",
     "app.misc",
     "app.scheduler",
+    "app.turnstile",
 ]
 
 MIDDLEWARE = [
@@ -221,3 +222,28 @@ SHELL_PLUS = "ipython"
 SITE_NAME = config("SITE_NAME", default="Django")
 
 FAVICON_TEXT = config("FAVICON_TEXT", default="💡")
+
+
+# Cloudflare Turnstile
+
+CF_TURNSTILE_SITE_KEY = config("CF_TURNSTILE_SITE_KEY", default="")
+
+CF_TURNSTILE_SECRET_KEY = config("CF_TURNSTILE_SECRET_KEY", default="")
+
+CF_TURNSTILE_VERIFY_URL = config(
+    "CF_TURNSTILE_VERIFY_URL",
+    default="https://challenges.cloudflare.com/turnstile/v0/siteverify",
+)
+
+CF_TURNSTILE_RESPONSE_HEADER_NAME = config(
+    "CF_TURNSTILE_RESPONSE_HEADER_NAME",
+    default="cf-turnstile-response",
+)
+
+CF_TURNSTILE_BYPASS_SECRETS: frozenset[str] = frozenset(
+    config(
+        "CF_TURNSTILE_BYPASS_SECRETS",
+        default="",
+        cast=Csv(),
+    )
+)

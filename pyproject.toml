@@ -5,10 +5,12 @@ requires-python = "==3.13.*"
 dependencies = [
     "apscheduler>=3.11.0",
     "django-extensions>=4.1",
+    "django-ipware>=7.0.1",
     "django-mailer>=2.3.2",
     "django-ninja>=1.4.3",
     "django-stubs[compatible-mypy]~=5.2",
     "django[argon2]~=5.2",
+    "httpx>=0.28.1",
     "ipython>=9.4.0",
     "loguru>=0.7.3",
     "orjson>=3.11.0",
@@ -34,10 +36,12 @@ lint = [
 test = [
     "faker>=37.4.2",
     "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",
     "pytest-django>=4.11.1",
     "pytest-mock>=3.14.1",
     "pytest-randomly>=3.16.0",
+    "respx>=0.22.0",
 ]
 
 [tool.uv]
@@ -112,6 +116,7 @@ filterwarnings = [
     # https://github.com/vitalik/django-ninja/issues/1093  # TODO: Remove once fixed.
     "ignore:Support for class-based `config` is deprecated, use ConfigDict instead.:DeprecationWarning",
 ]
+asyncio_mode = "auto"
 DJANGO_SETTINGS_MODULE = "app.settings"
 
 [tool.coverage.run]

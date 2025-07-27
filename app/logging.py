@@ -61,6 +61,7 @@ def configure_logging(log_dir: Path, debug: bool) -> Handlers:
     level_per_module: dict[str | None, str | int | bool] = {
         "": "INFO",
         "app": "DEBUG" if debug else "INFO",
+        "httpx": "WARNING",
     }
 
     console_logger = logger.add(
