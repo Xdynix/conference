@@ -1,4 +1,5 @@
 from functools import partial
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
@@ -8,6 +9,7 @@ from django.db import models
 from django.test import Client
 from django.utils import timezone
 from loguru import logger
+from pytest_mock import MockerFixture
 
 from app.ninja.core import AppNinjaAPI
 from app.settings import LOG_HANDLERS
@@ -69,3 +71,11 @@ def api_client(client: Client) -> Client:
         func = getattr(client, method)
         setattr(client, method, partial(func, content_type="application/json"))
     return client
+
+
+@pytest.fixture
+def mock_cf_turnstile(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch(
+        "app.utils.cf_turnstile.decorators.check_cf_turnstile_response",
+        return_value=None,
+    )
