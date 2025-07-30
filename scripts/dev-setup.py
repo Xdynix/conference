@@ -45,6 +45,7 @@ def ensure_env_var_file() -> None:
     logger.info("    🔑 Secret key generated and set up as 🐛 debugging environment.")
     secret_key = get_random_secret_key()
     allowed_hosts = ",".join(dev_hosts)
+    verikit_email_token_secret = get_random_secret_key()
 
     dot_env_content = """
     SECRET_KEY='{secret_key}'
@@ -56,10 +57,13 @@ def ensure_env_var_file() -> None:
     EMAIL_BACKEND=django.core.mail.backends.filebased.EmailBackend
 
     SITE_NAME=Django-Dev
+
+    VERIKIT_EMAIL_TOKEN_SECRET='{verikit_email_token_secret}'
     """
     dot_env_content = dot_env_content.format(
         secret_key=secret_key,
         allowed_hosts=allowed_hosts,
+        verikit_email_token_secret=verikit_email_token_secret,
     )
     dot_env_content = dedent(dot_env_content).strip()
     dot_env_file.write_text(dot_env_content + "\n")

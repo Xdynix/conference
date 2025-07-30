@@ -6,7 +6,7 @@ import django_stubs_ext
 from decouple import Csv, config
 
 from app.logging import configure_logging
-from app.utils.shorthands import days
+from app.utils.shorthands import days, seconds
 
 # Common
 
@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "app.infra",
     "app.misc",
     "app.turnstile",
+    "app.verikit",
 ]
 
 MIDDLEWARE = [
@@ -252,4 +253,36 @@ CF_TURNSTILE_BYPASS_SECRETS: frozenset[str] = frozenset(
         default="",
         cast=Csv(),
     )
+)
+
+
+# Verikit
+
+VERIKIT_EMAIL_CODE_INTERVAL = config(
+    "VERIKIT_EMAIL_CODE_INTERVAL",
+    default=60,
+    cast=seconds,
+)
+
+VERIKIT_EMAIL_CODE_EXPIRY = config(
+    "VERIKIT_EMAIL_CODE_EXPIRY",
+    default=1800,
+    cast=seconds,
+)
+
+VERIKIT_EMAIL_TOKEN_EXPIRY = config(
+    "VERIKIT_EMAIL_TOKEN_EXPIRY",
+    default=3600,
+    cast=seconds,
+)
+
+VERIKIT_EMAIL_TOKEN_SECRET = config(
+    "VERIKIT_EMAIL_TOKEN_SECRET",
+    default="".join(secrets.choice(string.printable) for _ in range(64)),
+)
+
+VERIKIT_VERIFICATION_RETENTION = config(
+    "VERIKIT_VERIFICATION_RETENTION",
+    default=7,
+    cast=days,
 )
