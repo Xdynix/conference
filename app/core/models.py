@@ -7,7 +7,7 @@ from django.db.models import Q
 from django.db.models.functions import Lower
 from django.utils.translation import gettext_lazy as _
 
-from app.utils.models import ULIDModel
+from app.utils.models import TimeStampedModel, ULIDModel
 
 
 class UserManager(DjangoUserManager["User"]):
@@ -113,3 +113,36 @@ class Role(AbstractRole):
 
     def __str__(self) -> str:
         return self.name
+
+
+class AbstractRoleAssignment(TimeStampedModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name=_("user"))
+
+    class Meta:
+        abstract = True
+
+
+class RoleAssignment(AbstractRoleAssignment):
+    role = models.ForeignKey(
+        Role,
+        on_delete=models.CASCADE,
+        related_name="assignments",
+        related_query_name="assignment",
+        verbose_name=_("role"),
+    )
+
+    class Meta:
+        verbose_name = _("role assignment")
+        verbose_name_plural = _("role assignments")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("user", "role"),
+                name="unique_user_role",
+                violation_error_code="unique",
+                violation_error_message=_("The role assignment already exists."),
+            ),
+        )
+        indexes = (models.Index(fields=("role",)),)
+
+    def __str__(self) -> str:
+        return f"{self.role}: {self.user}"

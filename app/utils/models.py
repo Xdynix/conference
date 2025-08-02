@@ -11,3 +11,13 @@ class ULIDModel(models.Model):
 
     class Meta:
         abstract = True
+
+
+class TimeStampedModel(models.Model):
+    """Model with ``create_time`` and ``update_time`` fields defined."""
+
+    create_time = models.DateTimeField(_("create time"), auto_now_add=True)
+    update_time = models.DateTimeField(_("update time"), auto_now=True)
+
+    class Meta:
+        abstract = True
