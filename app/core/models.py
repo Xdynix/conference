@@ -72,3 +72,44 @@ class Permission(models.Model):
 
     def __str__(self) -> str:
         return self.key
+
+
+class AbstractRole(models.Model):
+    name = models.CharField(
+        _("name"),
+        max_length=255,
+        primary_key=True,
+        help_text=_(
+            "Unique identifier for the role (e.g., 'admin', 'user', 'viewer')."
+        ),
+    )
+    display_name = models.CharField(
+        _("display name"),
+        max_length=255,
+        unique=True,
+        help_text=_("Human-readable name for the role."),
+    )
+    description = models.TextField(
+        _("description"),
+        blank=True,
+        default="",
+        help_text=_("Description of the role."),
+    )
+    permissions = models.ManyToManyField(
+        Permission,
+        blank=True,
+        verbose_name=_("permissions"),
+        help_text=_("Permissions granted to users with this role."),
+    )
+
+    class Meta:
+        abstract = True
+
+
+class Role(AbstractRole):
+    class Meta(AbstractRole.Meta):
+        verbose_name = _("role")
+        verbose_name_plural = _("roles")
+
+    def __str__(self) -> str:
+        return self.name

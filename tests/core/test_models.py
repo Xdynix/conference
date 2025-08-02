@@ -2,7 +2,7 @@ import pytest
 from django.db import IntegrityError
 from faker import Faker
 
-from app.core.models import Permission, User
+from app.core.models import Permission, Role, User
 from tests.data import (
     EMAIL_NORMALIZATION_DATA,
     USERNAME_NORMALIZATION_DATA,
@@ -73,3 +73,8 @@ class TestUser:
 class TestPermission:
     def test_str(self) -> None:
         assert str(Permission(key="foobar")) == "foobar"
+
+
+class TestRole:
+    def test_str(self) -> None:
+        assert str(Role(name="foobar")) == "foobar"
