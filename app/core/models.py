@@ -61,3 +61,14 @@ class User(ULIDModel, AbstractUser):
     @family_name.setter
     def family_name(self, family_name: str) -> None:
         self.last_name = family_name
+
+
+class Permission(models.Model):
+    key = models.CharField(_("key"), max_length=255, primary_key=True)
+
+    class Meta:
+        verbose_name = _("permission")
+        verbose_name_plural = _("permissions")
+
+    def __str__(self) -> str:
+        return self.key
