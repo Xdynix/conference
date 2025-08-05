@@ -1,7 +1,9 @@
 from http import HTTPStatus
+from unittest.mock import MagicMock
 
 import pytest
 from django.conf import LazySettings
+from django.contrib.auth import get_user
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
@@ -70,3 +72,60 @@ class TestGetSession:
         response = api_client.get(self.path)
         assert response.status_code == HTTPStatus.OK
         assert response.json() == {}
+
+
+@pytest.mark.django_db
+class TestCreateSession:
+    path = reverse("api-1.0.0:create-session")
+
+    @pytest.fixture
+    def invalid_credentials(self, faker: Faker) -> UserCredentials:
+        return UserCredentials(
+            username=faker.user_name(),
+            password=faker.password(),
+        )
+
+    def test_valid_credentials(
+        self,
+        api_client: Client,
+        user: User,
+        user_credentials: UserCredentials,
+        authenticated_session: JsonValue,
+        mock_cf_turnstile: MagicMock,
+    ) -> None:
+        assert not get_user(api_client).is_authenticated
+
+        response = api_client.post(self.path, data=user_credentials.model_dump())
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == authenticated_session
+
+        assert get_user(api_client) == user
+        mock_cf_turnstile.assert_called_once()
+
+    def test_invalid_credentials(
+        self,
+        api_client: Client,
+        invalid_credentials: UserCredentials,
+        mock_cf_turnstile: MagicMock,
+    ) -> None:
+        assert not get_user(api_client).is_authenticated
+
+        response = api_client.post(self.path, data=invalid_credentials.model_dump())
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.json() == {"message": "Invalid credentials."}
+
+        assert not get_user(api_client).is_authenticated
+        mock_cf_turnstile.assert_called_once()
+
+    def test_cf_turnstile_enforced(
+        self,
+        settings: LazySettings,
+        api_client: Client,
+    ) -> None:
+        assert not get_user(api_client).is_authenticated
+
+        response = api_client.post(self.path, data={"bad": "data"})
+        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert settings.CF_TURNSTILE_RESPONSE_HEADER_NAME in response.json()["message"]
+
+        assert not get_user(api_client).is_authenticated
