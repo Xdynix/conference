@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-from django.contrib.auth import aauthenticate, alogin
+from django.contrib.auth import aauthenticate, alogin, alogout
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -60,4 +60,20 @@ async def create_session(
         )
     logger.info("User logged in.", user=user)
     await alogin(request, user)
+    return await Session.from_request(request)
+
+
+@router.delete(
+    "/sessions/current",
+    response=Session,
+    summary="Logout",
+)
+async def delete_session(request: HttpRequest) -> Session:
+    """Log a user out."""
+    if (user := await request.auser()).is_authenticated:
+        logger.info("User logged out.", user=user)
+    await alogout(request)
+    # Clear async user cache due to Django bug where `alogout` doesn't clear it.
+    if hasattr(request, "_acached_user"):  # pragma: no cover
+        delattr(request, "_acached_user")
     return await Session.from_request(request)

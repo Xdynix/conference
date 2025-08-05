@@ -129,3 +129,24 @@ class TestCreateSession:
         assert settings.CF_TURNSTILE_RESPONSE_HEADER_NAME in response.json()["message"]
 
         assert not get_user(api_client).is_authenticated
+
+
+@pytest.mark.django_db
+class TestDeleteSession:
+    path = reverse("api-1.0.0:delete-session")
+
+    def test_authenticated(self, api_client: Client, user: User) -> None:
+        api_client.force_login(user)
+
+        response = api_client.delete(self.path)
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == {}
+
+        assert not get_user(api_client).is_authenticated
+
+    def test_unauthenticated(self, api_client: Client) -> None:
+        response = api_client.delete(self.path)
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == {}
+
+        assert not get_user(api_client).is_authenticated
