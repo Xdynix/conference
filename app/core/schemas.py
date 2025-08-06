@@ -15,7 +15,11 @@ class User(Schema):
 
 
 class Session(Schema):
+    class Key:
+        IMPERSONATOR_ID = "impersonator_id"
+
     user: User | None
+    impersonating: Literal[True] | None
 
     @classmethod
     async def from_request(cls, request: HttpRequest) -> Self:
@@ -23,5 +27,6 @@ class Session(Schema):
         return cls.model_validate(
             {
                 "user": user if user.is_authenticated else None,
+                "impersonating": (cls.Key.IMPERSONATOR_ID in request.session) or None,
             }
         )

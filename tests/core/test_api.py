@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +11,8 @@ from faker import Faker
 from pydantic import BaseModel, JsonValue
 
 from app.core.models import User
+from app.core.schemas import Session
+from tests.helpers import update_object
 
 
 class UserCredentials(BaseModel):
@@ -150,3 +153,104 @@ class TestDeleteSession:
         assert response.json() == {}
 
         assert not get_user(api_client).is_authenticated
+
+
+@pytest.fixture
+def impersonator(faker: Faker) -> User:
+    return User.objects.create_superuser(username=faker.user_name())
+
+
+@pytest.fixture
+def impersonated(faker: Faker) -> User:
+    return User.objects.create_user(username=faker.user_name())
+
+
+@pytest.mark.django_db
+class TestAssumeSession:
+    path = reverse("api-1.0.0:assume-session")
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        impersonator: User,
+        impersonated: User,
+    ) -> None:
+        api_client.force_login(impersonator)
+
+        response = api_client.post(
+            self.path,
+            data={"impersonated": impersonated.username},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["user"]["uid"] == str(impersonated.uid)
+        assert data["impersonating"] is True
+
+        assert get_user(api_client) == impersonated
+        assert api_client.session[Session.Key.IMPERSONATOR_ID] == str(impersonator.id)
+
+    def test_non_superuser(
+        self,
+        api_client: Client,
+        impersonator: User,
+        impersonated: User,
+    ) -> None:
+        update_object(impersonator, is_superuser=False)
+        api_client.force_login(impersonator)
+
+        response = api_client.post(
+            self.path,
+            data={"impersonated": impersonated.username},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+        assert get_user(api_client) == impersonator
+        assert Session.Key.IMPERSONATOR_ID not in api_client.session
+
+    def test_unauthenticated(self, api_client: Client) -> None:
+        response = api_client.post(self.path, data={"impersonated": "foobar"})
+        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert not get_user(api_client).is_authenticated
+
+    def test_impersonated_not_exist(
+        self,
+        api_client: Client,
+        impersonator: User,
+    ) -> None:
+        api_client.force_login(impersonator)
+
+        response = api_client.post(
+            self.path,
+            data={"impersonated": "not-exist"},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.json() == {"message": "Impersonated not found."}
+
+        assert get_user(api_client) == impersonator
+
+    @pytest.mark.parametrize(
+        "impersonated_update",
+        [
+            {"is_active": False},
+            {"is_superuser": True},
+        ],
+    )
+    def test_impersonated_invalid(
+        self,
+        api_client: Client,
+        impersonator: User,
+        impersonated: User,
+        impersonated_update: dict[str, Any],
+    ) -> None:
+        update_object(impersonated, **impersonated_update)
+        api_client.force_login(impersonator)
+
+        response = api_client.post(
+            self.path,
+            data={"impersonated": impersonated.username},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.json() == {"message": "Impersonated not found."}
+
+        assert get_user(api_client) == impersonator

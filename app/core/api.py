@@ -9,12 +9,25 @@ from ninja import Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 
+from app.core.auth import is_superuser
+from app.core.models import User
 from app.core.schemas import Session
 from app.core.types import HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 
 router = Router(tags=["Core"], exclude_none=True)
+
+
+# TODO: Remove after django/django#19709 (Django #36540) released.
+def clean_request_user_cache(request: HttpRequest) -> None:  # pragma: no cover
+    """Clear the request's cached user attributes after ``alogin``/``alogout``.
+
+    Workaround for Django bug where ``alogin``/``alogout`` leave them stale.
+    """
+    for attr in ("_cached_user", "_acached_user"):
+        if hasattr(request, attr):
+            delattr(request, attr)
 
 
 @router.get(
@@ -60,6 +73,7 @@ async def create_session(
         )
     logger.info("User logged in.", user=user)
     await alogin(request, user)
+    clean_request_user_cache(request)
     return await Session.from_request(request)
 
 
@@ -73,7 +87,55 @@ async def delete_session(request: HttpRequest) -> Session:
     if (user := await request.auser()).is_authenticated:
         logger.info("User logged out.", user=user)
     await alogout(request)
-    # Clear async user cache due to Django bug where `alogout` doesn't clear it.
-    if hasattr(request, "_acached_user"):  # pragma: no cover
-        delattr(request, "_acached_user")
+    clean_request_user_cache(request)
+    return await Session.from_request(request)
+
+
+class AssumeSessionRequest(Schema):
+    impersonated: Username
+
+
+@router.post(
+    "/sessions/current:assume",
+    response={
+        HTTPStatus.OK: Session,
+        HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
+    },
+    summary="Start Impersonation",
+)
+@is_superuser
+async def assume_session(
+    request: HttpRequest,
+    payload: AssumeSessionRequest,
+) -> Session:
+    """Impersonate a user as another user.
+
+    This backdoor operation allows a superuser to authenticate as another user without
+    knowing their credentials. This can be used to investigate issues from their
+    perspective to better support and assist them.
+
+    - Only superusers can use this operation.
+    - The user being impersonated cannot be a superuser.
+    """
+    impersonated: User | None = await User.objects.filter(
+        username=payload.impersonated,
+        is_active=True,
+        is_superuser=False,
+    ).afirst()
+    if impersonated is None:
+        raise HttpError(
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+            message=_("Impersonated not found."),
+        )
+
+    impersonator = await request.auser()
+    logger.info(
+        "Impersonation started.",
+        impersonator=impersonator,
+        impersonated=impersonated,
+    )
+    await alogin(request, impersonated)
+    clean_request_user_cache(request)
+    request.session[Session.Key.IMPERSONATOR_ID] = str(impersonator.id)
+
     return await Session.from_request(request)
