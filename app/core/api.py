@@ -139,3 +139,42 @@ async def assume_session(
     request.session[Session.Key.IMPERSONATOR_ID] = str(impersonator.id)
 
     return await Session.from_request(request)
+
+
+@router.post(
+    "/sessions/current:revert",
+    response=Session,
+    summary="Stop Impersonation",
+)
+async def revert_session(request: HttpRequest) -> Session:
+    """Revert the current session to the state before impersonating.
+
+    - If the current session is not impersonated, there will be no change.
+    - If the impersonator is no longer active, the current session will be logged out.
+    """
+    impersonator_id: str | None = await request.session.aget(
+        Session.Key.IMPERSONATOR_ID
+    )
+    if impersonator_id is None:
+        return await Session.from_request(request)
+
+    impersonator = await User.objects.filter(
+        id=impersonator_id,
+        is_active=True,
+    ).afirst()
+    if impersonator is not None:
+        logger.info(
+            "Impersonation stopped.",
+            impersonator=impersonator,
+            impersonated=await request.auser(),
+        )
+        await alogin(request, impersonator)
+    else:
+        logger.error(
+            "Impersonator not found.",
+            impersonator_id=impersonator_id,
+        )
+        await alogout(request)
+    clean_request_user_cache(request)
+
+    return await Session.from_request(request)

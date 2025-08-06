@@ -254,3 +254,104 @@ class TestAssumeSession:
         assert response.json() == {"message": "Impersonated not found."}
 
         assert get_user(api_client) == impersonator
+
+
+@pytest.mark.django_db
+class TestRevertSession:
+    path = reverse("api-1.0.0:revert-session")
+
+    @classmethod
+    def force_assume(cls, client: Client, user: User) -> None:
+        session = client.session
+        session[Session.Key.IMPERSONATOR_ID] = str(user.id)
+        session.save()
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        impersonator: User,
+        impersonated: User,
+    ) -> None:
+        api_client.force_login(impersonated)
+        self.force_assume(api_client, impersonator)
+
+        response = api_client.post(self.path)
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["user"]["uid"] == str(impersonator.uid)
+        assert "impersonating" not in data
+
+        assert get_user(api_client) == impersonator
+        assert Session.Key.IMPERSONATOR_ID not in api_client.session
+
+    def test_not_impersonating(
+        self,
+        api_client: Client,
+        impersonated: User,
+    ) -> None:
+        api_client.force_login(impersonated)
+
+        response = api_client.post(self.path)
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["user"]["uid"] == str(impersonated.uid)
+        assert "impersonating" not in data
+
+        assert get_user(api_client) == impersonated
+        assert Session.Key.IMPERSONATOR_ID not in api_client.session
+
+    def test_unauthenticated(self, api_client: Client) -> None:
+        response = api_client.post(self.path)
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == {}
+
+    def test_impersonator_not_exist(
+        self,
+        api_client: Client,
+        impersonator: User,
+        impersonated: User,
+    ) -> None:
+        api_client.force_login(impersonated)
+        self.force_assume(api_client, impersonator)
+        impersonator.delete()
+
+        response = api_client.post(self.path)
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == {}
+
+    def test_impersonator_inactive(
+        self,
+        api_client: Client,
+        impersonator: User,
+        impersonated: User,
+    ) -> None:
+        api_client.force_login(impersonated)
+        self.force_assume(api_client, impersonator)
+        update_object(impersonator, is_active=False)
+
+        response = api_client.post(self.path)
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == {}
+
+
+@pytest.mark.django_db
+def test_impersonation_e2e(
+    api_client: Client,
+    impersonator: User,
+    impersonated: User,
+) -> None:
+    api_client.force_login(impersonator)
+    assert get_user(api_client) == impersonator
+
+    response = api_client.post(
+        reverse("api-1.0.0:assume-session"),
+        data={"impersonated": impersonated.username},
+    )
+    assert response.status_code == HTTPStatus.OK
+    assert get_user(api_client) == impersonated
+
+    response = api_client.post(reverse("api-1.0.0:revert-session"))
+    assert response.status_code == HTTPStatus.OK
+    assert get_user(api_client) == impersonator
