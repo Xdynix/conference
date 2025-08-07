@@ -24,7 +24,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "honcho>=2.0.0",
     "hupper>=1.12.1",
     "pyopenssl>=25.1.0",
     "rust-just>=1.42.3",

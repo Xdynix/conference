@@ -28,7 +28,18 @@ manage *args:
 shell:
     uv run manage.py shell_plus
 
-# start development server
-[linux, macos, unix]  # `honcho` is not working properly on Windows. Ref: https://github.com/nickstenning/honcho/issues/254
-dev:
-    uv run honcho start
+# start development services
+[parallel]
+dev: dev-app dev-mailer dev-scheduler
+
+# start Django server
+dev-app:
+    uv run manage.py runserver_plus localhost:8000 --cert-file=var/dev-server.crt --nostatic
+
+# start mailer worker
+dev-mailer:
+    uv run hupper --shutdown-interval=5 -m manage runmailer
+
+# start scheduler worker
+dev-scheduler:
+    uv run hupper --shutdown-interval=5 -m manage runscheduler
