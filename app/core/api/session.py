@@ -16,7 +16,7 @@ from app.core.types import HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 
-router = Router(tags=["Core"], exclude_none=True)
+router = Router(tags=["Session"], exclude_none=True)
 
 
 # TODO: Remove after django/django#19709 (Django #36540) released.

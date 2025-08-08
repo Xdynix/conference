@@ -136,6 +136,7 @@ exclude_also = [
     "if TYPE_CHECKING:",
     "class .*\\bProtocol\\):",
     "@overload",
+    "case _ as unreachable:",
 ]
 
 [tool.coverage.html]

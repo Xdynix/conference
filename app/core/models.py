@@ -8,6 +8,7 @@ from django.db.models.functions import Lower
 from django.utils.translation import gettext_lazy as _
 
 from app.utils.models import TimeStampedModel, ULIDModel
+from app.utils.perm import Perm
 
 
 class UserManager(DjangoUserManager["User"]):
@@ -30,6 +31,9 @@ class UserManager(DjangoUserManager["User"]):
 
 class User(ULIDModel, AbstractUser):
     objects: ClassVar[UserManager] = UserManager()
+
+    READ = Perm()
+    ADMIN = Perm()
 
     class Meta:
         verbose_name = _("user")
