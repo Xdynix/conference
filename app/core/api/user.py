@@ -1,12 +1,18 @@
-from typing import Annotated, Literal, assert_never
+from http import HTTPStatus
+from typing import Annotated, Literal, assert_never, cast
 
+from django.contrib.auth import aupdate_session_auth_hash
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils.translation import gettext as _
 from loguru import logger
 from ninja import Field, Router, Schema
+from ninja.errors import ValidationError
 from ulid import ULID
 
-from app.core.auth import has_permissions
+from app.core.auth import has_permissions, is_authenticated
 from app.core.models import User
-from app.core.types import EmailStr, HttpRequest, Username
+from app.core.types import EmailStr, HttpRequest, Password, Username
 
 router = Router(tags=["User"], exclude_none=True)
 
@@ -68,3 +74,66 @@ async def resolve_user(
         raise
 
     return ResolveUserResponse(uid=user["uid"])
+
+
+def validate_password_for_user(new_password: Password, user: User) -> None:
+    """Validate a password and convert any errors to Pydantic format."""
+    try:
+        validate_password(new_password.get_secret_value(), user=user)
+    except DjangoValidationError as exc:
+        raise ValidationError(
+            errors=[
+                {
+                    "type": "value_error",
+                    "loc": ["body", "payload", "new_password"],
+                    "msg": message,
+                }
+                for message in exc.messages
+            ]
+        ) from exc
+
+
+class UpdateCurrentUserPasswordRequest(Schema):
+    old_password: Password
+    new_password: Password
+
+
+@router.put(
+    "/users/me/password",
+    response={HTTPStatus.NO_CONTENT: None},
+    summary="Change My Password",
+)
+@is_authenticated
+async def update_current_user_password(
+    request: HttpRequest,
+    payload: UpdateCurrentUserPasswordRequest,
+) -> tuple[int, None]:
+    """Change the current user's password.
+
+    The user's session remains active after the password change.
+    """
+    user = cast(User, await request.auser())
+    old_password = payload.old_password
+    new_password = payload.new_password
+
+    if not await user.acheck_password(old_password.get_secret_value()):
+        raise ValidationError(
+            errors=[
+                {
+                    "type": "value_error",
+                    "loc": ["body", "payload", "old_password"],
+                    "msg": _("Invalid old password."),
+                },
+            ]
+        )
+
+    validate_password_for_user(new_password, user)
+
+    logger.info("User changed password.", user=user)
+    user.set_password(new_password.get_secret_value())
+    await user.asave(update_fields=["password"])
+
+    # Prevents the current session from being logged out.
+    await aupdate_session_auth_hash(request, user)
+
+    return HTTPStatus.NO_CONTENT, None
