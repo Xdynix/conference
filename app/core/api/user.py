@@ -4,6 +4,7 @@ from typing import Annotated, Literal, assert_never, cast
 from django.contrib.auth import aupdate_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
 from ninja import Field, Router, Schema
@@ -135,5 +136,40 @@ async def update_current_user_password(
 
     # Prevents the current session from being logged out.
     await aupdate_session_auth_hash(request, user)
+
+    return HTTPStatus.NO_CONTENT, None
+
+
+class UpdateUserPasswordRequest(Schema):
+    new_password: Password
+
+
+@router.put(
+    "/users/{ulid:user_id}/password",
+    response={HTTPStatus.NO_CONTENT: None},
+    summary="Change Password",
+)
+@has_permissions(User.ADMIN)
+async def update_user_password(
+    request: HttpRequest,
+    user_id: ULID,
+    payload: UpdateUserPasswordRequest,
+) -> tuple[int, None]:
+    """Change a user's password by admin.
+
+    Allows administrators to change the password for any active, non-superuser user.
+    """
+    user = await aget_object_or_404(
+        User.objects.filter(is_active=True, is_superuser=False),
+        uid=user_id,
+    )
+    new_password = payload.new_password
+
+    validate_password_for_user(new_password, user)
+
+    actor = cast(User, await request.auser())
+    logger.info("Admin changed user password.", user=user, actor=actor)
+    user.set_password(new_password.get_secret_value())
+    await user.asave(update_fields=["password"])
 
     return HTTPStatus.NO_CONTENT, None

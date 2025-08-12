@@ -7,6 +7,7 @@ from django.test import Client
 from django.urls import reverse
 from faker import Faker
 from pytest_mock import MockerFixture
+from ulid import ULID
 
 from app.core.models import Permission, Role, RoleAssignment, User
 from tests.helpers import update_object
@@ -279,5 +280,155 @@ class TestUpdateCurrentUserPassword:
                 "old_password": "OldPassword123!",
                 "new_password": "NewPassword456!",
             },
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestUpdateUserPassword:
+    @classmethod
+    def path(cls, user_id: ULID) -> str:
+        return reverse("api-1.0.0:update-user-password", args=[user_id])
+
+    @pytest.fixture
+    def user_admin_permission(self) -> Permission:
+        return Permission.objects.get_or_create(key=User.ADMIN)[0]
+
+    @pytest.fixture
+    def admin_role(self, user_admin_permission: Permission) -> Role:
+        role = Role.objects.create(name="admin", display_name="Admin")
+        role.permissions.add(user_admin_permission)
+        return role
+
+    @pytest.fixture
+    def authorized_user(self, faker: Faker, admin_role: Role) -> User:
+        user = User.objects.create_user(username=faker.user_name())
+        RoleAssignment.objects.create(user=user, role=admin_role)
+        return user
+
+    @pytest.fixture
+    def old_password(self) -> str:
+        return "OldPassword123!"
+
+    @pytest.fixture
+    def user(self, faker: Faker, old_password: str) -> User:
+        return User.objects.create_user(
+            username=faker.user_name(),
+            password=old_password,
+        )
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        authorized_user: User,
+        user: User,
+        old_password: str,
+    ) -> None:
+        new_password = "NewPassword456!"
+        api_client.force_login(authorized_user)
+
+        response = api_client.put(
+            self.path(user_id=user.uid),
+            data={"new_password": new_password},
+        )
+        assert response.status_code == HTTPStatus.NO_CONTENT
+        assert response.content == b""
+
+        user.refresh_from_db()
+        assert user.check_password(new_password)
+        assert not user.check_password(old_password)
+
+    def test_change_inactive_user_forbidden(
+        self,
+        api_client: Client,
+        authorized_user: User,
+        user: User,
+        old_password: str,
+    ) -> None:
+        update_object(user, is_active=False)
+        api_client.force_login(authorized_user)
+
+        response = api_client.put(
+            self.path(user_id=user.uid),
+            data={"new_password": "NewPassword456!"},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+        user.refresh_from_db()
+        assert user.check_password(old_password)
+
+    def test_change_superuser_forbidden(
+        self,
+        api_client: Client,
+        authorized_user: User,
+        user: User,
+        old_password: str,
+    ) -> None:
+        update_object(user, is_superuser=True)
+        api_client.force_login(authorized_user)
+
+        response = api_client.put(
+            self.path(user_id=user.uid),
+            data={"new_password": "NewPassword456!"},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+        user.refresh_from_db()
+        assert user.check_password(old_password)
+
+    def test_nonexistent_user_forbidden(
+        self,
+        api_client: Client,
+        authorized_user: User,
+    ) -> None:
+        api_client.force_login(authorized_user)
+
+        response = api_client.put(
+            self.path(user_id=ULID()),
+            data={"new_password": "NewPassword456!"},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_weak_new_password(
+        self,
+        mocker: MockerFixture,
+        api_client: Client,
+        authorized_user: User,
+        user: User,
+        old_password: str,
+    ) -> None:
+        mock_validate = mocker.patch("app.core.api.user.validate_password")
+        mock_validate.side_effect = DjangoValidationError(
+            [
+                "This password is too short. It must contain at least 8 characters.",
+                "This password is too common.",
+            ]
+        )
+        new_password = "weak"
+        api_client.force_login(authorized_user)
+
+        response = api_client.put(
+            self.path(user_id=user.uid),
+            data={"new_password": new_password},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        response_data = response.json()
+        assert len(response_data["details"]) == 2
+        for error in response_data["details"]:
+            assert error["type"] == "value_error"
+            assert error["loc"] == ["body", "payload", "new_password"]
+        assert "too short" in response_data["details"][0]["msg"]
+        assert "too common" in response_data["details"][1]["msg"]
+
+        user.refresh_from_db()
+        assert user.check_password(old_password)
+
+        mock_validate.assert_called_once()
+
+    def test_unauthorized_user_forbidden(self, api_client: Client, user: User) -> None:
+        response = api_client.put(
+            self.path(user_id=user.uid),
+            data={"new_password": "NewPassword456!"},
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
