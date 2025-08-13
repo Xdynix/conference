@@ -8,7 +8,7 @@ from typing import Any
 from django.apps import apps
 from django.core.management import BaseCommand
 
-from app.scheduler.core import scheduler
+from app.infra.services import scheduler
 
 
 class Command(BaseCommand):

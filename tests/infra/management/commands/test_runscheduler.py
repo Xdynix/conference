@@ -1,13 +1,12 @@
 import importlib
-from unittest.mock import call
 
 import pytest
 from django.apps import apps
 from faker import Faker
 from pytest_mock import MockerFixture
 
-from app.scheduler.core import scheduler
-from app.scheduler.management.commands.runscheduler import Command
+from app.infra.management.commands.runscheduler import Command
+from app.infra.services import scheduler
 
 
 @pytest.fixture
@@ -50,7 +49,8 @@ def test_load_jobs(mocker: MockerFixture, faker: Faker, command: Command) -> Non
 
     get_app_configs.assert_called_once_with()
     assert import_module.call_args_list == [
-        call(command.jobs_module_name, app_config.name) for app_config in app_configs
+        mocker.call(command.jobs_module_name, app_config.name)
+        for app_config in app_configs
     ]
 
 

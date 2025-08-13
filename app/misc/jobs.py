@@ -1,6 +1,6 @@
 from django.core.management import call_command
 
-from app.scheduler.core import scheduler
+from app.infra.services import scheduler
 
 
 @scheduler.scheduled_job("cron", hour="*/6", jitter=120)

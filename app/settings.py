@@ -6,6 +6,7 @@ import django_stubs_ext
 from decouple import Csv, config
 
 from app.logging import configure_logging
+from app.utils.shorthands import days
 
 # Common
 
@@ -60,8 +61,8 @@ INSTALLED_APPS = [
     "ninja",
     "app.admin",
     "app.core",
+    "app.infra",
     "app.misc",
-    "app.scheduler",
     "app.turnstile",
 ]
 
@@ -222,6 +223,11 @@ SHELL_PLUS = "ipython"
 SITE_NAME = config("SITE_NAME", default="Django")
 
 FAVICON_TEXT = config("FAVICON_TEXT", default="💡")
+
+
+# Infra
+
+MUTEX_RETENTION = config("MUTEX_RETENTION", default=7, cast=days)
 
 
 # Cloudflare Turnstile

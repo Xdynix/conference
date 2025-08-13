@@ -14,8 +14,8 @@ from mailer.management.commands.retry_deferred import (  # type: ignore[import-u
 )
 from pytest_mock import MockerFixture
 
+from app.infra.services import scheduler
 from app.misc import jobs
-from app.scheduler.core import scheduler
 
 
 @pytest.mark.parametrize(
