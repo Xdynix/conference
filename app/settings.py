@@ -286,3 +286,24 @@ VERIKIT_VERIFICATION_RETENTION = config(
     default=7,
     cast=days,
 )
+
+
+# Core
+
+PASSWORD_RESET_TOKEN_INTERVAL = config(
+    "PASSWORD_RESET_TOKEN_INTERVAL",
+    default=60,
+    cast=seconds,
+)
+
+PASSWORD_RESET_TOKEN_EXPIRY = config(
+    "PASSWORD_RESET_TOKEN_EXPIRY",
+    default=1200,
+    cast=seconds,
+)
+
+PASSWORD_RESET_TOKEN_RETENTION = config(
+    "PASSWORD_RESET_TOKEN_RETENTION",
+    default=7,
+    cast=days,
+)

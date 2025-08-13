@@ -1,8 +1,9 @@
 import pytest
 from django.db import IntegrityError
+from django.utils import timezone
 from faker import Faker
 
-from app.core.models import Permission, Role, RoleAssignment, User
+from app.core.models import PasswordResetToken, Permission, Role, RoleAssignment, User
 from tests.data import (
     EMAIL_NORMALIZATION_DATA,
     USERNAME_NORMALIZATION_DATA,
@@ -85,3 +86,25 @@ class TestRoleAssignment:
         user = User(username="user")
         role = Role(name="foobar")
         assert str(RoleAssignment(user=user, role=role)) == "foobar: user"
+
+
+@pytest.mark.django_db
+class TestPasswordResetToken:
+    def test_str_pending(self, faker: Faker) -> None:
+        username = faker.user_name()
+        user = User.objects.create_user(username=username)
+        token = PasswordResetToken(
+            user=user,
+            token_hash="",
+        )
+        assert str(token) == f"{username} (pending)"
+
+    def test_str_consumed(self, faker: Faker) -> None:
+        username = faker.user_name()
+        user = User.objects.create_user(username=username)
+        token = PasswordResetToken(
+            user=user,
+            token_hash="",
+            consume_time=timezone.now(),
+        )
+        assert str(token) == f"{username} (consumed)"

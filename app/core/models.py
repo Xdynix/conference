@@ -150,3 +150,50 @@ class RoleAssignment(AbstractRoleAssignment):
 
     def __str__(self) -> str:
         return f"{self.role}: {self.user}"
+
+
+class PasswordResetToken(models.Model):
+    """Represents an email password reset token.
+
+    Multiple active tokens can exist for the same user.
+    """
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="password_reset_tokens",
+        related_query_name="password_reset_token",
+        verbose_name=_("user"),
+    )
+    token_hash = models.CharField(
+        _("token hash"),
+        max_length=64,
+        unique=True,
+        help_text=_("Hashed password reset token for secure storage."),
+    )
+    create_time = models.DateTimeField(_("create time"), auto_now_add=True)
+    expire_time = models.DateTimeField(_("expire time"))
+    consume_time = models.DateTimeField(
+        _("consume time"),
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_("When this token was consumed for password reset."),
+    )
+
+    class Meta:
+        verbose_name = _("password reset token")
+        verbose_name_plural = _("password reset tokens")
+        indexes = (
+            # For service queries (active tokens + rate limiting).
+            models.Index(fields=("user", "create_time")),
+            models.Index(fields=("user", "expire_time", "consume_time", "token_hash")),
+            # For admin default list ordering.
+            models.Index(fields=("create_time",)),
+            # For cleanup jobs by expiration time.
+            models.Index(fields=("expire_time",)),
+        )
+
+    def __str__(self) -> str:
+        status = _("consumed") if self.consume_time else _("pending")
+        return f"{self.user} ({status})"

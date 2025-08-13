@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.contrib.auth.models import Group
 from django.utils.translation import gettext_lazy as _
 
-from app.core.models import Permission, Role, RoleAssignment, User
+from app.core.models import PasswordResetToken, Permission, Role, RoleAssignment, User
 
 admin.site.unregister(Group)
 
@@ -50,3 +50,13 @@ class RoleAssignmentAdmin(admin.ModelAdmin[RoleAssignment]):
     autocomplete_fields = ("user",)
     readonly_fields = ("create_time", "update_time")
     search_fields = ("user__username", "role__name")
+
+
+@admin.register(PasswordResetToken)
+class PasswordResetTokenAdmin(admin.ModelAdmin[PasswordResetToken]):
+    date_hierarchy = "create_time"
+    list_display = ("__str__", "create_time", "expire_time")
+    list_filter = ("create_time", "expire_time", "consume_time")
+    ordering = ("-create_time",)
+    readonly_fields = ("token_hash",)
+    search_fields = ("user__username",)
