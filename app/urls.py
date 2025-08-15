@@ -11,5 +11,6 @@ urlpatterns = [
     path("favicon.ico", favicon, name="favicon"),
     path("admin/", admin.site.urls),
     path("api/", api.urls),
+    path("core/", include("app.core.urls")),
     path("turnstile/", include("app.turnstile.urls")),
 ]

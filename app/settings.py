@@ -307,3 +307,5 @@ PASSWORD_RESET_TOKEN_RETENTION = config(
     default=7,
     cast=days,
 )
+
+PASSWORD_RESET_PAGE_URI = config("PASSWORD_RESET_PAGE_URI", default="")
