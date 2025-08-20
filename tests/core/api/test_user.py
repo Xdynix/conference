@@ -150,7 +150,7 @@ class TestResolveUser:
             self.path,
             data={"by": "username", "username": "someuser"},
         )
-        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
 
 
 @pytest.mark.django_db
@@ -281,7 +281,7 @@ class TestUpdateCurrentUserPassword:
                 "new_password": "NewPassword456!",
             },
         )
-        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
 
 
 @pytest.mark.django_db
@@ -431,4 +431,4 @@ class TestUpdateUserPassword:
             self.path(user_id=user.uid),
             data={"new_password": "NewPassword456!"},
         )
-        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert response.status_code == HTTPStatus.UNAUTHORIZED

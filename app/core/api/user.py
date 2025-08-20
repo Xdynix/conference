@@ -42,8 +42,8 @@ class ResolveUserResponse(Schema):
     "/users:resolve",
     response=ResolveUserResponse,
     summary="Resolve User UID",
+    auth=has_permissions(User.READ),
 )
-@has_permissions(User.READ)
 async def resolve_user(
     request: HttpRequest,  # noqa: ARG001
     payload: ResolveUserRequest,
@@ -103,8 +103,8 @@ class UpdateCurrentUserPasswordRequest(Schema):
     "/users/me/password",
     response={HTTPStatus.NO_CONTENT: None},
     summary="Change My Password",
+    auth=is_authenticated,
 )
-@is_authenticated
 async def update_current_user_password(
     request: HttpRequest,
     payload: UpdateCurrentUserPasswordRequest,
@@ -148,8 +148,8 @@ class UpdateUserPasswordRequest(Schema):
     "/users/{ulid:user_id}/password",
     response={HTTPStatus.NO_CONTENT: None},
     summary="Change Password",
+    auth=has_permissions(User.ADMIN),
 )
-@has_permissions(User.ADMIN)
 async def update_user_password(
     request: HttpRequest,
     user_id: ULID,

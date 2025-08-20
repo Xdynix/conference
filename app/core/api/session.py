@@ -102,8 +102,8 @@ class AssumeSessionRequest(Schema):
         HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
     },
     summary="Start Impersonation",
+    auth=is_superuser,
 )
-@is_superuser
 async def assume_session(
     request: HttpRequest,
     payload: AssumeSessionRequest,

@@ -210,7 +210,7 @@ class TestAssumeSession:
 
     def test_unauthenticated(self, api_client: Client) -> None:
         response = api_client.post(self.path, data={"impersonated": "foobar"})
-        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
         assert not get_user(api_client).is_authenticated
 
     def test_impersonated_not_exist(
