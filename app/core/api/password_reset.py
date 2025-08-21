@@ -16,6 +16,7 @@ from app.core.services import PasswordResetService
 from app.core.types import EmailStr, HttpRequest, Password
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
+from app.utils.throttling import AnonThrottle, throttling
 
 router = Router(tags=["Password Reset"], exclude_none=True)
 
@@ -36,6 +37,7 @@ class CreatePasswordResetResponse(Schema):
     },
     summary="Request Password Reset",
 )
+@decorate_view(throttling(AnonThrottle("100/min")))
 @decorate_view(cf_turnstile_required)
 async def create_password_reset(
     request: HttpRequest,

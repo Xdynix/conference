@@ -15,6 +15,7 @@ from app.core.schemas import Session
 from app.core.types import HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
+from app.utils.throttling import AnonThrottle, throttling
 
 router = Router(tags=["Session"], exclude_none=True)
 
@@ -54,6 +55,7 @@ class CreateSessionRequest(Schema):
     },
     summary="Login",
 )
+@decorate_view(throttling(AnonThrottle("100/min")))
 @decorate_view(cf_turnstile_required)
 async def create_session(
     request: HttpRequest,

@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Annotated
+from typing import Annotated, Any
 
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
@@ -11,6 +11,7 @@ from pydantic import AwareDatetime, StringConstraints
 
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
+from app.utils.throttling import AnonThrottle, SimpleThrottle, throttling
 from app.verikit.models import EmailVerification
 from app.verikit.services import EmailVerificationService
 from app.verikit.types import EmailStr
@@ -36,6 +37,7 @@ class CreateEmailVerificationResponse(Schema):
     },
     summary="Issue Code",
 )
+@decorate_view(throttling(AnonThrottle("100/min")))
 @decorate_view(cf_turnstile_required)
 async def create_email_verification(
     request: HttpRequest,  # noqa: ARG001
@@ -74,6 +76,23 @@ class VerifyEmailVerificationResponse(Schema):
     ]
 
 
+class PayloadEmailThrottle(SimpleThrottle):
+    """Throttle by email from the already-parsed Ninja payload.
+
+    Reads the ``email`` field from the parsed ``payload`` argument and uses it as the
+    cache key. Do not wrap this with ``decorate_view`` so it runs after Ninja has parsed
+    the request body.
+    """
+
+    async def get_cache_key(
+        self,
+        *_: Any,
+        payload: VerifyEmailVerificationRequest,
+        **__: Any,
+    ) -> str | None:
+        return payload.email
+
+
 @router.post(
     "/email-verifications:verify",
     response={
@@ -82,7 +101,9 @@ class VerifyEmailVerificationResponse(Schema):
     },
     summary="Verify Code",
 )
+@decorate_view(throttling(AnonThrottle("100/min")))
 @decorate_view(cf_turnstile_required)
+@throttling(PayloadEmailThrottle("20/min"))
 async def verify_email_verification(
     request: HttpRequest,  # noqa: ARG001
     payload: VerifyEmailVerificationRequest,

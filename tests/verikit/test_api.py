@@ -137,6 +137,40 @@ class TestVerifyEmailVerification:
         assert response.status_code == HTTPStatus.FORBIDDEN
         assert settings.CF_TURNSTILE_RESPONSE_HEADER_NAME in response.json()["message"]
 
+    def test_payload_email_throttling_brute_force_protection(
+        self,
+        faker: Faker,
+        api_client: Client,
+        mock_verify_code: MagicMock,
+        mock_cf_turnstile: MagicMock,
+    ) -> None:
+        # Prevent email conflicts with those used in other test cases.
+        email = f"{faker.uuid4()}@example.com"
+        wrong_code = "000000"
+        mock_verify_code.return_value = None
+
+        # First 20 attempts should work (return 422 for wrong code).
+        for _ in range(20):
+            response = api_client.post(
+                self.path,
+                data={"email": email, "code": wrong_code},
+            )
+            assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        # 21st attempt should be throttled (429).
+        response = api_client.post(self.path, data={"email": email, "code": wrong_code})
+        assert response.status_code == HTTPStatus.TOO_MANY_REQUESTS
+
+        # Different email should still work.
+        different_email = faker.email()
+        response = api_client.post(
+            self.path,
+            data={"email": different_email, "code": wrong_code},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        mock_cf_turnstile.assert_called()
+
 
 @pytest.mark.django_db(transaction=True)
 class TestEmailVerificationE2E:
