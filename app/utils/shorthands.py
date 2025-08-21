@@ -1,3 +1,11 @@
+__all__ = (
+    "days",
+    "parse_durations",
+    "seconds",
+    "timedelta_cast",
+)
+
+import re
 from collections.abc import Callable
 from datetime import timedelta
 from typing import Literal
@@ -34,3 +42,53 @@ def timedelta_cast(
 
 seconds = timedelta_cast("seconds")
 days = timedelta_cast("days")
+
+
+UNITS_MAP = {
+    "s": "seconds",
+    "sec": "seconds",
+    "second": "seconds",
+    "seconds": "seconds",
+    "m": "minutes",
+    "min": "minutes",
+    "minute": "minutes",
+    "minutes": "minutes",
+    "h": "hours",
+    "hr": "hours",
+    "hour": "hours",
+    "hours": "hours",
+    "d": "days",
+    "day": "days",
+    "days": "days",
+}
+DURATION_PATTERN = re.compile(r"^(\d*\.?\d*)?\s*([a-zA-Z]+)$")
+
+
+def parse_durations(s: str) -> timedelta:
+    """Convert human-readable string to a ``timedelta`` object.
+
+    >>> parse_durations("1h")
+    datetime.timedelta(seconds=3600)
+    >>> parse_durations("s")
+    datetime.timedelta(seconds=1)
+    >>> parse_durations("1.5 min")
+    datetime.timedelta(seconds=90)
+    >>> parse_durations("1 2 3")
+    Traceback (most recent call last):
+     ...
+    ValueError: Invalid duration format: 1 2 3
+    >>> parse_durations("1 month")
+    Traceback (most recent call last):
+     ...
+    ValueError: Invalid unit: month
+    """
+    match = DURATION_PATTERN.match(s)
+    if not match:
+        raise ValueError(f"Invalid duration format: {s}")
+
+    val_str, unit_str = match.groups()
+    val = float(val_str) if val_str else 1.0
+    if unit_str not in UNITS_MAP:
+        raise ValueError(f"Invalid unit: {unit_str}")
+
+    return timedelta(**{UNITS_MAP[unit_str]: val})
