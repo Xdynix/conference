@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "mailer",
     "ninja",
     "app.admin",
+    "app.conference",
     "app.core",
     "app.infra",
     "app.misc",
