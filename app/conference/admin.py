@@ -1,0 +1,69 @@
+from django.contrib import admin
+
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    ConferenceRoleAssignment,
+    Track,
+    TrackRole,
+    TrackRoleAssignment,
+)
+
+
+@admin.register(Conference)
+class ConferenceAdmin(admin.ModelAdmin[Conference]):
+    date_hierarchy = "create_time"
+    list_display = ("__str__", "display_name", "active", "create_time")
+    list_filter = ("active",)
+    readonly_fields = ("create_time", "update_time")
+    search_fields = ("name", "display_name")
+
+
+@admin.register(ConferenceRole)
+class ConferenceRoleAdmin(admin.ModelAdmin[ConferenceRole]):
+    filter_horizontal = ("permissions",)
+    search_fields = ("name", "display_name")
+
+
+@admin.register(ConferenceRoleAssignment)
+class ConferenceRoleAssignmentAdmin(admin.ModelAdmin[ConferenceRoleAssignment]):
+    list_display = ("__str__", "create_time", "update_time")
+    list_filter = ("role__name",)
+    list_select_related = ("conference", "user", "role")
+    autocomplete_fields = (
+        "conference",
+        "user",
+    )
+    readonly_fields = ("create_time", "update_time")
+    search_fields = ("conference__name", "user__username", "role__name")
+
+
+@admin.register(Track)
+class TrackAdmin(admin.ModelAdmin[Track]):
+    date_hierarchy = "create_time"
+    list_display = ("__str__", "active", "create_time")
+    list_filter = ("active", "conference")
+    list_select_related = ("conference",)
+    readonly_fields = ("uid", "create_time", "update_time")
+    search_fields = ("uid", "display_name", "conference__name")
+
+
+@admin.register(TrackRole)
+class TrackRoleAdmin(admin.ModelAdmin[TrackRole]):
+    filter_horizontal = ("permissions",)
+    search_fields = ("name", "display_name")
+
+
+@admin.register(TrackRoleAssignment)
+class TrackRoleAssignmentAdmin(admin.ModelAdmin[TrackRoleAssignment]):
+    list_display = ("__str__", "create_time", "update_time")
+    list_filter = ("role__name",)
+    list_select_related = ("track", "track__conference", "user", "role")
+    autocomplete_fields = ("track", "user")
+    readonly_fields = ("create_time", "update_time")
+    search_fields = (
+        "track__display_name",
+        "track__conference__name",
+        "user__username",
+        "role__name",
+    )
