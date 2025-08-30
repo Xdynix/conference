@@ -1,3 +1,4 @@
+from collections.abc import Container
 from typing import ClassVar, override
 
 from django.contrib.auth.models import AbstractUser
@@ -58,6 +59,10 @@ class Permission(models.Model):
 
     def __str__(self) -> str:
         return self.key
+
+    @classmethod
+    async def to_keys(cls, qs: models.QuerySet["Permission"]) -> Container[str]:
+        return {key async for key in qs.values_list("key", flat=True).distinct()}
 
 
 class AbstractRole(models.Model):

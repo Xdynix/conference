@@ -38,9 +38,7 @@ class PermissionService:
         else:
             permissions = Permission.objects.filter(role__assignment__user=user)
 
-        return {
-            key async for key in permissions.values_list("key", flat=True).distinct()
-        }
+        return await Permission.to_keys(permissions)
 
 
 class PasswordResetService:
