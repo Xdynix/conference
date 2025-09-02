@@ -30,8 +30,6 @@ def user(faker: Faker, user_credentials: UserCredentials) -> User:
     return User.objects.create_user(
         **user_credentials.model_dump(),
         email=faker.email(),
-        first_name=faker.first_name(),
-        last_name=faker.last_name(),
     )
 
 
@@ -41,8 +39,6 @@ def user_serialized(user: User) -> JsonValue:
         "uid": str(user.uid),
         "username": user.username,
         "email": user.email,
-        "given_name": user.given_name,
-        "family_name": user.family_name,
     }
 
 

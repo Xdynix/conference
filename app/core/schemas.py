@@ -10,8 +10,6 @@ class User(Schema):
     uid: ULID
     username: str = Field(examples=["user"])
     email: EmailStr | Literal[""] = Field(title="Email Address")
-    given_name: str = Field(examples=["John"])
-    family_name: str = Field(examples=["Doe"])
 
 
 class Session(Schema):

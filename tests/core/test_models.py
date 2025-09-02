@@ -46,30 +46,6 @@ class TestUser:
             ]
         )
 
-    def test_given_name_property(self, faker: Faker) -> None:
-        user = User()
-        first_name = faker.first_name()
-        user.first_name = first_name
-        assert user.given_name == first_name
-
-    def test_given_name_setter(self, faker: Faker) -> None:
-        user = User()
-        given_name = faker.first_name()
-        user.given_name = given_name
-        assert user.first_name == given_name
-
-    def test_family_name_property(self, faker: Faker) -> None:
-        user = User()
-        last_name = faker.last_name()
-        user.last_name = last_name
-        assert user.family_name == last_name
-
-    def test_family_name_setter(self, faker: Faker) -> None:
-        user = User()
-        family_name = faker.last_name()
-        user.family_name = family_name
-        assert user.last_name == family_name
-
 
 class TestPermission:
     def test_str(self) -> None:

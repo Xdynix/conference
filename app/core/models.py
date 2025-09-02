@@ -48,24 +48,6 @@ class User(ULIDModel, AbstractUser):
             ),
         )
 
-    @property
-    def given_name(self) -> str:
-        """Alias for the first name."""
-        return self.first_name
-
-    @given_name.setter
-    def given_name(self, given_name: str) -> None:
-        self.first_name = given_name
-
-    @property
-    def family_name(self) -> str:
-        """Alias for the last name."""
-        return self.last_name
-
-    @family_name.setter
-    def family_name(self, family_name: str) -> None:
-        self.last_name = family_name
-
 
 class Permission(models.Model):
     key = models.CharField(_("key"), max_length=255, primary_key=True)
