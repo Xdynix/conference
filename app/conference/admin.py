@@ -7,6 +7,7 @@ from app.conference.models import (
     Track,
     TrackRole,
     TrackRoleAssignment,
+    UserProfile,
 )
 
 
@@ -66,4 +67,25 @@ class TrackRoleAssignmentAdmin(admin.ModelAdmin[TrackRoleAssignment]):
         "track__conference__name",
         "user__username",
         "role__name",
+    )
+
+
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin[UserProfile]):
+    list_display = (
+        "__str__",
+        "given_name",
+        "family_name",
+        "affiliation",
+        "region_code",
+    )
+    list_filter = ("region_code",)
+    list_select_related = ("user",)
+    autocomplete_fields = ("user",)
+    search_fields = (
+        "user__username",
+        "user__email",
+        "given_name",
+        "family_name",
+        "affiliation",
     )

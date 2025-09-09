@@ -1,7 +1,8 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
-from app.core.models import AbstractRole, AbstractRoleAssignment
+from app.core.models import AbstractRole, AbstractRoleAssignment, User
+from app.utils.enums import Region
 from app.utils.models import TimeStampedModel, ULIDModel
 
 
@@ -158,3 +159,57 @@ class TrackRoleAssignment(AbstractRoleAssignment):
 
     def __str__(self) -> str:
         return f"[{self.track}] {self.role}: {self.user}"
+
+
+class AbstractProfile(models.Model):
+    given_name = models.CharField(
+        _("given name"),
+        max_length=150,
+        blank=True,
+        default="",
+    )
+    family_name = models.CharField(
+        _("family name"),
+        max_length=150,
+        blank=True,
+        default="",
+    )
+    affiliation = models.CharField(
+        _("affiliation"),
+        max_length=250,
+        blank=True,
+        default="",
+        help_text=_(
+            "Institution or organization with which the individual is associated "
+            "(e.g., 'Department of Physics, University of Oxford')."
+        ),
+    )
+    region_code = models.CharField(
+        _("region code"),
+        max_length=16,
+        blank=True,
+        default="",
+        choices=(
+            ("", _("(Empty)")),
+            *((region.name, f"{region.name} - {_(region)}") for region in Region),
+        ),
+    )
+
+    class Meta:
+        abstract = True
+
+
+class UserProfile(AbstractProfile):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="profile",
+        verbose_name=_("user"),
+    )
+
+    class Meta:
+        verbose_name = _("user profile")
+        verbose_name_plural = _("user profiles")
+
+    def __str__(self) -> str:
+        return f"{self.user}'s profile"

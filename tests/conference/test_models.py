@@ -5,6 +5,7 @@ from app.conference.models import (
     Track,
     TrackRole,
     TrackRoleAssignment,
+    UserProfile,
 )
 from app.core.models import User
 
@@ -52,3 +53,10 @@ class TestTrackRoleAssignment:
             str(TrackRoleAssignment(track=track, user=user, role=role))
             == "[CBPK-2020 - Machine Learning] reviewer: bob"
         )
+
+
+class TestUserProfile:
+    def test_str(self) -> None:
+        user = User(username="alice")
+        profile = UserProfile(user=user)
+        assert str(profile) == "alice's profile"
