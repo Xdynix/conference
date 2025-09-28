@@ -3,6 +3,7 @@ import secrets
 import string
 from functools import partial
 from hashlib import sha256
+from typing import cast
 
 import jwt
 from asgiref.sync import sync_to_async
@@ -25,6 +26,8 @@ class EmailVerificationService:
     code_length = 6
     code_chars = string.digits
     code_salt_size = 16
+    jwt_algorithm = "HS256"
+    jwt_iss = "verikit.email"
 
     verification_email_subject = "verikit/verification-email-subject.html"
     verification_email_body = "verikit/verification-email-body.html"
@@ -95,25 +98,27 @@ class EmailVerificationService:
             return cls.sign_jwt(email)
 
     @classmethod
-    def verify_token(cls, email: str, token: str) -> bool:
-        """Verifies a JWT token and checks if it matches the given email.
+    def verify_token(cls, token: str) -> str | None:
+        """Verifies a JWT email verification token and extracts the email address.
 
         Args:
-            email: The email address to match against the token.
             token: The JWT token to verify.
 
         Returns:
-            ``True`` if the token is valid and matches the email, otherwise ``False``.
+            The normalized email address from the token if valid, otherwise ``None``.
+            Returns ``None`` for expired, malformed, or tokens with invalid issuer.
         """
+
         try:
             payload = jwt.decode(
                 token,
                 settings.VERIKIT_EMAIL_TOKEN_SECRET,
                 algorithms=["HS256"],
+                issuer=cls.jwt_iss,
             )
-            return bool(payload.get("sub", "").lower() == email.lower())
-        except jwt.InvalidTokenError:
-            return False
+            return cast(str, payload["sub"].lower())
+        except (jwt.InvalidTokenError, KeyError):
+            return None
 
     @classmethod
     def active_verifications(cls, email: str) -> QuerySet[EmailVerification]:
@@ -210,9 +215,10 @@ class EmailVerificationService:
             "sub": email,
             "exp": now + settings.VERIKIT_EMAIL_TOKEN_EXPIRY,
             "iat": now,
+            "iss": cls.jwt_iss,
         }
         return jwt.encode(
             payload,
             settings.VERIKIT_EMAIL_TOKEN_SECRET,
-            algorithm="HS256",
+            algorithm=cls.jwt_algorithm,
         )

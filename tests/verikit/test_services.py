@@ -386,18 +386,9 @@ class TestEmailVerificationServiceVerifyToken:
         email = faker.email()
         token = EmailVerificationService.sign_jwt(email)
 
-        result = EmailVerificationService.verify_token(email, token)
+        verified_email = EmailVerificationService.verify_token(token)
 
-        assert result is True
-
-    def test_returns_false_for_mismatched_email(self, faker: Faker) -> None:
-        email1 = faker.email()
-        email2 = faker.email()
-        token = EmailVerificationService.sign_jwt(email1)
-
-        result = EmailVerificationService.verify_token(email2, token)
-
-        assert result is False
+        assert verified_email == email
 
     def test_returns_false_for_expired_token(
         self,
@@ -408,9 +399,9 @@ class TestEmailVerificationServiceVerifyToken:
         settings.VERIKIT_EMAIL_TOKEN_EXPIRY = timedelta(microseconds=1)
         token = EmailVerificationService.sign_jwt(email)
 
-        result = EmailVerificationService.verify_token(email, token)
+        verified_email = EmailVerificationService.verify_token(token)
 
-        assert result is False
+        assert verified_email is None
 
     @pytest.mark.parametrize(
         "invalid_token",
@@ -425,14 +416,11 @@ class TestEmailVerificationServiceVerifyToken:
     )
     def test_returns_false_for_malformed_tokens(
         self,
-        faker: Faker,
         invalid_token: str,
     ) -> None:
-        email = faker.email()
+        verified_email = EmailVerificationService.verify_token(invalid_token)
 
-        result = EmailVerificationService.verify_token(email, invalid_token)
-
-        assert result is False
+        assert verified_email is None
 
     def test_returns_false_for_token_with_wrong_secret(self, faker: Faker) -> None:
         email = faker.email()
@@ -442,47 +430,41 @@ class TestEmailVerificationServiceVerifyToken:
             algorithm="HS256",
         )
 
-        result = EmailVerificationService.verify_token(email, token_with_wrong_secret)
+        verified_email = EmailVerificationService.verify_token(token_with_wrong_secret)
 
-        assert result is False
-
-    def test_case_insensitive_email_comparison(self, faker: Faker) -> None:
-        email = faker.email().lower()
-        email_upper = email.upper()
-        token = EmailVerificationService.sign_jwt(email)
-
-        result = EmailVerificationService.verify_token(email_upper, token)
-
-        assert result is True
+        assert verified_email is None
 
     def test_returns_false_for_token_with_missing_subject(
         self,
-        faker: Faker,
         settings: LazySettings,
     ) -> None:
-        email = faker.email()
         token_without_subject = jwt.encode(
-            {"iat": timezone.now().timestamp()},
+            {
+                "iat": timezone.now().timestamp(),
+                "iss": EmailVerificationService.jwt_iss,
+            },
             settings.VERIKIT_EMAIL_TOKEN_SECRET,
             algorithm="HS256",
         )
 
-        result = EmailVerificationService.verify_token(email, token_without_subject)
+        verified_email = EmailVerificationService.verify_token(token_without_subject)
 
-        assert result is False
+        assert verified_email is None
 
-    def test_returns_false_for_token_with_null_subject(
+    def test_returns_false_for_token_with_missing_issuer(
         self,
         faker: Faker,
         settings: LazySettings,
     ) -> None:
-        email = faker.email()
-        token_with_null_subject = jwt.encode(
-            {"sub": None},
+        token_without_issuer = jwt.encode(
+            {
+                "sub": faker.email(),
+                "iat": timezone.now().timestamp(),
+            },
             settings.VERIKIT_EMAIL_TOKEN_SECRET,
             algorithm="HS256",
         )
 
-        result = EmailVerificationService.verify_token(email, token_with_null_subject)
+        verified_email = EmailVerificationService.verify_token(token_without_issuer)
 
-        assert result is False
+        assert verified_email is None

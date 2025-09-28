@@ -2,7 +2,6 @@ from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import MagicMock
 
-import jwt
 import pytest
 from django.conf import LazySettings
 from django.core.mail import EmailMessage
@@ -232,8 +231,8 @@ class TestEmailVerificationE2E:
         assert isinstance(token, str)
 
         # Verify token using service method.
-        token_valid = EmailVerificationService.verify_token(email, token)
-        assert token_valid is True
+        verified_email = EmailVerificationService.verify_token(token)
+        assert verified_email and verified_email.lower() == email.lower()
 
     def test_complete_flow_case_insensitive_email(
         self,
@@ -263,9 +262,8 @@ class TestEmailVerificationE2E:
         assert isinstance(token, str)
 
         # Verify token with mixed case email.
-        email_mixed = email.title()
-        token_valid = EmailVerificationService.verify_token(email_mixed, token)
-        assert token_valid is True
+        verified_email = EmailVerificationService.verify_token(token)
+        assert verified_email and verified_email.lower() == email.lower()
 
     def test_wrong_code_blocks_flow(
         self,
@@ -340,38 +338,6 @@ class TestEmailVerificationE2E:
         data = response.json()
         assert "verification code was recently issued" in data["message"]
         assert len(mailoutbox) == 1  # No additional email sent.
-
-    def test_token_contains_correct_email(
-        self,
-        faker: Faker,
-        settings: LazySettings,
-        mailoutbox: list[EmailMessage],
-        api_client: Client,
-    ) -> None:
-        email = faker.email()
-
-        # Complete flow via API.
-        response = api_client.post(self.create_path, data={"email": email})
-        assert response.status_code == HTTPStatus.CREATED
-
-        code = mailoutbox[0].body.removeprefix("Code: ").strip()
-
-        response = api_client.post(
-            self.verify_path,
-            data={"email": email, "code": code},
-        )
-        assert response.status_code == HTTPStatus.OK
-        data = response.json()
-        token = data["token"]
-        assert isinstance(token, str)
-
-        # Decode token to verify it contains the correct email.
-        payload = jwt.decode(
-            token,
-            settings.VERIKIT_EMAIL_TOKEN_SECRET,
-            algorithms=["HS256"],
-        )
-        assert payload["sub"] == email
 
     def test_used_code_cannot_be_reused(
         self,
