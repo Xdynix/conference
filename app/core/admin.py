@@ -10,7 +10,6 @@ admin.site.unregister(Group)
 
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin[User]):
-    # Removed `groups` and `user_permissions`.
     fieldsets = (
         (
             None,
@@ -18,11 +17,13 @@ class UserAdmin(DjangoUserAdmin[User]):
         ),
         (
             _("Personal info"),
-            {"fields": ("first_name", "last_name", "email")},
+            {"fields": ("managed", "email")},
+            # Removed first/last name, added `managed`.
         ),
         (
             _("Permissions"),
             {"fields": ("is_active", "is_staff", "is_superuser")},
+            # Removed `groups` and `user_permissions`.
         ),
         (
             _("Important dates"),

@@ -31,6 +31,15 @@ class UserManager(DjangoUserManager["User"]):
 
 
 class User(ULIDModel, AbstractUser):
+    managed = models.BooleanField(
+        _("managed"),
+        default=False,
+        help_text=_(
+            "Designates whether this user is controlled by the system. "
+            "Managed users cannot modify their username and email."
+        ),
+    )
+
     objects: ClassVar[UserManager] = UserManager()
 
     READ = Perm()

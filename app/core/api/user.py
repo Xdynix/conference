@@ -4,16 +4,20 @@ from typing import Annotated, Literal, assert_never, cast
 from django.contrib.auth import aupdate_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
 from ninja import Field, Router, Schema
-from ninja.errors import ValidationError
+from ninja.errors import HttpError, ValidationError
 from ulid import ULID
 
 from app.core.auth import has_permissions, is_authenticated
 from app.core.models import User
+from app.core.schemas import User as UserSchema
 from app.core.types import EmailStr, HttpRequest, Password, Username
+from app.ninja.errors import ErrorResponse
+from app.verikit.types import VerifiedEmailStr
 
 router = Router(tags=["User"], exclude_none=True)
 
@@ -75,6 +79,66 @@ async def resolve_user(
         raise
 
     return ResolveUserResponse(uid=user["uid"])
+
+
+class UpdateCurrentUserRequest(Schema):
+    username: Username | None = None
+    email: VerifiedEmailStr | None = None
+
+
+@router.patch(
+    "/users/me",
+    response={
+        HTTPStatus.OK: UserSchema,
+        HTTPStatus.CONFLICT: ErrorResponse,
+        HTTPStatus.FORBIDDEN: ErrorResponse,
+    },
+    summary="Update My Account",
+    auth=is_authenticated,
+)
+async def update_current_user(
+    request: HttpRequest,
+    payload: UpdateCurrentUserRequest,
+) -> User:
+    """Update the current user's username and/or email.
+
+    If email is being changed, provide a verification token obtained from the email
+    verification flow. Managed users cannot update their username or email.
+    """
+    user = cast(User, await request.auser())
+
+    if user.managed:
+        raise HttpError(
+            HTTPStatus.FORBIDDEN,
+            _("Managed users cannot modify their username or email."),
+        )
+
+    update_fields: list[str] = []
+
+    if payload.username is not None and payload.username != user.username:
+        user.username = payload.username
+        update_fields.append("username")
+
+    if payload.email is not None and payload.email.lower() != user.email.lower():
+        user.email = payload.email
+        update_fields.append("email")
+
+    if update_fields:
+        logger.info("User updated account.", user=user, fields=update_fields)
+        try:
+            await user.asave(update_fields=update_fields)
+        except IntegrityError as exc:
+            # Determine which field caused the conflict.
+            if "username" in update_fields and "email" in update_fields:
+                message = _("A user with that username or email already exists.")
+            elif "username" in update_fields:
+                message = _("A user with that username already exists.")
+            else:
+                message = _("A user with that email already exists.")
+
+            raise HttpError(HTTPStatus.CONFLICT, message) from exc
+
+    return user
 
 
 def validate_password_for_user(new_password: Password, user: User) -> None:
