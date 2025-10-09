@@ -81,6 +81,53 @@ async def resolve_user(
     return ResolveUserResponse(uid=user["uid"])
 
 
+async def patch_user(
+    user: User,
+    username: Username | None,
+    email: str | None,
+) -> list[str]:
+    """Update user's username and/or email.
+
+    Args:
+        user: The user to update.
+        username: New username, or None to leave unchanged.
+        email: New email, or None to leave unchanged.
+
+    Returns:
+        List of field names that were updated.
+
+    Raises:
+        HttpError: If username or email already exists (409 CONFLICT).
+    """
+    update_fields: list[str] = []
+
+    if username is not None and username != user.username:
+        user.username = username
+        update_fields.append("username")
+
+    if email is not None and (
+        User.objects.normalize_email(email) != User.objects.normalize_email(user.email)
+    ):
+        user.email = email
+        update_fields.append("email")
+
+    if update_fields:
+        try:
+            await user.asave(update_fields=update_fields)
+        except IntegrityError as exc:
+            # Determine which field caused the conflict.
+            if "username" in update_fields and "email" in update_fields:
+                message = _("A user with that username or email already exists.")
+            elif "username" in update_fields:
+                message = _("A user with that username already exists.")
+            else:
+                message = _("A user with that email already exists.")
+
+            raise HttpError(HTTPStatus.CONFLICT, message) from exc
+
+    return update_fields
+
+
 class UpdateCurrentUserRequest(Schema):
     username: Username | None = None
     email: VerifiedEmailStr | None = None
@@ -113,31 +160,51 @@ async def update_current_user(
             _("Managed users cannot modify their username or email."),
         )
 
-    update_fields: list[str] = []
-
-    if payload.username is not None and payload.username != user.username:
-        user.username = payload.username
-        update_fields.append("username")
-
-    if payload.email is not None and payload.email.lower() != user.email.lower():
-        user.email = payload.email
-        update_fields.append("email")
-
+    update_fields = await patch_user(user, payload.username, payload.email)
     if update_fields:
         logger.info("User updated account.", user=user, fields=update_fields)
-        try:
-            await user.asave(update_fields=update_fields)
-        except IntegrityError as exc:
-            # Determine which field caused the conflict.
-            if "username" in update_fields and "email" in update_fields:
-                message = _("A user with that username or email already exists.")
-            elif "username" in update_fields:
-                message = _("A user with that username already exists.")
-            else:
-                message = _("A user with that email already exists.")
+    return user
 
-            raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
+class UpdateUserRequest(Schema):
+    username: Username | None = None
+    email: EmailStr | None = None
+
+
+@router.patch(
+    "/users/{ulid:user_id}",
+    response={
+        HTTPStatus.OK: UserSchema,
+        HTTPStatus.CONFLICT: ErrorResponse,
+    },
+    summary="Update User",
+    auth=has_permissions(User.ADMIN),
+)
+async def update_user(
+    request: HttpRequest,
+    user_id: ULID,
+    payload: UpdateUserRequest,
+) -> User:
+    """Update a user's username and/or email by admin.
+
+    Allows administrators to update the username and/or email for any active,
+    non-superuser user. Unlike the update current user endpoint, this does not
+    require email verification and can update managed users.
+    """
+    user = await aget_object_or_404(
+        User.objects.filter(is_active=True, is_superuser=False),
+        uid=user_id,
+    )
+
+    update_fields = await patch_user(user, payload.username, payload.email)
+    if update_fields:
+        actor = cast(User, await request.auser())
+        logger.info(
+            "Admin updated user account.",
+            user=user,
+            actor=actor,
+            fields=update_fields,
+        )
     return user
 
 
