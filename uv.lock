@@ -177,6 +177,7 @@ dependencies = [
     { name = "python-decouple" },
     { name = "python-ulid", extra = ["pydantic"] },
     { name = "python-ulid-django" },
+    { name = "pyyaml" },
     { name = "servestatic", extra = ["brotli"] },
 ]
 
@@ -222,6 +223,7 @@ requires-dist = [
     { name = "python-decouple", specifier = ">=3.8" },
     { name = "python-ulid", extras = ["pydantic"], specifier = ">=3.0.0" },
     { name = "python-ulid-django", specifier = ">=1.2.1" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "servestatic", extras = ["brotli"], specifier = ">=3.1.0" },
 ]
 

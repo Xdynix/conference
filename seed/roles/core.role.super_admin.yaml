@@ -1,0 +1,8 @@
+roles:
+  - model: core.role
+    name: super_admin
+    display_name: Super Admin
+    description: Role with full access to administrative capabilities.
+    permissions:
+      - core.admin_user
+      - core.read_user
