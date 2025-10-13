@@ -17,6 +17,7 @@ from django.utils import timezone
 from loguru import logger
 
 from app.infra.models import Mutex
+from app.utils.shorthands import sanitize_email_subject
 from app.verikit.models import EmailVerification
 
 
@@ -190,9 +191,8 @@ class EmailVerificationService:
         }
         render = partial(render_to_string, context=context)
 
-        # Prevent header injection by removing newlines.
         subject: str = render(cls.verification_email_subject)
-        subject = "".join(subject.splitlines())
+        subject = sanitize_email_subject(subject)
 
         body = render(cls.verification_email_body)
 

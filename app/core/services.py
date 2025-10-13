@@ -22,6 +22,7 @@ from loguru import logger
 from app.core.models import PasswordResetToken, Permission, User
 from app.core.types import Password
 from app.infra.models import Mutex
+from app.utils.shorthands import sanitize_email_subject
 
 normalize_email = User.objects.normalize_email
 
@@ -146,9 +147,8 @@ class PasswordResetService:
         }
         render = partial(render_to_string, context=context)
 
-        # Prevent header injection by removing newlines.
         subject: str = render(cls.password_reset_email_subject)
-        subject = "".join(subject.splitlines())
+        subject = sanitize_email_subject(subject)
 
         body = render(cls.password_reset_email_body)
 
