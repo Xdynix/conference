@@ -720,26 +720,10 @@ class TestUpdateCurrentUserPassword:
 
     def test_happy_path(
         self,
-        mocker: MockerFixture,
         api_client: Client,
         user: User,
         old_password: str,
     ) -> None:
-        async def mock_aupdate_session_auth_hash(request, user):  # type: ignore[no-untyped-def]
-            # Bugfix for `aupdate_session_auth_hash`.
-            # TODO: Remove after django/django#19749 (Django #36561) released.
-            from django.contrib.auth import HASH_SESSION_KEY
-
-            await request.session.acycle_key()
-            if hasattr(user, "get_session_auth_hash") and await request.auser() == user:
-                await request.session.aset(
-                    HASH_SESSION_KEY, user.get_session_auth_hash()
-                )
-
-        mocker.patch(
-            "app.core.api.user.aupdate_session_auth_hash",
-            side_effect=mock_aupdate_session_auth_hash,
-        )
         new_password = "NewPassword456!"
         api_client.force_login(user)
 
