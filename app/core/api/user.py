@@ -8,6 +8,7 @@ from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
 from ninja import Field, Router, Schema
+from ninja.decorators import decorate_view
 from ninja.errors import HttpError, ValidationError
 from ulid import ULID
 
@@ -16,6 +17,8 @@ from app.core.models import User
 from app.core.schemas import User as UserSchema
 from app.core.types import EmailStr, HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse
+from app.utils.cf_turnstile.decorators import cf_turnstile_required
+from app.utils.throttling import AnonThrottle, throttling
 from app.verikit.types import VerifiedEmailStr
 
 
@@ -92,6 +95,50 @@ async def resolve_user(
         raise
 
     return ResolveUserResponse(uid=user["uid"])
+
+
+class CreateRegistrationRequest(Schema):
+    username: Username
+    email: VerifiedEmailStr
+    password: Password
+
+
+@router.post(
+    "/registrations",
+    response={
+        HTTPStatus.CREATED: UserSchema,
+        HTTPStatus.CONFLICT: ErrorResponse,
+    },
+    summary="Register",
+)
+@decorate_view(throttling(AnonThrottle("20/min")))
+@decorate_view(cf_turnstile_required)
+async def create_registration(
+    request: HttpRequest,  # noqa: ARG001
+    payload: CreateRegistrationRequest,
+) -> tuple[int, User]:
+    """Create a new user registration.
+
+    Registers a new user account with the provided username, verified email, and
+    password. The email must be verified using a token obtained from the email
+    verification flow.
+    """
+    # Create a temporary user to validate password.
+    temp_user = User(username=payload.username, email=payload.email)
+    validate_password_for_user(payload.password, temp_user, field_name="password")
+
+    try:
+        user = await User.objects.acreate_user(
+            username=payload.username,
+            email=payload.email,
+            password=payload.password.get_secret_value(),
+        )
+    except IntegrityError as exc:
+        message = _("A user with that username or email already exists.")
+        raise HttpError(HTTPStatus.CONFLICT, message) from exc
+
+    logger.info("User registered.", user=user)
+    return HTTPStatus.CREATED, user
 
 
 async def patch_user(
@@ -221,7 +268,11 @@ async def update_user(
     return user
 
 
-def validate_password_for_user(new_password: Password, user: User) -> None:
+def validate_password_for_user(
+    new_password: Password,
+    user: User,
+    field_name: str = "new_password",
+) -> None:
     """Validate a password and convert any errors to Pydantic format."""
     try:
         validate_password(new_password.get_secret_value(), user=user)
@@ -230,7 +281,7 @@ def validate_password_for_user(new_password: Password, user: User) -> None:
             errors=[
                 {
                     "type": "value_error",
-                    "loc": ["body", "payload", "new_password"],
+                    "loc": ["body", "payload", field_name],
                     "msg": message,
                 }
                 for message in exc.messages
