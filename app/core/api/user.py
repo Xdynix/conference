@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Annotated, Literal, assert_never, cast
+from typing import Annotated, Literal, assert_never
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -15,7 +15,7 @@ from ulid import ULID
 from app.core.auth import has_permissions, is_authenticated
 from app.core.models import User
 from app.core.schemas import User as UserSchema
-from app.core.types import EmailStr, HttpRequest, Password, Username
+from app.core.types import AuthedHttpRequest, EmailStr, HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 from app.utils.throttling import AnonThrottle, throttling
@@ -97,6 +97,42 @@ async def resolve_user(
     return ResolveUserResponse(uid=user["uid"])
 
 
+async def create_new_user(
+    username: Username,
+    email: str,
+    password: Password,
+) -> User:
+    """Create a new user with password validation and conflict handling.
+
+    Args:
+        username: The username for the new user.
+        email: The email address for the new user.
+        password: The password for the new user.
+
+    Returns:
+        The created user instance.
+
+    Raises:
+        ValidationError: If password validation fails.
+        HttpError: If username or email already exists (409 CONFLICT).
+    """
+    # Create a temporary user to validate password.
+    temp_user = User(username=username, email=email)
+    validate_password_for_user(password, temp_user, field_name="password")
+
+    try:
+        user = await User.objects.acreate_user(
+            username=username,
+            email=email,
+            password=password.get_secret_value(),
+        )
+    except IntegrityError as exc:
+        message = _("A user with that username or email already exists.")
+        raise HttpError(HTTPStatus.CONFLICT, message) from exc
+
+    return user
+
+
 class CreateRegistrationRequest(Schema):
     username: Username
     email: VerifiedEmailStr
@@ -123,21 +159,38 @@ async def create_registration(
     password. The email must be verified using a token obtained from the email
     verification flow.
     """
-    # Create a temporary user to validate password.
-    temp_user = User(username=payload.username, email=payload.email)
-    validate_password_for_user(payload.password, temp_user, field_name="password")
-
-    try:
-        user = await User.objects.acreate_user(
-            username=payload.username,
-            email=payload.email,
-            password=payload.password.get_secret_value(),
-        )
-    except IntegrityError as exc:
-        message = _("A user with that username or email already exists.")
-        raise HttpError(HTTPStatus.CONFLICT, message) from exc
-
+    user = await create_new_user(payload.username, payload.email, payload.password)
     logger.info("User registered.", user=user)
+    return HTTPStatus.CREATED, user
+
+
+class CreateUserRequest(Schema):
+    username: Username
+    email: EmailStr
+    password: Password
+
+
+@router.post(
+    "/users",
+    response={
+        HTTPStatus.CREATED: UserSchema,
+        HTTPStatus.CONFLICT: ErrorResponse,
+    },
+    summary="Create User",
+    auth=has_permissions(User.WRITE),
+)
+async def create_user(
+    request: HttpRequest,
+    payload: CreateUserRequest,
+) -> tuple[int, User]:
+    """Create a new user account by admin.
+
+    Allows administrators with write permission to create user accounts. Unlike the
+    registration endpoint, this does not require email verification.
+    """
+    user = await create_new_user(payload.username, payload.email, payload.password)
+    actor = await request.auser()
+    logger.info("Admin created user.", user=user, actor=actor)
     return HTTPStatus.CREATED, user
 
 
@@ -204,7 +257,7 @@ class UpdateCurrentUserRequest(Schema):
     auth=is_authenticated,
 )
 async def update_current_user(
-    request: HttpRequest,
+    request: AuthedHttpRequest,
     payload: UpdateCurrentUserRequest,
 ) -> User:
     """Update the current user's username and/or email.
@@ -212,7 +265,7 @@ async def update_current_user(
     If email is being changed, provide a verification token obtained from the email
     verification flow. Managed users cannot update their username or email.
     """
-    user = cast(User, await request.auser())
+    user = await request.auser()
 
     if user.managed:
         raise HttpError(
@@ -241,7 +294,7 @@ class UpdateUserRequest(Schema):
     auth=has_permissions(User.ADMIN),
 )
 async def update_user(
-    request: HttpRequest,
+    request: AuthedHttpRequest,
     user_id: ULID,
     payload: UpdateUserRequest,
 ) -> User:
@@ -258,7 +311,7 @@ async def update_user(
 
     update_fields = await patch_user(user, payload.username, payload.email)
     if update_fields:
-        actor = cast(User, await request.auser())
+        actor = await request.auser()
         logger.info(
             "Admin updated user account.",
             user=user,
@@ -301,14 +354,14 @@ class UpdateCurrentUserPasswordRequest(Schema):
     auth=is_authenticated,
 )
 async def update_current_user_password(
-    request: HttpRequest,
+    request: AuthedHttpRequest,
     payload: UpdateCurrentUserPasswordRequest,
 ) -> tuple[int, None]:
     """Change the current user's password.
 
     The user's session remains active after the password change.
     """
-    user = cast(User, await request.auser())
+    user = await request.auser()
     old_password = payload.old_password
     new_password = payload.new_password
 
@@ -346,7 +399,7 @@ class UpdateUserPasswordRequest(Schema):
     auth=has_permissions(User.ADMIN),
 )
 async def update_user_password(
-    request: HttpRequest,
+    request: AuthedHttpRequest,
     user_id: ULID,
     payload: UpdateUserPasswordRequest,
 ) -> tuple[int, None]:
@@ -362,7 +415,7 @@ async def update_user_password(
 
     validate_password_for_user(new_password, user)
 
-    actor = cast(User, await request.auser())
+    actor = await request.auser()
     logger.info("Admin changed user password.", user=user, actor=actor)
     user.set_password(new_password.get_secret_value())
     await user.asave(update_fields=["password"])

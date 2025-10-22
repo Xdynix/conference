@@ -340,6 +340,112 @@ class TestCreateRegistration:
 
 
 @pytest.mark.django_db(transaction=True)
+class TestCreateUser:
+    path = reverse("api-1.0.0:create-user")
+
+    @pytest.fixture
+    def user_write_permission(self) -> Permission:
+        return Permission.objects.get_or_create(key=User.WRITE)[0]
+
+    @pytest.fixture
+    def writer_role(self, user_write_permission: Permission) -> Role:
+        role = Role.objects.create(name="writer", display_name="Writer")
+        role.permissions.add(user_write_permission)
+        return role
+
+    @pytest.fixture
+    def authorized_user(self, faker: Faker, writer_role: Role) -> User:
+        user = User.objects.create_user(username=faker.user_name())
+        RoleAssignment.objects.create(user=user, role=writer_role)
+        return user
+
+    @pytest.fixture
+    def mock_validate_password(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.patch("app.core.api.user.validate_password_for_user")
+
+    def test_happy_path(
+        self,
+        faker: Faker,
+        api_client: Client,
+        authorized_user: User,
+        mock_validate_password: MagicMock,
+    ) -> None:
+        username = faker.user_name()
+        email = faker.email()
+        password = faker.password()
+        api_client.force_login(authorized_user)
+
+        response = api_client.post(
+            self.path,
+            data={
+                "username": username,
+                "email": email,
+                "password": password,
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+        data = response.json()
+        assert data["username"] == username
+        assert data["email"] == email
+        assert "uid" in data
+        assert "password" not in data
+
+        mock_validate_password.assert_called_once()
+
+        user = User.objects.get(username=username)
+        assert user.email == email
+        assert user.check_password(password)
+        assert not user.managed
+        assert user.is_active
+
+    def test_duplicate_username(
+        self,
+        faker: Faker,
+        api_client: Client,
+        authorized_user: User,
+        mock_validate_password: MagicMock,  # noqa: ARG002
+    ) -> None:
+        existing_user = User.objects.create_user(
+            username=faker.user_name(),
+            email=faker.email(),
+        )
+        email = faker.email()
+        api_client.force_login(authorized_user)
+
+        response = api_client.post(
+            self.path,
+            data={
+                "username": existing_user.username,
+                "email": email,
+                "password": faker.password(),
+            },
+        )
+        assert response.status_code == HTTPStatus.CONFLICT
+        assert "username or email already exists" in response.json()["message"]
+
+        assert User.objects.filter(email=email).count() == 0
+
+    def test_unauthorized_user_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        mock_validate_password: MagicMock,  # noqa: ARG002
+    ) -> None:
+        unauthorized_user = User.objects.create_user(username=faker.user_name())
+        api_client.force_login(unauthorized_user)
+
+        response = api_client.post(
+            self.path,
+            data={
+                "username": faker.user_name(),
+                "email": faker.email(),
+                "password": faker.password(),
+            },
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.django_db(transaction=True)
 class TestUpdateCurrentUser:
     path = reverse("api-1.0.0:update-current-user")
 

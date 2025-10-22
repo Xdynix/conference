@@ -43,6 +43,7 @@ class User(ULIDModel, AbstractUser):
     objects: ClassVar[UserManager] = UserManager()
 
     READ = Perm()
+    WRITE = Perm()
     ADMIN = Perm()
 
     class Meta:
