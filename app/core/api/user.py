@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Annotated, Literal, assert_never
+from typing import Annotated, Any, Literal, assert_never
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -14,7 +14,7 @@ from ulid import ULID
 
 from app.core.auth import has_permissions, is_authenticated
 from app.core.models import User
-from app.core.schemas import User as UserSchema
+from app.core.registry.user_response import user_response_registry
 from app.core.types import AuthedHttpRequest, EmailStr, HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
@@ -36,6 +36,8 @@ async def aupdate_session_auth_hash(
 
 
 router = Router(tags=["User"], exclude_none=True)
+
+UserResponse = user_response_registry.get_schema()
 
 
 class ResolveUserByUsernameRequest(Schema):
@@ -142,7 +144,7 @@ class CreateRegistrationRequest(Schema):
 @router.post(
     "/registrations",
     response={
-        HTTPStatus.CREATED: UserSchema,
+        HTTPStatus.CREATED: UserResponse,
         HTTPStatus.CONFLICT: ErrorResponse,
     },
     summary="Register",
@@ -152,7 +154,7 @@ class CreateRegistrationRequest(Schema):
 async def create_registration(
     request: HttpRequest,  # noqa: ARG001
     payload: CreateRegistrationRequest,
-) -> tuple[int, User]:
+) -> tuple[int, dict[str, Any]]:
     """Create a new user registration.
 
     Registers a new user account with the provided username, verified email, and
@@ -161,7 +163,7 @@ async def create_registration(
     """
     user = await create_new_user(payload.username, payload.email, payload.password)
     logger.info("User registered.", user=user)
-    return HTTPStatus.CREATED, user
+    return HTTPStatus.CREATED, await user_response_registry.dump(user)
 
 
 class CreateUserRequest(Schema):
@@ -173,7 +175,7 @@ class CreateUserRequest(Schema):
 @router.post(
     "/users",
     response={
-        HTTPStatus.CREATED: UserSchema,
+        HTTPStatus.CREATED: UserResponse,
         HTTPStatus.CONFLICT: ErrorResponse,
     },
     summary="Create User",
@@ -182,7 +184,7 @@ class CreateUserRequest(Schema):
 async def create_user(
     request: HttpRequest,
     payload: CreateUserRequest,
-) -> tuple[int, User]:
+) -> tuple[int, dict[str, Any]]:
     """Create a new user account by admin.
 
     Allows administrators with write permission to create user accounts. Unlike the
@@ -191,7 +193,7 @@ async def create_user(
     user = await create_new_user(payload.username, payload.email, payload.password)
     actor = await request.auser()
     logger.info("Admin created user.", user=user, actor=actor)
-    return HTTPStatus.CREATED, user
+    return HTTPStatus.CREATED, await user_response_registry.dump(user)
 
 
 async def patch_user(
@@ -249,7 +251,7 @@ class UpdateCurrentUserRequest(Schema):
 @router.patch(
     "/users/me",
     response={
-        HTTPStatus.OK: UserSchema,
+        HTTPStatus.OK: UserResponse,
         HTTPStatus.CONFLICT: ErrorResponse,
         HTTPStatus.FORBIDDEN: ErrorResponse,
     },
@@ -259,7 +261,7 @@ class UpdateCurrentUserRequest(Schema):
 async def update_current_user(
     request: AuthedHttpRequest,
     payload: UpdateCurrentUserRequest,
-) -> User:
+) -> dict[str, Any]:
     """Update the current user's username and/or email.
 
     If email is being changed, provide a verification token obtained from the email
@@ -276,7 +278,7 @@ async def update_current_user(
     update_fields = await patch_user(user, payload.username, payload.email)
     if update_fields:
         logger.info("User updated account.", user=user, fields=update_fields)
-    return user
+    return await user_response_registry.dump(user)
 
 
 class UpdateUserRequest(Schema):
@@ -287,7 +289,7 @@ class UpdateUserRequest(Schema):
 @router.patch(
     "/users/{ulid:user_id}",
     response={
-        HTTPStatus.OK: UserSchema,
+        HTTPStatus.OK: UserResponse,
         HTTPStatus.CONFLICT: ErrorResponse,
     },
     summary="Update User",
@@ -297,7 +299,7 @@ async def update_user(
     request: AuthedHttpRequest,
     user_id: ULID,
     payload: UpdateUserRequest,
-) -> User:
+) -> dict[str, Any]:
     """Update a user's username and/or email by admin.
 
     Allows administrators to update the username and/or email for any active,
@@ -318,7 +320,7 @@ async def update_user(
             actor=actor,
             fields=update_fields,
         )
-    return user
+    return await user_response_registry.dump(user)
 
 
 def validate_password_for_user(

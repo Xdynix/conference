@@ -10,8 +10,8 @@ from django.urls import reverse
 from faker import Faker
 from pydantic import BaseModel, JsonValue
 
+from app.core.api.session import Session
 from app.core.models import User
-from app.core.schemas import Session
 from tests.helpers import update_object
 
 

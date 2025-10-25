@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from typing import Literal, Self
 
 from django.contrib.auth import aauthenticate, alogin, alogout
 from django.utils.translation import gettext as _
@@ -11,13 +12,11 @@ from ninja.errors import HttpError
 
 from app.core.auth import is_superuser
 from app.core.models import User
-from app.core.schemas import Session
+from app.core.registry.user_response import user_response_registry
 from app.core.types import HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 from app.utils.throttling import AnonThrottle, throttling
-
-router = Router(tags=["Session"], exclude_none=True)
 
 
 # TODO: Remove after django/django#19709 (Django #36540) released.
@@ -29,6 +28,33 @@ def clean_request_user_cache(request: HttpRequest) -> None:  # pragma: no cover
     for attr in ("_cached_user", "_acached_user"):
         if hasattr(request, attr):
             delattr(request, attr)
+
+
+router = Router(tags=["Session"], exclude_none=True)
+
+UserResponse = user_response_registry.get_schema()
+
+
+class Session(Schema):
+    class Key:
+        IMPERSONATOR_ID = "impersonator_id"
+
+    user: UserResponse | None  # type: ignore[valid-type]
+    impersonating: Literal[True] | None
+
+    @classmethod
+    async def from_request(cls, request: HttpRequest) -> Self:
+        user = await request.auser()
+        if user.is_authenticated:
+            user_data = await user_response_registry.dump(user)
+        else:
+            user_data = None
+        return cls.model_validate(
+            {
+                "user": user_data,
+                "impersonating": (cls.Key.IMPERSONATOR_ID in request.session) or None,
+            }
+        )
 
 
 @router.get(
