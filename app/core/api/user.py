@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated, Any, Literal, assert_never
 
+from django.contrib.auth import alogin
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError
@@ -12,6 +13,7 @@ from ninja.decorators import decorate_view
 from ninja.errors import HttpError, ValidationError
 from ulid import ULID
 
+from app.core.api.session import Session, clean_request_user_cache
 from app.core.auth import has_permissions, is_authenticated
 from app.core.models import User
 from app.core.registry.user_response import user_response_registry
@@ -144,7 +146,7 @@ class CreateRegistrationRequest(Schema):
 @router.post(
     "/registrations",
     response={
-        HTTPStatus.CREATED: UserResponse,
+        HTTPStatus.CREATED: Session,
         HTTPStatus.CONFLICT: ErrorResponse,
     },
     summary="Register",
@@ -152,18 +154,21 @@ class CreateRegistrationRequest(Schema):
 @decorate_view(throttling(AnonThrottle("20/min")))
 @decorate_view(cf_turnstile_required)
 async def create_registration(
-    request: HttpRequest,  # noqa: ARG001
+    request: HttpRequest,
     payload: CreateRegistrationRequest,
-) -> tuple[int, dict[str, Any]]:
-    """Create a new user registration.
+) -> tuple[int, Session]:
+    """Create a new user registration and log them in.
 
     Registers a new user account with the provided username, verified email, and
     password. The email must be verified using a token obtained from the email
-    verification flow.
+    verification flow. Upon successful registration, the user is automatically logged in
+    and a session is created.
     """
     user = await create_new_user(payload.username, payload.email, payload.password)
-    logger.info("User registered.", user=user)
-    return HTTPStatus.CREATED, await user_response_registry.dump(user)
+    await alogin(request, user)
+    clean_request_user_cache(request)
+    logger.info("User registered and logged in.", user=user)
+    return HTTPStatus.CREATED, await Session.from_request(request)
 
 
 class CreateUserRequest(Schema):

@@ -194,10 +194,10 @@ class TestCreateRegistration:
         )
         assert response.status_code == HTTPStatus.CREATED
         data = response.json()
-        assert data["username"] == username
-        assert data["email"] == email
-        assert "uid" in data
-        assert "password" not in data
+        assert data["user"]["username"] == username
+        assert data["user"]["email"] == email
+        assert "uid" in data["user"]
+        assert "password" not in data["user"]
 
         mock_verify_token.assert_called_once_with(email_token)
         mock_validate_password.assert_called_once()
@@ -208,6 +208,8 @@ class TestCreateRegistration:
         assert user.check_password(password)
         assert not user.managed
         assert user.is_active
+
+        assert get_user(api_client) == user
 
     def test_duplicate_username(
         self,
