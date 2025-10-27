@@ -1,4 +1,5 @@
 from django.apps import AppConfig
+from pydantic import Field
 
 
 class ConferenceConfig(AppConfig):
@@ -6,16 +7,43 @@ class ConferenceConfig(AppConfig):
     name = "app.conference"
 
     def ready(self) -> None:
-        from app.conference.models import UserProfile
-        from app.conference.schemas import Profile
-        from app.core.models import User
-        from app.core.registry.user_response import user_response_registry
+        register_create_user()
+        register_user_response()
 
-        async def resolve_profile(user: User) -> UserProfile | None:
-            return await UserProfile.objects.filter(user=user).afirst()
 
-        user_response_registry.register(
-            "profile",
-            Profile | None,
-            resolver=resolve_profile,
+def register_create_user() -> None:
+    from app.conference.models import UserProfile
+    from app.conference.schemas import Profile
+    from app.core.models import User
+    from app.core.registry.create_user import create_user_registry
+
+    def create_profile(user: User, payload: Profile) -> None:
+        UserProfile.objects.create(
+            user=user,
+            given_name=payload.given_name,
+            family_name=payload.family_name,
+            affiliation=payload.affiliation,
+            region_code=payload.region_code,
         )
+
+    create_user_registry.register(
+        "profile",
+        (Profile, Field(default_factory=Profile)),  # type: ignore[arg-type]
+        handler=create_profile,
+    )
+
+
+def register_user_response() -> None:
+    from app.conference.models import UserProfile
+    from app.conference.schemas import Profile
+    from app.core.models import User
+    from app.core.registry.user_response import user_response_registry
+
+    async def resolve_profile(user: User) -> UserProfile | None:
+        return await UserProfile.objects.filter(user=user).afirst()
+
+    user_response_registry.register(
+        "profile",
+        Profile | None,
+        resolver=resolve_profile,
+    )

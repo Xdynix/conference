@@ -1,10 +1,11 @@
 from http import HTTPStatus
 from typing import Annotated, Any, Literal, assert_never
 
+from asgiref.sync import sync_to_async
 from django.contrib.auth import alogin
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
@@ -16,6 +17,7 @@ from ulid import ULID
 from app.core.api.session import Session, clean_request_user_cache
 from app.core.auth import has_permissions, is_authenticated
 from app.core.models import User
+from app.core.registry.create_user import create_user_registry
 from app.core.registry.user_response import user_response_registry
 from app.core.types import AuthedHttpRequest, EmailStr, HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse
@@ -101,17 +103,15 @@ async def resolve_user(
     return ResolveUserResponse(uid=user["uid"])
 
 
-async def create_new_user(
+@sync_to_async
+@transaction.atomic
+def create_new_user(
     username: Username,
     email: str,
     password: Password,
+    payload: Any,
 ) -> User:
     """Create a new user with password validation and conflict handling.
-
-    Args:
-        username: The username for the new user.
-        email: The email address for the new user.
-        password: The password for the new user.
 
     Returns:
         The created user instance.
@@ -125,7 +125,7 @@ async def create_new_user(
     validate_password_for_user(password, temp_user, field_name="password")
 
     try:
-        user = await User.objects.acreate_user(
+        user = User.objects.create_user(
             username=username,
             email=email,
             password=password.get_secret_value(),
@@ -134,13 +134,21 @@ async def create_new_user(
         message = _("A user with that username or email already exists.")
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
+    create_user_registry.dispatch(user, payload)
+
     return user
 
 
-class CreateRegistrationRequest(Schema):
+class BaseCreateRegistrationRequest(Schema):
     username: Username
     email: VerifiedEmailStr
     password: Password
+
+
+CreateRegistrationRequest = create_user_registry.extend_schema(
+    BaseCreateRegistrationRequest,
+    "CreateRegistrationRequest",
+)
 
 
 @router.post(
@@ -155,7 +163,7 @@ class CreateRegistrationRequest(Schema):
 @decorate_view(cf_turnstile_required)
 async def create_registration(
     request: HttpRequest,
-    payload: CreateRegistrationRequest,
+    payload: CreateRegistrationRequest,  # type: ignore[valid-type]
 ) -> tuple[int, Session]:
     """Create a new user registration and log them in.
 
@@ -164,17 +172,28 @@ async def create_registration(
     verification flow. Upon successful registration, the user is automatically logged in
     and a session is created.
     """
-    user = await create_new_user(payload.username, payload.email, payload.password)
+    user = await create_new_user(
+        username=payload.username,  # type: ignore[attr-defined]
+        email=payload.email,  # type: ignore[attr-defined]
+        password=payload.password,  # type: ignore[attr-defined]
+        payload=payload,
+    )
     await alogin(request, user)
     clean_request_user_cache(request)
     logger.info("User registered and logged in.", user=user)
     return HTTPStatus.CREATED, await Session.from_request(request)
 
 
-class CreateUserRequest(Schema):
+class BaseCreateUserRequest(Schema):
     username: Username
-    email: EmailStr
+    email: EmailStr | Literal[""] = ""
     password: Password
+
+
+CreateUserRequest = create_user_registry.extend_schema(
+    BaseCreateUserRequest,
+    "CreateUserRequest",
+)
 
 
 @router.post(
@@ -188,14 +207,19 @@ class CreateUserRequest(Schema):
 )
 async def create_user(
     request: HttpRequest,
-    payload: CreateUserRequest,
+    payload: CreateUserRequest,  # type: ignore[valid-type]
 ) -> tuple[int, dict[str, Any]]:
     """Create a new user account by admin.
 
     Allows administrators with write permission to create user accounts. Unlike the
     registration endpoint, this does not require email verification.
     """
-    user = await create_new_user(payload.username, payload.email, payload.password)
+    user = await create_new_user(
+        username=payload.username,  # type: ignore[attr-defined]
+        email=payload.email,  # type: ignore[attr-defined]
+        password=payload.password,  # type: ignore[attr-defined]
+        payload=payload,
+    )
     actor = await request.auser()
     logger.info("Admin created user.", user=user, actor=actor)
     return HTTPStatus.CREATED, await user_response_registry.dump(user)

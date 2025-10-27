@@ -6,6 +6,7 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
+from pytest_mock import MockerFixture
 
 from app.conference.models import UserProfile
 from app.core.models import User
@@ -137,3 +138,152 @@ class TestProfileInjectionInSessionEndpoints:
         user_data = data["user"]
         assert user_data["uid"] == str(user_without_profile.uid)
         assert "profile" not in user_data
+
+
+@pytest.mark.django_db
+class TestProfileInjectionInUserCreationEndpoints:
+    create_registration_path = reverse("api-1.0.0:create-registration")
+    create_user_path = reverse("api-1.0.0:create-user")
+
+    @pytest.fixture
+    def mock_verify_token(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.patch(
+            "app.verikit.services.EmailVerificationService.verify_token"
+        )
+
+    @pytest.fixture
+    def admin_user(self, faker: Faker) -> User:
+        return User.objects.create_superuser(username=faker.user_name())
+
+    @pytest.fixture
+    def profile_payload(self, faker: Faker) -> dict[str, Any]:
+        return {
+            "given_name": faker.first_name(),
+            "family_name": faker.last_name(),
+            "affiliation": faker.company(),
+            "region_code": Region.US.name,
+        }
+
+    def test_create_registration_with_profile(
+        self,
+        faker: Faker,
+        api_client: Client,
+        mock_verify_token: MagicMock,
+        profile_payload: dict[str, Any],
+    ) -> None:
+        username = faker.user_name()
+        email = faker.email()
+        password = faker.password()
+        email_token = faker.pystr()
+        mock_verify_token.return_value = email
+
+        response = api_client.post(
+            self.create_registration_path,
+            data={
+                "username": username,
+                "email": email_token,
+                "password": password,
+                "profile": profile_payload,
+            },
+        )
+
+        assert response.status_code == HTTPStatus.CREATED
+        data = response.json()
+        profile_data = data["user"]["profile"]
+
+        profile = UserProfile.objects.filter(user__username=username).get()
+        for field in ("given_name", "family_name", "affiliation", "region_code"):
+            assert (
+                getattr(profile, field) == profile_data[field] == profile_payload[field]
+            )
+
+    def test_create_registration_with_empty_profile(
+        self,
+        faker: Faker,
+        api_client: Client,
+        mock_verify_token: MagicMock,
+    ) -> None:
+        username = faker.user_name()
+        email = faker.email()
+        password = faker.password()
+        email_token = faker.pystr()
+        mock_verify_token.return_value = email
+
+        response = api_client.post(
+            self.create_registration_path,
+            data={
+                "username": username,
+                "email": email_token,
+                "password": password,
+            },
+        )
+
+        assert response.status_code == HTTPStatus.CREATED
+        data = response.json()
+        profile_data = data["user"]["profile"]
+
+        profile = UserProfile.objects.filter(user__username=username).get()
+        for field in ("given_name", "family_name", "affiliation", "region_code"):
+            assert getattr(profile, field) == profile_data[field] == ""
+
+    def test_create_user_with_profile(
+        self,
+        faker: Faker,
+        api_client: Client,
+        admin_user: User,
+        profile_payload: dict[str, Any],
+    ) -> None:
+        api_client.force_login(admin_user)
+
+        username = faker.user_name()
+        email = faker.email()
+        password = faker.password()
+
+        response = api_client.post(
+            self.create_user_path,
+            data={
+                "username": username,
+                "email": email,
+                "password": password,
+                "profile": profile_payload,
+            },
+        )
+
+        assert response.status_code == HTTPStatus.CREATED
+        data = response.json()
+        profile_data = data["profile"]
+
+        profile = UserProfile.objects.filter(user__username=username).get()
+        for field in ("given_name", "family_name", "affiliation", "region_code"):
+            assert (
+                getattr(profile, field) == profile_data[field] == profile_payload[field]
+            )
+
+    def test_create_user_with_empty_profile(
+        self,
+        faker: Faker,
+        api_client: Client,
+        admin_user: User,
+    ) -> None:
+        api_client.force_login(admin_user)
+
+        username = faker.user_name()
+        email = faker.email()
+        password = faker.password()
+
+        response = api_client.post(
+            self.create_user_path,
+            data={
+                "username": username,
+                "email": email,
+                "password": password,
+            },
+        )
+
+        assert response.status_code == HTTPStatus.CREATED
+        data = response.json()
+        profile_data = data["profile"]
+
+        profile = UserProfile.objects.filter(user__username=username).get()
+        for field in ("given_name", "family_name", "affiliation", "region_code"):
+            assert getattr(profile, field) == profile_data[field] == ""
