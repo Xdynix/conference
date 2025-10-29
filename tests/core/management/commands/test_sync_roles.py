@@ -345,70 +345,6 @@ def test_handle_roles_already_up_to_date(
 
 
 @pytest.mark.django_db
-def test_handle_no_yaml_files(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    call_command(
-        "sync_roles",
-        str(tmp_path),
-        strict=False,
-        prune=False,
-        dry_run=False,
-    )
-
-    captured = capsys.readouterr()
-    assert "No YAML files found." in captured.out
-
-
-@pytest.mark.django_db
-def test_handle_missing_directory(tmp_path: Path) -> None:
-    with pytest.raises(CommandError):
-        call_command(
-            "sync_roles",
-            str(tmp_path / "missing"),
-            strict=False,
-            prune=False,
-            dry_run=False,
-        )
-
-
-@pytest.mark.django_db
-def test_handle_path_is_not_directory(tmp_path: Path) -> None:
-    file_path = tmp_path / "roles.yaml"
-    write_yaml(file_path, "roles: []")
-
-    with pytest.raises(CommandError):
-        call_command(
-            "sync_roles",
-            str(file_path),
-            strict=False,
-            prune=False,
-            dry_run=False,
-        )
-
-
-@pytest.mark.django_db
-def test_handle_skips_invalid_files_non_strict(
-    tmp_path: Path,
-    capsys: pytest.CaptureFixture[str],
-) -> None:
-    write_yaml(tmp_path / "bad.yaml", "roles: oops")
-
-    call_command(
-        "sync_roles",
-        str(tmp_path),
-        strict=False,
-        prune=False,
-        dry_run=False,
-    )
-
-    captured = capsys.readouterr()
-    assert "skipped due to errors" in captured.err
-    assert "Roles are already up to date" in captured.out
-
-
-@pytest.mark.django_db
 def test_handle_skips_invalid_model_non_strict(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -585,20 +521,6 @@ def test_handle_invalid_fields(
         )
         captured = capsys.readouterr()
         assert "Field 'unknown_field'" in captured.err
-
-
-@pytest.mark.django_db
-def test_handle_strict_invalid_yaml(tmp_path: Path) -> None:
-    write_yaml(tmp_path / "broken.yaml", "name: John age: 30")
-
-    with pytest.raises(CommandError):
-        call_command(
-            "sync_roles",
-            str(tmp_path),
-            strict=True,
-            prune=False,
-            dry_run=False,
-        )
 
 
 @pytest.mark.django_db

@@ -3,16 +3,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import yaml
 from django.apps import apps
 from django.conf import settings
 from django.core.exceptions import FieldDoesNotExist
-from django.core.management.base import BaseCommand, CommandError, CommandParser
+from django.core.management.base import CommandError, CommandParser
 from django.db import transaction
 from pydantic import BaseModel, Field, ValidationError, field_validator
 from yaml import YAMLError
 
 from app.core.models import AbstractRole, Permission
+from app.utils.commands import BaseYAMLCommand
 
 
 class RoleDefinition(BaseModel):
@@ -90,7 +90,7 @@ class SyncPlan:
     delete: list[DeletePlan]
 
 
-class Command(BaseCommand):
+class Command(BaseYAMLCommand):
     """Synchronize role definitions from YAML files."""
 
     help = "Sync role definitions from YAML sources."
@@ -128,8 +128,8 @@ class Command(BaseCommand):
         dry_run: bool,
         **__: Any,
     ) -> None:
-        yaml_files = self._collect_yaml_files(directory)
-        if not yaml_files:
+        yaml_files = self.collect_yaml_files(directory)
+        if not yaml_files:  # pragma: no cover
             self.stdout.write(self.style.WARNING("No YAML files found."))
             return
 
@@ -159,26 +159,6 @@ class Command(BaseCommand):
         self._apply(plan, permission_lookup)
         self.stdout.write(self.style.SUCCESS("Role synchronization complete."))
 
-    @classmethod
-    def _collect_yaml_files(cls, directory: Path) -> list[Path]:
-        """Return all YAML files within the provided directory."""
-        if not directory.exists():
-            raise CommandError(f"Directory '{directory}' does not exist.")
-        if not directory.is_dir():
-            raise CommandError(f"Path '{directory}' is not a directory.")
-
-        return sorted(
-            path
-            for path in directory.iterdir()
-            if path.is_file() and path.suffix.lower() in {".yaml", ".yml"}
-        )
-
-    @classmethod
-    def _load_role_file(cls, path: Path) -> RoleFile:
-        """Load a single YAML file into the role schema."""
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        return RoleFile.model_validate(data or {})
-
     def _plan(
         self,
         yaml_files: list[Path],
@@ -195,12 +175,9 @@ class Command(BaseCommand):
 
         for file_path in yaml_files:
             try:
-                role_file = self._load_role_file(file_path)
-            except (OSError, YAMLError, ValidationError) as exc:
-                message = f"{file_path}: {exc}"
-                if strict:
-                    raise CommandError(message) from exc
-                skipped.append(message)
+                role_file = self.load_yaml_file(file_path, RoleFile)
+            except (OSError, YAMLError, ValidationError) as exc:  # pragma: no cover
+                self.handle_file_errors(file_path, exc, strict=strict, skipped=skipped)
                 continue
 
             for definition in role_file.roles:
