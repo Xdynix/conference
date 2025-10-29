@@ -6,6 +6,34 @@ from app.utils.enums import Region
 from app.utils.models import TimeStampedModel, ULIDModel
 
 
+class Keyword(models.Model):
+    text = models.CharField(_("text"), max_length=255, unique=True)
+
+    def __str__(self) -> str:
+        return self.text
+
+
+class KeywordSet(models.Model):
+    """Reusable collection of keywords for simplified conference creation.
+
+    Keyword sets store commonly used keyword subsets that can be referenced in
+    conference creation payloads. When a conference is created with
+    `keyword_sets: [...]`, the keywords from those sets are copied to the conference's
+    `keywords` field. This avoids having to specify individual keywords explicitly in
+    every creation request.
+    """
+
+    name = models.CharField(_("name"), max_length=255, unique=True)
+    keywords = models.ManyToManyField(
+        Keyword,
+        blank=True,
+        verbose_name=_("keyword set"),
+    )
+
+    def __str__(self) -> str:
+        return self.name
+
+
 class Conference(TimeStampedModel):
     name = models.SlugField(
         _("name"),
@@ -24,6 +52,16 @@ class Conference(TimeStampedModel):
         help_text=_(
             "Designates whether this conference is active. "
             "Unselect this instead of deleting the conference."
+        ),
+    )
+    keywords = models.ManyToManyField(
+        Keyword,
+        blank=True,
+        verbose_name=_("keywords"),
+        help_text=_(
+            "Keywords applicable to this conference. "
+            "This is only used to display options on the frontend "
+            "and will not be enforced."
         ),
     )
     # TODO: Add visibility status (e.g. private/public).
