@@ -148,12 +148,16 @@ async def assume_session(
     impersonated: User | None = await User.objects.filter(
         username=payload.impersonated,
         is_active=True,
-        is_superuser=False,
     ).afirst()
     if impersonated is None:
         raise HttpError(
             status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
             message=_("Impersonated not found."),
+        )
+    if impersonated.is_superuser:
+        raise HttpError(
+            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+            message=_("Cannot impersonate a superuser."),
         )
 
     impersonator = await request.auser()

@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -225,21 +224,13 @@ class TestAssumeSession:
 
         assert get_user(api_client) == impersonator
 
-    @pytest.mark.parametrize(
-        "impersonated_update",
-        [
-            {"is_active": False},
-            {"is_superuser": True},
-        ],
-    )
-    def test_impersonated_invalid(
+    def test_impersonated_inactive(
         self,
         api_client: Client,
         impersonator: User,
         impersonated: User,
-        impersonated_update: dict[str, Any],
     ) -> None:
-        update_object(impersonated, **impersonated_update)
+        update_object(impersonated, is_active=False)
         api_client.force_login(impersonator)
 
         response = api_client.post(
@@ -248,6 +239,24 @@ class TestAssumeSession:
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
         assert response.json() == {"message": "Impersonated not found."}
+
+        assert get_user(api_client) == impersonator
+
+    def test_impersonated_is_superuser(
+        self,
+        api_client: Client,
+        impersonator: User,
+        impersonated: User,
+    ) -> None:
+        update_object(impersonated, is_superuser=True)
+        api_client.force_login(impersonator)
+
+        response = api_client.post(
+            self.path,
+            data={"impersonated": impersonated.username},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.json() == {"message": "Cannot impersonate a superuser."}
 
         assert get_user(api_client) == impersonator
 
