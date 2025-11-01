@@ -251,3 +251,55 @@ class UserProfile(AbstractProfile):
 
     def __str__(self) -> str:
         return f"{self.user}'s profile"
+
+
+class AbstractUserConferenceProfile(models.Model):
+    desired_paper_count = models.PositiveIntegerField(
+        _("desired paper count"),
+        default=5,
+        help_text=_("Number of papers the user wants to review."),
+    )
+    interested_keywords = models.ManyToManyField(
+        Keyword,
+        blank=True,
+        related_name="+",
+        verbose_name=_("interested keywords"),
+        help_text=_("Keywords the user is interested in for paper assignment."),
+    )
+
+    class Meta:
+        abstract = True
+
+
+class UserConferenceProfile(AbstractUserConferenceProfile, TimeStampedModel):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="conference_profiles",
+        related_query_name="conference_profile",
+        verbose_name=_("user"),
+    )
+    conference = models.ForeignKey(
+        Conference,
+        on_delete=models.CASCADE,
+        related_name="user_profiles",
+        related_query_name="user_profile",
+        verbose_name=_("conference"),
+    )
+
+    class Meta:
+        verbose_name = _("user conference profile")
+        verbose_name_plural = _("user conference profiles")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("user", "conference"),
+                name="unique_user_conference_profile",
+                violation_error_code="unique",
+                violation_error_message=_(
+                    "The user conference profile already exists."
+                ),
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.user} @ {self.conference}"
