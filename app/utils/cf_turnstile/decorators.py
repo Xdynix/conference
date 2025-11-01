@@ -75,7 +75,7 @@ async def check_cf_turnstile_response(
 
     idempotency_key = uuid4()
     try:
-        success, detail = await verify_cf_turnstile_response(
+        success, _detail = await verify_cf_turnstile_response(
             cf_turnstile_response,
             remote_ip=remote_ip,
             idempotency_key=idempotency_key,

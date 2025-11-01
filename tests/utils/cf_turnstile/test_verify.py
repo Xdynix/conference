@@ -67,7 +67,7 @@ class TestVerifyCfTurnstileResponse:
         remote_ip = "192.168.1.1"
         idempotency_key = uuid4()
 
-        success, data = await verify_cf_turnstile_response(
+        success, _ = await verify_cf_turnstile_response(
             cf_turnstile_response,
             remote_ip=remote_ip,
             idempotency_key=idempotency_key,
@@ -156,7 +156,7 @@ class TestVerifyCfTurnstileResponse:
         )
         cf_turnstile_response = "test-response"
 
-        success, data = await verify_cf_turnstile_response(cf_turnstile_response)
+        success, _ = await verify_cf_turnstile_response(cf_turnstile_response)
 
         assert success is True
 
