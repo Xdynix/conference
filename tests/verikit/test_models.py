@@ -11,8 +11,7 @@ class TestEmailVerification:
         email = faker.email()
         verification = EmailVerification.objects.create(
             email=email,
-            code_salt=b"test_salt",
-            code_hash=b"test_hash",
+            code_hash="test_hash",
             expire_time=timezone.now(),
         )
         assert str(verification) == f"{email} (pending)"
@@ -21,8 +20,7 @@ class TestEmailVerification:
         email = faker.email()
         verification = EmailVerification.objects.create(
             email=email,
-            code_salt=b"test_salt",
-            code_hash=b"test_hash",
+            code_hash="test_hash",
             expire_time=timezone.now(),
             verify_time=timezone.now(),
         )

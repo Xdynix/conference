@@ -32,8 +32,7 @@ class TestCreateEmailVerification:
         email = faker.email()
         mock_verification = EmailVerification(
             email=email,
-            code_salt=b"salt",
-            code_hash=b"hash",
+            code_hash="hash",
             create_time=timezone.now(),
             expire_time=timezone.now() + timedelta(minutes=10),
         )

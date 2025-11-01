@@ -9,13 +9,12 @@ class EmailVerification(models.Model):
     """
 
     email = models.EmailField(_("email address"))
-    code_salt = models.BinaryField(
-        _("code salt"),
-        help_text=_("Random salt used for hashing the verification code."),
-    )
-    code_hash = models.BinaryField(
+    code_hash = models.CharField(
         _("code hash"),
-        help_text=_("Hashed verification code for secure storage."),
+        max_length=255,
+        help_text=_(
+            "HMAC signature of the email and verification code for secure storage."
+        ),
     )
     create_time = models.DateTimeField(_("create time"), auto_now_add=True)
     expire_time = models.DateTimeField(_("expire time"))

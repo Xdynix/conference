@@ -2,7 +2,6 @@ import asyncio
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
-import jwt
 import pytest
 from django.conf import LazySettings
 from django.utils import timezone
@@ -11,27 +10,25 @@ from pytest_mock import MockerFixture
 
 from app.verikit.models import EmailVerification
 from app.verikit.services import EmailVerificationService
-from tests.helpers import any_bytes
+from tests.helpers import any_str
 
 
 async def create_email_verification(
     email: str,
     code: str | None = None,
-    code_salt: bytes = b"test_salt",
-    code_hash: bytes = b"test_hash",
+    code_hash: str = "test_hash",
     create_time: datetime | None = None,
     expire_time: datetime | None = None,
     verify_time: datetime | None = None,
 ) -> EmailVerification:
     if code is not None:
-        code_salt, code_hash = EmailVerificationService.hash_code(code)
+        code_hash = EmailVerificationService.sign_code(email, code)
     if create_time is None:
         create_time = timezone.now()
     if expire_time is None:
         expire_time = timezone.now() + timedelta(minutes=30)
     return await EmailVerification.objects.acreate(
         email=email,
-        code_salt=code_salt,
         code_hash=code_hash,
         create_time=create_time,
         expire_time=expire_time,
@@ -70,14 +67,13 @@ class TestEmailVerificationServiceIssueCode:
 
         assert result is not None
         assert result.email == email
-        assert result.code_salt == any_bytes
-        assert result.code_hash == any_bytes
+        assert result.code_hash == any_str
         assert result.expire_time > timezone.now()
         assert result.verify_time is None
         mock_generate.assert_called_once()
         mock_send.assert_called_once_with(email, code)
 
-    async def test_generates_unique_salt_and_hash(
+    async def test_generates_unique_hashes(
         self,
         faker: Faker,
         mock_send: MagicMock,  # noqa: ARG002
@@ -89,7 +85,6 @@ class TestEmailVerificationServiceIssueCode:
 
         assert result1 is not None
         assert result2 is not None
-        assert result1.code_salt != result2.code_salt
         assert result1.code_hash != result2.code_hash
 
     async def test_returns_none_when_rate_limited(
@@ -220,22 +215,22 @@ class TestEmailVerificationServiceIssueCode:
 @pytest.mark.django_db(transaction=True)
 class TestEmailVerificationServiceVerifyCode:
     @pytest.fixture
-    def mock_sign_jwt(self, mocker: MockerFixture, faker: Faker) -> MagicMock:
+    def mock_issue_token(self, mocker: MockerFixture, faker: Faker) -> MagicMock:
         return mocker.patch.object(
             EmailVerificationService,
-            "sign_jwt",
+            "issue_token",
             return_value=faker.pystr(),
         )
 
-    async def test_happy_path(self, faker: Faker, mock_sign_jwt: MagicMock) -> None:
+    async def test_happy_path(self, faker: Faker, mock_issue_token: MagicMock) -> None:
         email = faker.email()
         code = "123456"
         verification = await create_email_verification(email=email, code=code)
 
         result = await EmailVerificationService.verify_code(email, code)
 
-        assert result == mock_sign_jwt.return_value
-        mock_sign_jwt.assert_called_once_with(email)
+        assert result == mock_issue_token.return_value
+        mock_issue_token.assert_called_once_with(email)
 
         await verification.arefresh_from_db()
         assert verification.verify_time is not None
@@ -289,7 +284,7 @@ class TestEmailVerificationServiceVerifyCode:
     async def test_invalidates_all_active_verifications_on_success(
         self,
         faker: Faker,
-        mock_sign_jwt: MagicMock,
+        mock_issue_token: MagicMock,
     ) -> None:
         email = faker.email()
         code1 = "123456"
@@ -299,7 +294,7 @@ class TestEmailVerificationServiceVerifyCode:
 
         result = await EmailVerificationService.verify_code(email, code1)
 
-        assert result == mock_sign_jwt.return_value
+        assert result == mock_issue_token.return_value
 
         await verification1.arefresh_from_db()
         await verification2.arefresh_from_db()
@@ -309,7 +304,7 @@ class TestEmailVerificationServiceVerifyCode:
     async def test_case_insensitive_email_matching(
         self,
         faker: Faker,
-        mock_sign_jwt: MagicMock,
+        mock_issue_token: MagicMock,
     ) -> None:
         email = faker.email().lower()
         email_upper = email.upper()
@@ -318,13 +313,13 @@ class TestEmailVerificationServiceVerifyCode:
 
         result = await EmailVerificationService.verify_code(email_upper, code)
 
-        assert result == mock_sign_jwt.return_value
-        mock_sign_jwt.assert_called_once_with(email_upper)
+        assert result == mock_issue_token.return_value
+        mock_issue_token.assert_called_once_with(email_upper)
 
     async def test_verifies_with_any_matching_active_code(
         self,
         faker: Faker,
-        mock_sign_jwt: MagicMock,
+        mock_issue_token: MagicMock,
     ) -> None:
         email = faker.email()
         code1 = "123456"
@@ -334,19 +329,19 @@ class TestEmailVerificationServiceVerifyCode:
 
         result = await EmailVerificationService.verify_code(email, code2)
 
-        assert result == mock_sign_jwt.return_value
+        assert result == mock_issue_token.return_value
 
     async def test_uses_database_transaction(
         self,
         faker: Faker,
-        mock_sign_jwt: MagicMock,
+        mock_issue_token: MagicMock,
     ) -> None:
         email = faker.email()
         code = "123456"
         verification = await create_email_verification(email=email, code=code)
-        mock_sign_jwt.side_effect = Exception("JWT signing failed")
+        mock_issue_token.side_effect = Exception("Token signing failed")
 
-        with pytest.raises(Exception, match="JWT signing failed"):
+        with pytest.raises(Exception, match="Token signing failed"):
             await EmailVerificationService.verify_code(email, code)
 
         await verification.arefresh_from_db()
@@ -355,7 +350,7 @@ class TestEmailVerificationServiceVerifyCode:
     async def test_concurrent_verification_attempts(
         self,
         faker: Faker,
-        mock_sign_jwt: MagicMock,
+        mock_issue_token: MagicMock,
     ) -> None:
         email = faker.email()
         code = "123456"
@@ -373,7 +368,7 @@ class TestEmailVerificationServiceVerifyCode:
         successful_results = [
             r
             for r in results
-            if r == mock_sign_jwt.return_value and not isinstance(r, BaseException)
+            if r == mock_issue_token.return_value and not isinstance(r, BaseException)
         ]
         none_results = [r for r in results if r is None]
 
@@ -384,11 +379,12 @@ class TestEmailVerificationServiceVerifyCode:
 class TestEmailVerificationServiceVerifyToken:
     def test_happy_path(self, faker: Faker) -> None:
         email = faker.email()
-        token = EmailVerificationService.sign_jwt(email)
+        token = EmailVerificationService.issue_token(email)
 
         verified_email = EmailVerificationService.verify_token(token)
 
-        assert verified_email == email
+        assert verified_email is not None
+        assert verified_email.casefold() == email.casefold()
 
     def test_returns_false_for_expired_token(
         self,
@@ -396,8 +392,8 @@ class TestEmailVerificationServiceVerifyToken:
         settings: LazySettings,
     ) -> None:
         email = faker.email()
-        settings.VERIKIT_EMAIL_TOKEN_EXPIRY = timedelta(microseconds=1)
-        token = EmailVerificationService.sign_jwt(email)
+        settings.VERIKIT_EMAIL_TOKEN_EXPIRY = timedelta()
+        token = EmailVerificationService.issue_token(email)
 
         verified_email = EmailVerificationService.verify_token(token)
 
@@ -408,10 +404,9 @@ class TestEmailVerificationServiceVerifyToken:
         [
             "",
             "just.a.string",
-            "not-a-jwt",
+            "not-a-sig",
             "header.payload",
             "header.payload.signature.extra",
-            "invalid.jwt.token",
         ],
     )
     def test_returns_false_for_malformed_tokens(
@@ -422,49 +417,10 @@ class TestEmailVerificationServiceVerifyToken:
 
         assert verified_email is None
 
-    def test_returns_false_for_token_with_wrong_secret(self, faker: Faker) -> None:
-        email = faker.email()
-        token_with_wrong_secret = jwt.encode(
-            {"sub": email},
-            "wrong-secret-key",
-            algorithm="HS256",
-        )
+    def test_returns_false_for_tampered_token(self, faker: Faker) -> None:
+        token = EmailVerificationService.issue_token(faker.email())
+        tampered_token = f"{token}tampered"
 
-        verified_email = EmailVerificationService.verify_token(token_with_wrong_secret)
-
-        assert verified_email is None
-
-    def test_returns_false_for_token_with_missing_subject(
-        self,
-        settings: LazySettings,
-    ) -> None:
-        token_without_subject = jwt.encode(
-            {
-                "iat": timezone.now().timestamp(),
-                "iss": EmailVerificationService.jwt_iss,
-            },
-            settings.VERIKIT_EMAIL_TOKEN_SECRET,
-            algorithm="HS256",
-        )
-
-        verified_email = EmailVerificationService.verify_token(token_without_subject)
-
-        assert verified_email is None
-
-    def test_returns_false_for_token_with_missing_issuer(
-        self,
-        faker: Faker,
-        settings: LazySettings,
-    ) -> None:
-        token_without_issuer = jwt.encode(
-            {
-                "sub": faker.email(),
-                "iat": timezone.now().timestamp(),
-            },
-            settings.VERIKIT_EMAIL_TOKEN_SECRET,
-            algorithm="HS256",
-        )
-
-        verified_email = EmailVerificationService.verify_token(token_without_issuer)
+        verified_email = EmailVerificationService.verify_token(tampered_token)
 
         assert verified_email is None

@@ -26,16 +26,13 @@ class Migration(migrations.Migration):
                     models.EmailField(max_length=254, verbose_name="email address"),
                 ),
                 (
-                    "code_salt",
-                    models.BinaryField(
-                        help_text="Random salt used for hashing the verification code.",
-                        verbose_name="code salt",
-                    ),
-                ),
-                (
                     "code_hash",
-                    models.BinaryField(
-                        help_text="Hashed verification code for secure storage.",
+                    models.CharField(
+                        max_length=255,
+                        help_text=(
+                            "HMAC signature of the email and verification code "
+                            "for secure storage."
+                        ),
                         verbose_name="code hash",
                     ),
                 ),

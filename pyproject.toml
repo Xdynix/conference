@@ -15,7 +15,6 @@ dependencies = [
     "loguru>=0.7.3",
     "orjson>=3.11.0",
     "pydantic[email]>=2.11.7",
-    "pyjwt[crypto]>=2.10.1",
     "python-decouple>=3.8",
     "python-ulid-django>=1.2.1",
     "python-ulid[pydantic]>=3.0.0",

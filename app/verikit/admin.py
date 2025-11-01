@@ -9,5 +9,5 @@ class EmailCodeVerificationAdmin(admin.ModelAdmin[EmailVerification]):
     list_display = ("__str__", "create_time", "expire_time")
     list_filter = ("create_time", "expire_time", "verify_time")
     ordering = ("-create_time",)
-    readonly_fields = ("code_salt", "code_hash")
+    readonly_fields = ("code_hash",)
     search_fields = ("email",)

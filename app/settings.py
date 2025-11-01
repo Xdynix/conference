@@ -277,11 +277,6 @@ VERIKIT_EMAIL_TOKEN_EXPIRY = config(
     cast=seconds,
 )
 
-VERIKIT_EMAIL_TOKEN_SECRET = config(
-    "VERIKIT_EMAIL_TOKEN_SECRET",
-    default="".join(secrets.choice(string.printable) for _ in range(64)),
-)
-
 VERIKIT_VERIFICATION_RETENTION = config(
     "VERIKIT_VERIFICATION_RETENTION",
     default=7,

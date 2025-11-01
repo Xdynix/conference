@@ -18,15 +18,13 @@ def test_cleanup_expired_verifications(faker: Faker, settings: LazySettings) -> 
 
     expired = EmailVerification.objects.create(
         email=faker.email(),
-        code_salt=b"salt",
-        code_hash=b"hash",
+        code_hash="hash",
         create_time=expired_time,
         expire_time=now,
     )
     not_expired = EmailVerification.objects.create(
         email=faker.email(),
-        code_salt=b"salt",
-        code_hash=b"hash",
+        code_hash="hash",
         create_time=not_expired_time,
         expire_time=now,
     )

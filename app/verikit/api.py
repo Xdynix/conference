@@ -108,7 +108,7 @@ async def verify_email_verification(
     request: HttpRequest,  # noqa: ARG001
     payload: VerifyEmailVerificationRequest,
 ) -> VerifyEmailVerificationResponse:
-    """Verify a verification code and return a JWT token.
+    """Verify a verification code and return a signed verification token.
 
     Returns 422 if the code is invalid or expired.
     """
