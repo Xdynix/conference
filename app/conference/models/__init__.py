@@ -2,6 +2,8 @@ __all__ = (
     "Conference",
     "ConferenceRole",
     "ConferenceRoleAssignment",
+    "Invitation",
+    "InvitationTrackEntry",
     "Keyword",
     "KeywordSet",
     "Track",
@@ -13,6 +15,7 @@ __all__ = (
 
 
 from .conference import Conference, Track
+from .invitation import Invitation, InvitationTrackEntry
 from .keyword import Keyword, KeywordSet
 from .profile import UserConferenceProfile, UserProfile
 from .role import (

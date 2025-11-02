@@ -8,6 +8,8 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    Invitation,
+    InvitationTrackEntry,
     Keyword,
     KeywordSet,
     Track,
@@ -113,4 +115,41 @@ class UserProfileAdmin(admin.ModelAdmin[UserProfile]):
         "given_name",
         "family_name",
         "affiliation",
+    )
+
+
+class InvitationTrackEntryInline(admin.TabularInline[InvitationTrackEntry, Invitation]):
+    model = InvitationTrackEntry
+    extra = 0
+    autocomplete_fields = ("track",)
+    filter_horizontal = ("roles",)
+
+
+@admin.register(Invitation)
+class InvitationAdmin(admin.ModelAdmin[Invitation]):
+    date_hierarchy = "create_time"
+    filter_horizontal = ("conference_roles",)
+    inlines = (InvitationTrackEntryInline,)
+    list_display = (
+        "__str__",
+        "inviter",
+        "invitee_user",
+        "status",
+        "email_send_count",
+        "create_time",
+    )
+    list_filter = ("accept_time", "reject_time", "conference")
+    list_select_related = ("conference", "inviter", "invitee_user")
+    autocomplete_fields = ("conference", "inviter", "invitee_user")
+    readonly_fields = (
+        "status",
+        "create_time",
+        "update_time",
+        "last_email_sent_time",
+    )
+    search_fields = (
+        "conference__name",
+        "inviter__username",
+        "invitee_email",
+        "invitee_user__username",
     )
