@@ -373,4 +373,50 @@ class Migration(migrations.Migration):
                 ],
             },
         ),
+        migrations.AddIndex(
+            model_name="conference",
+            index=models.Index(
+                fields=["active", "create_time"], name="conference__active_57f6a4_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="conference",
+            index=models.Index(
+                fields=["create_time"], name="conference__create__72209a_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="conferenceroleassignment",
+            index=models.Index(
+                fields=["user", "role"], name="conference__user_id_9e5c30_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="conferenceroleassignment",
+            index=models.Index(fields=["role"], name="conference__role_id_8e7cb6_idx"),
+        ),
+        migrations.AddIndex(
+            model_name="track",
+            index=models.Index(
+                fields=["conference", "active", "ordering", "display_name"],
+                name="conference__confere_a237f7_idx",
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="track",
+            index=models.Index(
+                fields=["conference", "ordering", "display_name"],
+                name="conference__confere_e2fd06_idx",
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="trackroleassignment",
+            index=models.Index(
+                fields=["user", "role"], name="conference__user_id_bf3fcb_idx"
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="trackroleassignment",
+            index=models.Index(fields=["role"], name="conference__role_id_b5ff9b_idx"),
+        ),
     ]

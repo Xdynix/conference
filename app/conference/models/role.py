@@ -44,7 +44,10 @@ class ConferenceRoleAssignment(AbstractRoleAssignment):
                 ),
             ),
         )
-        # TODO: Add indexes.
+        indexes = (
+            models.Index(fields=("user", "role")),
+            models.Index(fields=("role",)),
+        )
 
     def __str__(self) -> str:
         return f"[{self.conference}] {self.role}: {self.user}"
@@ -86,7 +89,10 @@ class TrackRoleAssignment(AbstractRoleAssignment):
                 violation_error_message=_("The track role assignment already exists."),
             ),
         )
-        # TODO: Add indexes.
+        indexes = (
+            models.Index(fields=("user", "role")),
+            models.Index(fields=("role",)),
+        )
 
     def __str__(self) -> str:
         return f"[{self.track}] {self.role}: {self.user}"

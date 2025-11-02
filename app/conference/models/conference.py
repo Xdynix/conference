@@ -41,7 +41,10 @@ class Conference(TimeStampedModel):
     class Meta:
         verbose_name = _("conference")
         verbose_name_plural = _("conferences")
-        # TODO: Add indexes.
+        indexes = (
+            models.Index(fields=("active", "create_time")),
+            models.Index(fields=("create_time",)),
+        )
 
     def __str__(self) -> str:
         return self.name
@@ -79,7 +82,10 @@ class Track(TimeStampedModel, ULIDModel):
         verbose_name = _("track")
         verbose_name_plural = _("tracks")
         ordering = ("conference", "ordering", "display_name")
-        # TODO: Add indexes.
+        indexes = (
+            models.Index(fields=("conference", "active", "ordering", "display_name")),
+            models.Index(fields=("conference", "ordering", "display_name")),
+        )
 
     def __str__(self) -> str:
         return f"{self.conference} - {self.display_name}"

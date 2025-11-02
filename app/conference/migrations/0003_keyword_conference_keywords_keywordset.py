@@ -26,6 +26,11 @@ class Migration(migrations.Migration):
                     models.CharField(max_length=255, unique=True, verbose_name="text"),
                 ),
             ],
+            options={
+                "ordering": ("text",),
+                "verbose_name": "keyword",
+                "verbose_name_plural": "keywords",
+            },
         ),
         migrations.AddField(
             model_name="conference",
@@ -66,5 +71,10 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
+            options={
+                "ordering": ("name",),
+                "verbose_name": "keyword set",
+                "verbose_name_plural": "keyword sets",
+            },
         ),
     ]
