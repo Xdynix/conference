@@ -8,8 +8,16 @@ from app.core.models import PasswordResetToken, Permission, Role, RoleAssignment
 admin.site.unregister(Group)
 
 
+class RoleAssignmentInline(admin.TabularInline[RoleAssignment, User]):
+    model = RoleAssignment
+    extra = 0
+    autocomplete_fields = ("role",)
+    readonly_fields = ("create_time", "update_time")
+
+
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin[User]):
+    inlines = (RoleAssignmentInline,)
     fieldsets = (
         (
             None,
@@ -41,16 +49,6 @@ class PermissionAdmin(admin.ModelAdmin[Permission]):
 class RoleAdmin(admin.ModelAdmin[Role]):
     filter_horizontal = ("permissions",)
     search_fields = ("name", "display_name")
-
-
-@admin.register(RoleAssignment)
-class RoleAssignmentAdmin(admin.ModelAdmin[RoleAssignment]):
-    list_display = ("__str__", "create_time", "update_time")
-    list_filter = ("role__name",)
-    list_select_related = ("user", "role")
-    autocomplete_fields = ("user",)
-    readonly_fields = ("create_time", "update_time")
-    search_fields = ("user__username", "role__name")
 
 
 @admin.register(PasswordResetToken)

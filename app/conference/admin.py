@@ -43,10 +43,20 @@ class KeywordSetAdmin(admin.ModelAdmin[KeywordSet]):
         return int(obj.keywords_count)  # type: ignore[attr-defined]
 
 
+class ConferenceRoleAssignmentInline(
+    admin.TabularInline[ConferenceRoleAssignment, Conference]
+):
+    model = ConferenceRoleAssignment
+    extra = 0
+    autocomplete_fields = ("user", "role")
+    readonly_fields = ("create_time", "update_time")
+
+
 @admin.register(Conference)
 class ConferenceAdmin(admin.ModelAdmin[Conference]):
     date_hierarchy = "create_time"
     filter_horizontal = ("keywords",)
+    inlines = (ConferenceRoleAssignmentInline,)
     list_display = ("__str__", "display_name", "active", "create_time")
     list_filter = ("active",)
     readonly_fields = ("create_time", "update_time")
@@ -60,25 +70,21 @@ class ConferenceRoleAdmin(admin.ModelAdmin[ConferenceRole]):
     search_fields = ("name", "display_name")
 
 
-@admin.register(ConferenceRoleAssignment)
-class ConferenceRoleAssignmentAdmin(admin.ModelAdmin[ConferenceRoleAssignment]):
-    list_display = ("__str__", "create_time", "update_time")
-    list_filter = ("role__name",)
-    list_select_related = ("conference", "user", "role")
-    autocomplete_fields = (
-        "conference",
-        "user",
-    )
+class TrackRoleAssignmentInline(admin.TabularInline[TrackRoleAssignment, Track]):
+    model = TrackRoleAssignment
+    extra = 0
+    autocomplete_fields = ("user", "role")
     readonly_fields = ("create_time", "update_time")
-    search_fields = ("conference__name", "user__username", "role__name")
 
 
 @admin.register(Track)
 class TrackAdmin(admin.ModelAdmin[Track]):
     date_hierarchy = "create_time"
+    inlines = (TrackRoleAssignmentInline,)
     list_display = ("__str__", "active", "create_time")
     list_filter = ("active", "conference")
     list_select_related = ("conference",)
+    autocomplete_fields = ("conference",)
     readonly_fields = ("uid", "create_time", "update_time")
     search_fields = ("uid", "display_name", "conference__name")
 
@@ -87,21 +93,6 @@ class TrackAdmin(admin.ModelAdmin[Track]):
 class TrackRoleAdmin(admin.ModelAdmin[TrackRole]):
     filter_horizontal = ("permissions",)
     search_fields = ("name", "display_name")
-
-
-@admin.register(TrackRoleAssignment)
-class TrackRoleAssignmentAdmin(admin.ModelAdmin[TrackRoleAssignment]):
-    list_display = ("__str__", "create_time", "update_time")
-    list_filter = ("role__name",)
-    list_select_related = ("track", "track__conference", "user", "role")
-    autocomplete_fields = ("track", "user")
-    readonly_fields = ("create_time", "update_time")
-    search_fields = (
-        "track__display_name",
-        "track__conference__name",
-        "user__username",
-        "role__name",
-    )
 
 
 @admin.register(UserProfile)
