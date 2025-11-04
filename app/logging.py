@@ -8,7 +8,6 @@ import inspect
 import logging
 import sys
 from pathlib import Path
-from typing import NamedTuple
 
 from loguru import logger
 
@@ -39,12 +38,7 @@ class InterceptHandler(logging.Handler):  # pragma: no cover
         )
 
 
-class Handlers(NamedTuple):
-    console_logger: int
-    file_logger: int
-
-
-def configure_logging(log_dir: Path, debug: bool) -> Handlers:
+def configure_logging(log_dir: Path | None, debug: bool) -> None:
     # Route built-in logging to Loguru.
     intercept_handler = InterceptHandler()
     logging.basicConfig(handlers=[intercept_handler], level=logging.NOTSET, force=True)
@@ -64,21 +58,23 @@ def configure_logging(log_dir: Path, debug: bool) -> Handlers:
         "httpx": "WARNING",
     }
 
-    console_logger = logger.add(
+    logger.add(
         sys.stderr,
         format=log_format,
         filter=level_per_module,
         diagnose=debug,
     )
-    file_logger = logger.add(
-        log_dir / "{time:YYYY-MM-DD}.log",
-        format=log_format,
-        filter=level_per_module,
-        colorize=False,
-        diagnose=debug,
-        rotation="1 day",
-        retention="2 months",
-        enqueue=True,
-    )
+
+    if log_dir is not None:  # pragma: no cover
+        logger.add(
+            log_dir / "{time:YYYY-MM-DD}.log",
+            format=log_format,
+            filter=level_per_module,
+            colorize=False,
+            diagnose=debug,
+            rotation="1 day",
+            retention="2 months",
+            enqueue=True,
+        )
+
     # TODO: Integrate Sentry.
-    return Handlers(console_logger=console_logger, file_logger=file_logger)

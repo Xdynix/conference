@@ -204,8 +204,10 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="no-reply@localhost")
 
 LOGGING_CONFIG = None
 
-LOG_HANDLERS = configure_logging(
-    log_dir=config("LOG_DIR", default=DATA_DIR / "log", cast=Path),
+_log_dir = config("LOG_DIR", default="")
+
+configure_logging(
+    log_dir=Path(_log_dir) if _log_dir else None,
     debug=DEBUG,
 )
 

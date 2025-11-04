@@ -8,16 +8,9 @@ from django.conf import LazySettings
 from django.db import models
 from django.test import Client
 from django.utils import timezone
-from loguru import logger
 from pytest_mock import MockerFixture
 
 from app.ninja.core import AppNinjaAPI
-from app.settings import LOG_HANDLERS
-
-
-@pytest.fixture(autouse=True, scope="session")
-def disable_file_logger() -> None:
-    logger.remove(LOG_HANDLERS.file_logger)
 
 
 @pytest.fixture(autouse=True, scope="session")
