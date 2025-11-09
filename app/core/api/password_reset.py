@@ -10,7 +10,7 @@ from ninja.errors import HttpError
 from pydantic import StringConstraints
 from ulid import ULID
 
-from app.core.api.user import validate_password_for_user
+from app.core.api.user.core import validate_password_for_user
 from app.core.models import User
 from app.core.services import PasswordResetService
 from app.core.types import EmailStr, HttpRequest, Password

@@ -5,15 +5,22 @@ __all__ = (
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, Literal
 
-from ninja import Schema
+from ninja import Field, Schema
 from pydantic import create_model
+from ulid import ULID
 
 from app.core.models import User
-from app.core.schemas import User as BaseUserSchema
+from app.core.types import EmailStr
 
 UserFieldResolver = Callable[[User], Awaitable[Any]]
+
+
+class BaseUserSchema(Schema):
+    uid: ULID
+    username: str = Field(examples=["user"])
+    email: EmailStr | Literal[""] = Field(title="Email Address")
 
 
 class UserResponseRegistry:
