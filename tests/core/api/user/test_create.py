@@ -11,6 +11,7 @@ from ninja.errors import ValidationError
 from pytest_mock import MockerFixture
 
 from app.core.models import Permission, Role, RoleAssignment, User
+from app.verikit.services import EmailVerificationService
 
 
 @pytest.fixture
@@ -22,25 +23,17 @@ def mock_validate_password(mocker: MockerFixture) -> MagicMock:
 class TestCreateRegistration:
     path = reverse("api-1.0.0:create-registration")
 
-    @pytest.fixture
-    def mock_verify_token(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch(
-            "app.verikit.services.EmailVerificationService.verify_token"
-        )
-
     def test_happy_path(
         self,
         faker: Faker,
         api_client: Client,
         mock_cf_turnstile: MagicMock,
-        mock_verify_token: MagicMock,
         mock_validate_password: MagicMock,
     ) -> None:
         username = faker.user_name()
         email = faker.email()
+        email_token = EmailVerificationService.issue_token(email)
         password = faker.password()
-        email_token = faker.pystr()
-        mock_verify_token.return_value = email
 
         response = api_client.post(
             self.path,
@@ -57,7 +50,6 @@ class TestCreateRegistration:
         assert "uid" in data["user"]
         assert "password" not in data["user"]
 
-        mock_verify_token.assert_called_once_with(email_token)
         mock_validate_password.assert_called_once()
         mock_cf_turnstile.assert_called_once()
 
@@ -74,7 +66,6 @@ class TestCreateRegistration:
         faker: Faker,
         api_client: Client,
         mock_cf_turnstile: MagicMock,  # noqa: ARG002
-        mock_verify_token: MagicMock,
         mock_validate_password: MagicMock,  # noqa: ARG002
     ) -> None:
         existing_user = User.objects.create_user(
@@ -82,8 +73,7 @@ class TestCreateRegistration:
             email=faker.email(),
         )
         email = faker.email()
-        email_token = faker.pystr()
-        mock_verify_token.return_value = email
+        email_token = EmailVerificationService.issue_token(email)
 
         response = api_client.post(
             self.path,
@@ -103,7 +93,6 @@ class TestCreateRegistration:
         faker: Faker,
         api_client: Client,
         mock_cf_turnstile: MagicMock,  # noqa: ARG002
-        mock_verify_token: MagicMock,
         mock_validate_password: MagicMock,  # noqa: ARG002
     ) -> None:
         existing_user = User.objects.create_user(
@@ -111,8 +100,7 @@ class TestCreateRegistration:
             email=faker.email(),
         )
         username = faker.user_name()
-        email_token = faker.pystr()
-        mock_verify_token.return_value = existing_user.email
+        email_token = EmailVerificationService.issue_token(existing_user.email)
 
         response = api_client.post(
             self.path,
@@ -132,12 +120,9 @@ class TestCreateRegistration:
         faker: Faker,
         api_client: Client,
         mock_cf_turnstile: MagicMock,  # noqa: ARG002
-        mock_verify_token: MagicMock,
         mock_validate_password: MagicMock,
     ) -> None:
-        email = faker.email()
-        email_token = faker.pystr()
-        mock_verify_token.return_value = email
+        email_token = EmailVerificationService.issue_token(faker.email())
         mock_validate_password.side_effect = ValidationError(
             errors=[
                 {
@@ -176,14 +161,12 @@ class TestCreateRegistration:
         faker: Faker,
         api_client: Client,
         mock_cf_turnstile: MagicMock,  # noqa: ARG002
-        mock_verify_token: MagicMock,
         mock_validate_password: MagicMock,  # noqa: ARG002
     ) -> None:
         username = faker.user_name()
         email = faker.email().lower()
+        email_token = EmailVerificationService.issue_token(email.upper())
         password = faker.password()
-        email_token = faker.pystr()
-        mock_verify_token.return_value = email.upper()
 
         response = api_client.post(
             self.path,

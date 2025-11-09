@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from unittest.mock import MagicMock
 
 import pytest
 from django.test import Client
@@ -9,6 +8,7 @@ from pytest_mock import MockerFixture
 from ulid import ULID
 
 from app.core.models import Permission, Role, RoleAssignment, User
+from app.verikit.services import EmailVerificationService
 from tests.helpers import update_object
 
 
@@ -21,12 +21,6 @@ class TestUpdateCurrentUser:
         return User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
-        )
-
-    @pytest.fixture
-    def mock_verify_token(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch(
-            "app.verikit.services.EmailVerificationService.verify_token"
         )
 
     def test_update_username_only(
@@ -54,12 +48,10 @@ class TestUpdateCurrentUser:
         faker: Faker,
         api_client: Client,
         user: User,
-        mock_verify_token: MagicMock,
     ) -> None:
         original_username = user.username
         new_email = faker.email()
-        email_token = faker.pystr()
-        mock_verify_token.return_value = new_email
+        email_token = EmailVerificationService.issue_token(new_email)
         api_client.force_login(user)
 
         response = api_client.patch(
@@ -71,19 +63,16 @@ class TestUpdateCurrentUser:
         user.refresh_from_db()
         assert user.username == original_username
         assert user.email == new_email
-        mock_verify_token.assert_called_once_with(email_token)
 
     def test_update_both_username_and_email(
         self,
         faker: Faker,
         api_client: Client,
         user: User,
-        mock_verify_token: MagicMock,
     ) -> None:
         new_username = faker.user_name()
         new_email = faker.email()
-        email_token = faker.pystr()
-        mock_verify_token.return_value = new_email
+        email_token = EmailVerificationService.issue_token(new_email)
         api_client.force_login(user)
 
         response = api_client.patch(
@@ -95,7 +84,6 @@ class TestUpdateCurrentUser:
         user.refresh_from_db()
         assert user.username == new_username
         assert user.email == new_email
-        mock_verify_token.assert_called_once_with(email_token)
 
     def test_no_changes_when_username_same(
         self,
@@ -117,13 +105,10 @@ class TestUpdateCurrentUser:
     def test_no_changes_when_email_same(
         self,
         mocker: MockerFixture,
-        faker: Faker,
         api_client: Client,
         user: User,
-        mock_verify_token: MagicMock,
     ) -> None:
-        email_token = faker.pystr()
-        mock_verify_token.return_value = user.email
+        email_token = EmailVerificationService.issue_token(user.email)
         mock_save = mocker.spy(User, "asave")
         api_client.force_login(user)
 
@@ -134,18 +119,14 @@ class TestUpdateCurrentUser:
         assert response.status_code == HTTPStatus.OK
 
         mock_save.assert_not_called()
-        mock_verify_token.assert_called_once_with(email_token)
 
     def test_email_comparison_case_insensitive(
         self,
         mocker: MockerFixture,
-        faker: Faker,
         api_client: Client,
         user: User,
-        mock_verify_token: MagicMock,
     ) -> None:
-        email_token = faker.pystr()
-        mock_verify_token.return_value = user.email.upper()
+        email_token = EmailVerificationService.issue_token(user.email.upper())
         mock_save = mocker.spy(User, "asave")
         api_client.force_login(user)
 
@@ -156,7 +137,6 @@ class TestUpdateCurrentUser:
         assert response.status_code == HTTPStatus.OK
 
         mock_save.assert_not_called()
-        mock_verify_token.assert_called_once_with(email_token)
 
     def test_managed_user_forbidden(
         self,
@@ -194,7 +174,6 @@ class TestUpdateCurrentUser:
         assert response.status_code == HTTPStatus.CONFLICT
         assert "username already exists" in response.json()["message"]
 
-        # Verify the database was not modified.
         user.refresh_from_db()
         assert user.username == original_username
 
@@ -203,15 +182,13 @@ class TestUpdateCurrentUser:
         faker: Faker,
         api_client: Client,
         user: User,
-        mock_verify_token: MagicMock,
     ) -> None:
         existing_user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
         )
         original_email = user.email
-        email_token = faker.pystr()
-        mock_verify_token.return_value = existing_user.email
+        email_token = EmailVerificationService.issue_token(existing_user.email)
         api_client.force_login(user)
 
         response = api_client.patch(
@@ -221,17 +198,14 @@ class TestUpdateCurrentUser:
         assert response.status_code == HTTPStatus.CONFLICT
         assert "email already exists" in response.json()["message"]
 
-        # Verify the database was not modified.
         user.refresh_from_db()
         assert user.email == original_email
-        mock_verify_token.assert_called_once_with(email_token)
 
     def test_duplicate_username_and_email_conflict(
         self,
         faker: Faker,
         api_client: Client,
         user: User,
-        mock_verify_token: MagicMock,
     ) -> None:
         existing_user = User.objects.create_user(
             username=faker.user_name(),
@@ -239,8 +213,7 @@ class TestUpdateCurrentUser:
         )
         original_username = user.username
         original_email = user.email
-        email_token = faker.pystr()
-        mock_verify_token.return_value = existing_user.email
+        email_token = EmailVerificationService.issue_token(existing_user.email)
         api_client.force_login(user)
 
         response = api_client.patch(
@@ -250,11 +223,9 @@ class TestUpdateCurrentUser:
         assert response.status_code == HTTPStatus.CONFLICT
         assert "username or email already exists" in response.json()["message"]
 
-        # Verify the database was not modified.
         user.refresh_from_db()
         assert user.username == original_username
         assert user.email == original_email
-        mock_verify_token.assert_called_once_with(email_token)
 
     def test_unauthenticated_user_forbidden(
         self,

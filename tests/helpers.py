@@ -18,8 +18,8 @@ def update_object[MT: Model](obj: MT, **updates: Any) -> MT:
 class AnyValue:
     """Helper class for asserting the type of the given value.
 
-    This can be helpful when you're comparing complex objects like `dict` and only care
-    about the types of some fields.
+    This can be helpful when you're comparing complex objects like ``dict`` and only
+    care about the types of some fields.
 
     If no types are provided, it will match any values.
 

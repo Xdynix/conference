@@ -6,11 +6,11 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
-from pytest_mock import MockerFixture
 
 from app.conference.models import UserProfile
 from app.core.models import User
 from app.utils.enums import Region
+from app.verikit.services import EmailVerificationService
 
 
 @pytest.fixture(autouse=True)
@@ -146,12 +146,6 @@ class TestProfileInjectionInUserCreationEndpoints:
     create_user_path = reverse("api-1.0.0:create-user")
 
     @pytest.fixture
-    def mock_verify_token(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch(
-            "app.verikit.services.EmailVerificationService.verify_token"
-        )
-
-    @pytest.fixture
     def admin_user(self, faker: Faker) -> User:
         return User.objects.create_superuser(username=faker.user_name())
 
@@ -168,14 +162,11 @@ class TestProfileInjectionInUserCreationEndpoints:
         self,
         faker: Faker,
         api_client: Client,
-        mock_verify_token: MagicMock,
         profile_payload: dict[str, Any],
     ) -> None:
         username = faker.user_name()
-        email = faker.email()
+        email_token = EmailVerificationService.issue_token(faker.email())
         password = faker.password()
-        email_token = faker.pystr()
-        mock_verify_token.return_value = email
 
         response = api_client.post(
             self.create_registration_path,
@@ -201,13 +192,10 @@ class TestProfileInjectionInUserCreationEndpoints:
         self,
         faker: Faker,
         api_client: Client,
-        mock_verify_token: MagicMock,
     ) -> None:
         username = faker.user_name()
-        email = faker.email()
+        email_token = EmailVerificationService.issue_token(faker.email())
         password = faker.password()
-        email_token = faker.pystr()
-        mock_verify_token.return_value = email
 
         response = api_client.post(
             self.create_registration_path,

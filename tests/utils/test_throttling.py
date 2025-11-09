@@ -54,11 +54,9 @@ class TestSimpleThrottleTokenBucket:
     ) -> None:
         now = 1000.0
 
-        # First request.
         allowed, _ = await throttle.allow_request(mock_request, now)
         assert allowed is True
 
-        # Second request immediately after.
         allowed, _ = await throttle.allow_request(mock_request, now)
         assert allowed is True
 
@@ -69,11 +67,9 @@ class TestSimpleThrottleTokenBucket:
     ) -> None:
         now = 1000.0
 
-        # Consume all tokens.
         await throttle.allow_request(mock_request, now)
         await throttle.allow_request(mock_request, now)
 
-        # Third request should be denied.
         allowed, wait_time = await throttle.allow_request(mock_request, now)
         assert allowed is False
         assert wait_time is not None
@@ -86,7 +82,6 @@ class TestSimpleThrottleTokenBucket:
     ) -> None:
         now = 1000.0
 
-        # Consume all tokens.
         await throttle.allow_request(mock_request, now)
         await throttle.allow_request(mock_request, now)
 
@@ -113,10 +108,11 @@ class TestSimpleThrottleTokenBucket:
         assert wait_time is None
 
     async def test_max_size_eviction(self) -> None:
+        allowed_capacity = 10
+
         class TestThrottle(SimpleThrottle):
             def __init__(self) -> None:
-                # Create throttle with max_size=2.
-                super().__init__("10/s", max_size=2, shards=1)
+                super().__init__(f"{allowed_capacity}/s", max_size=2, shards=1)
 
             async def get_cache_key(
                 self,
@@ -124,7 +120,6 @@ class TestSimpleThrottleTokenBucket:
                 *_: Any,
                 **__: Any,
             ) -> str | None:
-                # Return a unique key based on a request attribute.
                 return getattr(request, "cache_key", "default-key")
 
         throttle = TestThrottle()
@@ -147,12 +142,12 @@ class TestSimpleThrottleTokenBucket:
         # key2 should have been evicted, so it should start with full tokens again.
         # key1 and key3 should still be in cache with reduced tokens.
 
-        # Check that key2 was evicted by seeing it has full tokens (10) again.
-        for _ in range(10):
+        # Check that key2 was evicted by seeing it has full tokens again.
+        for _ in range(allowed_capacity):
             allowed, _ = await throttle.allow_request(request2, now)
             assert allowed is True
 
-        # 11th request should be denied.
+        # Next request should be denied.
         allowed, wait_time = await throttle.allow_request(request2, now)
         assert allowed is False
         assert wait_time is not None

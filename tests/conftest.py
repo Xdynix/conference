@@ -49,7 +49,7 @@ def disable_serve_static(settings: LazySettings) -> None:
 
 @pytest.fixture
 def api() -> AppNinjaAPI:
-    """`AppNinjaAPI` instance for testing.
+    """``AppNinjaAPI`` instance for testing.
 
     Creates an API instance with the same configuration as production but uses a unique
     URL namespace to avoid conflicts when registering test routes alongside the main

@@ -81,7 +81,6 @@ class TestPermissionServiceGetPermissions:
         role_viewer: Role,
         perm_delete: Permission,
     ) -> None:
-        # Create a role with unique permission.
         role_deleter = await Role.objects.acreate(
             name="deleter",
             display_name="Deleter",
@@ -197,7 +196,6 @@ class TestPermissionServiceGetPermissions:
 
         permissions = await PermissionService.get_permissions(user)
 
-        # If no permissions exist in database, superuser gets empty set.
         assert permissions == set()
 
 
