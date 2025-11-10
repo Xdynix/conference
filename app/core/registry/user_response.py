@@ -3,8 +3,7 @@ __all__ = (
     "user_response_registry",
 )
 
-import asyncio
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any, Literal
 
 from ninja import Field, Schema
@@ -15,6 +14,7 @@ from app.core.models import User
 from app.core.types import EmailStr
 
 UserFieldResolver = Callable[[User], Awaitable[Any]]
+UserFieldBatchResolver = Callable[[Sequence[User]], Awaitable[Sequence[Any]]]
 
 
 class BaseUserSchema(Schema):
@@ -27,7 +27,8 @@ class UserResponseRegistry:
     """Registry for dynamically extending User API response schemas.
 
     Allows different apps to register additional fields that should be included in
-    ``User`` responses, with custom async resolvers for each field.
+    ``User`` responses, with custom async resolvers for each field. Supports both
+    single-user resolvers and batch resolvers for efficient bulk operations.
     """
 
     base_schema: type[Schema] = BaseUserSchema
@@ -36,7 +37,7 @@ class UserResponseRegistry:
     def __init__(self) -> None:
         self._registry: dict[
             str,
-            tuple[Any, UserFieldResolver],
+            tuple[Any, UserFieldResolver, UserFieldBatchResolver],
         ] = {}
         self._schema: type[Schema] | None = None
 
@@ -46,14 +47,18 @@ class UserResponseRegistry:
         schema: Any,
         *,
         resolver: UserFieldResolver | None = None,
+        batch_resolver: UserFieldBatchResolver | None = None,
     ) -> None:
         """Register a new field to include in ``User`` responses.
 
         Args:
             key: Field name (must be a valid Python identifier).
             schema: Pydantic field schema/type annotation.
-            resolver: Optional async function to resolve the field value. Defaults to
-                ``getattr(user, key)``.
+            resolver: Optional async function to resolve the field value for a single
+                user. Defaults to ``getattr(user, key)``.
+            batch_resolver: Optional async function to resolve the field value for
+                multiple users in batch. If not provided, falls back to calling the
+                resolver for each user individually.
 
         Raises:
             RuntimeError: If schema has already been finalized.
@@ -81,7 +86,14 @@ class UserResponseRegistry:
 
             resolver = resolve
 
-        registry[key] = schema, resolver
+        if batch_resolver is None:
+
+            async def batch_resolve(users: Sequence[User]) -> Sequence[Any]:
+                return [await resolver(user) for user in users]
+
+            batch_resolver = batch_resolve
+
+        registry[key] = schema, resolver, batch_resolver
 
     def get_schema(self) -> type[Schema]:
         """Get or create the composed schema with all registered fields.
@@ -91,7 +103,9 @@ class UserResponseRegistry:
         """
         if self._schema is not None:
             return self._schema
-        additional_fields = {key: schema for key, (schema, _) in self._registry.items()}
+        additional_fields = {
+            key: schema for key, (schema, _, _) in self._registry.items()
+        }
         self._schema = create_model(
             self.schema_name,
             __base__=self.base_schema,
@@ -100,7 +114,7 @@ class UserResponseRegistry:
         return self._schema
 
     async def dump(self, user: User) -> dict[str, Any]:
-        """Serialize user with all registered fields.
+        """Serialize single user with all registered fields.
 
         Args:
             user: User instance to serialize.
@@ -113,13 +127,35 @@ class UserResponseRegistry:
         """
         data = self.base_schema.model_validate(user).model_dump()
 
-        resolvers = [(key, resolve) for key, (_, resolve) in self._registry.items()]
-        values = await asyncio.gather(*(resolve(user) for _, resolve in resolvers))
-
-        for (key, _), value in zip(resolvers, values, strict=True):
-            data[key] = value
+        for key, (_, resolve, _) in self._registry.items():
+            data[key] = await resolve(user)
 
         return data
+
+    async def dump_many(self, users: Sequence[User]) -> list[dict[str, Any]]:
+        """Serialize multiple users with all registered fields using batch resolvers.
+
+        Args:
+            users: Sequence of user instances to serialize.
+
+        Returns:
+            List of dictionaries with base schema fields and all registered fields.
+
+        Raises:
+            Exception: If any batch resolver fails during field resolution.
+            ValueError: If a batch resolver returns a value list whose length does not
+                match the number of provided users.
+        """
+        all_data = [
+            self.base_schema.model_validate(user).model_dump() for user in users
+        ]
+
+        for key, (_, _, batch_resolve) in self._registry.items():
+            values = await batch_resolve(users)
+            for data, value in zip(all_data, values, strict=True):
+                data[key] = value
+
+        return all_data
 
 
 user_response_registry = UserResponseRegistry()

@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Any
 
 import pytest
@@ -22,6 +23,16 @@ class TestUserResponseRegistry:
             username=faker.user_name(),
             email=faker.email(),
         )
+
+    @pytest.fixture
+    def users(self, faker: Faker) -> list[User]:
+        return [
+            User.objects.create_user(
+                username=f"{i}-{faker.user_name()}",
+                email=f"{i}-{faker.email()}",
+            )
+            for i in range(5)
+        ]
 
     async def test_happy_path(self, registry: UserResponseRegistry, user: User) -> None:
         registry.register("custom_field", str)
@@ -192,16 +203,9 @@ class TestUserResponseRegistry:
     async def test_resolver_receives_correct_user(
         self,
         registry: UserResponseRegistry,
-        faker: Faker,
+        users: list[User],
     ) -> None:
-        user_1 = await User.objects.acreate_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
-        user_2 = await User.objects.acreate_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
+        user_1, user_2 = users[:2]
 
         async def resolver(user: User) -> str:
             return user.username
@@ -213,3 +217,59 @@ class TestUserResponseRegistry:
 
         assert data_1["username_copy"] == user_1.username
         assert data_2["username_copy"] == user_2.username
+
+    async def test_dump_many_with_default_batch_resolver(
+        self,
+        registry: UserResponseRegistry,
+        users: list[User],
+    ) -> None:
+        subset = users[:2]
+        registry.register("alias", str)
+
+        subset[0].alias = "alpha"  # type: ignore[attr-defined]
+        subset[1].alias = "beta"  # type: ignore[attr-defined]
+
+        payloads = await registry.dump_many(subset)
+
+        assert [entry["alias"] for entry in payloads] == ["alpha", "beta"]
+
+    async def test_dump_many_with_custom_batch_resolver(
+        self,
+        registry: UserResponseRegistry,
+        users: list[User],
+    ) -> None:
+        subset = users[:3]
+
+        async def batch_resolver(batch: Sequence[User]) -> list[str]:
+            return [user.username.upper() for user in batch]
+
+        registry.register(
+            "username_upper",
+            str,
+            batch_resolver=batch_resolver,
+        )
+
+        payloads = await registry.dump_many(subset)
+
+        assert [entry["username_upper"] for entry in payloads] == [
+            user.username.upper() for user in subset
+        ]
+
+    async def test_dump_many_raises_on_length_mismatch(
+        self,
+        registry: UserResponseRegistry,
+        users: list[User],
+    ) -> None:
+        subset = users[:2]
+
+        async def bad_batch(_: Sequence[User]) -> list[str]:
+            return ["only-one"]
+
+        registry.register(
+            "username_copy",
+            str,
+            batch_resolver=bad_batch,
+        )
+
+        with pytest.raises(ValueError):
+            await registry.dump_many(subset)
