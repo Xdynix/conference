@@ -38,6 +38,7 @@ def user_serialized(user: User) -> JsonValue:
         "uid": str(user.uid),
         "username": user.username,
         "email": user.email,
+        "managed": user.managed,
     }
 
 

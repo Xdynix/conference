@@ -15,7 +15,7 @@ from app.core.auth import has_permissions
 from app.core.models import User
 from app.core.registry.create_user import create_user_registry
 from app.core.registry.user_response import user_response_registry
-from app.core.types import EmailStr, HttpRequest, Password, Username
+from app.core.types import AuthedHttpRequest, EmailStr, HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 from app.utils.throttling import AnonThrottle, throttling
@@ -30,6 +30,7 @@ def create_new_user(
     username: Username,
     email: str,
     password: Password,
+    managed: bool,
     payload: Any,
 ) -> User:
     # Create a temporary user to validate password.
@@ -41,6 +42,7 @@ def create_new_user(
             username=username,
             email=email,
             password=password.get_secret_value(),
+            managed=managed,
         )
     except IntegrityError as exc:
         message = _("A user with that username or email already exists.")
@@ -88,6 +90,7 @@ async def create_registration(
         username=payload.username,  # type: ignore[attr-defined]
         email=payload.email,  # type: ignore[attr-defined]
         password=payload.password,  # type: ignore[attr-defined]
+        managed=False,
         payload=payload,
     )
     await alogin(request, user)
@@ -100,6 +103,7 @@ class BaseCreateUserRequest(Schema):
     username: Username
     email: EmailStr | Literal[""] = ""
     password: Password
+    managed: bool = False
 
 
 CreateUserRequest = create_user_registry.extend_schema(
@@ -118,7 +122,7 @@ CreateUserRequest = create_user_registry.extend_schema(
     auth=has_permissions(User.WRITE),
 )
 async def create_user(
-    request: HttpRequest,
+    request: AuthedHttpRequest,
     payload: CreateUserRequest,  # type: ignore[valid-type]
 ) -> tuple[int, dict[str, Any]]:
     """Create a new user account by admin.
@@ -130,6 +134,7 @@ async def create_user(
         username=payload.username,  # type: ignore[attr-defined]
         email=payload.email,  # type: ignore[attr-defined]
         password=payload.password,  # type: ignore[attr-defined]
+        managed=payload.managed,  # type: ignore[attr-defined]
         payload=payload,
     )
     actor = await request.auser()

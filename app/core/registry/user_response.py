@@ -6,6 +6,7 @@ __all__ = (
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any, Literal
 
+from django.utils.translation import gettext as _
 from ninja import Field, Schema
 from pydantic import create_model
 from ulid import ULID
@@ -20,7 +21,13 @@ UserFieldBatchResolver = Callable[[Sequence[User]], Awaitable[Sequence[Any]]]
 class BaseUserSchema(Schema):
     uid: ULID
     username: str = Field(examples=["user"])
-    email: EmailStr | Literal[""] = Field(title="Email Address")
+    email: EmailStr | Literal[""] = Field(title=_("Email Address"))
+    managed: bool = Field(
+        description=_(
+            "Whether this user is controlled by the system. "
+            "Managed users cannot modify their username and email."
+        )
+    )
 
 
 class UserResponseRegistry:
@@ -127,7 +134,7 @@ class UserResponseRegistry:
         """
         data = self.base_schema.model_validate(user).model_dump()
 
-        for key, (_, resolve, _) in self._registry.items():
+        for key, (__, resolve, __) in self._registry.items():
             data[key] = await resolve(user)
 
         return data
@@ -150,7 +157,7 @@ class UserResponseRegistry:
             self.base_schema.model_validate(user).model_dump() for user in users
         ]
 
-        for key, (_, _, batch_resolve) in self._registry.items():
+        for key, (__, __, batch_resolve) in self._registry.items():
             values = await batch_resolve(users)
             for data, value in zip(all_data, values, strict=True):
                 data[key] = value

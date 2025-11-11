@@ -23,12 +23,14 @@ def mock_validate_password(mocker: MockerFixture) -> MagicMock:
 class TestCreateRegistration:
     path = reverse("api-1.0.0:create-registration")
 
+    @pytest.mark.parametrize("managed", [True, False])
     def test_happy_path(
         self,
         faker: Faker,
         api_client: Client,
         mock_cf_turnstile: MagicMock,
         mock_validate_password: MagicMock,
+        managed: bool,
     ) -> None:
         username = faker.user_name()
         email = faker.email()
@@ -41,12 +43,14 @@ class TestCreateRegistration:
                 "username": username,
                 "email": email_token,
                 "password": password,
+                "managed": managed,  # Should be ignored.
             },
         )
         assert response.status_code == HTTPStatus.CREATED
         data = response.json()
         assert data["user"]["username"] == username
         assert data["user"]["email"] == email
+        assert data["user"]["managed"] is False
         assert "uid" in data["user"]
         assert "password" not in data["user"]
 
@@ -199,12 +203,14 @@ class TestCreateUser:
         RoleAssignment.objects.create(user=user, role=writer_role)
         return user
 
+    @pytest.mark.parametrize("managed", [True, False])
     def test_happy_path(
         self,
         faker: Faker,
         api_client: Client,
         authorized_user: User,
         mock_validate_password: MagicMock,
+        managed: bool,
     ) -> None:
         username = faker.user_name()
         email = faker.email()
@@ -217,12 +223,14 @@ class TestCreateUser:
                 "username": username,
                 "email": email,
                 "password": password,
+                "managed": managed,
             },
         )
         assert response.status_code == HTTPStatus.CREATED
         data = response.json()
         assert data["username"] == username
         assert data["email"] == email
+        assert data["managed"] is managed
         assert "uid" in data
         assert "password" not in data
 
@@ -231,7 +239,7 @@ class TestCreateUser:
         user = User.objects.get(username=username)
         assert user.email == email
         assert user.check_password(password)
-        assert not user.managed
+        assert user.managed is managed
         assert user.is_active
 
     def test_duplicate_username(
