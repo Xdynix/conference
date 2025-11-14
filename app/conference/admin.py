@@ -59,8 +59,8 @@ class ConferenceAdmin(admin.ModelAdmin[Conference]):
     date_hierarchy = "create_time"
     filter_horizontal = ("keywords",)
     inlines = (ConferenceRoleAssignmentInline,)
-    list_display = ("__str__", "display_name", "active", "create_time")
-    list_filter = ("active",)
+    list_display = ("__str__", "display_name", "visibility", "active", "create_time")
+    list_filter = ("active", "visibility")
     readonly_fields = ("create_time", "update_time")
     search_fields = ("name", "display_name")
     # TODO: Add clone operation.
@@ -83,8 +83,8 @@ class TrackRoleAssignmentInline(admin.TabularInline[TrackRoleAssignment, Track])
 class TrackAdmin(admin.ModelAdmin[Track]):
     date_hierarchy = "create_time"
     inlines = (TrackRoleAssignmentInline,)
-    list_display = ("__str__", "active", "create_time")
-    list_filter = ("active", "conference")
+    list_display = ("__str__", "visibility", "active", "create_time")
+    list_filter = ("active", "visibility", "conference")
     list_select_related = ("conference",)
     autocomplete_fields = ("conference",)
     readonly_fields = ("uid", "create_time", "update_time")

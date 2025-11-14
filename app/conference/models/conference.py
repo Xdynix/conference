@@ -7,6 +7,10 @@ from .keyword import Keyword
 
 
 class Conference(TimeStampedModel):
+    class Visibility(models.TextChoices):
+        PUBLIC = "Public", _("Public")
+        ADMIN_ONLY = "Admin-Only", _("Admin-Only")
+
     name = models.SlugField(
         _("name"),
         max_length=255,
@@ -36,13 +40,18 @@ class Conference(TimeStampedModel):
             "and will not be enforced."
         ),
     )
-    # TODO: Add visibility status (e.g. private/public).
+    visibility = models.CharField(
+        _("visibility"),
+        max_length=128,
+        choices=Visibility,
+        default=Visibility.ADMIN_ONLY,
+    )
 
     class Meta:
         verbose_name = _("conference")
         verbose_name_plural = _("conferences")
         indexes = (
-            models.Index(fields=("active", "create_time")),
+            models.Index(fields=("active", "visibility", "create_time")),
             models.Index(fields=("create_time",)),
         )
 
@@ -51,6 +60,10 @@ class Conference(TimeStampedModel):
 
 
 class Track(TimeStampedModel, ULIDModel):
+    class Visibility(models.TextChoices):
+        PUBLIC = "Public", _("Public")
+        ADMIN_ONLY = "Admin-Only", _("Admin-Only")
+
     conference = models.ForeignKey(
         Conference,
         on_delete=models.CASCADE,
@@ -76,14 +89,27 @@ class Track(TimeStampedModel, ULIDModel):
         default=0,
         help_text=_("Determines the display order of tracks."),
     )
-    # TODO: Add visibility status (e.g. private/public).
+    visibility = models.CharField(
+        _("visibility"),
+        max_length=128,
+        choices=Visibility,
+        default=Visibility.ADMIN_ONLY,
+    )
 
     class Meta:
         verbose_name = _("track")
         verbose_name_plural = _("tracks")
         ordering = ("conference", "ordering", "display_name")
         indexes = (
-            models.Index(fields=("conference", "active", "ordering", "display_name")),
+            models.Index(
+                fields=(
+                    "conference",
+                    "active",
+                    "visibility",
+                    "ordering",
+                    "display_name",
+                ),
+            ),
             models.Index(fields=("conference", "ordering", "display_name")),
         )
 
