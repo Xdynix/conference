@@ -1,8 +1,8 @@
 roles:
-  - model: core.role
-    name: super_admin
-    display_name: Super Admin
-    description: Full access to all administrative capabilities.
+  - model: conference.conferencerole
+    name: conference_admin
+    display_name: Conference Admin
+    description: Full administrative access to a conference and its tracks.
     permissions:
       - conference.admin_conference
       - conference.admin_track
@@ -10,6 +10,3 @@ roles:
       - conference.read_track
       - conference.write_conference
       - conference.write_track
-      - core.admin_user
-      - core.read_user
-      - core.write_user

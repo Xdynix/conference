@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from app.utils.models import TimeStampedModel, ULIDModel
+from app.utils.perm import Perm
 
 from .keyword import Keyword
 
@@ -46,6 +47,10 @@ class Conference(TimeStampedModel):
         choices=Visibility,
         default=Visibility.ADMIN_ONLY,
     )
+
+    READ = Perm()
+    WRITE = Perm()
+    ADMIN = Perm()
 
     class Meta:
         verbose_name = _("conference")
@@ -95,6 +100,10 @@ class Track(TimeStampedModel, ULIDModel):
         choices=Visibility,
         default=Visibility.ADMIN_ONLY,
     )
+
+    READ = Perm()
+    WRITE = Perm()
+    ADMIN = Perm()
 
     class Meta:
         verbose_name = _("track")
