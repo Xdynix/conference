@@ -73,6 +73,61 @@ time, so verify current layout when needed.
 - Write async-compatible middleware and utilities.
 - Use async context managers and iterators where appropriate.
 
+#### Async/Sync Boundaries and Transactions
+
+Django's transaction primitives (`transaction.atomic`, `select_for_update`, etc.) are
+sync-only. Keep transactional logic synchronous and insert a single context switch at
+the request boundary so ORM behavior stays predictable.
+
+**Key principles**:
+
+- **Keep transactions sync**: Methods that own a transaction must be synchronous. This
+  allows Django to manage the connection correctly and keeps nested transactions safe.
+- **Switch once at the edge**: Async API views should call transactional services with
+  `sync_to_async()` so only one hop occurs.
+- **Enable sync reuse**: When services remain sync, other sync code paths (signals,
+  Django admin, management commands) can reuse them without extra wrappers.
+- **Share helpers**: Put transactional helpers in the service layer and keep async view
+  helpers thin wrappers that orchestrate I/O and logging.
+
+**Example pattern**:
+
+```python
+# services.py - transactional work stays sync
+from django.db import transaction
+
+
+class MyService:
+    @classmethod
+    @transaction.atomic()
+    def transactional_operation(cls, user: User) -> None:
+        user.refresh_from_db()
+        Related.objects.create(user=user)
+
+
+# api.py - async boundary does the context switch
+from asgiref.sync import sync_to_async
+
+
+@router.post("/endpoint")
+async def my_endpoint(request: HttpRequest) -> dict[str, str]:
+    user = await request.auser()
+    await sync_to_async(MyService.transactional_operation)(user)
+    return {"status": "ok"}
+```
+
+**Anti-pattern (avoid)**:
+
+```python
+# Never stack @sync_to_async on top of a transactional method.
+class MyService:
+    @classmethod
+    @sync_to_async  # WRONG: wrapper hides sync-only behavior
+    @transaction.atomic()
+    def transactional_operation(cls, user: User) -> None:
+        ...
+```
+
 ### Code Organization
 
 - Follow Django's app-based architecture with clear separation of concerns.

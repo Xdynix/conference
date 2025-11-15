@@ -4,7 +4,6 @@ import secrets
 from functools import partial
 from hashlib import sha256
 
-from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.db import transaction
@@ -29,7 +28,6 @@ class PasswordResetService:
     password_reset_email_body = "core/password-reset-email-body.html"  # noqa: S105
 
     @classmethod
-    @sync_to_async
     @logger.catch(reraise=True)
     def create_token(
         cls,
@@ -65,7 +63,6 @@ class PasswordResetService:
             return password_reset_token
 
     @classmethod
-    @sync_to_async
     @logger.catch(reraise=True)
     def consume_token(cls, user: User, token: str, new_password: Password) -> bool:
         """Consume a password reset token and set new password for the given user.

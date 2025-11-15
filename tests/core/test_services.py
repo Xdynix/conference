@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
+from asgiref.sync import sync_to_async
 from django.conf import LazySettings
 from django.http import HttpRequest
 from django.test import RequestFactory
@@ -15,7 +16,7 @@ from app.core.services import PasswordResetService
 from app.core.types import Password
 
 
-async def create_password_reset_token(
+def create_password_reset_token(
     user: User,
     token: str | None = None,
     token_hash: str | None = None,
@@ -32,7 +33,7 @@ async def create_password_reset_token(
     if expire_time is None:
         expire_time = timezone.now() + timedelta(hours=1)
 
-    return await PasswordResetToken.objects.acreate(
+    return PasswordResetToken.objects.create(
         user=user,
         token_hash=token_hash,
         create_time=create_time,
@@ -62,14 +63,14 @@ class TestPasswordResetServiceCreateToken:
     def mock_request(self, rf: RequestFactory) -> HttpRequest:
         return rf.post("https://example.com/foobar")
 
-    async def test_happy_path(
+    def test_happy_path(
         self,
         faker: Faker,
         mocker: MockerFixture,
         mock_send_email: MagicMock,
         mock_request: HttpRequest,
     ) -> None:
-        user = await User.objects.acreate_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
         )
@@ -80,9 +81,9 @@ class TestPasswordResetServiceCreateToken:
             return_value=token,
         )
 
-        result = await PasswordResetService.create_token(user, mock_request)
-
+        result = PasswordResetService.create_token(user, mock_request)
         assert result is not None
+
         assert result.user_id == user.id
         assert result.token_hash == PasswordResetService.hash_token(token)
         assert result.expire_time > timezone.now()
@@ -90,52 +91,52 @@ class TestPasswordResetServiceCreateToken:
         mock_generate.assert_called_once()
         mock_send_email.assert_called_once_with(user, token, mock_request)
 
-    async def test_returns_none_when_rate_limited(
+    def test_returns_none_when_rate_limited(
         self,
         faker: Faker,
         mock_send_email: MagicMock,
         mock_request: HttpRequest,
     ) -> None:
-        user = await User.objects.acreate_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
         )
         recent_time = timezone.now() - timedelta(seconds=30)
-        await create_password_reset_token(user, create_time=recent_time)
+        create_password_reset_token(user, create_time=recent_time)
 
-        result = await PasswordResetService.create_token(user, mock_request)
-
+        result = PasswordResetService.create_token(user, mock_request)
         assert result is None
-        mock_send_email.assert_not_called()
-        assert await PasswordResetToken.objects.filter(user=user).acount() == 1
 
-    async def test_allows_new_token_after_rate_limit_expires(
+        mock_send_email.assert_not_called()
+        assert PasswordResetToken.objects.filter(user=user).count() == 1
+
+    def test_allows_new_token_after_rate_limit_expires(
         self,
         faker: Faker,
         mock_send_email: MagicMock,
         mock_request: HttpRequest,
     ) -> None:
-        user = await User.objects.acreate_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
         )
         old_time = timezone.now() - timedelta(seconds=120)
-        await create_password_reset_token(user, create_time=old_time)
+        create_password_reset_token(user, create_time=old_time)
 
-        result = await PasswordResetService.create_token(user, mock_request)
-
+        result = PasswordResetService.create_token(user, mock_request)
         assert result is not None
+
         assert result.user_id == user.id
         mock_send_email.assert_called_once()
 
-    async def test_uses_database_transaction(
+    def test_uses_database_transaction(
         self,
         faker: Faker,
         mocker: MockerFixture,
         mock_send_email: MagicMock,
         mock_request: HttpRequest,
     ) -> None:
-        user = await User.objects.acreate_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
         )
@@ -146,9 +147,9 @@ class TestPasswordResetServiceCreateToken:
         )
 
         with pytest.raises(Exception, match="Database error"):
-            await PasswordResetService.create_token(user, mock_request)
+            PasswordResetService.create_token(user, mock_request)
 
-        assert not await PasswordResetToken.objects.filter(user=user).aexists()
+        assert not PasswordResetToken.objects.filter(user=user).exists()
         mock_send_email.assert_not_called()
 
     async def test_concurrent_requests_for_same_user(
@@ -163,7 +164,9 @@ class TestPasswordResetServiceCreateToken:
         )
 
         async def create_token_task() -> PasswordResetToken | None:
-            return await PasswordResetService.create_token(user, mock_request)
+            return await sync_to_async(PasswordResetService.create_token)(
+                user, mock_request
+            )
 
         results = await asyncio.gather(
             create_token_task(),
@@ -184,157 +187,157 @@ class TestPasswordResetServiceCreateToken:
 
 @pytest.mark.django_db(transaction=True)
 class TestPasswordResetServiceConsumeToken:
-    async def test_happy_path(self, faker: Faker) -> None:
+    def test_happy_path(self, faker: Faker) -> None:
         old_password = faker.password()
         new_password = faker.password()
-        user = await User.objects.acreate_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
             password=old_password,
         )
         token = "test_token_123"
-        token_obj = await create_password_reset_token(user, token=token)
+        token_obj = create_password_reset_token(user, token=token)
 
-        result = await PasswordResetService.consume_token(
+        result = PasswordResetService.consume_token(
             user,
             token,
             Password(new_password),
         )
-
         assert result is True
-        await user.arefresh_from_db()
-        assert not await user.acheck_password(old_password)
-        assert await user.acheck_password(new_password)
 
-        await token_obj.arefresh_from_db()
+        user.refresh_from_db()
+        assert not user.check_password(old_password)
+        assert user.check_password(new_password)
+
+        token_obj.refresh_from_db()
         assert token_obj.consume_time is not None
 
-    async def test_returns_false_for_invalid_token(self, faker: Faker) -> None:
+    def test_returns_false_for_invalid_token(self, faker: Faker) -> None:
         old_password = faker.password()
         new_password = faker.password()
-        user = await User.objects.acreate_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
             password=old_password,
         )
         correct_token = "test_token_123"
         wrong_token = "wrong_token_456"
-        token_obj = await create_password_reset_token(user, token=correct_token)
+        token_obj = create_password_reset_token(user, token=correct_token)
 
-        result = await PasswordResetService.consume_token(
+        result = PasswordResetService.consume_token(
             user,
             wrong_token,
             Password(new_password),
         )
-
         assert result is False
-        await user.arefresh_from_db()
-        assert await user.acheck_password(old_password)
-        assert not await user.acheck_password(new_password)
 
-        await token_obj.arefresh_from_db()
+        user.refresh_from_db()
+        assert user.check_password(old_password)
+        assert not user.check_password(new_password)
+
+        token_obj.refresh_from_db()
         assert token_obj.consume_time is None
 
-    async def test_returns_false_for_expired_token(self, faker: Faker) -> None:
+    def test_returns_false_for_expired_token(self, faker: Faker) -> None:
         old_password = faker.password()
         new_password = faker.password()
-        user = await User.objects.acreate_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
             password=old_password,
         )
         token = "test_token_123"
-        token_obj = await create_password_reset_token(
+        token_obj = create_password_reset_token(
             user,
             token=token,
             expire_time=timezone.now() - timedelta(minutes=1),
         )
 
-        result = await PasswordResetService.consume_token(
+        result = PasswordResetService.consume_token(
             user,
             token,
             Password(new_password),
         )
-
         assert result is False
-        await user.arefresh_from_db()
-        assert await user.acheck_password(old_password)
-        assert not await user.acheck_password(new_password)
 
-        await token_obj.arefresh_from_db()
+        user.refresh_from_db()
+        assert user.check_password(old_password)
+        assert not user.check_password(new_password)
+
+        token_obj.refresh_from_db()
         assert token_obj.consume_time is None
 
-    async def test_returns_false_for_already_consumed_token(self, faker: Faker) -> None:
+    def test_returns_false_for_already_consumed_token(self, faker: Faker) -> None:
         old_password = faker.password()
         new_password = faker.password()
-        user = await User.objects.acreate_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
             password=old_password,
         )
         token = "test_token_123"
-        await create_password_reset_token(
+        create_password_reset_token(
             user,
             token=token,
             consume_time=timezone.now() - timedelta(minutes=1),
         )
 
-        result = await PasswordResetService.consume_token(
+        result = PasswordResetService.consume_token(
             user,
             token,
             Password(new_password),
         )
-
         assert result is False
-        await user.arefresh_from_db()
-        assert await user.acheck_password(old_password)
-        assert not await user.acheck_password(new_password)
 
-    async def test_invalidates_all_active_tokens_on_success(self, faker: Faker) -> None:
+        user.refresh_from_db()
+        assert user.check_password(old_password)
+        assert not user.check_password(new_password)
+
+    def test_invalidates_all_active_tokens_on_success(self, faker: Faker) -> None:
         old_password = faker.password()
         new_password = faker.password()
-        user = await User.objects.acreate_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
             password=old_password,
         )
         token1 = "test_token_123"
         token2 = "test_token_456"
-        token_obj1 = await create_password_reset_token(user, token=token1)
-        token_obj2 = await create_password_reset_token(user, token=token2)
+        token_obj1 = create_password_reset_token(user, token=token1)
+        token_obj2 = create_password_reset_token(user, token=token2)
 
-        result = await PasswordResetService.consume_token(
+        result = PasswordResetService.consume_token(
             user,
             token1,
             Password(new_password),
         )
-
         assert result is True
-        await user.arefresh_from_db()
-        assert not await user.acheck_password(old_password)
-        assert await user.acheck_password(new_password)
 
-        await token_obj1.arefresh_from_db()
-        await token_obj2.arefresh_from_db()
+        user.refresh_from_db()
+        assert not user.check_password(old_password)
+        assert user.check_password(new_password)
+
+        token_obj1.refresh_from_db()
         assert token_obj1.consume_time is not None
         assert token_obj1.expire_time > timezone.now()
+        token_obj2.refresh_from_db()
         assert token_obj2.consume_time is None
         assert token_obj2.expire_time <= timezone.now()
 
-    async def test_uses_database_transaction(
+    def test_uses_database_transaction(
         self,
         faker: Faker,
         mocker: MockerFixture,
     ) -> None:
         old_password = faker.password()
         new_password = faker.password()
-        user = await User.objects.acreate_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
             password=old_password,
         )
         token = "test_token_123"
-        token_obj = await create_password_reset_token(user, token=token)
+        token_obj = create_password_reset_token(user, token=token)
 
         mocker.patch.object(
             user,
@@ -343,17 +346,17 @@ class TestPasswordResetServiceConsumeToken:
         )
 
         with pytest.raises(Exception, match="Password update failed"):
-            await PasswordResetService.consume_token(
+            PasswordResetService.consume_token(
                 user,
                 token,
                 Password(new_password),
             )
 
-        await user.arefresh_from_db()
-        assert await user.acheck_password(old_password)
-        assert not await user.acheck_password(new_password)
+        user.refresh_from_db()
+        assert user.check_password(old_password)
+        assert not user.check_password(new_password)
 
-        await token_obj.arefresh_from_db()
+        token_obj.refresh_from_db()
         assert token_obj.consume_time is None
 
     async def test_concurrent_consumption_attempts(self, faker: Faker) -> None:
@@ -365,10 +368,10 @@ class TestPasswordResetServiceConsumeToken:
             password=old_password,
         )
         token = "test_token_123"
-        await create_password_reset_token(user, token=token)
+        await sync_to_async(create_password_reset_token)(user, token=token)
 
         async def consume_task() -> bool:
-            return await PasswordResetService.consume_token(
+            return await sync_to_async(PasswordResetService.consume_token)(
                 user,
                 token,
                 Password(new_password),

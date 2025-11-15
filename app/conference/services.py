@@ -1,6 +1,5 @@
 __all__ = ("InvitationService",)
 
-from asgiref.sync import sync_to_async
 from django.core.signing import BadSignature, Signer
 from django.db import transaction
 from django.utils import timezone
@@ -35,7 +34,6 @@ class InvitationService:
         return await Invitation.objects.filter(uid=invitation_uid).afirst()
 
     @classmethod
-    @sync_to_async
     @logger.catch(reraise=True)
     def redeem_invitation(cls, invitation: Invitation, user: User) -> bool:
         """Redeem an invitation by assigning roles to the user.

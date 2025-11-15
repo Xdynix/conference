@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated
 
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.http import JsonResponse
 from django.utils.translation import gettext as _
@@ -56,7 +57,7 @@ async def create_password_reset(
     # services (such as OIDC). Currently, this system does not implement such
     # authentication, but is reserved for future expansion.
     if user is not None and user.has_usable_password():
-        result = await PasswordResetService.create_token(user, request)
+        result = await sync_to_async(PasswordResetService.create_token)(user, request)
         if result is None:
             message = _("A password reset token was recently issued for this user.")
             interval_seconds = int(
@@ -114,7 +115,11 @@ async def consume_password_reset(
 
     validate_password_for_user(new_password, user)
 
-    if not await PasswordResetService.consume_token(user, token, new_password):
+    if not await sync_to_async(PasswordResetService.consume_token)(
+        user,
+        token,
+        new_password,
+    ):
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, error_msg)
 
     return ConsumePasswordResetResponse()

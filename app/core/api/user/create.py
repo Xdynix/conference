@@ -24,7 +24,6 @@ from app.verikit.types import VerifiedEmailStr
 from .core import UserResponse, router, validate_password_for_user
 
 
-@sync_to_async
 @transaction.atomic
 def create_new_user(
     username: Username,
@@ -86,7 +85,7 @@ async def create_registration(
     verification flow. Upon successful registration, the user is automatically logged in
     and a session is created.
     """
-    user = await create_new_user(
+    user = await sync_to_async(create_new_user)(
         username=payload.username,  # type: ignore[attr-defined]
         email=payload.email,  # type: ignore[attr-defined]
         password=payload.password,  # type: ignore[attr-defined]
@@ -130,7 +129,7 @@ async def create_user(
     Allows administrators with write permission to create user accounts. Unlike the
     registration endpoint, this does not require email verification.
     """
-    user = await create_new_user(
+    user = await sync_to_async(create_new_user)(
         username=payload.username,  # type: ignore[attr-defined]
         email=payload.email,  # type: ignore[attr-defined]
         password=payload.password,  # type: ignore[attr-defined]

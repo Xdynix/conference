@@ -1,7 +1,6 @@
 from collections.abc import Iterable, Mapping
 
 import pytest
-from asgiref.sync import sync_to_async
 from django.core.signing import BadSignature
 from django.utils import timezone
 from faker import Faker
@@ -170,20 +169,20 @@ class TestInvitationServiceRetrieveInvitation:
         assert result is None
 
 
-async def add_invitation_roles(
+def add_invitation_roles(
     invitation: Invitation,
     *,
     conference_roles: Iterable[ConferenceRole] = (),
     track_roles: Mapping[Track, Iterable[TrackRole]] | None = None,
 ) -> None:
     for conference_role in conference_roles:
-        await InvitationConferenceRoleEntry.objects.acreate(
+        InvitationConferenceRoleEntry.objects.create(
             invitation=invitation,
             role=conference_role,
         )
     for track, roles in (track_roles or {}).items():
         for track_role in roles:
-            await InvitationTrackRoleEntry.objects.acreate(
+            InvitationTrackRoleEntry.objects.create(
                 invitation=invitation,
                 track=track,
                 role=track_role,
@@ -213,21 +212,21 @@ class TestInvitationServiceRedeemInvitation:
             invitee_email=faker.email(),
         )
 
-    async def test_happy_path(self, invitee: User, invitation: Invitation) -> None:
-        result = await InvitationService.redeem_invitation(invitation, invitee)
-
+    def test_happy_path(self, invitee: User, invitation: Invitation) -> None:
+        result = InvitationService.redeem_invitation(invitation, invitee)
         assert result is True
-        await invitation.arefresh_from_db()
+
+        invitation.refresh_from_db()
         assert invitation.invitee_user_id == invitee.id
         assert invitation.accept_time == approx_now()
         assert invitation.status == Invitation.Status.ACCEPTED
 
-    async def test_returns_false_when_already_accepted(
+    def test_returns_false_when_already_accepted(
         self,
         invitee: User,
         invitation: Invitation,
     ) -> None:
-        await sync_to_async(update_object)(
+        update_object(
             invitation,
             invitee_user=invitee,
             accept_time=timezone.now(),
@@ -235,72 +234,69 @@ class TestInvitationServiceRedeemInvitation:
         original_accept_time = invitation.accept_time
         original_update_time = invitation.update_time
 
-        result = await InvitationService.redeem_invitation(invitation, invitee)
-
+        result = InvitationService.redeem_invitation(invitation, invitee)
         assert result is False
-        await invitation.arefresh_from_db()
+
+        invitation.refresh_from_db()
         assert invitation.accept_time == original_accept_time
         assert invitation.update_time == original_update_time
 
-    async def test_returns_true_when_already_rejected(
+    def test_returns_true_when_already_rejected(
         self,
         invitee: User,
         invitation: Invitation,
     ) -> None:
-        await sync_to_async(update_object)(
-            invitation,
-            reject_time=timezone.now(),
-        )
+        update_object(invitation, reject_time=timezone.now())
 
-        result = await InvitationService.redeem_invitation(invitation, invitee)
-
+        result = InvitationService.redeem_invitation(invitation, invitee)
         assert result is True
-        await invitation.arefresh_from_db()
+
+        invitation.refresh_from_db()
         assert invitation.invitee_user_id == invitee.id
         assert invitation.accept_time == approx_now()
         assert invitation.status == Invitation.Status.ACCEPTED
 
-    async def test_assigns_conference_roles(
+    def test_assigns_conference_roles(
         self,
         conference: Conference,
         invitee: User,
         invitation: Invitation,
     ) -> None:
-        await add_invitation_roles(
+        add_invitation_roles(
             invitation,
             conference_roles=[ConferenceRole.CHAIR, ConferenceRole.REVIEWER],
         )
 
-        result = await InvitationService.redeem_invitation(invitation, invitee)
-
+        result = InvitationService.redeem_invitation(invitation, invitee)
         assert result is True
-        assert await ConferenceRoleAssignment.objects.filter(
+
+        assert ConferenceRoleAssignment.objects.filter(
             user=invitee,
             conference=conference,
             role=ConferenceRole.CHAIR,
-        ).aexists()
-        assert await ConferenceRoleAssignment.objects.filter(
+        ).exists()
+        assert ConferenceRoleAssignment.objects.filter(
             user=invitee,
             conference=conference,
             role=ConferenceRole.REVIEWER,
-        ).aexists()
+        ).exists()
 
-    async def test_assigns_track_roles(
+    def test_assigns_track_roles(
         self,
         faker: Faker,
         conference: Conference,
         invitee: User,
         invitation: Invitation,
     ) -> None:
-        track1 = await Track.objects.acreate(
+        track1 = Track.objects.create(
             conference=conference,
             display_name=faker.word(),
         )
-        track2 = await Track.objects.acreate(
+        track2 = Track.objects.create(
             conference=conference,
             display_name=faker.word(),
         )
-        await add_invitation_roles(
+        add_invitation_roles(
             invitation,
             track_roles={
                 track1: [TrackRole.SECRETARY, TrackRole.REVIEWER],
@@ -308,64 +304,64 @@ class TestInvitationServiceRedeemInvitation:
             },
         )
 
-        result = await InvitationService.redeem_invitation(invitation, invitee)
-
+        result = InvitationService.redeem_invitation(invitation, invitee)
         assert result is True
-        assert await TrackRoleAssignment.objects.filter(
+
+        assert TrackRoleAssignment.objects.filter(
             user=invitee,
             track=track1,
             role=TrackRole.SECRETARY,
-        ).aexists()
-        assert await TrackRoleAssignment.objects.filter(
+        ).exists()
+        assert TrackRoleAssignment.objects.filter(
             user=invitee,
             track=track1,
             role=TrackRole.REVIEWER,
-        ).aexists()
-        assert await TrackRoleAssignment.objects.filter(
+        ).exists()
+        assert TrackRoleAssignment.objects.filter(
             user=invitee,
             track=track2,
             role=TrackRole.SECRETARY,
-        ).aexists()
+        ).exists()
 
-    async def test_ignores_duplicate_role_assignments(
+    def test_ignores_duplicate_role_assignments(
         self,
         conference: Conference,
         track: Track,
         invitee: User,
         invitation: Invitation,
     ) -> None:
-        await ConferenceRoleAssignment.objects.acreate(
+        ConferenceRoleAssignment.objects.create(
             user=invitee,
             conference=conference,
             role=ConferenceRole.CHAIR,
         )
-        await TrackRoleAssignment.objects.acreate(
+        TrackRoleAssignment.objects.create(
             user=invitee,
             track=track,
             role=TrackRole.SECRETARY,
         )
-        await add_invitation_roles(
+        add_invitation_roles(
             invitation,
             conference_roles=[ConferenceRole.CHAIR],
             track_roles={track: [TrackRole.SECRETARY]},
         )
 
-        result = await InvitationService.redeem_invitation(invitation, invitee)
-
+        result = InvitationService.redeem_invitation(invitation, invitee)
         assert result is True
+
         assert (
-            await ConferenceRoleAssignment.objects.filter(
+            ConferenceRoleAssignment.objects.filter(
                 user=invitee,
                 conference=conference,
                 role=ConferenceRole.CHAIR,
-            ).acount()
+            ).count()
             == 1
         )
         assert (
-            await TrackRoleAssignment.objects.filter(
+            TrackRoleAssignment.objects.filter(
                 user=invitee,
                 track=track,
                 role=TrackRole.SECRETARY,
-            ).acount()
+            ).count()
             == 1
         )

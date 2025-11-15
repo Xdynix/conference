@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated, Any
 
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from django.utils.translation import gettext as _
@@ -48,7 +49,9 @@ async def create_email_verification(
     Returns the verification details if successful. Returns 429 if a verification code
     was recently issued for this email.
     """
-    email_verification = await EmailVerificationService.issue_code(payload.email)
+    email_verification = await sync_to_async(EmailVerificationService.issue_code)(
+        payload.email
+    )
     if email_verification is None:
         message = _("A verification code was recently issued for this email address.")
         interval_seconds = int(settings.VERIKIT_EMAIL_CODE_INTERVAL.total_seconds())
@@ -112,7 +115,10 @@ async def verify_email_verification(
 
     Returns 422 if the code is invalid or expired.
     """
-    token = await EmailVerificationService.verify_code(payload.email, payload.code)
+    token = await sync_to_async(EmailVerificationService.verify_code)(
+        payload.email,
+        payload.code,
+    )
     if token is None:
         raise HttpError(
             HTTPStatus.UNPROCESSABLE_ENTITY,

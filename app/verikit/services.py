@@ -2,7 +2,6 @@ import secrets
 import string
 from functools import partial
 
-from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import EmailMessage
@@ -32,7 +31,6 @@ class EmailVerificationService:
     verification_email_body = "verikit/verification-email-body.html"
 
     @classmethod
-    @sync_to_async
     @logger.catch(reraise=True)
     def issue_code(cls, email: str) -> EmailVerification | None:
         """Issues a new verification code for the given email address.
@@ -66,7 +64,6 @@ class EmailVerificationService:
             return email_verification
 
     @classmethod
-    @sync_to_async
     @logger.catch(reraise=True)
     def verify_code(cls, email: str, code: str) -> str | None:
         """Verifies the given code for the given email address.
