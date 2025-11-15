@@ -20,10 +20,12 @@ class TestGetCurrentUser:
 
     @pytest.fixture
     def user(self, faker: Faker) -> User:
-        return User.objects.create_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
         )
+        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.READ_ALL)
+        return user
 
     def test_happy_path(
         self,
@@ -40,6 +42,7 @@ class TestGetCurrentUser:
         assert data["username"] == user.username
         assert data["email"] == user.email
         assert data["managed"] == user.managed
+        assert data["roles"] == [GlobalRole.READ_ALL]
 
     def test_unauthenticated_user_unauthorized(
         self,
@@ -63,10 +66,12 @@ class TestGetUser:
 
     @pytest.fixture
     def user(self, faker: Faker) -> User:
-        return User.objects.create_user(
+        user = User.objects.create_user(
             username=faker.user_name(),
             email=faker.email(),
         )
+        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
+        return user
 
     def test_happy_path(
         self,
@@ -84,6 +89,7 @@ class TestGetUser:
         assert data["username"] == user.username
         assert data["email"] == user.email
         assert data["managed"] == user.managed
+        assert data["roles"] == [GlobalRole.ADMIN]
 
     def test_inactive_user_not_found(
         self,

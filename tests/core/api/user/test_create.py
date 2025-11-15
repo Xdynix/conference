@@ -55,6 +55,7 @@ class TestCreateRegistration:
         assert data["user"]["username"] == username
         assert data["user"]["email"] == email
         assert data["user"]["managed"] is False
+        assert data["user"]["roles"] == []
         assert "uid" in data["user"]
         assert "password" not in data["user"]
 
@@ -228,6 +229,7 @@ class TestCreateUser:
         assert data["username"] == username
         assert data["email"] == email
         assert data["managed"] is managed
+        assert data["roles"] == []
         assert "uid" in data
         assert "password" not in data
 

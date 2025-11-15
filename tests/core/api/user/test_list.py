@@ -25,13 +25,16 @@ class TestListUsers:
 
     @pytest.fixture
     def users(self) -> list[User]:
-        return [
+        users = [
             User.objects.create_user(
                 username=f"user{i}",
                 email=f"user{i}@example.com",
             )
             for i in range(5)
         ]
+        GlobalRoleAssignment.objects.create(user=users[0], role=GlobalRole.ADMIN)
+        GlobalRoleAssignment.objects.create(user=users[1], role=GlobalRole.READ_ALL)
+        return users
 
     def test_happy_path(
         self,

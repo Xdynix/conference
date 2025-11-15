@@ -11,7 +11,7 @@ from ninja import Field, Schema
 from pydantic import create_model
 from ulid import ULID
 
-from app.core.models import User
+from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from app.core.types import EmailStr
 
 UserFieldResolver = Callable[[User], Awaitable[Any]]
@@ -166,3 +166,33 @@ class UserResponseRegistry:
 
 
 user_response_registry = UserResponseRegistry()
+
+
+async def _get_user_roles(user: User) -> list[str]:
+    return [
+        role
+        async for role in GlobalRoleAssignment.objects.filter(user=user)
+        .order_by("role")
+        .values_list("role", flat=True)
+        .distinct()
+    ]
+
+
+async def _batch_get_user_roles(users: Sequence[User]) -> Sequence[list[str]]:
+    user_ids = [user.id for user in users]
+    # TODO: Chunk user_ids into batches of ~1000 to avoid SQL parameter limits.
+    assignments = GlobalRoleAssignment.objects.filter(user_id__in=user_ids).order_by(
+        "role"
+    )
+    role_map: dict[int, list[str]] = {user.id: [] for user in users}
+    async for user_id, role in assignments.values_list("user_id", "role"):
+        role_map[user_id].append(role)
+    return [role_map[user.id] for user in users]
+
+
+user_response_registry.register(
+    "roles",
+    (list[str], Field(examples=[[GlobalRole.ADMIN]])),
+    resolver=_get_user_roles,
+    batch_resolver=_batch_get_user_roles,
+)
