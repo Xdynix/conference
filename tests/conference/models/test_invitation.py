@@ -5,27 +5,31 @@ from faker import Faker
 
 from app.conference.models import (
     Conference,
+    ConferenceRole,
     Invitation,
-    InvitationTrackEntry,
+    InvitationConferenceRoleEntry,
+    InvitationTrackRoleEntry,
     Track,
     TrackRole,
 )
 from app.core.models import User
 
 
+@pytest.fixture
+def conference(faker: Faker) -> Conference:
+    return Conference.objects.create(
+        name=faker.slug(),
+        display_name=faker.sentence(),
+    )
+
+
+@pytest.fixture
+def inviter(faker: Faker) -> User:
+    return User.objects.create_user(username=faker.user_name())
+
+
 @pytest.mark.django_db
 class TestInvitation:
-    @pytest.fixture
-    def conference(self, faker: Faker) -> Conference:
-        return Conference.objects.create(
-            name=faker.slug(),
-            display_name=faker.sentence(),
-        )
-
-    @pytest.fixture
-    def inviter(self, faker: Faker) -> User:
-        return User.objects.create_user(username=faker.user_name())
-
     def test_str_pending(self) -> None:
         conference = Conference(name="CBPK-2020")
         invitation = Invitation(
@@ -158,24 +162,48 @@ class TestInvitation:
 
 
 @pytest.mark.django_db
-class TestInvitationTrackEntry:
+class TestInvitationConferenceRoleEntry:
     @pytest.fixture
-    def conference(self, faker: Faker) -> Conference:
-        return Conference.objects.create(
-            name=faker.slug(),
-            display_name=faker.sentence(),
+    def invitation(
+        self,
+        faker: Faker,
+        conference: Conference,
+        inviter: User,
+    ) -> Invitation:
+        return Invitation.objects.create(
+            conference=conference,
+            inviter=inviter,
+            invitee_email=faker.email(),
         )
 
+    def test_str(self, invitation: Invitation) -> None:
+        entry = InvitationConferenceRoleEntry.objects.create(
+            invitation=invitation,
+            role=ConferenceRole.SECRETARY,
+        )
+        assert "Secretary" in str(entry)
+
+    def test_unique_invitation_role(self, invitation: Invitation) -> None:
+        InvitationConferenceRoleEntry.objects.create(
+            invitation=invitation,
+            role=ConferenceRole.SECRETARY,
+        )
+
+        with pytest.raises(IntegrityError):
+            InvitationConferenceRoleEntry.objects.create(
+                invitation=invitation,
+                role=ConferenceRole.SECRETARY,
+            )
+
+
+@pytest.mark.django_db
+class TestInvitationTrackRoleEntry:
     @pytest.fixture
     def track(self, faker: Faker, conference: Conference) -> Track:
         return Track.objects.create(
             conference=conference,
             display_name=faker.sentence(),
         )
-
-    @pytest.fixture
-    def inviter(self, faker: Faker) -> User:
-        return User.objects.create_user(username=faker.user_name())
 
     @pytest.fixture
     def invitation(
@@ -190,64 +218,28 @@ class TestInvitationTrackEntry:
             invitee_email=faker.email(),
         )
 
-    @pytest.fixture
-    def reviewer_role(self) -> TrackRole:
-        return TrackRole.objects.create(
-            name="reviewer",
-            display_name="Track Reviewer",
-        )
-
-    @pytest.fixture
-    def chair_role(self) -> TrackRole:
-        return TrackRole.objects.create(
-            name="chair",
-            display_name="Track Chair",
-        )
-
-    def test_str_with_single_role(
-        self,
-        invitation: Invitation,
-        track: Track,
-        reviewer_role: TrackRole,
-    ) -> None:
-        entry = InvitationTrackEntry.objects.create(
+    def test_str(self, invitation: Invitation, track: Track) -> None:
+        entry = InvitationTrackRoleEntry.objects.create(
             invitation=invitation,
             track=track,
+            role=TrackRole.REVIEWER,
         )
-        entry.roles.add(reviewer_role)
+        assert "Reviewer" in str(entry)
 
-        str_repr = str(entry)
-        assert "reviewer" in str_repr
-
-    def test_str_with_multiple_roles(
-        self,
-        invitation: Invitation,
-        track: Track,
-        reviewer_role: TrackRole,
-        chair_role: TrackRole,
-    ) -> None:
-        entry = InvitationTrackEntry.objects.create(
-            invitation=invitation,
-            track=track,
-        )
-        entry.roles.add(chair_role, reviewer_role)
-
-        str_repr = str(entry)
-        assert "chair" in str_repr
-        assert "reviewer" in str_repr
-
-    def test_unique_invitation_track(
+    def test_unique_invitation_track_role(
         self,
         invitation: Invitation,
         track: Track,
     ) -> None:
-        InvitationTrackEntry.objects.create(
+        InvitationTrackRoleEntry.objects.create(
             invitation=invitation,
             track=track,
+            role=TrackRole.REVIEWER,
         )
 
         with pytest.raises(IntegrityError):
-            InvitationTrackEntry.objects.create(
+            InvitationTrackRoleEntry.objects.create(
                 invitation=invitation,
                 track=track,
+                role=TrackRole.REVIEWER,
             )

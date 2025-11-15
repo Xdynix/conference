@@ -9,8 +9,8 @@ from ninja import Schema
 from ninja.errors import HttpError
 from ulid import ULID
 
-from app.core.auth import has_permissions, is_authenticated
-from app.core.models import User
+from app.core.auth import has_any_roles, is_authenticated
+from app.core.models import GlobalRole, User
 from app.core.registry.user_response import user_response_registry
 from app.core.types import AuthedHttpRequest, EmailStr, Username
 from app.ninja.errors import ErrorResponse
@@ -116,7 +116,7 @@ class UpdateUserRequest(Schema):
         HTTPStatus.CONFLICT: ErrorResponse,
     },
     summary="Update User",
-    auth=has_permissions(User.ADMIN),
+    auth=has_any_roles(GlobalRole.ADMIN),
 )
 async def update_user(
     request: AuthedHttpRequest,

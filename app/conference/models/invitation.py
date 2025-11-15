@@ -64,13 +64,6 @@ class Invitation(
         blank=True,
         default=None,
     )
-    conference_roles = models.ManyToManyField(
-        ConferenceRole,
-        blank=True,
-        related_name="invitations",
-        related_query_name="invitation",
-        verbose_name=_("conference roles"),
-    )
     last_email_sent_time = models.DateTimeField(
         _("last email sent"),
         null=True,
@@ -111,12 +104,45 @@ class Invitation(
         return self.Status.PENDING
 
 
-class InvitationTrackEntry(models.Model):
+class InvitationConferenceRoleEntry(models.Model):
     invitation = models.ForeignKey(
         Invitation,
         on_delete=models.CASCADE,
-        related_name="track_entries",
-        related_query_name="track_entry",
+        related_name="conference_role_entries",
+        related_query_name="conference_role_entry",
+        verbose_name=_("invitation"),
+    )
+    role = models.CharField(_("role"), max_length=255, choices=ConferenceRole)
+
+    class Meta:
+        verbose_name = _("invitation conference role entry")
+        verbose_name_plural = _("invitation conference role entries")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("invitation", "role"),
+                name="unique_invitation_conference_role",
+                violation_error_code="unique",
+                violation_error_message=_(
+                    "A conference role entry already exists "
+                    "for this invitation and role."
+                ),
+            ),
+            models.CheckConstraint(
+                name="invitation_conference_role_entry_role_value",
+                condition=Q(role__in=ConferenceRole.values),
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.invitation}: {self.role}"
+
+
+class InvitationTrackRoleEntry(models.Model):
+    invitation = models.ForeignKey(
+        Invitation,
+        on_delete=models.CASCADE,
+        related_name="track_role_entries",
+        related_query_name="track_role_entry",
         verbose_name=_("invitation"),
     )
     track = models.ForeignKey(
@@ -125,27 +151,26 @@ class InvitationTrackEntry(models.Model):
         related_name="+",
         verbose_name=_("track"),
     )
-    roles = models.ManyToManyField(
-        TrackRole,
-        blank=True,
-        related_name="+",
-        verbose_name=_("roles"),
-    )
+    role = models.CharField(_("role"), max_length=255, choices=TrackRole)
 
     class Meta:
-        verbose_name = _("track entry")
-        verbose_name_plural = _("track entries")
+        verbose_name = _("invitation track role entry")
+        verbose_name_plural = _("invitation track role entries")
         constraints = (
             models.UniqueConstraint(
-                fields=("invitation", "track"),
-                name="unique_invitation_track",
+                fields=("invitation", "track", "role"),
+                name="unique_invitation_track_role",
                 violation_error_code="unique",
                 violation_error_message=_(
-                    "A track entry already exists for this invitation and track."
+                    "A track role entry already exists "
+                    "for this invitation, track and role."
                 ),
+            ),
+            models.CheckConstraint(
+                name="invitation_track_role_entry_role_value",
+                condition=Q(role__in=TrackRole.values),
             ),
         )
 
     def __str__(self) -> str:
-        roles = self.roles.order_by("name").values_list("name", flat=True)
-        return f"{self.invitation}: {self.track} - {', '.join(roles)}"
+        return f"{self.invitation}: {self.track.display_name} - {self.role}"

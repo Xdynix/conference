@@ -5,11 +5,9 @@ import pytest
 from django.test import Client
 from faker import Faker
 from ninja import NinjaAPI
-from pytest_mock import MockerFixture
 
-from app.core.auth import SessionAuth, has_permissions, is_authenticated, is_superuser
-from app.core.models import Permission, User
-from app.core.services import PermissionService
+from app.core.auth import SessionAuth, has_any_roles, is_authenticated, is_superuser
+from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from tests.base import URLConfTestCase, URLPatterns
 from tests.helpers import any_str, update_object
 
@@ -56,16 +54,19 @@ class TestIsAuthenticated(AuthTestCase):
     auth = is_authenticated
 
     @pytest.mark.parametrize("authenticated", [True, False])
+    @pytest.mark.parametrize("is_active", [True, False])
     def test_smoke(
         self,
         client: Client,
         user: User,
         authenticated: bool,
+        is_active: bool,
     ) -> None:
         if authenticated:
             client.force_login(user)
+        update_object(user, is_active=is_active)
         response = client.get(self.path)
-        if authenticated:
+        if authenticated and is_active:
             self.assert_response_is_ok(response)
         else:
             self.assert_response_is_unauthorized(response)
@@ -90,8 +91,8 @@ class TestIsSuperuser(AuthTestCase):
             self.assert_response_is_forbidden(response)
 
 
-class TestHasPermissionsSingle(AuthTestCase):
-    auth = has_permissions("read")
+class TestHasAnyRolesSingle(AuthTestCase):
+    auth = has_any_roles(GlobalRole.ADMIN)
 
     def test_unauthenticated_denied(self, client: Client) -> None:
         response = client.get(self.path)
@@ -99,33 +100,28 @@ class TestHasPermissionsSingle(AuthTestCase):
 
     def test_superuser_allowed(self, client: Client, user: User) -> None:
         update_object(user, is_superuser=True)
-        Permission.objects.create(key="read")
         client.force_login(user)
         response = client.get(self.path)
         self.assert_response_is_ok(response)
 
     @pytest.mark.parametrize(
-        "user_permissions,expected",
+        "user_roles,expected",
         [
-            ({"read"}, True),
-            ({"read", "write"}, True),
-            ({"write"}, False),
+            ({GlobalRole.ADMIN}, True),
+            ({GlobalRole.ADMIN, GlobalRole.READ_ALL}, True),
+            ({GlobalRole.READ_ALL}, False),
             (set(), False),
         ],
     )
     def test_smoke(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
-        user_permissions: set[str],
+        user_roles: set[GlobalRole],
         expected: bool,
     ) -> None:
-        mocker.patch.object(
-            PermissionService,
-            "get_permissions",
-            return_value=user_permissions,
-        )
+        for role in user_roles:
+            GlobalRoleAssignment.objects.create(user=user, role=role)
         client.force_login(user)
         response = client.get(self.path)
         if expected:
@@ -134,31 +130,37 @@ class TestHasPermissionsSingle(AuthTestCase):
             self.assert_response_is_forbidden(response)
 
 
-class TestHasPermissionsMulti(AuthTestCase):
-    auth = has_permissions("read", "write")
+class TestHasAnyRolesMulti(AuthTestCase):
+    auth = has_any_roles(GlobalRole.ADMIN, GlobalRole.READ_ALL)
+
+    def test_unauthenticated_denied(self, client: Client) -> None:
+        response = client.get(self.path)
+        self.assert_response_is_unauthorized(response)
+
+    def test_superuser_allowed(self, client: Client, user: User) -> None:
+        update_object(user, is_superuser=True)
+        client.force_login(user)
+        response = client.get(self.path)
+        self.assert_response_is_ok(response)
 
     @pytest.mark.parametrize(
-        "user_permissions,expected",
+        "user_roles,expected",
         [
-            ({"read"}, False),
-            ({"read", "write"}, True),
-            ({"write"}, False),
+            ({GlobalRole.ADMIN}, True),
+            ({GlobalRole.ADMIN, GlobalRole.READ_ALL}, True),
+            ({GlobalRole.READ_ALL}, True),
             (set(), False),
         ],
     )
     def test_smoke(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
-        user_permissions: set[str],
+        user_roles: set[GlobalRole],
         expected: bool,
     ) -> None:
-        mocker.patch.object(
-            PermissionService,
-            "get_permissions",
-            return_value=user_permissions,
-        )
+        for role in user_roles:
+            GlobalRoleAssignment.objects.create(user=user, role=role)
         client.force_login(user)
         response = client.get(self.path)
         if expected:

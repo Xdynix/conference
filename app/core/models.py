@@ -1,4 +1,3 @@
-from collections.abc import Container
 from typing import ClassVar, override
 
 from django.contrib.auth.models import AbstractUser
@@ -9,7 +8,11 @@ from django.db.models.functions import Lower
 from django.utils.translation import gettext_lazy as _
 
 from app.utils.models import TimeStampedModel, ULIDModel
-from app.utils.perm import Perm
+
+
+class GlobalRole(models.TextChoices):
+    ADMIN = "Admin", _("Admin")
+    READ_ALL = "Read All", _("Read All")
 
 
 class UserManager(DjangoUserManager["User"]):
@@ -42,10 +45,6 @@ class User(ULIDModel, AbstractUser):
 
     objects: ClassVar[UserManager] = UserManager()
 
-    READ = Perm()
-    WRITE = Perm()
-    ADMIN = Perm()
-
     class Meta:
         verbose_name = _("user")
         verbose_name_plural = _("users")
@@ -60,87 +59,29 @@ class User(ULIDModel, AbstractUser):
         )
 
 
-class Permission(models.Model):
-    key = models.CharField(_("key"), max_length=255, primary_key=True)
-
-    class Meta:
-        verbose_name = _("permission")
-        verbose_name_plural = _("permissions")
-
-    def __str__(self) -> str:
-        return self.key
-
-    @classmethod
-    async def to_keys(cls, qs: models.QuerySet["Permission"]) -> Container[str]:
-        return {key async for key in qs.values_list("key", flat=True).distinct()}
-
-
-class AbstractRole(models.Model):
-    name = models.CharField(
-        _("name"),
-        max_length=255,
-        primary_key=True,
-        help_text=_(
-            "Unique identifier for the role (e.g., 'admin', 'user', 'viewer')."
-        ),
-    )
-    display_name = models.CharField(
-        _("display name"),
-        max_length=255,
-        unique=True,
-        help_text=_("Human-readable name for the role."),
-    )
-    description = models.TextField(
-        _("description"),
-        blank=True,
-        default="",
-        help_text=_("Description of the role."),
-    )
-    permissions = models.ManyToManyField(
-        Permission,
-        blank=True,
-        verbose_name=_("permissions"),
-        help_text=_("Permissions granted to users with this role."),
-    )
-
-    class Meta:
-        abstract = True
-
-
-class Role(AbstractRole):
-    class Meta(AbstractRole.Meta):
-        verbose_name = _("role")
-        verbose_name_plural = _("roles")
-
-    def __str__(self) -> str:
-        return self.name
-
-
-class AbstractRoleAssignment(TimeStampedModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name=_("user"))
-
-    class Meta:
-        abstract = True
-
-
-class RoleAssignment(AbstractRoleAssignment):
-    role = models.ForeignKey(
-        Role,
+class GlobalRoleAssignment(TimeStampedModel):
+    user = models.ForeignKey(
+        User,
         on_delete=models.CASCADE,
-        related_name="assignments",
-        related_query_name="assignment",
-        verbose_name=_("role"),
+        related_name="global_role_assignments",
+        related_query_name="global_role_assignment",
+        verbose_name=_("user"),
     )
+    role = models.CharField(_("role"), max_length=255, choices=GlobalRole)
 
     class Meta:
-        verbose_name = _("role assignment")
-        verbose_name_plural = _("role assignments")
+        verbose_name = _("global role assignment")
+        verbose_name_plural = _("global role assignments")
         constraints = (
             models.UniqueConstraint(
                 fields=("user", "role"),
-                name="unique_user_role",
+                name="unique_global_role_assignment",
                 violation_error_code="unique",
                 violation_error_message=_("The role assignment already exists."),
+            ),
+            models.CheckConstraint(
+                name="global_role_assignment_role_value",
+                condition=Q(role__in=GlobalRole.values),
             ),
         )
         indexes = (models.Index(fields=("role",)),)

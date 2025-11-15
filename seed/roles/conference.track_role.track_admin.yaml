@@ -1,9 +1,0 @@
-roles:
-  - model: conference.trackrole
-    name: track_admin
-    display_name: Track Admin
-    description: Full administrative access to a track.
-    permissions:
-      - conference.admin_track
-      - conference.read_track
-      - conference.write_track

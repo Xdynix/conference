@@ -1,21 +1,22 @@
+from django.contrib.auth import get_user_model
 from django.db import models
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
-from app.core.models import AbstractRole, AbstractRoleAssignment
+from app.utils.models import TimeStampedModel
 
 from .conference import Conference, Track
 
-
-class ConferenceRole(AbstractRole):
-    class Meta(AbstractRole.Meta):
-        verbose_name = _("conference role")
-        verbose_name_plural = _("conference roles")
-
-    def __str__(self) -> str:
-        return self.name
+User = get_user_model()
 
 
-class ConferenceRoleAssignment(AbstractRoleAssignment):
+class ConferenceRole(models.TextChoices):
+    CHAIR = "Chair", _("Chair")
+    SECRETARY = "Secretary", _("Secretary")
+    REVIEWER = "Reviewer", _("Reviewer")
+
+
+class ConferenceRoleAssignment(TimeStampedModel):
     conference = models.ForeignKey(
         Conference,
         on_delete=models.CASCADE,
@@ -23,13 +24,14 @@ class ConferenceRoleAssignment(AbstractRoleAssignment):
         related_query_name="role_assignment",
         verbose_name=_("conference"),
     )
-    role = models.ForeignKey(
-        ConferenceRole,
+    user = models.ForeignKey(
+        User,
         on_delete=models.CASCADE,
-        related_name="assignments",
-        related_query_name="assignment",
-        verbose_name=_("role"),
+        related_name="conference_role_assignments",
+        related_query_name="conference_role_assignment",
+        verbose_name=_("user"),
     )
+    role = models.CharField(_("role"), max_length=255, choices=ConferenceRole)
 
     class Meta:
         verbose_name = _("conference role assignment")
@@ -37,11 +39,15 @@ class ConferenceRoleAssignment(AbstractRoleAssignment):
         constraints = (
             models.UniqueConstraint(
                 fields=("conference", "user", "role"),
-                name="unique_conference_user_role",
+                name="unique_conference_role_assignment",
                 violation_error_code="unique",
                 violation_error_message=_(
                     "The conference role assignment already exists."
                 ),
+            ),
+            models.CheckConstraint(
+                name="conference_role_assignment_role_value",
+                condition=Q(role__in=ConferenceRole.values),
             ),
         )
         indexes = (
@@ -53,16 +59,13 @@ class ConferenceRoleAssignment(AbstractRoleAssignment):
         return f"[{self.conference}] {self.role}: {self.user}"
 
 
-class TrackRole(AbstractRole):
-    class Meta(AbstractRole.Meta):
-        verbose_name = _("track role")
-        verbose_name_plural = _("track roles")
-
-    def __str__(self) -> str:
-        return self.name
+class TrackRole(models.TextChoices):
+    CHAIR = "Chair", _("Chair")
+    SECRETARY = "Secretary", _("Secretary")
+    REVIEWER = "Reviewer", _("Reviewer")
 
 
-class TrackRoleAssignment(AbstractRoleAssignment):
+class TrackRoleAssignment(TimeStampedModel):
     track = models.ForeignKey(
         Track,
         on_delete=models.CASCADE,
@@ -70,13 +73,14 @@ class TrackRoleAssignment(AbstractRoleAssignment):
         related_query_name="role_assignment",
         verbose_name=_("track"),
     )
-    role = models.ForeignKey(
-        TrackRole,
+    user = models.ForeignKey(
+        User,
         on_delete=models.CASCADE,
-        related_name="assignments",
-        related_query_name="assignment",
-        verbose_name=_("role"),
+        related_name="track_role_assignments",
+        related_query_name="track_role_assignment",
+        verbose_name=_("user"),
     )
+    role = models.CharField(_("role"), max_length=255, choices=TrackRole)
 
     class Meta:
         verbose_name = _("track role assignment")
@@ -84,9 +88,13 @@ class TrackRoleAssignment(AbstractRoleAssignment):
         constraints = (
             models.UniqueConstraint(
                 fields=("track", "user", "role"),
-                name="unique_track_user_role",
+                name="unique_track_role_assignment",
                 violation_error_code="unique",
                 violation_error_message=_("The track role assignment already exists."),
+            ),
+            models.CheckConstraint(
+                name="track_role_assignment_role_value",
+                condition=Q(role__in=TrackRole.values),
             ),
         )
         indexes = (

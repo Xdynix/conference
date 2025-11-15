@@ -7,8 +7,8 @@ from ninja import Schema
 from ninja.errors import ValidationError
 from ulid import ULID
 
-from app.core.auth import has_permissions, is_authenticated
-from app.core.models import User
+from app.core.auth import has_any_roles, is_authenticated
+from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest, Password
 
 from .core import aupdate_session_auth_hash, router, validate_password_for_user
@@ -68,7 +68,7 @@ class UpdateUserPasswordRequest(Schema):
     "/users/{ulid:user_id}/password",
     response={HTTPStatus.NO_CONTENT: None},
     summary="Change Password",
-    auth=has_permissions(User.ADMIN),
+    auth=has_any_roles(GlobalRole.ADMIN),
 )
 async def update_user_password(
     request: AuthedHttpRequest,

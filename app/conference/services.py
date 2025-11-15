@@ -1,67 +1,17 @@
-__all__ = (
-    "ConferencePermissionService",
-    "InvitationService",
-)
-
-from collections.abc import Container
+__all__ = ("InvitationService",)
 
 from asgiref.sync import sync_to_async
-from django.contrib.auth.models import AnonymousUser
 from django.core.signing import BadSignature, Signer
 from django.db import transaction
 from django.utils import timezone
 from loguru import logger
 
 from app.conference.models import (
-    Conference,
     ConferenceRoleAssignment,
     Invitation,
-    Track,
     TrackRoleAssignment,
 )
-from app.core.models import Permission, User
-
-
-class ConferencePermissionService:
-    @classmethod
-    async def get_conference_permissions(
-        cls,
-        user: User | AnonymousUser,
-        conference: Conference,
-    ) -> Container[str]:
-        """Return the conference-scoped permission keys for a given user."""
-        if not user.is_active or user.is_anonymous:
-            return set()
-
-        if user.is_superuser:
-            permissions = Permission.objects.all()
-        else:
-            permissions = Permission.objects.filter(
-                conferencerole__assignment__user=user,
-                conferencerole__assignment__conference=conference,
-            )
-
-        return await Permission.to_keys(permissions)
-
-    @classmethod
-    async def get_track_permissions(
-        cls,
-        user: User | AnonymousUser,
-        track: Track,
-    ) -> Container[str]:
-        """Return the track-scoped permission keys for a given user."""
-        if not user.is_active or user.is_anonymous:
-            return set()
-
-        if user.is_superuser:
-            permissions = Permission.objects.all()
-        else:
-            permissions = Permission.objects.filter(
-                trackrole__assignment__user=user,
-                trackrole__assignment__track=track,
-            )
-
-        return await Permission.to_keys(permissions)
+from app.core.models import User
 
 
 class InvitationService:
@@ -115,29 +65,28 @@ class InvitationService:
 
             conference_role_assignments = [
                 ConferenceRoleAssignment(
-                    user=user,
                     conference=invitation.conference,
+                    user=user,
                     role=role,
                 )
-                for role in invitation.conference_roles.all()
+                for role in invitation.conference_role_entries.values_list(
+                    "role", flat=True
+                )
             ]
             ConferenceRoleAssignment.objects.bulk_create(
                 conference_role_assignments,
                 ignore_conflicts=True,
             )
 
-            track_role_assignments = []
-            for track_entry in invitation.track_entries.select_related(
-                "track"
-            ).prefetch_related("roles"):
-                for role in track_entry.roles.all():
-                    track_role_assignments.append(
-                        TrackRoleAssignment(
-                            track=track_entry.track,
-                            user=user,
-                            role=role,
-                        )
-                    )
+            entries = invitation.track_role_entries
+            track_role_assignments = [
+                TrackRoleAssignment(
+                    track_id=track_id,
+                    user=user,
+                    role=role,
+                )
+                for track_id, role in entries.values_list("track_id", "role")
+            ]
             TrackRoleAssignment.objects.bulk_create(
                 track_role_assignments,
                 ignore_conflicts=True,

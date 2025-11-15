@@ -5,7 +5,11 @@ from django.test import Client
 from django.urls import reverse
 from faker import Faker
 
-from app.core.models import Permission, Role, RoleAssignment, User
+from app.core.models import (
+    GlobalRole,
+    GlobalRoleAssignment,
+    User,
+)
 from tests.helpers import update_object
 
 
@@ -14,16 +18,9 @@ class TestListUsers:
     path = reverse("api-1.0.0:list-users")
 
     @pytest.fixture
-    def reader_role(self) -> Role:
-        permission, _ = Permission.objects.get_or_create(key=User.READ)
-        role = Role.objects.create(name="reader", display_name="Reader")
-        role.permissions.add(permission)
-        return role
-
-    @pytest.fixture
-    def authorized_user(self, faker: Faker, reader_role: Role) -> User:
+    def authorized_user(self, faker: Faker) -> User:
         user = User.objects.create_user(username=faker.user_name())
-        RoleAssignment.objects.create(user=user, role=reader_role)
+        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
         return user
 
     @pytest.fixture

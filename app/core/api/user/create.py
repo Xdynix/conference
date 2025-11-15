@@ -11,8 +11,8 @@ from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 
 from app.core.api.session import Session, clean_request_user_cache
-from app.core.auth import has_permissions
-from app.core.models import User
+from app.core.auth import has_any_roles
+from app.core.models import GlobalRole, User
 from app.core.registry.create_user import create_user_registry
 from app.core.registry.user_response import user_response_registry
 from app.core.types import AuthedHttpRequest, EmailStr, HttpRequest, Password, Username
@@ -119,7 +119,7 @@ CreateUserRequest = create_user_registry.extend_schema(
         HTTPStatus.CONFLICT: ErrorResponse,
     },
     summary="Create User",
-    auth=has_permissions(User.WRITE),
+    auth=has_any_roles(GlobalRole.ADMIN),
 )
 async def create_user(
     request: AuthedHttpRequest,

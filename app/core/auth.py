@@ -1,6 +1,6 @@
 __all__ = (
     "SessionAuth",
-    "has_permissions",
+    "has_any_roles",
     "is_authenticated",
     "is_superuser",
 )
@@ -12,8 +12,7 @@ from typing import Any
 from ninja.errors import AuthorizationError
 from ninja.security import SessionAuth as SyncSessionAuth
 
-from app.core.models import User
-from app.core.services import PermissionService
+from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from app.core.types import HttpRequest
 
 
@@ -42,7 +41,7 @@ class SessionAuth(SyncSessionAuth):
         key: str | None,  # noqa: ARG002
     ) -> User | None:
         user = await request.auser()
-        if user.is_authenticated:
+        if user.is_authenticated and user.is_active:
             return user
         return None
 
@@ -62,10 +61,14 @@ async def is_superuser(_: Any, user: User) -> bool:
     return user.is_superuser
 
 
-def has_permissions(*permissions: str) -> SessionAuth:
+def has_any_roles(*roles: GlobalRole) -> SessionAuth:
     @authorization
-    async def _has_permissions(_: Any, user: User) -> bool:
-        user_permissions = await PermissionService.get_permissions(user)
-        return all(permission in user_permissions for permission in permissions)
+    async def _has_any_roles(_: Any, user: User) -> bool:
+        if user.is_superuser:
+            return True
+        return await GlobalRoleAssignment.objects.filter(
+            user=user,
+            role__in=roles,
+        ).aexists()
 
-    return _has_permissions
+    return _has_any_roles

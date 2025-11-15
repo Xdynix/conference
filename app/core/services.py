@@ -1,16 +1,11 @@
-__all__ = (
-    "PasswordResetService",
-    "PermissionService",
-)
+__all__ = ("PasswordResetService",)
 
 import secrets
-from collections.abc import Container
 from functools import partial
 from hashlib import sha256
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from django.contrib.auth.models import AnonymousUser
 from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models.functions import Now
@@ -19,27 +14,12 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from loguru import logger
 
-from app.core.models import PasswordResetToken, Permission, User
+from app.core.models import PasswordResetToken, User
 from app.core.types import Password
 from app.infra.models import Mutex
 from app.utils.shorthands import sanitize_email_subject
 
 normalize_email = User.objects.normalize_email
-
-
-class PermissionService:
-    @classmethod
-    async def get_permissions(cls, user: User | AnonymousUser) -> Container[str]:
-        """Return the globally granted permission keys for a given user."""
-        if not user.is_active or user.is_anonymous:
-            return set()
-
-        if user.is_superuser:
-            permissions = Permission.objects.all()
-        else:
-            permissions = Permission.objects.filter(role__assignment__user=user)
-
-        return await Permission.to_keys(permissions)
 
 
 class PasswordResetService:

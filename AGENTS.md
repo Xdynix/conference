@@ -35,9 +35,10 @@ time, so verify current layout when needed.
 
 ### Django Apps
 
-- **`app/core/`** - Core authentication and authorization (User, permissions, roles,
-  sessions, password reset).
-- **`app/conference/`** - Conference-specific domain logic and user profiles.
+- **`app/core/`** - Core authentication and authorization (user, roles, sessions,
+  password reset).
+- **`app/conference/`** - Conference-specific domain logic, user profiles, scoped roles,
+  and invitations.
 - **`app/verikit/`** - User identity verification toolkit (email verification).
 - **`app/infra/`** - Infrastructure services (background jobs, scheduling, mutex locks).
 - **`app/misc/`** - Miscellaneous utilities and views.
@@ -48,8 +49,8 @@ time, so verify current layout when needed.
 
 - **`app/ninja/`** - Django Ninja utilities (error handlers, JSON serialization, core
   setup).
-- **`app/utils/`** - Reusable utilities (throttling, permissions, Cloudflare Turnstile
-  decorators, custom types).
+- **`app/utils/`** - Reusable utilities (throttling, Cloudflare Turnstile decorators,
+  custom types, model mixins).
 - **`app/api.py`** - Root API router aggregating all app routers.
 - **`app/logging.py`** - Loguru logging configuration.
 

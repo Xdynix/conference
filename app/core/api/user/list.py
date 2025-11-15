@@ -5,8 +5,8 @@ from ninja import FilterLookup, FilterSchema, Query
 from ninja.pagination import paginate
 from ulid import ULID
 
-from app.core.auth import has_permissions
-from app.core.models import User
+from app.core.auth import has_any_roles
+from app.core.models import GlobalRole, User
 from app.core.registry.user_response import user_response_registry
 from app.core.types import AuthedHttpRequest, EmailStr, Username
 from app.ninja.pagination import CursorPagination
@@ -41,7 +41,7 @@ class ListUsersFilters(FilterSchema):
     "/users",
     response=list[UserResponse],  # type: ignore[valid-type]
     summary="List Users",
-    auth=has_permissions(User.READ),
+    auth=has_any_roles(GlobalRole.ADMIN, GlobalRole.READ_ALL),
 )
 @paginate(UserPaginator)
 async def list_users(

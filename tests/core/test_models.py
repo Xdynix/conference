@@ -3,7 +3,7 @@ from django.db import IntegrityError
 from django.utils import timezone
 from faker import Faker
 
-from app.core.models import PasswordResetToken, Permission, Role, RoleAssignment, User
+from app.core.models import GlobalRole, GlobalRoleAssignment, PasswordResetToken, User
 from tests.data import (
     EMAIL_NORMALIZATION_DATA,
     USERNAME_NORMALIZATION_DATA,
@@ -47,21 +47,12 @@ class TestUser:
         )
 
 
-class TestPermission:
-    def test_str(self) -> None:
-        assert str(Permission(key="foobar")) == "foobar"
-
-
-class TestRole:
-    def test_str(self) -> None:
-        assert str(Role(name="foobar")) == "foobar"
-
-
-class TestRoleAssignment:
+class TestGlobalRoleAssignment:
     def test_str(self) -> None:
         user = User(username="user")
-        role = Role(name="foobar")
-        assert str(RoleAssignment(user=user, role=role)) == "foobar: user"
+        role = GlobalRole.ADMIN
+        assignment = GlobalRoleAssignment(user=user, role=role)
+        assert str(assignment) == "Admin: user"
 
 
 @pytest.mark.django_db

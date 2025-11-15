@@ -6,14 +6,13 @@ from django.http.request import HttpRequest
 
 from app.conference.models import (
     Conference,
-    ConferenceRole,
     ConferenceRoleAssignment,
     Invitation,
-    InvitationTrackEntry,
+    InvitationConferenceRoleEntry,
+    InvitationTrackRoleEntry,
     Keyword,
     KeywordSet,
     Track,
-    TrackRole,
     TrackRoleAssignment,
     UserProfile,
 )
@@ -50,7 +49,7 @@ class ConferenceRoleAssignmentInline(
 ):
     model = ConferenceRoleAssignment
     extra = 0
-    autocomplete_fields = ("user", "role")
+    autocomplete_fields = ("user",)
     readonly_fields = ("create_time", "update_time")
 
 
@@ -66,16 +65,10 @@ class ConferenceAdmin(admin.ModelAdmin[Conference]):
     # TODO: Add clone operation.
 
 
-@admin.register(ConferenceRole)
-class ConferenceRoleAdmin(admin.ModelAdmin[ConferenceRole]):
-    filter_horizontal = ("permissions",)
-    search_fields = ("name", "display_name")
-
-
 class TrackRoleAssignmentInline(admin.TabularInline[TrackRoleAssignment, Track]):
     model = TrackRoleAssignment
     extra = 0
-    autocomplete_fields = ("user", "role")
+    autocomplete_fields = ("track", "user")
     readonly_fields = ("create_time", "update_time")
 
 
@@ -89,12 +82,6 @@ class TrackAdmin(admin.ModelAdmin[Track]):
     autocomplete_fields = ("conference",)
     readonly_fields = ("uid", "create_time", "update_time")
     search_fields = ("uid", "display_name", "conference__name")
-
-
-@admin.register(TrackRole)
-class TrackRoleAdmin(admin.ModelAdmin[TrackRole]):
-    filter_horizontal = ("permissions",)
-    search_fields = ("name", "display_name")
 
 
 @admin.register(UserProfile)
@@ -118,18 +105,35 @@ class UserProfileAdmin(admin.ModelAdmin[UserProfile]):
     )
 
 
-class InvitationTrackEntryInline(admin.TabularInline[InvitationTrackEntry, Invitation]):
-    model = InvitationTrackEntry
+class InvitationConferenceRoleEntryInline(
+    admin.TabularInline[InvitationConferenceRoleEntry, Invitation]
+):
+    model = InvitationConferenceRoleEntry
+    extra = 0
+
+
+class InvitationTrackRoleEntryInline(
+    admin.TabularInline[InvitationTrackRoleEntry, Invitation]
+):
+    model = InvitationTrackRoleEntry
     extra = 0
     autocomplete_fields = ("track",)
-    filter_horizontal = ("roles",)
+
+    def get_queryset(
+        self,
+        request: HttpRequest,
+    ) -> QuerySet[InvitationTrackRoleEntry]:  # pragma: no cover
+        return super().get_queryset(request).select_related("track")
 
 
 @admin.register(Invitation)
 class InvitationAdmin(admin.ModelAdmin[Invitation]):
     date_hierarchy = "create_time"
-    filter_horizontal = ("conference_roles",)
-    inlines = (InvitationTrackEntryInline,)
+    inlines = (
+        InvitationConferenceRoleEntryInline,
+        InvitationTrackRoleEntryInline,
+    )
+    filter_horizontal = ("interested_keywords",)
     list_display = (
         "__str__",
         "inviter",

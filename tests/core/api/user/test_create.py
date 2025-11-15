@@ -10,7 +10,11 @@ from faker import Faker
 from ninja.errors import ValidationError
 from pytest_mock import MockerFixture
 
-from app.core.models import Permission, Role, RoleAssignment, User
+from app.core.models import (
+    GlobalRole,
+    GlobalRoleAssignment,
+    User,
+)
 from app.verikit.services import EmailVerificationService
 
 
@@ -19,7 +23,7 @@ def mock_validate_password(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("app.core.api.user.create.validate_password_for_user")
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 class TestCreateRegistration:
     path = reverse("api-1.0.0:create-registration")
 
@@ -186,21 +190,14 @@ class TestCreateRegistration:
         assert user.email == email
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 class TestCreateUser:
     path = reverse("api-1.0.0:create-user")
 
     @pytest.fixture
-    def writer_role(self) -> Role:
-        permission, _ = Permission.objects.get_or_create(key=User.WRITE)
-        role = Role.objects.create(name="writer", display_name="Writer")
-        role.permissions.add(permission)
-        return role
-
-    @pytest.fixture
-    def authorized_user(self, faker: Faker, writer_role: Role) -> User:
+    def authorized_user(self, faker: Faker) -> User:
         user = User.objects.create_user(username=faker.user_name())
-        RoleAssignment.objects.create(user=user, role=writer_role)
+        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
         return user
 
     @pytest.mark.parametrize("managed", [True, False])

@@ -7,7 +7,11 @@ from faker import Faker
 from pytest_mock import MockerFixture
 from ulid import ULID
 
-from app.core.models import Permission, Role, RoleAssignment, User
+from app.core.models import (
+    GlobalRole,
+    GlobalRoleAssignment,
+    User,
+)
 from app.verikit.services import EmailVerificationService
 from tests.helpers import update_object
 
@@ -246,16 +250,9 @@ class TestUpdateUser:
         return reverse("api-1.0.0:update-user", args=[user_id])
 
     @pytest.fixture
-    def admin_role(self) -> Role:
-        permission, _ = Permission.objects.get_or_create(key=User.ADMIN)
-        role = Role.objects.create(name="admin", display_name="Admin")
-        role.permissions.add(permission)
-        return role
-
-    @pytest.fixture
-    def authorized_user(self, faker: Faker, admin_role: Role) -> User:
+    def authorized_user(self, faker: Faker) -> User:
         user = User.objects.create_user(username=faker.user_name())
-        RoleAssignment.objects.create(user=user, role=admin_role)
+        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
         return user
 
     @pytest.fixture
