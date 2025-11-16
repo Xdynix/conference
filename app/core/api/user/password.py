@@ -50,12 +50,12 @@ async def update_current_user_password(
 
     validate_password_for_user(new_password, user)
 
-    logger.info("User changed password.", user=user)
     user.set_password(new_password.get_secret_value())
     await user.asave(update_fields=["password"])
-
     # Prevents the current session from being logged out.
     await aupdate_session_auth_hash(request, user)
+
+    logger.info("User changed password.", user=user)
 
     return HTTPStatus.NO_CONTENT, None
 
@@ -87,9 +87,10 @@ async def update_user_password(
 
     validate_password_for_user(new_password, user)
 
-    actor = await request.auser()
-    logger.info("Admin changed user password.", user=user, actor=actor)
     user.set_password(new_password.get_secret_value())
     await user.asave(update_fields=["password"])
+
+    actor = await request.auser()
+    logger.info("Admin changed user password.", user=user, actor=actor)
 
     return HTTPStatus.NO_CONTENT, None

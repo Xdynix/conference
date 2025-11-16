@@ -80,14 +80,10 @@ class ConsumePasswordResetRequest(Schema):
     new_password: Password
 
 
-class ConsumePasswordResetResponse(Schema):
-    pass
-
-
 @router.post(
     "/password-resets:consume",
     response={
-        HTTPStatus.OK: ConsumePasswordResetResponse,
+        HTTPStatus.NO_CONTENT: None,
         HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
     },
     summary="Reset Password",
@@ -95,7 +91,7 @@ class ConsumePasswordResetResponse(Schema):
 async def consume_password_reset(
     request: HttpRequest,  # noqa: ARG001
     payload: ConsumePasswordResetRequest,
-) -> ConsumePasswordResetResponse:
+) -> tuple[int, None]:
     """Reset a user's password using a valid password reset token.
 
     Consumes a password reset token and sets a new password for the user account. The
@@ -122,4 +118,4 @@ async def consume_password_reset(
     ):
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, error_msg)
 
-    return ConsumePasswordResetResponse()
+    return HTTPStatus.NO_CONTENT, None

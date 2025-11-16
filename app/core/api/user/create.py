@@ -136,6 +136,8 @@ async def create_user(
         managed=payload.managed,  # type: ignore[attr-defined]
         payload=payload,
     )
+
     actor = await request.auser()
     logger.info("Admin created user.", user=user, actor=actor)
+
     return HTTPStatus.CREATED, await user_response_registry.dump(user)

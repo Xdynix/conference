@@ -135,6 +135,7 @@ async def update_user(
     )
 
     update_fields = await patch_user(user, payload.username, payload.email)
+
     if update_fields:
         actor = await request.auser()
         logger.info(
@@ -143,6 +144,7 @@ async def update_user(
             actor=actor,
             fields=update_fields,
         )
+
     return await user_response_registry.dump(user)
 
 

@@ -99,9 +99,11 @@ async def create_session(
             status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
             message=_("Invalid credentials."),
         )
-    logger.info("User logged in.", user=user)
     await alogin(request, user)
     clean_request_user_cache(request)
+
+    logger.info("User logged in.", user=user)
+
     return await Session.from_request(request)
 
 
@@ -113,9 +115,11 @@ async def create_session(
 async def delete_session(request: HttpRequest) -> Session:
     """Log a user out."""
     if (user := await request.auser()).is_authenticated:
+        await alogout(request)
+        clean_request_user_cache(request)
+
         logger.info("User logged out.", user=user)
-    await alogout(request)
-    clean_request_user_cache(request)
+
     return await Session.from_request(request)
 
 
@@ -161,14 +165,15 @@ async def assume_session(
         )
 
     impersonator = await request.auser()
+    await alogin(request, impersonated)
+    clean_request_user_cache(request)
+    request.session[Session.Key.IMPERSONATOR_ID] = str(impersonator.id)
+
     logger.info(
         "Impersonation started.",
         impersonator=impersonator,
         impersonated=impersonated,
     )
-    await alogin(request, impersonated)
-    clean_request_user_cache(request)
-    request.session[Session.Key.IMPERSONATOR_ID] = str(impersonator.id)
 
     return await Session.from_request(request)
 
@@ -195,18 +200,22 @@ async def revert_session(request: HttpRequest) -> Session:
         is_active=True,
     ).afirst()
     if impersonator is not None:
+        impersonated = await request.auser()
+        await alogin(request, impersonator)
+
         logger.info(
             "Impersonation stopped.",
             impersonator=impersonator,
-            impersonated=await request.auser(),
+            impersonated=impersonated,
         )
-        await alogin(request, impersonator)
     else:
+        await alogout(request)
+
         logger.error(
             "Impersonator not found.",
             impersonator_id=impersonator_id,
         )
-        await alogout(request)
+
     clean_request_user_cache(request)
 
     return await Session.from_request(request)

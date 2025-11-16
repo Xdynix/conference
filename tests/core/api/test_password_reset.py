@@ -162,9 +162,8 @@ class TestConsumePasswordReset:
                 "new_password": new_password,
             },
         )
+        assert response.status_code == HTTPStatus.NO_CONTENT
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.json() == {}
         mock_validate_password.assert_called_once_with(Password(new_password), user)
         mock_consume_token.assert_called_once_with(user, token, Password(new_password))
 
@@ -183,8 +182,8 @@ class TestConsumePasswordReset:
                 "new_password": faker.password(),
             },
         )
-
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
         mock_validate_password.assert_not_called()
@@ -210,8 +209,8 @@ class TestConsumePasswordReset:
                 "new_password": new_password,
             },
         )
-
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
         mock_validate_password.assert_called_once_with(Password(new_password), user)
@@ -281,7 +280,7 @@ class TestPasswordResetE2E:
                 "new_password": new_password,
             },
         )
-        assert response.status_code == HTTPStatus.OK
+        assert response.status_code == HTTPStatus.NO_CONTENT
 
         # Verify password was changed.
         user.refresh_from_db()
@@ -432,7 +431,7 @@ class TestPasswordResetE2E:
                 "new_password": new_password,
             },
         )
-        assert response.status_code == HTTPStatus.OK
+        assert response.status_code == HTTPStatus.NO_CONTENT
 
         # Try to reuse the same token via API.
         response = api_client.post(
