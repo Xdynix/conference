@@ -99,6 +99,38 @@ class TestListUsers:
         assert len(data["items"]) == 1
         assert data["items"][0]["email"] == target_user.email
 
+    def test_filter_by_search_username(
+        self,
+        api_client: Client,
+        authorized_user: User,
+        users: list[User],
+    ) -> None:
+        target_user = users[0]
+        api_client.force_login(authorized_user)
+
+        response = api_client.get(self.path, {"search": target_user.username})
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["username"] == target_user.username
+
+    def test_filter_by_search_email(
+        self,
+        api_client: Client,
+        authorized_user: User,
+        users: list[User],
+    ) -> None:
+        target_user = users[1]
+        api_client.force_login(authorized_user)
+
+        response = api_client.get(self.path, {"search": target_user.email})
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert len(data["items"]) == 1
+        assert data["items"][0]["email"] == target_user.email
+
     @pytest.mark.parametrize("managed", [True, False])
     def test_filter_by_managed(
         self,

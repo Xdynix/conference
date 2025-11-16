@@ -10,6 +10,7 @@ class ConferenceConfig(AppConfig):
 
     def ready(self) -> None:
         register_create_user()
+        register_search_user()
         register_user_response()
 
 
@@ -32,6 +33,16 @@ def register_create_user() -> None:
         "profile",
         (Profile, Field(default_factory=Profile)),  # type: ignore[arg-type]
         handler=create_profile,
+    )
+
+
+def register_search_user() -> None:
+    from app.core.registry.search_user import search_user_registry
+
+    search_user_registry.register(
+        "profile__given_name__icontains",
+        "profile__family_name__icontains",
+        "profile__affiliation__icontains",
     )
 
 

@@ -7,6 +7,7 @@ from ulid import ULID
 
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole, User
+from app.core.registry.search_user import search_user_registry
 from app.core.registry.user_response import user_response_registry
 from app.core.types import AuthedHttpRequest, EmailStr, Username
 from app.ninja.pagination import CursorPagination
@@ -34,7 +35,16 @@ class ListUsersFilters(FilterSchema):
     username: Username | None = None
     email: Annotated[EmailStr | None, FilterLookup(q="email__iexact")] = None
     managed: bool | None = None
-    # TODO: Add full-text search across multiple fields (username, email, name).
+    search: Annotated[
+        str | None,
+        FilterLookup(
+            q=[
+                "username__icontains",
+                "email__icontains",
+                *search_user_registry.get_queries(),
+            ],
+        ),
+    ] = None
 
 
 @router.get(

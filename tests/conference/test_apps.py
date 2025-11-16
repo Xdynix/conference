@@ -70,10 +70,9 @@ class TestProfileInjectionInSessionEndpoints:
         api_client.force_login(user_with_profile)
 
         response = api_client.get(self.get_session_path)
-
         assert response.status_code == HTTPStatus.OK
-        data = response.json()
 
+        data = response.json()
         user_data = data["user"]
         assert user_data["uid"] == str(user_with_profile.uid)
         assert user_data["username"] == user_with_profile.username
@@ -88,10 +87,9 @@ class TestProfileInjectionInSessionEndpoints:
         api_client.force_login(user_without_profile)
 
         response = api_client.get(self.get_session_path)
-
         assert response.status_code == HTTPStatus.OK
-        data = response.json()
 
+        data = response.json()
         user_data = data["user"]
         assert user_data["username"] == user_without_profile.username
         assert "profile" not in user_data
@@ -110,10 +108,9 @@ class TestProfileInjectionInSessionEndpoints:
                 "password": password,
             },
         )
-
         assert response.status_code == HTTPStatus.OK
-        data = response.json()
 
+        data = response.json()
         user_data = data["user"]
         assert user_data["uid"] == str(user_with_profile.uid)
         assert user_data["profile"] == serialized_profile
@@ -131,10 +128,9 @@ class TestProfileInjectionInSessionEndpoints:
                 "password": password,
             },
         )
-
         assert response.status_code == HTTPStatus.OK
-        data = response.json()
 
+        data = response.json()
         user_data = data["user"]
         assert user_data["uid"] == str(user_without_profile.uid)
         assert "profile" not in user_data
@@ -177,11 +173,10 @@ class TestProfileInjectionInUserCreationEndpoints:
                 "profile": profile_payload,
             },
         )
-
         assert response.status_code == HTTPStatus.CREATED
+
         data = response.json()
         profile_data = data["user"]["profile"]
-
         profile = UserProfile.objects.filter(user__username=username).get()
         for field in ("given_name", "family_name", "affiliation", "region_code"):
             assert (
@@ -205,11 +200,10 @@ class TestProfileInjectionInUserCreationEndpoints:
                 "password": password,
             },
         )
-
         assert response.status_code == HTTPStatus.CREATED
+
         data = response.json()
         profile_data = data["user"]["profile"]
-
         profile = UserProfile.objects.filter(user__username=username).get()
         for field in ("given_name", "family_name", "affiliation", "region_code"):
             assert getattr(profile, field) == profile_data[field] == ""
@@ -236,11 +230,10 @@ class TestProfileInjectionInUserCreationEndpoints:
                 "profile": profile_payload,
             },
         )
-
         assert response.status_code == HTTPStatus.CREATED
+
         data = response.json()
         profile_data = data["profile"]
-
         profile = UserProfile.objects.filter(user__username=username).get()
         for field in ("given_name", "family_name", "affiliation", "region_code"):
             assert (
@@ -267,11 +260,48 @@ class TestProfileInjectionInUserCreationEndpoints:
                 "password": password,
             },
         )
-
         assert response.status_code == HTTPStatus.CREATED
+
         data = response.json()
         profile_data = data["profile"]
-
         profile = UserProfile.objects.filter(user__username=username).get()
         for field in ("given_name", "family_name", "affiliation", "region_code"):
             assert getattr(profile, field) == profile_data[field] == ""
+
+
+@pytest.mark.django_db
+class TestConferenceUserProfileSearch:
+    users_path = reverse("api-1.0.0:list-users")
+
+    @pytest.fixture
+    def admin_user(self, faker: Faker) -> User:
+        return User.objects.create_superuser(username=faker.user_name())
+
+    @pytest.fixture
+    def profiled_user(self, faker: Faker) -> User:
+        user = User.objects.create_user(
+            username=faker.user_name(),
+            email=faker.email(),
+        )
+        UserProfile.objects.create(
+            user=user,
+            given_name="Searchable",
+            family_name=faker.last_name(),
+            affiliation=faker.company(),
+            region_code=Region.US.name,
+        )
+        return user
+
+    def test_search_matches_profile_fields(
+        self,
+        api_client: Client,
+        admin_user: User,
+        profiled_user: User,
+    ) -> None:
+        api_client.force_login(admin_user)
+
+        response = api_client.get(self.users_path, {"search": "searchable"})
+        assert response.status_code == HTTPStatus.OK
+
+        items = response.json()["items"]
+        assert any(item["uid"] == str(profiled_user.uid) for item in items)
