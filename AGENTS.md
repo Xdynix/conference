@@ -28,6 +28,14 @@ All development tasks use `just`:
 - `just shell` - Start Django shell with shell_plus (IPython).
 - `just dev` - Start all development services in parallel.
 
+For quick project-aware experiments, run Python statements through Django's shell
+bootstrap so settings and apps load correctly. Example:
+
+```sh
+uv run manage.py shell -c \
+  "from app.core.models import User; print(User.objects.count())"
+```
+
 ## Project Structure
 
 The project follows Django's app-based architecture. This structure may evolve over
@@ -58,10 +66,9 @@ time, so verify current layout when needed.
 
 - **`api.py` or `api/`** - Django Ninja API endpoints with routers and request/response
   schemas.
-- **`services.py`** - Business logic and service layer.
+- **`services.py` or `services/`** - Business logic and service layer.
 - **`jobs.py`** - Background job definitions.
-- **`types.py`** - Custom Pydantic types and type aliases.
-- **`schemas.py`** - Shared Pydantic schemas for serialization.
+- **`types.py`** - Shared Pydantic schemas and rich type aliases.
 
 ## Architecture Principles
 
@@ -83,12 +90,10 @@ the request boundary so ORM behavior stays predictable.
 
 - **Keep transactions sync**: Methods that own a transaction must be synchronous. This
   allows Django to manage the connection correctly and keeps nested transactions safe.
-- **Switch once at the edge**: Async API views should call transactional services with
+- **Switch once at the edge**: Async API views should call transactional operations with
   `sync_to_async()` so only one hop occurs.
-- **Enable sync reuse**: When services remain sync, other sync code paths (signals,
+- **Enable sync reuse**: When operations remain sync, other sync code paths (signals,
   Django admin, management commands) can reuse them without extra wrappers.
-- **Share helpers**: Put transactional helpers in the service layer and keep async view
-  helpers thin wrappers that orchestrate I/O and logging.
 
 **Example pattern**:
 
@@ -146,7 +151,11 @@ class MyService:
 - **Type Checking**: Full mypy strict mode with django-stubs.
 - **Docstrings**: Use Google Style docstrings for Python functions and classes, except
   API view docstrings that serve the generated API documentation, keep those concise and
-  reader-facing instead.
+  reader-facing instead. Focus docstrings on behavior from the caller's perspective
+  rather than implementation details (e.g., "Creates a user" rather than "Inserts a row
+  into the users table with a UUID primary key"). Only document side effects when the
+  caller needs to be aware of them. Omit the `Args` section when all arguments are
+  self-explanatory from their names and types.
 - **Dependencies**: Managed with uv and organized into dependency groups (dev, lint,
   test).
 - **Security**: SSL/HTTPS configured for development with self-signed certificates and
@@ -159,8 +168,12 @@ class MyService:
 - Use pytest with pytest-django, pytest-asyncio, faker, and pytest-mock.
 - Use `pytest-mock`'s `mocker` fixture instead of `unittest.mock.patch`.
 - Use `@pytest.mark.django_db` for tests that access the database.
-- Add `transaction=True` only when necessary (e.g., async tests that need transaction
-  support).
+- Prefer synchronous tests whenever the system under test is synchronous; async test
+  cases are only needed when the subject itself is async because sync tests are simpler
+  and faster.
+- If the system under test is async or the test covers transactional behavior (
+  `IntegrityError` propagation, rollbacks, `transaction.on_commit`, etc.), mark the test
+  function or suite with `transaction=True`.
 - Use Django's async ORM methods (`acreate`, `acount`, `aexists`) in async tests.
 
 #### Test Organization and Best Practices
@@ -190,8 +203,8 @@ class MyService:
 
 #### API Error Handling
 
-- Use Django Ninja's `HttpError` for API-level errors with appropriate HTTP status
-  codes.
+- Use Django Ninja's `HttpError` in API views only (never in services) for translating
+  business logic errors into HTTP responses with appropriate status codes.
 - All user-facing error messages must use `gettext` for internationalization: `_("Error
   message")`.
 - Never expose internal error details, stack traces, or sensitive information to
@@ -206,10 +219,21 @@ class MyService:
 
 #### Service Layer Patterns
 
-- Services may return `None` to indicate simple failure cases when there are no complex
-  error situations.
-- For complex error scenarios, services should raise appropriate exceptions that views
-  convert to HTTP errors.
+The service layer contains all business logic and remains completely decoupled from HTTP
+concerns. Services should never import or use `HttpError`, `HttpRequest`, HTTP status
+codes, or request/response schemas. Instead, services return domain objects or raise
+domain-specific exceptions (e.g., `ValueError`, custom exceptions), and views translate
+these results into appropriate HTTP responses with status codes.
+
+- **Service Classes**: Use for multistep operations, transactional logic, or
+  functionality shared across contexts (API views, background jobs, management commands,
+  Django admin).
+- **Module Helpers**: Use small module-level functions for localized operations within a
+  single module.
+- **Inline View Logic**: Keep code in views only when trivial (1-2 lines) and specific
+  to one endpoint.
+- **View Responsibilities**: Parse HTTP requests, call services, catch service
+  exceptions, and translate results to `HttpError` responses.
 
 #### Logging Practices
 
