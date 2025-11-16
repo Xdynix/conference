@@ -4,7 +4,7 @@ VALID_PASSWORDS = [
     "        ",
     "banana!?",
     "a secret",
-    "john-smith@email.com",
+    "john-doe@email.com",
     "password",
     "Pa33w0rd",
     "11111111",
