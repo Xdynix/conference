@@ -23,29 +23,14 @@ async def patch_user(
     user: User,
     username: Username | None,
     email: str | None,
-) -> list[str]:
-    """Update user's username and/or email.
-
-    Args:
-        user: The user to update.
-        username: New username, or None to leave unchanged.
-        email: New email, or None to leave unchanged.
-
-    Returns:
-        List of field names that were updated.
-
-    Raises:
-        HttpError: If username or email already exists (409 CONFLICT).
-    """
+) -> bool:
     update_fields: list[str] = []
 
-    if username is not None and username != user.username:
+    if username is not None:
         user.username = username
         update_fields.append("username")
 
-    if email is not None and (
-        User.objects.normalize_email(email) != User.objects.normalize_email(user.email)
-    ):
+    if email is not None:
         user.email = email
         update_fields.append("email")
 
@@ -63,7 +48,7 @@ async def patch_user(
 
             raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
-    return update_fields
+    return bool(update_fields)
 
 
 class UpdateCurrentUserRequest(Schema):
@@ -98,9 +83,11 @@ async def update_current_user(
             _("Managed users cannot modify their username or email."),
         )
 
-    update_fields = await patch_user(user, payload.username, payload.email)
-    if update_fields:
-        logger.info("User updated account.", user=user, fields=update_fields)
+    updated = await patch_user(user, payload.username, payload.email)
+
+    if updated:
+        logger.info("User updated account.", user=user)
+
     return await user_response_registry.dump(user)
 
 
@@ -125,8 +112,9 @@ async def update_user(
 ) -> dict[str, Any]:
     """Update a user's username and/or email by admin.
 
-    Allows administrators to update the username and/or email for any active,
-    non-superuser user. Unlike the update current user endpoint, this does not
+    Allows administrators to update the username and/or email for any active user except
+    superusers because these fields are sensitive for account security (login credential
+    and password recovery). Unlike the update current user endpoint, this does not
     require email verification and can update managed users.
     """
     user = await aget_object_or_404(
@@ -134,16 +122,11 @@ async def update_user(
         uid=user_id,
     )
 
-    update_fields = await patch_user(user, payload.username, payload.email)
+    updated = await patch_user(user, payload.username, payload.email)
 
-    if update_fields:
+    if updated:
         actor = await request.auser()
-        logger.info(
-            "Admin updated user account.",
-            user=user,
-            actor=actor,
-            fields=update_fields,
-        )
+        logger.info("Admin updated user account.", user=user, actor=actor)
 
     return await user_response_registry.dump(user)
 

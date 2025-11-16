@@ -89,59 +89,6 @@ class TestUpdateCurrentUser:
         assert user.username == new_username
         assert user.email == new_email
 
-    def test_no_changes_when_username_same(
-        self,
-        mocker: MockerFixture,
-        api_client: Client,
-        user: User,
-    ) -> None:
-        mock_save = mocker.spy(User, "asave")
-        api_client.force_login(user)
-
-        response = api_client.patch(
-            self.path,
-            data={"username": user.username},
-        )
-        assert response.status_code == HTTPStatus.OK
-
-        mock_save.assert_not_called()
-
-    def test_no_changes_when_email_same(
-        self,
-        mocker: MockerFixture,
-        api_client: Client,
-        user: User,
-    ) -> None:
-        email_token = EmailVerificationService.issue_token(user.email)
-        mock_save = mocker.spy(User, "asave")
-        api_client.force_login(user)
-
-        response = api_client.patch(
-            self.path,
-            data={"email": email_token},
-        )
-        assert response.status_code == HTTPStatus.OK
-
-        mock_save.assert_not_called()
-
-    def test_email_comparison_case_insensitive(
-        self,
-        mocker: MockerFixture,
-        api_client: Client,
-        user: User,
-    ) -> None:
-        email_token = EmailVerificationService.issue_token(user.email.upper())
-        mock_save = mocker.spy(User, "asave")
-        api_client.force_login(user)
-
-        response = api_client.patch(
-            self.path,
-            data={"email": email_token},
-        )
-        assert response.status_code == HTTPStatus.OK
-
-        mock_save.assert_not_called()
-
     def test_managed_user_forbidden(
         self,
         faker: Faker,
@@ -230,6 +177,20 @@ class TestUpdateCurrentUser:
         user.refresh_from_db()
         assert user.username == original_username
         assert user.email == original_email
+
+    def test_empty_payload_does_not_save(
+        self,
+        mocker: MockerFixture,
+        api_client: Client,
+        user: User,
+    ) -> None:
+        save = mocker.spy(User, "asave")
+        api_client.force_login(user)
+
+        response = api_client.patch(self.path, data={})
+
+        assert response.status_code == HTTPStatus.OK
+        save.assert_not_called()
 
     def test_unauthenticated_user_forbidden(
         self,
@@ -327,60 +288,6 @@ class TestUpdateUser:
         user.refresh_from_db()
         assert user.username == original_username
         assert user.email == new_email
-
-    def test_no_changes_when_username_same(
-        self,
-        mocker: MockerFixture,
-        api_client: Client,
-        authorized_user: User,
-        user: User,
-    ) -> None:
-        mock_save = mocker.spy(User, "asave")
-        api_client.force_login(authorized_user)
-
-        response = api_client.patch(
-            self.path(user_id=user.uid),
-            data={"username": user.username},
-        )
-        assert response.status_code == HTTPStatus.OK
-
-        mock_save.assert_not_called()
-
-    def test_no_changes_when_email_same(
-        self,
-        mocker: MockerFixture,
-        api_client: Client,
-        authorized_user: User,
-        user: User,
-    ) -> None:
-        mock_save = mocker.spy(User, "asave")
-        api_client.force_login(authorized_user)
-
-        response = api_client.patch(
-            self.path(user_id=user.uid),
-            data={"email": user.email},
-        )
-        assert response.status_code == HTTPStatus.OK
-
-        mock_save.assert_not_called()
-
-    def test_email_comparison_case_insensitive(
-        self,
-        mocker: MockerFixture,
-        api_client: Client,
-        authorized_user: User,
-        user: User,
-    ) -> None:
-        mock_save = mocker.spy(User, "asave")
-        api_client.force_login(authorized_user)
-
-        response = api_client.patch(
-            self.path(user_id=user.uid),
-            data={"email": user.email.upper()},
-        )
-        assert response.status_code == HTTPStatus.OK
-
-        mock_save.assert_not_called()
 
     def test_update_inactive_user_not_found(
         self,
@@ -509,6 +416,21 @@ class TestUpdateUser:
         user.refresh_from_db()
         assert user.username == original_username
         assert user.email == original_email
+
+    def test_empty_payload_does_not_save(
+        self,
+        mocker: MockerFixture,
+        api_client: Client,
+        authorized_user: User,
+        user: User,
+    ) -> None:
+        save = mocker.spy(User, "asave")
+        api_client.force_login(authorized_user)
+
+        response = api_client.patch(self.path(user_id=user.uid), data={})
+
+        assert response.status_code == HTTPStatus.OK
+        save.assert_not_called()
 
     def test_unauthorized_user_forbidden(
         self,
