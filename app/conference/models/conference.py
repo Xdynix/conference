@@ -1,3 +1,5 @@
+from collections.abc import Collection
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -47,6 +49,8 @@ class Conference(TimeStampedModel):
         default=Visibility.ADMIN_ONLY,
     )
 
+    _prefetched_tracks: list["Track"]
+
     class Meta:
         verbose_name = _("conference")
         verbose_name_plural = _("conferences")
@@ -57,6 +61,27 @@ class Conference(TimeStampedModel):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def prefetched_tracks(self) -> Collection["Track"]:
+        """Return the list of track objects explicitly attached to this instance.
+
+        Views attach a prefiltered set of related tracks to the conference after the
+        main queryset is evaluated (for example, via ``prefetch_tracks``). Serializers
+        then read from this attribute instead of hitting the database again, keeping
+        list endpoints efficient and predictable.
+        """
+        return getattr(self, "_prefetched_tracks", []).copy()
+
+    @prefetched_tracks.setter
+    def prefetched_tracks(self, tracks: Collection["Track"]) -> None:
+        self._prefetched_tracks = []
+        for track in tracks:
+            if track.conference_id != self.id:  # pragma: no cover
+                raise ValueError(
+                    f"Track {track.pk} does not belong to conference {self}."
+                )
+            self._prefetched_tracks.append(track)
 
 
 class Track(TimeStampedModel, ULIDModel):

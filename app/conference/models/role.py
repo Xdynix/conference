@@ -1,3 +1,5 @@
+from collections.abc import Sequence
+
 from django.contrib.auth import get_user_model
 from django.db import models
 from django.db.models import Q
@@ -14,6 +16,10 @@ class ConferenceRole(models.TextChoices):
     CHAIR = "Chair", _("Chair")
     SECRETARY = "Secretary", _("Secretary")
     REVIEWER = "Reviewer", _("Reviewer")
+
+    @classmethod
+    def admins(cls) -> Sequence["ConferenceRole"]:
+        return [cls.CHAIR, cls.SECRETARY]
 
 
 class ConferenceRoleAssignment(TimeStampedModel):
@@ -63,6 +69,10 @@ class TrackRole(models.TextChoices):
     CHAIR = "Chair", _("Chair")
     SECRETARY = "Secretary", _("Secretary")
     REVIEWER = "Reviewer", _("Reviewer")
+
+    @classmethod
+    def admins(cls) -> Sequence["TrackRole"]:
+        return [cls.CHAIR, cls.SECRETARY]
 
 
 class TrackRoleAssignment(TimeStampedModel):
