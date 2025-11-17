@@ -31,6 +31,14 @@ class Conference(Schema):
     tracks: list["Track"] = Field(validation_alias="prefetched_tracks")
 
 
+class ConferenceDetail(Conference):
+    keywords: list[str]
+
+    @staticmethod
+    def resolve_keywords(conference: ConferenceModel) -> list[str]:
+        return [keyword.text for keyword in conference.keywords.all()]
+
+
 track_meta = TrackModel._meta
 track_display_name_field = track_meta.get_field("display_name")
 
