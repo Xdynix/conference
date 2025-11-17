@@ -54,6 +54,7 @@ class CursorPagination[ModelT: Model, TokenT](AsyncPaginationBase):
         self,
         queryset: QuerySet[ModelT],
         pagination: Input[TokenT],
+        request: HttpRequest,  # noqa: ARG002
     ) -> QuerySet[ModelT]:
         """Apply cursor-based ordering and filtering to the queryset."""
         if queryset.ordered:
@@ -96,6 +97,7 @@ class CursorPagination[ModelT: Model, TokenT](AsyncPaginationBase):
         self,
         items: list[Any],
         pagination: Input[TokenT],
+        request: HttpRequest,  # noqa: ARG002
     ) -> dict[str, Any]:
         """Build pagination output from fetched items and determine next page token."""
         if len(items) > pagination.page_size:
@@ -105,7 +107,7 @@ class CursorPagination[ModelT: Model, TokenT](AsyncPaginationBase):
             next_page_token = None
 
         return {
-            "items": items,
+            self.items_attribute: items,
             "next_page_token": next_page_token,
         }
 
@@ -113,8 +115,8 @@ class CursorPagination[ModelT: Model, TokenT](AsyncPaginationBase):
         self,
         queryset: QuerySet[ModelT],
         pagination: Input[TokenT],
-        request: HttpRequest | None = None,
-        **__: Any,
+        request: HttpRequest,
+        **__: Any,  # View arguments.
     ) -> dict[str, Any]:  # pragma: no cover
         # Required by base class but not applicable for async-only pagination.
         raise NotImplementedError(
@@ -126,12 +128,12 @@ class CursorPagination[ModelT: Model, TokenT](AsyncPaginationBase):
         self,
         queryset: QuerySet[ModelT],
         pagination: Input[TokenT],
-        request: HttpRequest | None = None,  # noqa: ARG002
+        request: HttpRequest,
         **__: Any,  # View arguments.
     ) -> dict[str, Any]:
-        queryset = self.prepare_queryset(queryset, pagination)
+        queryset = self.prepare_queryset(queryset, pagination, request)
 
         # Fetch one additional item to determine if there are more.
         items = [item async for item in queryset[: pagination.page_size + 1]]
 
-        return await self.make_page(items, pagination)
+        return await self.make_page(items, pagination, request)

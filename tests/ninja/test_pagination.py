@@ -1,7 +1,8 @@
 from typing import Any
 
 import pytest
-from django.test import Client
+from django.http import HttpRequest
+from django.test import Client, RequestFactory
 from django.urls import path
 from ninja import NinjaAPI, Schema
 from ninja.pagination import paginate
@@ -25,29 +26,50 @@ async def create_users(usernames: list[str]) -> list[User]:
 
 @pytest.mark.django_db(transaction=True)
 class TestCursorPagination:
-    async def test_descending_pagination_sets_next_token(self) -> None:
+    @pytest.fixture
+    def req(self, rf: RequestFactory) -> HttpRequest:
+        return rf.get("/")
+
+    async def test_descending_pagination_sets_next_token(
+        self,
+        req: HttpRequest,
+    ) -> None:
         await create_users(["alpha", "bravo", "charlie", "delta"])
         paginator = CursorPagination[User, str](cursor_field="username")
         pagination = CursorPagination.Input[str](page_size=2, order="desc")
 
-        result = await paginator.apaginate_queryset(User.objects.all(), pagination)
+        result = await paginator.apaginate_queryset(
+            User.objects.all(),
+            pagination,
+            req,
+        )
 
         usernames = [user.username for user in result["items"]]
         assert usernames == ["delta", "charlie"]
         assert result["next_page_token"] == "charlie"
 
-    async def test_ascending_pagination_sets_next_token(self) -> None:
+    async def test_ascending_pagination_sets_next_token(
+        self,
+        req: HttpRequest,
+    ) -> None:
         await create_users(["alpha", "bravo", "charlie", "delta"])
         paginator = CursorPagination[User, str](cursor_field="username")
         pagination = CursorPagination.Input[str](page_size=2, order="asc")
 
-        result = await paginator.apaginate_queryset(User.objects.all(), pagination)
+        result = await paginator.apaginate_queryset(
+            User.objects.all(),
+            pagination,
+            req,
+        )
 
         usernames = [user.username for user in result["items"]]
         assert usernames == ["alpha", "bravo"]
         assert result["next_page_token"] == "bravo"
 
-    async def test_descending_pagination_respects_page_token(self) -> None:
+    async def test_descending_pagination_respects_page_token(
+        self,
+        req: HttpRequest,
+    ) -> None:
         await create_users(["alpha", "bravo", "charlie", "delta"])
         paginator = CursorPagination[User, str](cursor_field="username")
         pagination = CursorPagination.Input[str](
@@ -56,13 +78,20 @@ class TestCursorPagination:
             page_token="charlie",  # noqa: S106
         )
 
-        result = await paginator.apaginate_queryset(User.objects.all(), pagination)
+        result = await paginator.apaginate_queryset(
+            User.objects.all(),
+            pagination,
+            req,
+        )
 
         usernames = [user.username for user in result["items"]]
         assert usernames == ["bravo"]
         assert result["next_page_token"] == "bravo"
 
-    async def test_ascending_pagination_respects_page_token(self) -> None:
+    async def test_ascending_pagination_respects_page_token(
+        self,
+        req: HttpRequest,
+    ) -> None:
         await create_users(["alpha", "bravo", "charlie", "delta"])
         paginator = CursorPagination[User, str](cursor_field="username")
         pagination = CursorPagination.Input[str](
@@ -71,31 +100,49 @@ class TestCursorPagination:
             page_token="bravo",  # noqa: S106
         )
 
-        result = await paginator.apaginate_queryset(User.objects.all(), pagination)
+        result = await paginator.apaginate_queryset(
+            User.objects.all(),
+            pagination,
+            req,
+        )
 
         usernames = [user.username for user in result["items"]]
         assert usernames == ["charlie"]
         assert result["next_page_token"] == "charlie"
 
-    async def test_last_page_returns_no_next_token(self) -> None:
+    async def test_last_page_returns_no_next_token(
+        self,
+        req: HttpRequest,
+    ) -> None:
         await create_users(["alpha", "bravo"])
         paginator = CursorPagination[User, str](cursor_field="username")
         pagination = CursorPagination.Input[str](page_size=5, order="desc")
 
-        result = await paginator.apaginate_queryset(User.objects.all(), pagination)
+        result = await paginator.apaginate_queryset(
+            User.objects.all(),
+            pagination,
+            req,
+        )
 
         usernames = [user.username for user in result["items"]]
         assert usernames == ["bravo", "alpha"]
         assert result["next_page_token"] is None
 
-    async def test_warns_when_queryset_is_ordered(self) -> None:
+    async def test_warns_when_queryset_is_ordered(
+        self,
+        req: HttpRequest,
+    ) -> None:
         await create_users(["alpha", "bravo"])
         paginator = CursorPagination[User, str](cursor_field="username")
         pagination = CursorPagination.Input[str](page_size=1, order="asc")
 
         queryset = User.objects.order_by("date_joined")
         with pytest.warns(UserWarning):
-            await paginator.apaginate_queryset(queryset, pagination)
+            await paginator.apaginate_queryset(
+                queryset,
+                pagination,
+                req,
+            )
 
 
 @pytest.mark.django_db

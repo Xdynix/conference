@@ -1,6 +1,7 @@
 from typing import Annotated, Any
 
 from django.db.models import QuerySet
+from django.http import HttpRequest
 from ninja import FilterLookup, FilterSchema, Query
 from ninja.pagination import paginate
 from ulid import ULID
@@ -23,8 +24,9 @@ class UserPaginator(CursorPagination[User, ULID]):
         self,
         items: list[Any],
         pagination: CursorPagination.Input[ULID],
+        request: HttpRequest,
     ) -> dict[str, Any]:
-        page = await super().make_page(items, pagination)
+        page = await super().make_page(items, pagination, request)
         page[self.items_attribute] = await user_response_registry.dump_many(
             page[self.items_attribute]
         )
