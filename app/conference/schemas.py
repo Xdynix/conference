@@ -3,13 +3,13 @@ from typing import Literal
 
 from ninja import Field, Schema
 
-from app.conference.models import UserProfile
+from app.conference.models import Profile as ProfileModel
 from app.utils.enums import Region
 
-user_profile_meta = UserProfile._meta
-given_name_field = user_profile_meta.get_field("given_name")
-family_name_field = user_profile_meta.get_field("family_name")
-affiliation_field = user_profile_meta.get_field("affiliation")
+profile_meta = ProfileModel._meta
+given_name_field = profile_meta.get_field("given_name")
+family_name_field = profile_meta.get_field("family_name")
+affiliation_field = profile_meta.get_field("affiliation")
 
 RegionCode = StrEnum("RegionCode", {region.name: region.name for region in Region})  # type: ignore[misc]
 

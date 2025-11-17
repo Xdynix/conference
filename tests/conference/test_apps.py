@@ -7,7 +7,7 @@ from django.test import Client
 from django.urls import reverse
 from faker import Faker
 
-from app.conference.models import UserProfile
+from app.conference.models import Profile
 from app.core.models import User
 from app.utils.enums import Region
 from app.verikit.services import EmailVerificationService
@@ -42,7 +42,7 @@ class TestProfileInjectionInSessionEndpoints:
             email=faker.email(),
             password=password,
         )
-        UserProfile.objects.create(
+        Profile.objects.create(
             user=user,
             given_name=faker.first_name(),
             family_name=faker.last_name(),
@@ -177,7 +177,7 @@ class TestProfileInjectionInUserCreationEndpoints:
 
         data = response.json()
         profile_data = data["user"]["profile"]
-        profile = UserProfile.objects.filter(user__username=username).get()
+        profile = Profile.objects.filter(user__username=username).get()
         for field in ("given_name", "family_name", "affiliation", "region_code"):
             assert (
                 getattr(profile, field) == profile_data[field] == profile_payload[field]
@@ -204,7 +204,7 @@ class TestProfileInjectionInUserCreationEndpoints:
 
         data = response.json()
         profile_data = data["user"]["profile"]
-        profile = UserProfile.objects.filter(user__username=username).get()
+        profile = Profile.objects.filter(user__username=username).get()
         for field in ("given_name", "family_name", "affiliation", "region_code"):
             assert getattr(profile, field) == profile_data[field] == ""
 
@@ -234,7 +234,7 @@ class TestProfileInjectionInUserCreationEndpoints:
 
         data = response.json()
         profile_data = data["profile"]
-        profile = UserProfile.objects.filter(user__username=username).get()
+        profile = Profile.objects.filter(user__username=username).get()
         for field in ("given_name", "family_name", "affiliation", "region_code"):
             assert (
                 getattr(profile, field) == profile_data[field] == profile_payload[field]
@@ -264,13 +264,13 @@ class TestProfileInjectionInUserCreationEndpoints:
 
         data = response.json()
         profile_data = data["profile"]
-        profile = UserProfile.objects.filter(user__username=username).get()
+        profile = Profile.objects.filter(user__username=username).get()
         for field in ("given_name", "family_name", "affiliation", "region_code"):
             assert getattr(profile, field) == profile_data[field] == ""
 
 
 @pytest.mark.django_db
-class TestConferenceUserProfileSearch:
+class TestProfileInjectionInUserSearch:
     users_path = reverse("api-1.0.0:list-users")
 
     @pytest.fixture
@@ -283,7 +283,7 @@ class TestConferenceUserProfileSearch:
             username=faker.user_name(),
             email=faker.email(),
         )
-        UserProfile.objects.create(
+        Profile.objects.create(
             user=user,
             given_name="Searchable",
             family_name=faker.last_name(),

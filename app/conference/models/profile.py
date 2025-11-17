@@ -49,7 +49,7 @@ class AbstractProfile(models.Model):
         abstract = True
 
 
-class UserProfile(AbstractProfile):
+class Profile(AbstractProfile):
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,

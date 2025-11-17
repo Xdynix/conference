@@ -1,15 +1,11 @@
-from app.conference.models import (
-    Conference,
-    UserConferenceProfile,
-    UserProfile,
-)
+from app.conference.models import Conference, Profile, UserConferenceProfile
 from app.core.models import User
 
 
-class TestUserProfile:
+class TestProfile:
     def test_str(self) -> None:
         user = User(username="alice")
-        profile = UserProfile(user=user)
+        profile = Profile(user=user)
         assert str(profile) == "alice's profile"
 
 

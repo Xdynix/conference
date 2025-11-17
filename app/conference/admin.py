@@ -12,9 +12,9 @@ from app.conference.models import (
     InvitationTrackRoleEntry,
     Keyword,
     KeywordSet,
+    Profile,
     Track,
     TrackRoleAssignment,
-    UserProfile,
 )
 
 
@@ -84,8 +84,8 @@ class TrackAdmin(admin.ModelAdmin[Track]):
     search_fields = ("uid", "display_name", "conference__name")
 
 
-@admin.register(UserProfile)
-class UserProfileAdmin(admin.ModelAdmin[UserProfile]):
+@admin.register(Profile)
+class ProfileAdmin(admin.ModelAdmin[Profile]):
     list_display = (
         "__str__",
         "given_name",

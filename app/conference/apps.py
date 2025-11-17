@@ -15,13 +15,13 @@ class ConferenceConfig(AppConfig):
 
 
 def register_create_user() -> None:
-    from app.conference.models import UserProfile
-    from app.conference.schemas import Profile
+    from app.conference.models import Profile
+    from app.conference.schemas import Profile as ProfileSchema
     from app.core.models import User
     from app.core.registry.create_user import create_user_registry
 
-    def create_profile(user: User, payload: Profile) -> None:
-        UserProfile.objects.create(
+    def create_profile(user: User, payload: ProfileSchema) -> None:
+        Profile.objects.create(
             user=user,
             given_name=payload.given_name,
             family_name=payload.family_name,
@@ -31,7 +31,7 @@ def register_create_user() -> None:
 
     create_user_registry.register(
         "profile",
-        (Profile, Field(default_factory=Profile)),  # type: ignore[arg-type]
+        (ProfileSchema, Field(default_factory=ProfileSchema)),  # type: ignore[arg-type]
         handler=create_profile,
     )
 
@@ -47,24 +47,24 @@ def register_search_user() -> None:
 
 
 def register_user_response() -> None:
-    from app.conference.models import UserProfile
-    from app.conference.schemas import Profile
+    from app.conference.models import Profile
+    from app.conference.schemas import Profile as ProfileSchema
     from app.core.models import User
     from app.core.registry.user_response import user_response_registry
 
-    async def resolve_profile(user: User) -> UserProfile | None:
-        return await UserProfile.objects.filter(user=user).afirst()
+    async def resolve_profile(user: User) -> Profile | None:
+        return await Profile.objects.filter(user=user).afirst()
 
-    async def batch_resolve_profile(users: Sequence[User]) -> list[UserProfile | None]:
+    async def batch_resolve_profile(users: Sequence[User]) -> list[Profile | None]:
         user_ids = [user.id for user in users]
         # TODO: Chunk user_ids into batches of ~1000 to avoid SQL parameter limits.
-        profiles = UserProfile.objects.filter(user_id__in=user_ids)
+        profiles = Profile.objects.filter(user_id__in=user_ids)
         profile_map = {profile.user_id: profile async for profile in profiles}
         return [profile_map.get(user.id) for user in users]
 
     user_response_registry.register(
         "profile",
-        Profile | None,
+        ProfileSchema | None,
         resolver=resolve_profile,
         batch_resolver=batch_resolve_profile,
     )

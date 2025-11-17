@@ -6,7 +6,7 @@ from django.urls import reverse
 from faker import Faker
 from ulid import ULID
 
-from app.conference.models import UserProfile
+from app.conference.models import Profile
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from app.utils.enums import Region
 from tests.helpers import update_object
@@ -44,7 +44,7 @@ class TestUpdateCurrentUserProfile:
         response = api_client.patch(self.path, data=profile_payload)
         assert response.status_code == HTTPStatus.OK
 
-        profile = UserProfile.objects.get(user=user)
+        profile = Profile.objects.get(user=user)
         for field, value in profile_payload.items():
             assert getattr(profile, field) == value
         assert response.json()["profile"] == profile_payload
@@ -55,7 +55,7 @@ class TestUpdateCurrentUserProfile:
         api_client: Client,
         user: User,
     ) -> None:
-        profile = UserProfile.objects.create(
+        profile = Profile.objects.create(
             user=user,
             given_name=faker.first_name(),
             family_name=faker.last_name(),
@@ -99,7 +99,7 @@ class TestUpdateCurrentUserProfile:
         response = api_client.patch(self.path, data={})
         assert response.status_code == HTTPStatus.OK
 
-        assert not UserProfile.objects.filter(user=user).exists()
+        assert not Profile.objects.filter(user=user).exists()
         assert "profile" not in response.json()
 
     def test_unauthenticated_user_forbidden(
@@ -112,10 +112,10 @@ class TestUpdateCurrentUserProfile:
 
 
 @pytest.mark.django_db
-class TestUpdateUserProfile:
+class TestUpdateProfile:
     @staticmethod
     def path(user_id: ULID) -> str:
-        return reverse("api-1.0.0:update-user-profile", args=[user_id])
+        return reverse("api-1.0.0:update-profile", args=[user_id])
 
     @pytest.fixture
     def admin_user(self, faker: Faker) -> User:
@@ -145,7 +145,7 @@ class TestUpdateUserProfile:
         )
         assert response.status_code == HTTPStatus.OK
 
-        profile = UserProfile.objects.get(user=user)
+        profile = Profile.objects.get(user=user)
         for field, value in profile_payload.items():
             assert getattr(profile, field) == value
         assert response.json()["profile"] == profile_payload
@@ -166,7 +166,7 @@ class TestUpdateUserProfile:
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
-        assert not UserProfile.objects.filter(user=user).exists()
+        assert not Profile.objects.filter(user=user).exists()
 
     def test_unauthorized_user_forbidden(
         self,
@@ -194,4 +194,4 @@ class TestUpdateUserProfile:
         response = api_client.patch(self.path(user.uid), data={})
         assert response.status_code == HTTPStatus.OK
 
-        assert not UserProfile.objects.filter(user=user).exists()
+        assert not Profile.objects.filter(user=user).exists()

@@ -7,11 +7,11 @@ __all__ = (
     "InvitationTrackRoleEntry",
     "Keyword",
     "KeywordSet",
+    "Profile",
     "Track",
     "TrackRole",
     "TrackRoleAssignment",
     "UserConferenceProfile",
-    "UserProfile",
 )
 
 
@@ -22,7 +22,7 @@ from .invitation import (
     InvitationTrackRoleEntry,
 )
 from .keyword import Keyword, KeywordSet
-from .profile import UserConferenceProfile, UserProfile
+from .profile import Profile, UserConferenceProfile
 from .role import (
     ConferenceRole,
     ConferenceRoleAssignment,
