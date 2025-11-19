@@ -17,7 +17,11 @@ class Conference(TimeStampedModel):
         _("name"),
         max_length=255,
         unique=True,
-        help_text=_("Unique identifier for the conference (e.g., 'CBPK-2020')."),
+        help_text=_(
+            "Unique identifier for the conference (e.g., 'CBPK-2020'). "
+            "Used in URLs; treat as immutable after creation. "
+            "Modifying this value may break existing links or API clients."
+        ),
     )
     display_name = models.CharField(
         _("display name"),

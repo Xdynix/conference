@@ -3,8 +3,11 @@ __all__ = (
     "ConferenceDetail",
     "ConferenceDisplayName",
     "ConferenceName",
+    "Keyword",
+    "KeywordSetName",
     "Profile",
     "Track",
+    "TrackDisplayName",
 )
 
 
@@ -15,6 +18,8 @@ from ninja import Field, Schema
 from ulid import ULID
 
 from app.conference.models import Conference as ConferenceModel
+from app.conference.models import Keyword as KeywordModel
+from app.conference.models import KeywordSet as KeywordSetModel
 from app.conference.models import Profile as ProfileModel
 from app.conference.models import Track as TrackModel
 from app.utils.enums import Region
@@ -38,6 +43,7 @@ ConferenceDisplayName = Annotated[
     str,
     Field(
         description=str(conference_display_name_field.help_text),
+        examples=["Conference on Blockchain Protocols and Knowledge 2020"],
         min_length=1,
         max_length=conference_display_name_field.max_length,
     ),
@@ -62,14 +68,36 @@ class ConferenceDetail(Conference):
 track_meta = TrackModel._meta
 track_display_name_field = track_meta.get_field("display_name")
 
+TrackDisplayName = Annotated[
+    str,
+    Field(
+        examples=["Regular"],
+        min_length=1,
+        max_length=track_display_name_field.max_length,
+    ),
+]
+
 
 class Track(Schema):
     uid: ULID
-    display_name: str = Field(
-        min_length=1,
-        max_length=track_display_name_field.max_length,
-    )
+    display_name: TrackDisplayName
     visibility: TrackModel.Visibility
+
+
+Keyword = Annotated[
+    str,
+    Field(
+        min_length=1,
+        max_length=KeywordModel._meta.get_field("text").max_length,
+    ),
+]
+KeywordSetName = Annotated[
+    str,
+    Field(
+        min_length=1,
+        max_length=KeywordSetModel._meta.get_field("name").max_length,
+    ),
+]
 
 
 profile_meta = ProfileModel._meta

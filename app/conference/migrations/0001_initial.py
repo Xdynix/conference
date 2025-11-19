@@ -36,7 +36,10 @@ class Migration(migrations.Migration):
                     "name",
                     models.SlugField(
                         help_text=(
-                            "Unique identifier for the conference (e.g., 'CBPK-2020')."
+                            "Unique identifier for the conference (e.g., 'CBPK-2020'). "
+                            "Used in URLs; treat as immutable after creation. "
+                            "Modifying this value may break existing links or API "
+                            "clients."
                         ),
                         max_length=255,
                         unique=True,
