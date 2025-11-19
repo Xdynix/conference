@@ -1,5 +1,17 @@
+"""Session-based authentication helpers and combinators.
+
+Ninja's auth hooks execute before the view callable begins, so by the time view code
+runs, with or without a surrounding transaction, the user has already passed authZ.
+Because the framework performs that check outside the view, we do not attempt to fold
+authorization queries into the same database transaction as the view's business logic.
+The residual race window (roles revoked between auth and the transactional work) is
+small, matches the rest of Django's built-in behavior, and keeps the implementation
+simple without extra queries or custom middleware.
+"""
+
 __all__ = (
     "SessionAuth",
+    "authorization",
     "has_any_roles",
     "is_authenticated",
     "is_superuser",
@@ -25,6 +37,30 @@ class SessionAuth(SyncSessionAuth):
     ) -> None:
         super().__init__()
         self.authorize = authorize
+
+    def __and__(self, other: object) -> "SessionAuth":
+        if not isinstance(other, SessionAuth):  # pragma: no cover
+            return NotImplemented
+
+        @authorization
+        async def _all(request: HttpRequest, user: User) -> bool:
+            if not await self.authorize(request, user):
+                return False
+            return await other.authorize(request, user)
+
+        return _all
+
+    def __or__(self, other: object) -> "SessionAuth":
+        if not isinstance(other, SessionAuth):  # pragma: no cover
+            return NotImplemented
+
+        @authorization
+        async def _any(request: HttpRequest, user: User) -> bool:
+            if await self.authorize(request, user):
+                return True
+            return await other.authorize(request, user)
+
+        return _any
 
     async def __call__(self, request: HttpRequest) -> Any:  # type: ignore[override]
         key = self._get_key(request)

@@ -5,6 +5,7 @@ import pytest
 from django.test import Client
 from faker import Faker
 from ninja import NinjaAPI
+from pytest_mock import MockerFixture
 
 from app.core.auth import SessionAuth, has_any_roles, is_authenticated, is_superuser
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
@@ -12,7 +13,83 @@ from tests.base import URLConfTestCase, URLPatterns
 from tests.helpers import any_str, update_object
 
 
-@pytest.mark.django_db(transaction=True)
+class TestSessionAuthCompositionAnd:
+    async def test_short_circuit_when_left_false(self, mocker: MockerFixture) -> None:
+        auth_true = mocker.AsyncMock(return_value=True)
+        auth_false = mocker.AsyncMock(return_value=False)
+        request = mocker.MagicMock()
+        user = mocker.MagicMock()
+
+        combined = SessionAuth(auth_false) & SessionAuth(auth_true)
+
+        assert await combined.authorize(request, user) is False
+        auth_false.assert_called_once()
+        auth_true.assert_not_called()
+
+    async def test_requires_both_when_left_true(self, mocker: MockerFixture) -> None:
+        auth_left = mocker.AsyncMock(return_value=True)
+        auth_right = mocker.AsyncMock(return_value=True)
+        request = mocker.MagicMock()
+        user = mocker.MagicMock()
+
+        combined = SessionAuth(auth_left) & SessionAuth(auth_right)
+
+        assert await combined.authorize(request, user) is True
+        auth_left.assert_called_once()
+        auth_right.assert_called_once()
+
+    async def test_fails_when_right_false(self, mocker: MockerFixture) -> None:
+        auth_true = mocker.AsyncMock(return_value=True)
+        auth_false = mocker.AsyncMock(return_value=False)
+        request = mocker.MagicMock()
+        user = mocker.MagicMock()
+
+        combined = SessionAuth(auth_true) & SessionAuth(auth_false)
+
+        assert await combined.authorize(request, user) is False
+        auth_true.assert_called_once()
+        auth_false.assert_called_once()
+
+
+class TestSessionAuthCompositionOr:
+    async def test_short_circuit_when_left_true(self, mocker: MockerFixture) -> None:
+        auth_true = mocker.AsyncMock(return_value=True)
+        auth_false = mocker.AsyncMock(return_value=False)
+        request = mocker.MagicMock()
+        user = mocker.MagicMock()
+
+        combined = SessionAuth(auth_true) | SessionAuth(auth_false)
+
+        assert await combined.authorize(request, user) is True
+        auth_true.assert_called_once()
+        auth_false.assert_not_called()
+
+    async def test_evaluates_right_when_left_false(self, mocker: MockerFixture) -> None:
+        auth_true = mocker.AsyncMock(return_value=True)
+        auth_false = mocker.AsyncMock(return_value=False)
+        request = mocker.MagicMock()
+        user = mocker.MagicMock()
+
+        combined = SessionAuth(auth_false) | SessionAuth(auth_true)
+
+        assert await combined.authorize(request, user) is True
+        auth_false.assert_called_once()
+        auth_true.assert_called_once()
+
+    async def test_fails_when_both_false(self, mocker: MockerFixture) -> None:
+        auth_left = mocker.AsyncMock(return_value=False)
+        auth_right = mocker.AsyncMock(return_value=False)
+        request = mocker.MagicMock()
+        user = mocker.MagicMock()
+
+        combined = SessionAuth(auth_left) | SessionAuth(auth_right)
+
+        assert await combined.authorize(request, user) is False
+        auth_left.assert_called_once()
+        auth_right.assert_called_once()
+
+
+@pytest.mark.django_db
 class AuthTestCase(URLConfTestCase):
     auth: SessionAuth
 
