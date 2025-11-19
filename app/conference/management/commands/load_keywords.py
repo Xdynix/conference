@@ -29,7 +29,7 @@ class Command(BaseYAMLCommand):
 
     help = "Load keyword sets from YAML sources."
 
-    def add_arguments(self, parser: CommandParser) -> None:  # pragma: no cover
+    def add_arguments(self, parser: CommandParser) -> None:
         parser.add_argument(
             "directory",
             nargs="?",

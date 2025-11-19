@@ -11,5 +11,5 @@ def cleanup_expired_mutexes() -> None:
     deleted_count, _ = Mutex.objects.filter(
         touch_time__lt=Now() - settings.MUTEX_RETENTION
     ).delete()
-    if deleted_count:  # pragma: no cover
+    if deleted_count:  # pragma: no branch
         logger.info(f"Cleaned up {deleted_count} expired mutexes.")

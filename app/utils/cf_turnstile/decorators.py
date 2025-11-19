@@ -66,7 +66,7 @@ async def check_cf_turnstile_response(
     remote_ip, is_routable = get_client_ip(request)
     if remote_ip is None:  # pragma: no cover
         logger.warning("Cannot determine remote IP address.")
-    elif not is_routable:  # pragma: no cover
+    elif not is_routable:  # pragma: no branch
         logger.warning(
             "Received private remote IP address.",
             remote_ip=remote_ip,

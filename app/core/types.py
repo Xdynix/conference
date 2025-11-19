@@ -23,13 +23,13 @@ from app.core.models import User as UserModel
 class HttpRequest(DjangoHttpRequest):
     user: UserModel | AnonymousUser
 
-    async def auser(self) -> UserModel | AnonymousUser: ...  # type: ignore[empty-body]  # pragma: no cover
+    async def auser(self) -> UserModel | AnonymousUser: ...  # type: ignore[empty-body]
 
 
 class AuthedHttpRequest(HttpRequest):
     user: UserModel
 
-    async def auser(self) -> UserModel: ...  # type: ignore[empty-body]  # pragma: no cover
+    async def auser(self) -> UserModel: ...  # type: ignore[empty-body]
 
 
 user_meta = UserModel._meta
