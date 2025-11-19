@@ -1,4 +1,3 @@
-from http import HTTPStatus
 from typing import Any
 
 import pytest
@@ -9,8 +8,8 @@ from pytest_mock import MockerFixture
 
 from app.core.auth import SessionAuth, has_any_roles, is_authenticated, is_superuser
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
-from tests.base import URLConfTestCase, URLPatterns
-from tests.helpers import any_str, update_object
+from tests.base import ResponseAssertionsMixin, URLConfTestCase, URLPatterns
+from tests.helpers import update_object
 
 
 class TestSessionAuthCompositionAnd:
@@ -90,25 +89,10 @@ class TestSessionAuthCompositionOr:
 
 
 @pytest.mark.django_db
-class AuthTestCase(URLConfTestCase):
+class AuthTestCase(ResponseAssertionsMixin, URLConfTestCase):
     auth: SessionAuth
 
     path = "/view"
-
-    @classmethod
-    def assert_response_is_ok(cls, response: Any) -> None:
-        assert response.status_code == HTTPStatus.OK
-        assert response.json() == "OK"
-
-    @classmethod
-    def assert_response_is_forbidden(cls, response: Any) -> None:
-        assert response.status_code == HTTPStatus.FORBIDDEN
-        assert response.json() == {"message": any_str}
-
-    @classmethod
-    def assert_response_is_unauthorized(cls, response: Any) -> None:
-        assert response.status_code == HTTPStatus.UNAUTHORIZED
-        assert response.json() == {"message": any_str}
 
     @pytest.fixture
     def urlpatterns(self, api: NinjaAPI) -> URLPatterns:

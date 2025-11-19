@@ -12,12 +12,9 @@ from tests.helpers import update_object
 
 @pytest.mark.django_db
 class TestDeleteConference:
-    @staticmethod
-    def path(conference_name: str) -> str:
-        return reverse(
-            "api-1.0.0:delete-conference",
-            kwargs={"conference_name": conference_name},
-        )
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:delete-conference", args=[conference_name])
 
     @pytest.fixture
     def conference(self, faker: Faker) -> Conference:

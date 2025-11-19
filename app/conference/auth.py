@@ -2,7 +2,8 @@ import warnings
 
 from django.shortcuts import aget_object_or_404
 
-from app.conference.models import Conference, ConferenceRole, ConferenceRoleAssignment
+from app.conference.models import ConferenceRole, ConferenceRoleAssignment
+from app.conference.services import ConferenceService
 from app.core.auth import SessionAuth, authorization
 from app.core.models import User
 from app.core.types import HttpRequest
@@ -38,10 +39,8 @@ def has_any_conference_roles(
             )
             return False
 
-        conference = await aget_object_or_404(
-            Conference.objects.filter(active=True),
-            name=conference_name,
-        )
+        conferences = await ConferenceService.visible_conferences(user)
+        conference = await aget_object_or_404(conferences, name=conference_name)
         return await ConferenceRoleAssignment.objects.filter(
             conference=conference,
             user=user,

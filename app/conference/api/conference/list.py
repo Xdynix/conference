@@ -4,11 +4,12 @@ from django.db.models import QuerySet
 from ninja.pagination import paginate
 
 from app.conference.models import Conference
+from app.conference.services import ConferenceService
 from app.conference.types import Conference as ConferenceSchema
 from app.core.types import HttpRequest
 from app.ninja.pagination import CursorPagination
 
-from .core import prefetch_tracks, router, visible_conferences
+from .core import router
 
 
 class ConferencePaginator(CursorPagination[Conference, str]):
@@ -22,7 +23,7 @@ class ConferencePaginator(CursorPagination[Conference, str]):
         request: HttpRequest,  # type: ignore[override]
     ) -> dict[str, Any]:
         page = await super().make_page(items, pagination, request)
-        page[self.items_attribute] = await prefetch_tracks(
+        page[self.items_attribute] = await ConferenceService.prefetch_tracks(
             *page[self.items_attribute],
             user=await request.auser(),
         )
@@ -51,5 +52,5 @@ async def list_conferences(request: HttpRequest) -> QuerySet[Conference]:
       is an admin either at the conference level or for the specific track.
     """
     user = await request.auser()
-    conferences = await visible_conferences(user)
+    conferences = await ConferenceService.visible_conferences(user)
     return conferences

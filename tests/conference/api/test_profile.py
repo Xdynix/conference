@@ -113,8 +113,8 @@ class TestUpdateCurrentUserProfile:
 
 @pytest.mark.django_db
 class TestUpdateProfile:
-    @staticmethod
-    def path(user_id: ULID) -> str:
+    @classmethod
+    def path(cls, user_id: ULID) -> str:
         return reverse("api-1.0.0:update-profile", args=[user_id])
 
     @pytest.fixture

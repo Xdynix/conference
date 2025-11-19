@@ -8,6 +8,7 @@ from ninja import PatchDict, Schema
 
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, Keyword
+from app.conference.services import ConferenceService
 from app.conference.types import ConferenceDetail, ConferenceDisplayName, KeywordSetName
 from app.conference.types import Keyword as KeywordText
 from app.core.auth import has_any_roles
@@ -15,7 +16,7 @@ from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse
 
-from .core import prefetch_tracks, router, validate_keyword_payload
+from .core import router, validate_keyword_payload
 
 
 class ConferenceSchema(Schema):
@@ -92,5 +93,5 @@ async def update_conference(
     conference = await Conference.objects.prefetch_related("keywords").aget(
         pk=conference.pk,
     )
-    await prefetch_tracks(conference, user=user)
+    await ConferenceService.prefetch_tracks(conference, user=user)
     return conference

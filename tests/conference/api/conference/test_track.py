@@ -17,12 +17,9 @@ from tests.helpers import any_str, update_object
 
 @pytest.mark.django_db
 class TestCreateTrack:
-    @staticmethod
-    def path(conference_name: str) -> str:
-        return reverse(
-            "api-1.0.0:create-track",
-            kwargs={"conference_name": conference_name},
-        )
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:create-track", args=[conference_name])
 
     @pytest.fixture
     def conference(self) -> Conference:
@@ -115,6 +112,11 @@ class TestCreateTrack:
         conference: Conference,
         user: User,
     ) -> None:
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.SECRETARY,
+        )
         api_client.force_login(user)
 
         response = api_client.post(

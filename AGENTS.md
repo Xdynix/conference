@@ -265,6 +265,9 @@ these results into appropriate HTTP responses with status codes.
 - Do not wrap function parameters unnecessarily: keep them on one line within the
   88-character limit; otherwise, place each argument on its own line ending with a
   comma.
+- Prefer `@classmethod` for shared helper methods across the codebase. Reserve
+- `@staticmethod` for documented special cases where binding to the class is
+  undesirable.
 - Keep commit message subjects at or under 50 characters.
 - Always request user permission before running the test suite.
 - Use the current file content as the baseline for edits; if a user change appears

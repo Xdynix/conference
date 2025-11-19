@@ -14,17 +14,14 @@ from app.conference.models import (
     Track,
 )
 from app.core.models import User
-from tests.helpers import any_list
+from tests.helpers import any_list, update_object
 
 
 @pytest.mark.django_db
 class TestUpdateConference:
-    @staticmethod
-    def path(conference_name: str) -> str:
-        return reverse(
-            "api-1.0.0:update-conference",
-            kwargs={"conference_name": conference_name},
-        )
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:update-conference", args=[conference_name])
 
     @pytest.fixture
     def conference(self) -> Conference:
@@ -102,6 +99,7 @@ class TestUpdateConference:
         api_client: Client,
         conference: Conference,
     ) -> None:
+        update_object(conference, visibility=Conference.Visibility.PUBLIC)
         user = User.objects.create_user(username=faker.user_name())
         api_client.force_login(user)
 

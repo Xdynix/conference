@@ -7,12 +7,13 @@ from loguru import logger
 
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, Track
+from app.conference.services import ConferenceService
 from app.conference.types import ConferenceDetail
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 
-from .core import prefetch_tracks, router
+from .core import router
 from .create import TrackSchema as CreateTrackSchema
 
 
@@ -68,5 +69,5 @@ async def create_track(
     conference = await Conference.objects.prefetch_related("keywords").aget(
         pk=conference.pk,
     )
-    await prefetch_tracks(conference, user=user)
+    await ConferenceService.prefetch_tracks(conference, user=user)
     return HTTPStatus.CREATED, conference

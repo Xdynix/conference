@@ -7,7 +7,11 @@ from faker import Faker
 from ninja import NinjaAPI
 
 from app.conference.auth import has_any_conference_roles
-from app.conference.models import Conference, ConferenceRole, ConferenceRoleAssignment
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    ConferenceRoleAssignment,
+)
 from app.core.models import User
 from app.core.types import HttpRequest
 from tests.base import URLConfTestCase, URLPatterns
@@ -71,12 +75,23 @@ class TestHasAnyConferenceRolesSingle(ConferenceAuthTestCase):
         response = client.get(self.path(conference))
         self.assert_response_is_unauthorized(response)
 
-    def test_denied_without_assignment(
+    def test_private_conference_without_assignment_hidden(
         self,
         client: Client,
         user: User,
         conference: Conference,
     ) -> None:
+        client.force_login(user)
+        response = client.get(self.path(conference))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_public_conference_without_assignment_forbidden(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        update_object(conference, visibility=Conference.Visibility.PUBLIC)
         client.force_login(user)
         response = client.get(self.path(conference))
         self.assert_response_is_forbidden(response)

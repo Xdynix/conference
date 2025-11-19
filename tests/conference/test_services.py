@@ -1,6 +1,8 @@
 from collections.abc import Iterable, Mapping
 
 import pytest
+from asgiref.sync import sync_to_async
+from django.contrib.auth.models import AnonymousUser
 from django.core.signing import BadSignature
 from django.utils import timezone
 from faker import Faker
@@ -18,9 +20,16 @@ from app.conference.models import (
     TrackRole,
     TrackRoleAssignment,
 )
-from app.conference.services import InvitationService
-from app.core.models import User
+from app.conference.services import ConferenceService, InvitationService
+from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from tests.helpers import approx_now, update_object
+
+a_update_object = sync_to_async(update_object)
+
+
+@pytest.fixture
+def user(faker: Faker) -> User:
+    return User.objects.create_user(username=faker.user_name())
 
 
 @pytest.fixture
@@ -37,6 +46,270 @@ def track(faker: Faker, conference: Conference) -> Track:
         conference=conference,
         display_name=faker.word(),
     )
+
+
+@pytest.mark.django_db(transaction=True)
+class TestConferenceServiceVisibleConferences:
+    async def test_anonymous_user_only_sees_public_conferences(self) -> None:
+        public = await Conference.objects.acreate(
+            name="public-conf",
+            display_name="Public",
+            visibility=Conference.Visibility.PUBLIC,
+        )
+        await Conference.objects.acreate(
+            name="private-conf",
+            display_name="Private",
+            visibility=Conference.Visibility.ADMIN_ONLY,
+        )
+        await Conference.objects.acreate(
+            name="inactive-conf",
+            display_name="Inactive",
+            visibility=Conference.Visibility.PUBLIC,
+            active=False,
+        )
+
+        qs = await ConferenceService.visible_conferences(AnonymousUser())
+        conferences = [conf async for conf in qs.order_by("name")]
+
+        assert conferences == [public]
+
+    async def test_superuser_sees_all_active_conferences(self, user: User) -> None:
+        public = await Conference.objects.acreate(
+            name="public-conf",
+            display_name="Public",
+            visibility=Conference.Visibility.PUBLIC,
+        )
+        private = await Conference.objects.acreate(
+            name="private-conf",
+            display_name="Private",
+            visibility=Conference.Visibility.ADMIN_ONLY,
+        )
+        await Conference.objects.acreate(
+            name="inactive-conf",
+            display_name="Inactive",
+            visibility=Conference.Visibility.PUBLIC,
+            active=False,
+        )
+        await a_update_object(user, is_superuser=True)
+
+        qs = await ConferenceService.visible_conferences(user)
+        conferences = [conf async for conf in qs.order_by("name")]
+
+        assert conferences == [private, public]
+
+    async def test_global_admin_role_grants_full_visibility(self, user: User) -> None:
+        private = await Conference.objects.acreate(
+            name="secure-conf",
+            display_name="Secure",
+            visibility=Conference.Visibility.ADMIN_ONLY,
+        )
+        await GlobalRoleAssignment.objects.acreate(user=user, role=GlobalRole.ADMIN)
+
+        qs = await ConferenceService.visible_conferences(user)
+        conferences = [conf async for conf in qs.order_by("name")]
+
+        assert conferences == [private]
+
+    async def test_conference_admin_sees_private_conference(self, user: User) -> None:
+        visible = await Conference.objects.acreate(
+            name="visible-conf",
+            display_name="Visible",
+            visibility=Conference.Visibility.ADMIN_ONLY,
+        )
+        await Conference.objects.acreate(
+            name="other-conf",
+            display_name="Other",
+            visibility=Conference.Visibility.ADMIN_ONLY,
+        )
+        await ConferenceRoleAssignment.objects.acreate(
+            conference=visible,
+            user=user,
+            role=ConferenceRole.CHAIR,
+        )
+
+        qs = await ConferenceService.visible_conferences(user)
+        conferences = [conf async for conf in qs.order_by("name")]
+
+        assert conferences == [visible]
+
+    async def test_track_admin_gains_conference_visibility(self, user: User) -> None:
+        target = await Conference.objects.acreate(
+            name="target-conf",
+            display_name="Target",
+            visibility=Conference.Visibility.ADMIN_ONLY,
+        )
+        await Conference.objects.acreate(
+            name="other-conf",
+            display_name="Other",
+            visibility=Conference.Visibility.ADMIN_ONLY,
+        )
+        track = await Track.objects.acreate(
+            conference=target,
+            display_name="Visible Track",
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+        await TrackRoleAssignment.objects.acreate(
+            track=track,
+            user=user,
+            role=TrackRole.CHAIR,
+        )
+
+        qs = await ConferenceService.visible_conferences(user)
+        conferences = [conf async for conf in qs.order_by("name")]
+
+        assert conferences == [target]
+
+
+@pytest.mark.django_db(transaction=True)
+class TestConferenceServiceVisibleTracks:
+    async def test_anonymous_user_sees_only_public_tracks(
+        self,
+        conference: Conference,
+    ) -> None:
+        public_track = await Track.objects.acreate(
+            conference=conference,
+            display_name="Public Track",
+            visibility=Track.Visibility.PUBLIC,
+        )
+        await Track.objects.acreate(
+            conference=conference,
+            display_name="Private Track",
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+
+        qs = await ConferenceService.visible_tracks(AnonymousUser(), [conference])
+        tracks = [track async for track in qs]
+
+        assert tracks == [public_track]
+
+    async def test_superuser_sees_all_tracks(
+        self, user: User, conference: Conference
+    ) -> None:
+        first_track = await Track.objects.acreate(
+            conference=conference,
+            display_name="First",
+            ordering=1,
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+        second_track = await Track.objects.acreate(
+            conference=conference,
+            display_name="Second",
+            ordering=2,
+            visibility=Track.Visibility.PUBLIC,
+        )
+        await a_update_object(user, is_superuser=True)
+
+        qs = await ConferenceService.visible_tracks(user, [conference])
+        tracks = [track async for track in qs]
+
+        assert tracks == [first_track, second_track]
+
+    async def test_global_admin_role_sees_all_tracks(
+        self,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        private_track = await Track.objects.acreate(
+            conference=conference,
+            display_name="Private Track",
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+        await GlobalRoleAssignment.objects.acreate(user=user, role=GlobalRole.READ_ALL)
+
+        qs = await ConferenceService.visible_tracks(user, [conference])
+        tracks = [track async for track in qs]
+
+        assert tracks == [private_track]
+
+    async def test_conference_admin_sees_private_tracks(
+        self,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        public_track = await Track.objects.acreate(
+            conference=conference,
+            display_name="Public",
+            ordering=1,
+            visibility=Track.Visibility.PUBLIC,
+        )
+        private_track = await Track.objects.acreate(
+            conference=conference,
+            display_name="Private",
+            ordering=2,
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+        await ConferenceRoleAssignment.objects.acreate(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.SECRETARY,
+        )
+
+        qs = await ConferenceService.visible_tracks(user, [conference])
+        tracks = [track async for track in qs]
+
+        assert tracks == [public_track, private_track]
+
+    async def test_track_admin_sees_assigned_private_track(
+        self,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        assigned_track = await Track.objects.acreate(
+            conference=conference,
+            display_name="Assigned",
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+        await Track.objects.acreate(
+            conference=conference,
+            display_name="Hidden",
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+        await TrackRoleAssignment.objects.acreate(
+            track=assigned_track,
+            user=user,
+            role=TrackRole.CHAIR,
+        )
+
+        qs = await ConferenceService.visible_tracks(user, [conference])
+        tracks = [track async for track in qs]
+
+        assert tracks == [assigned_track]
+
+    async def test_inactive_items_are_filtered(self, user: User) -> None:
+        active_conference = await Conference.objects.acreate(
+            name="active-conf",
+            display_name="Active",
+        )
+        inactive_conference = await Conference.objects.acreate(
+            name="inactive-conf",
+            display_name="Inactive",
+            active=False,
+        )
+        active_track = await Track.objects.acreate(
+            conference=active_conference,
+            display_name="Active",
+            visibility=Track.Visibility.PUBLIC,
+        )
+        await Track.objects.acreate(
+            conference=active_conference,
+            display_name="Inactive Track",
+            visibility=Track.Visibility.PUBLIC,
+            active=False,
+        )
+        await Track.objects.acreate(
+            conference=inactive_conference,
+            display_name="Hidden",
+            visibility=Track.Visibility.PUBLIC,
+        )
+        await a_update_object(user, is_superuser=True)
+
+        qs = await ConferenceService.visible_tracks(
+            user,
+            [active_conference, inactive_conference],
+        )
+        tracks = [track async for track in qs]
+
+        assert tracks == [active_track]
 
 
 @pytest.mark.django_db

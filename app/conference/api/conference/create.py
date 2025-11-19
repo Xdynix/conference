@@ -8,6 +8,7 @@ from ninja import Field, Schema
 from ninja.errors import HttpError
 
 from app.conference.models import Conference, Keyword, Track
+from app.conference.services import ConferenceService
 from app.conference.types import (
     ConferenceDetail,
     ConferenceDisplayName,
@@ -21,7 +22,7 @@ from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse
 
-from .core import prefetch_tracks, router, validate_keyword_payload
+from .core import router, validate_keyword_payload
 
 
 class TrackSchema(Schema):
@@ -100,5 +101,5 @@ async def create_conference(
     conference = await Conference.objects.prefetch_related("keywords").aget(
         pk=conference.pk
     )
-    await prefetch_tracks(conference, user=user)
+    await ConferenceService.prefetch_tracks(conference, user=user)
     return HTTPStatus.CREATED, conference
