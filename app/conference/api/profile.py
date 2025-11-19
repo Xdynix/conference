@@ -6,7 +6,7 @@ from ninja import PatchDict, Router
 from ulid import ULID
 
 from app.conference.models import Profile
-from app.conference.schemas import Profile as ProfileSchema
+from app.conference.types import Profile as ProfileSchema
 from app.core.api.user.core import UserResponse
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole, User

@@ -1,5 +1,15 @@
+__all__ = (
+    "Conference",
+    "ConferenceDetail",
+    "ConferenceDisplayName",
+    "ConferenceName",
+    "Profile",
+    "Track",
+)
+
+
 from enum import StrEnum
-from typing import Literal
+from typing import Annotated, Literal
 
 from ninja import Field, Schema
 from ulid import ULID
@@ -14,19 +24,29 @@ conference_name_field = conference_meta.get_field("name")
 conference_display_name_field = conference_meta.get_field("display_name")
 
 
-class Conference(Schema):
-    name: str = Field(
+ConferenceName = Annotated[
+    str,
+    Field(
         description=str(conference_name_field.help_text),
         examples=["CBPK-2020"],
         pattern=r"^[-a-zA-Z0-9_]+$",  # django.core.validators.slug_re
         min_length=1,
         max_length=conference_name_field.max_length,
-    )
-    display_name: str = Field(
+    ),
+]
+ConferenceDisplayName = Annotated[
+    str,
+    Field(
         description=str(conference_display_name_field.help_text),
         min_length=1,
         max_length=conference_display_name_field.max_length,
-    )
+    ),
+]
+
+
+class Conference(Schema):
+    name: ConferenceName
+    display_name: ConferenceDisplayName
     visibility: ConferenceModel.Visibility
     tracks: list["Track"] = Field(validation_alias="prefetched_tracks")
 

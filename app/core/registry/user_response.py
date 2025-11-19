@@ -4,30 +4,16 @@ __all__ = (
 )
 
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Any, Literal
+from typing import Any
 
-from django.utils.translation import gettext as _
 from ninja import Field, Schema
 from pydantic import create_model
-from ulid import ULID
 
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
-from app.core.types import EmailStr
+from app.core.types import User as UserSchema
 
 UserFieldResolver = Callable[[User], Awaitable[Any]]
 UserFieldBatchResolver = Callable[[Sequence[User]], Awaitable[Sequence[Any]]]
-
-
-class BaseUserSchema(Schema):
-    uid: ULID
-    username: str = Field(examples=["user"])
-    email: EmailStr | Literal[""] = Field(title=_("Email Address"))
-    managed: bool = Field(
-        description=_(
-            "Whether this user is controlled by the system. "
-            "Managed users cannot modify their username and email."
-        )
-    )
 
 
 class UserResponseRegistry:
@@ -38,7 +24,7 @@ class UserResponseRegistry:
     single-user resolvers and batch resolvers for efficient bulk operations.
     """
 
-    base_schema: type[Schema] = BaseUserSchema
+    base_schema: type[Schema] = UserSchema
     schema_name: str = "User"
 
     def __init__(self) -> None:

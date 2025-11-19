@@ -2,7 +2,7 @@ from django.db.models import QuerySet
 from django.shortcuts import aget_object_or_404
 
 from app.conference.models import Conference
-from app.conference.schemas import ConferenceDetail
+from app.conference.types import ConferenceDetail
 from app.core.types import HttpRequest
 
 from .core import prefetch_tracks, router, visible_conferences

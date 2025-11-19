@@ -4,7 +4,7 @@ from django.db.models import QuerySet
 from ninja.pagination import paginate
 
 from app.conference.models import Conference
-from app.conference.schemas import Conference as ConferenceSchema
+from app.conference.types import Conference as ConferenceSchema
 from app.core.types import HttpRequest
 from app.ninja.pagination import CursorPagination
 

@@ -16,7 +16,7 @@ class ConferenceConfig(AppConfig):
 
 def register_create_user() -> None:
     from app.conference.models import Profile
-    from app.conference.schemas import Profile as ProfileSchema
+    from app.conference.types import Profile as ProfileSchema
     from app.core.models import User
     from app.core.registry.create_user import create_user_registry
 
@@ -48,7 +48,7 @@ def register_search_user() -> None:
 
 def register_user_response() -> None:
     from app.conference.models import Profile
-    from app.conference.schemas import Profile as ProfileSchema
+    from app.conference.types import Profile as ProfileSchema
     from app.core.models import User
     from app.core.registry.user_response import user_response_registry
 
