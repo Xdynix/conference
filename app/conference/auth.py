@@ -2,7 +2,12 @@ import warnings
 
 from django.shortcuts import aget_object_or_404
 
-from app.conference.models import ConferenceRole, ConferenceRoleAssignment
+from app.conference.models import (
+    ConferenceRole,
+    ConferenceRoleAssignment,
+    TrackRole,
+    TrackRoleAssignment,
+)
 from app.conference.services import ConferenceService
 from app.core.auth import SessionAuth, authorization
 from app.core.models import User
@@ -48,3 +53,62 @@ def has_any_conference_roles(
         ).aexists()
 
     return _has_any_conference_roles
+
+
+def has_any_track_roles(
+    *roles: TrackRole,
+    conference_name_param: str = "conference_name",
+    track_id_param: str = "track_id",
+) -> SessionAuth:
+    @authorization
+    async def _has_any_track_roles(request: HttpRequest, user: User) -> bool:
+        if user.is_superuser:
+            return True
+
+        resolver_match = getattr(request, "resolver_match", None)
+        if resolver_match is None:  # pragma: no cover
+            warnings.warn(
+                (
+                    "SessionAuth cannot resolve conference and track parameter; "
+                    "resolver data missing."
+                ),
+                UserWarning,
+                stacklevel=1,
+            )
+            return False
+
+        conference_name = resolver_match.kwargs.get(conference_name_param)
+        if conference_name is None:  # pragma: no cover
+            warnings.warn(
+                f"SessionAuth conference parameter {conference_name_param!r} missing.",
+                UserWarning,
+                stacklevel=1,
+            )
+            return False
+
+        track_id = resolver_match.kwargs.get(track_id_param)
+        if track_id is None:  # pragma: no cover
+            warnings.warn(
+                f"SessionAuth track parameter {track_id_param!r} missing.",
+                UserWarning,
+                stacklevel=1,
+            )
+            return False
+
+        conferences = await ConferenceService.visible_conferences(user)
+        conference = await aget_object_or_404(
+            conferences,
+            name=conference_name,
+        )
+        tracks = await ConferenceService.visible_tracks(user, [conference])
+        track = await aget_object_or_404(
+            tracks,
+            uid=track_id,
+        )
+        return await TrackRoleAssignment.objects.filter(
+            track=track,
+            user=user,
+            role__in=roles,
+        ).aexists()
+
+    return _has_any_track_roles
