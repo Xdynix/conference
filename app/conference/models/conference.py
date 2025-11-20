@@ -1,4 +1,5 @@
 from collections.abc import Collection
+from typing import Self
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -6,6 +7,11 @@ from django.utils.translation import gettext_lazy as _
 from app.utils.models import TimeStampedModel, ULIDModel
 
 from .keyword import Keyword
+
+
+class ConferenceQuerySet(models.QuerySet["Conference"]):
+    def active(self) -> Self:
+        return self.filter(active=True)
 
 
 class Conference(TimeStampedModel):
@@ -53,6 +59,8 @@ class Conference(TimeStampedModel):
         default=Visibility.ADMIN_ONLY,
     )
 
+    objects = ConferenceQuerySet.as_manager()
+
     _prefetched_tracks: list["Track"]
 
     class Meta:
@@ -86,6 +94,14 @@ class Conference(TimeStampedModel):
                     f"Track {track.pk} does not belong to conference {self}."
                 )
             self._prefetched_tracks.append(track)
+
+
+class TrackQuerySet(models.QuerySet["Track"]):
+    def active(self) -> Self:
+        return self.filter(
+            conference__active=True,
+            active=True,
+        )
 
 
 class Track(TimeStampedModel, ULIDModel):
@@ -124,6 +140,8 @@ class Track(TimeStampedModel, ULIDModel):
         choices=Visibility,
         default=Visibility.ADMIN_ONLY,
     )
+
+    objects = TrackQuerySet.as_manager()
 
     class Meta:
         verbose_name = _("track")

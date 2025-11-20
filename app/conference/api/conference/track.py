@@ -31,7 +31,7 @@ def create_new_track(
     # Lock the conference row to prevent race conditions when calculating the next
     # ordering value, even though we don't update the conference itself.
     conference = get_object_or_404(
-        Conference.objects.select_for_update().filter(active=True),
+        Conference.objects.active().select_for_update(),
         name=conference_name,
     )
     last_ordering = (
@@ -101,11 +101,9 @@ async def update_track(
     user = await request.auser()
 
     track = await aget_object_or_404(
-        Track.objects.select_related("conference").filter(
-            conference__name=conference_name,
-            conference__active=True,
-            active=True,
-        ),
+        Track.objects.active()
+        .filter(conference__name=conference_name)
+        .select_related("conference"),
         uid=track_id,
     )
     if payload:
@@ -125,13 +123,10 @@ async def update_track(
 @transaction.atomic
 def deactivate_track(*, conference_name: str, track_id: ULID) -> Track:
     track = get_object_or_404(
-        Track.objects.select_for_update()
-        .select_related("conference")
-        .filter(
-            conference__name=conference_name,
-            conference__active=True,
-            active=True,
-        ),
+        Track.objects.active()
+        .filter(conference__name=conference_name)
+        .select_for_update()
+        .select_related("conference"),
         uid=track_id,
     )
     track.active = False
@@ -180,11 +175,11 @@ def move_track_ordering(
     after_track_uid: ULID | None,
 ) -> Conference:
     conference = get_object_or_404(
-        Conference.objects.select_for_update().filter(active=True),
+        Conference.objects.active().select_for_update(),
         name=conference_name,
     )
     track = get_object_or_404(
-        conference.tracks.filter(active=True),
+        conference.tracks.active(),
         uid=track_uid,
     )
 
@@ -194,7 +189,7 @@ def move_track_ordering(
             message = _("Track cannot be moved after itself.")
             raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, message)
 
-        after_track = conference.tracks.filter(uid=after_track_uid, active=True).first()
+        after_track = conference.tracks.active().filter(uid=after_track_uid).first()
         if after_track is None:
             message = _("Target track does not exist.")
             raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, message)

@@ -88,13 +88,10 @@ async def get_user_conference_profile(
 ) -> UserConferenceProfile:
     """Return a user's profile for the given conference."""
     conference = await aget_object_or_404(
-        Conference.objects.filter(active=True),
+        Conference.objects.active(),
         name=conference_name,
     )
-    user = await aget_object_or_404(
-        User.objects.filter(is_active=True),
-        uid=user_id,
-    )
+    user = await aget_object_or_404(User.objects.active(), uid=user_id)
 
     profile = await ensure_profile(user=user, conference=conference)
     return await load_profile(profile)
@@ -180,11 +177,11 @@ async def update_user_conference_profile(
 ) -> UserConferenceProfile:
     """Update a user's profile for the given conference."""
     conference = await aget_object_or_404(
-        Conference.objects.filter(active=True),
+        Conference.objects.active(),
         name=conference_name,
     )
     user = await aget_object_or_404(
-        User.objects.filter(is_active=True),
+        User.objects.active(),
         uid=user_id,
     )
 

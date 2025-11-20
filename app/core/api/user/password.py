@@ -80,7 +80,7 @@ async def update_user_password(
     Allows administrators to change the password for any active, non-superuser user.
     """
     user = await aget_object_or_404(
-        User.objects.filter(is_active=True, is_superuser=False),
+        User.objects.active().non_superuser(),
         uid=user_id,
     )
     new_password = payload.new_password

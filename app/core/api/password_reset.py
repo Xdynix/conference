@@ -52,7 +52,7 @@ async def create_password_reset(
 
     Returns 429 if a reset token was recently issued for this user.
     """
-    user = await User.objects.filter(is_active=True, email=payload.email).afirst()
+    user = await User.objects.active().filter(email=payload.email).afirst()
     # Users without a usable password are considered to be authenticated by external
     # services (such as OIDC). Currently, this system does not implement such
     # authentication, but is reserved for future expansion.
@@ -102,7 +102,7 @@ async def consume_password_reset(
     """
     error_msg = _("Invalid or expired password reset token.")
 
-    user = await User.objects.filter(is_active=True, uid=payload.user_id).afirst()
+    user = await User.objects.active().filter(uid=payload.user_id).afirst()
     if user is None:
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, error_msg)
 

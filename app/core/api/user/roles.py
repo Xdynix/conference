@@ -42,7 +42,7 @@ async def update_user_roles(
 ) -> dict[str, Any]:
     """Replace a user's global role assignments for any active account."""
     user = await aget_object_or_404(
-        User.objects.filter(is_active=True),
+        User.objects.active(),
         uid=user_id,
     )
     roles = payload.roles

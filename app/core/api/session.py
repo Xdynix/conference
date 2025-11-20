@@ -149,10 +149,9 @@ async def assume_session(
     - Only superusers can use this operation.
     - The user being impersonated cannot be a superuser.
     """
-    impersonated: User | None = await User.objects.filter(
-        username=payload.impersonated,
-        is_active=True,
-    ).afirst()
+    impersonated: User | None = (
+        await User.objects.active().filter(username=payload.impersonated).afirst()
+    )
     if impersonated is None:
         raise HttpError(
             status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
@@ -195,10 +194,7 @@ async def revert_session(request: HttpRequest) -> Session:
     if impersonator_id is None:
         return await Session.from_request(request)
 
-    impersonator = await User.objects.filter(
-        id=impersonator_id,
-        is_active=True,
-    ).afirst()
+    impersonator = await User.objects.active().filter(id=impersonator_id).afirst()
     if impersonator is not None:
         impersonated = await request.auser()
         await alogin(request, impersonator)

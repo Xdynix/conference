@@ -32,7 +32,7 @@ async def get_current_user(request: AuthedHttpRequest) -> dict[str, Any]:
 async def get_user(request: AuthedHttpRequest, user_id: ULID) -> dict[str, Any]:  # noqa: ARG001
     """Retrieve a single user."""
     user = await aget_object_or_404(
-        User.objects.filter(is_active=True),
+        User.objects.active(),
         uid=user_id,
     )
     return await user_response_registry.dump(user)

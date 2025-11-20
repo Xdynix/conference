@@ -46,7 +46,7 @@ class ConferenceService:
         - private conferences where the user is an admin on at least one of the
           conference's tracks.
         """
-        conferences = Conference.objects.filter(active=True)
+        conferences = Conference.objects.active()
 
         if not user.is_authenticated:
             return conferences.filter(visibility=Conference.Visibility.PUBLIC)
@@ -91,11 +91,7 @@ class ConferenceService:
         - private tracks whose parent conference the user administers; and
         - private tracks where the user has a track-admin role.
         """
-        tracks = Track.objects.filter(
-            conference__in=conferences,
-            conference__active=True,
-            active=True,
-        )
+        tracks = Track.objects.active().filter(conference__in=conferences)
 
         if not user.is_authenticated:
             return tracks.filter(visibility=Track.Visibility.PUBLIC)

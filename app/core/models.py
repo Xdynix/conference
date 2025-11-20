@@ -1,4 +1,4 @@
-from typing import ClassVar, override
+from typing import ClassVar, Self, override
 
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import UserManager as DjangoUserManager
@@ -13,6 +13,14 @@ from app.utils.models import TimeStampedModel, ULIDModel
 class GlobalRole(models.TextChoices):
     ADMIN = "Admin", _("Admin")
     READ_ALL = "Read All", _("Read All")
+
+
+class UserQuerySet(models.QuerySet["User"]):
+    def active(self) -> Self:
+        return self.filter(is_active=True)
+
+    def non_superuser(self) -> Self:
+        return self.filter(is_superuser=False)
 
 
 class UserManager(DjangoUserManager["User"]):
@@ -31,6 +39,12 @@ class UserManager(DjangoUserManager["User"]):
         """
         email = email or ""
         return email.lower()
+
+    def get_queryset(self) -> UserQuerySet:
+        return UserQuerySet(self.model, using=self._db)
+
+    def active(self) -> UserQuerySet:
+        return self.get_queryset().active()
 
 
 class User(ULIDModel, AbstractUser):

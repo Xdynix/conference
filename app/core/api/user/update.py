@@ -118,7 +118,7 @@ async def update_user(
     require email verification and can update managed users.
     """
     user = await aget_object_or_404(
-        User.objects.filter(is_active=True, is_superuser=False),
+        User.objects.active().non_superuser(),
         uid=user_id,
     )
 

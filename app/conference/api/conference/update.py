@@ -32,7 +32,7 @@ def patch_conference(
     payload: PatchDict[ConferenceSchema],
 ) -> Conference:
     conference = get_object_or_404(
-        Conference.objects.filter(active=True).select_for_update(),
+        Conference.objects.active().select_for_update(),
         name=conference_name,
     )
 

@@ -61,6 +61,6 @@ async def list_users(
     filters: Query[ListUsersFilters],
 ) -> QuerySet[User]:
     """Retrieve a list of users."""
-    users = User.objects.filter(is_active=True).all()
+    users = User.objects.active()
     users = filters.filter(users)
     return users

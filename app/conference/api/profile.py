@@ -60,7 +60,7 @@ async def update_profile(
 ) -> dict[str, Any]:
     """Update a user's profile by admin."""
     user = await aget_object_or_404(
-        User.objects.filter(is_active=True),
+        User.objects.active(),
         uid=user_id,
     )
 
