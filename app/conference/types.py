@@ -8,6 +8,7 @@ __all__ = (
     "Profile",
     "Track",
     "TrackDisplayName",
+    "UserConferenceProfile",
 )
 
 
@@ -22,6 +23,7 @@ from app.conference.models import Keyword as KeywordModel
 from app.conference.models import KeywordSet as KeywordSetModel
 from app.conference.models import Profile as ProfileModel
 from app.conference.models import Track as TrackModel
+from app.conference.models import UserConferenceProfile as UserConferenceProfileModel
 from app.utils.enums import Region
 
 conference_meta = ConferenceModel._meta
@@ -125,3 +127,21 @@ class Profile(Schema):
         max_length=affiliation_field.max_length,
     )
     region_code: Literal[""] | RegionCode = Field("", examples=[Region.GB.name])
+
+
+user_conference_profile_meta = UserConferenceProfileModel._meta
+desired_paper_count_field = UserConferenceProfileModel._meta.get_field(
+    "desired_paper_count"
+)
+
+
+class UserConferenceProfile(Schema):
+    desired_paper_count: int = Field(
+        description=str(desired_paper_count_field.help_text),
+        ge=0,
+    )
+    interested_keywords: list[Keyword]
+
+    @staticmethod
+    def resolve_interested_keywords(profile: UserConferenceProfileModel) -> list[str]:
+        return [keyword.text for keyword in profile.interested_keywords.all()]
