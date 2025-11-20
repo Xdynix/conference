@@ -216,3 +216,81 @@ class TestUpdateTrack:
             data={"display_name": "Unauthorized Update"},
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestDeleteTrack:
+    @classmethod
+    def path(cls, conference_name: str, track_id: ULID) -> str:
+        return reverse(
+            "api-1.0.0:delete-track",
+            kwargs={
+                "conference_name": conference_name,
+                "track_id": track_id,
+            },
+        )
+
+    @pytest.fixture
+    def track(self, conference: Conference) -> Track:
+        return Track.objects.create(
+            conference=conference,
+            display_name="Analytics",
+            ordering=1,
+            visibility=Track.Visibility.PUBLIC,
+        )
+
+    @pytest.fixture
+    def remaining_track(self, conference: Conference) -> Track:
+        return Track.objects.create(
+            conference=conference,
+            display_name="Governance",
+            ordering=2,
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        remaining_track: Track,
+    ) -> None:
+        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
+        api_client.force_login(user)
+
+        response = api_client.delete(self.path(conference.name, track.uid))
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == {
+            "name": conference.name,
+            "display_name": conference.display_name,
+            "visibility": conference.visibility,
+            "keywords": [],
+            "tracks": [
+                {
+                    "uid": str(remaining_track.uid),
+                    "display_name": remaining_track.display_name,
+                    "visibility": remaining_track.visibility,
+                },
+            ],
+        }
+
+        track.refresh_from_db()
+        assert track.active is False
+
+    def test_unauthorized_user_forbidden(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.SECRETARY,
+        )
+        api_client.force_login(user)
+
+        response = api_client.delete(self.path(conference.name, track.uid))
+        assert response.status_code == HTTPStatus.FORBIDDEN

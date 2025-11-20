@@ -117,3 +117,49 @@ async def update_track(
     )
     await ConferenceService.prefetch_tracks(conference, user=user)
     return conference
+
+
+@transaction.atomic
+def deactivate_track(*, conference_name: str, track_id: ULID) -> Track:
+    track = get_object_or_404(
+        Track.objects.select_for_update()
+        .select_related("conference")
+        .filter(
+            conference__name=conference_name,
+            conference__active=True,
+            active=True,
+        ),
+        uid=track_id,
+    )
+    track.active = False
+    track.save(update_fields=["active", "update_time"])
+    return track
+
+
+@router.delete(
+    "/conferences/{slug:conference_name}/tracks/{ulid:track_id}",
+    response=ConferenceDetail,
+    summary="Delete Track",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
+    ),
+)
+async def delete_track(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    track_id: ULID,
+) -> Conference:
+    """Delete a track for a conference."""
+    track = await sync_to_async(deactivate_track)(
+        conference_name=conference_name,
+        track_id=track_id,
+    )
+
+    user = await request.auser()
+    logger.info("Track deleted.", track=track, user=user)
+
+    conference = await Conference.objects.prefetch_related("keywords").aget(
+        pk=track.conference_id
+    )
+    await ConferenceService.prefetch_tracks(conference, user=user)
+    return conference
