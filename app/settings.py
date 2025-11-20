@@ -221,6 +221,15 @@ django_stubs_ext.monkeypatch()
 
 SHELL_PLUS = "ipython"
 
+RUNSERVER_PLUS_EXCLUDE_PATTERNS = [
+    str(BASE_DIR / ".cache" / "*"),
+    str(BASE_DIR / "etc" / "*"),
+    str(BASE_DIR / "scripts" / "*"),
+    str(BASE_DIR / "seed" / "*"),
+    str(BASE_DIR / "tests" / "*"),
+    str(BASE_DIR / "var" / "*"),
+]
+
 
 # Site
 
