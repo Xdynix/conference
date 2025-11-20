@@ -3,12 +3,12 @@ __all__ = (
     "ConferenceDetail",
     "ConferenceDisplayName",
     "ConferenceName",
+    "DesiredPaperCount",
     "Keyword",
     "KeywordSetName",
     "Profile",
     "Track",
     "TrackDisplayName",
-    "UserConferenceProfile",
 )
 
 
@@ -134,14 +134,7 @@ desired_paper_count_field = UserConferenceProfileModel._meta.get_field(
     "desired_paper_count"
 )
 
-
-class UserConferenceProfile(Schema):
-    desired_paper_count: int = Field(
-        description=str(desired_paper_count_field.help_text),
-        ge=0,
-    )
-    interested_keywords: list[Keyword]
-
-    @staticmethod
-    def resolve_interested_keywords(profile: UserConferenceProfileModel) -> list[str]:
-        return [keyword.text for keyword in profile.interested_keywords.all()]
+DesiredPaperCount = Annotated[
+    int,
+    Field(description=str(desired_paper_count_field.help_text), ge=0),
+]
