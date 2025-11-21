@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+from django.contrib.auth import aupdate_session_auth_hash
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
@@ -11,7 +12,7 @@ from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest, Password
 
-from .core import aupdate_session_auth_hash, router, validate_password_for_user
+from .core import router, validate_password_for_user
 
 
 class UpdateCurrentUserPasswordRequest(Schema):

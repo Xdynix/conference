@@ -35,17 +35,3 @@ class AppNinjaAPI(NinjaAPI):
         )
         set_exception_handlers(api)
         return api
-
-
-# TODO: Remove when there is an elegant solution.
-def monkey_patch_ninja_openapi_csrf() -> None:
-    """Force Django Ninja's OpenAPI docs page to include CSRF token."""
-    import ninja.openapi.docs
-
-    def _csrf_needed(api: NinjaAPI) -> bool:  # noqa: ARG001  # pragma: no cover
-        return True
-
-    ninja.openapi.docs._csrf_needed = _csrf_needed
-
-
-monkey_patch_ninja_openapi_csrf()

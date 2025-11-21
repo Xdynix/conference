@@ -6,6 +6,12 @@ import django_stubs_ext
 from decouple import Csv, config
 
 from app.logging import configure_logging
+from app.patches import (
+    monkeypatch_django_async_auth,
+    monkeypatch_django_aupdate_session_auth_hash,
+    monkeypatch_django_ninja_openapi_csrf,
+    monkeypatch_django_ninja_patch_dict,
+)
 from app.utils.shorthands import days, seconds
 
 # Common
@@ -320,40 +326,7 @@ PASSWORD_RESET_PAGE_URI = config("PASSWORD_RESET_PAGE_URI", default="")
 
 # Monkeypatch
 
-
-def monkeypatch_django_ninja_patch_dict() -> None:  # pragma: no cover
-    # TODO: Remove after vitalik/django-ninja#1592 released.
-    import ninja.patch_dict
-    from ninja.patch_dict import (  # type: ignore[attr-defined]
-        ModelToDict,
-        get_schema_annotations,
-        is_optional_type,
-    )
-    from pydantic import BaseModel
-
-    def create_patch_schema(schema_cls: type[BaseModel]) -> type[ModelToDict]:
-        schema_annotations = get_schema_annotations(schema_cls)
-        values, annotations = {}, {}
-
-        for name, field in schema_cls.model_fields.items():
-            annotation = schema_annotations[name]
-            if is_optional_type(annotation):
-                continue
-            patch_field = field._copy()
-            patch_field.default = None
-            patch_field.default_factory = None
-            values[name] = patch_field
-            annotations[name] = annotation | None
-        values["__annotations__"] = annotations  # type: ignore[assignment]
-        OptionalSchema = type(f"{schema_cls.__name__}Patch", (schema_cls,), values)
-
-        class OptionalDictSchema(ModelToDict):
-            _wrapped_model = OptionalSchema
-            _wrapped_model_dump_params = {"exclude_unset": True}  # noqa: RUF012
-
-        return OptionalDictSchema
-
-    ninja.patch_dict.create_patch_schema = create_patch_schema
-
-
+monkeypatch_django_async_auth()
+monkeypatch_django_aupdate_session_auth_hash()
+monkeypatch_django_ninja_openapi_csrf()
 monkeypatch_django_ninja_patch_dict()

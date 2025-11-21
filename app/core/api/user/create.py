@@ -10,7 +10,7 @@ from ninja import Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 
-from app.core.api.session import Session, clean_request_user_cache
+from app.core.api.session import Session
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole, User
 from app.core.registry.create_user import create_user_registry
@@ -93,8 +93,9 @@ async def create_registration(
         payload=payload,
     )
     await alogin(request, user)
-    clean_request_user_cache(request)
+
     logger.info("User registered and logged in.", user=user)
+
     return HTTPStatus.CREATED, await Session.from_request(request)
 
 

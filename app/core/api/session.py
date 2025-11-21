@@ -18,18 +18,6 @@ from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 from app.utils.throttling import AnonThrottle, throttling
 
-
-# TODO: Remove after django/django#19709 (Django #36540) released.
-def clean_request_user_cache(request: HttpRequest) -> None:  # pragma: no cover
-    """Clear the request's cached user attributes after ``alogin``/``alogout``.
-
-    Workaround for Django bug where ``alogin``/``alogout`` leave them stale.
-    """
-    for attr in ("_cached_user", "_acached_user"):
-        if hasattr(request, attr):
-            delattr(request, attr)
-
-
 router = Router(tags=["Session"], exclude_none=True)
 
 UserResponse = user_response_registry.get_schema()
@@ -100,7 +88,6 @@ async def create_session(
             message=_("Invalid credentials."),
         )
     await alogin(request, user)
-    clean_request_user_cache(request)
 
     logger.info("User logged in.", user=user)
 
@@ -116,7 +103,6 @@ async def delete_session(request: HttpRequest) -> Session:
     """Log a user out."""
     if (user := await request.auser()).is_authenticated:
         await alogout(request)
-        clean_request_user_cache(request)
 
         logger.info("User logged out.", user=user)
 
@@ -165,7 +151,6 @@ async def assume_session(
 
     impersonator = await request.auser()
     await alogin(request, impersonated)
-    clean_request_user_cache(request)
     request.session[Session.Key.IMPERSONATOR_ID] = str(impersonator.id)
 
     logger.info(
@@ -211,7 +196,5 @@ async def revert_session(request: HttpRequest) -> Session:
             "Impersonator not found.",
             impersonator_id=impersonator_id,
         )
-
-    clean_request_user_cache(request)
 
     return await Session.from_request(request)
