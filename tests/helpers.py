@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.db.models import Model
 from django.utils import timezone
 
@@ -13,6 +14,9 @@ def update_object[MT: Model](obj: MT, **updates: Any) -> MT:
         setattr(obj, attr, value)
     obj.save()
     return obj
+
+
+a_update_object = sync_to_async(update_object)
 
 
 class AnyValue:

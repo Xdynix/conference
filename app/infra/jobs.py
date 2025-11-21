@@ -12,4 +12,7 @@ def cleanup_expired_mutexes() -> None:
         touch_time__lt=Now() - settings.MUTEX_RETENTION
     ).delete()
     if deleted_count:  # pragma: no branch
-        logger.info(f"Cleaned up {deleted_count} expired mutexes.")
+        logger.info(
+            "Cleaned up expired mutexes.",
+            deleted_count=deleted_count,
+        )

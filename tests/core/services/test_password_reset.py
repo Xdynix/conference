@@ -5,8 +5,6 @@ from unittest.mock import MagicMock
 import pytest
 from asgiref.sync import sync_to_async
 from django.conf import LazySettings
-from django.http import HttpRequest
-from django.test import RequestFactory
 from django.utils import timezone
 from faker import Faker
 from pytest_mock import MockerFixture
@@ -59,16 +57,11 @@ class TestPasswordResetServiceCreateToken:
             "send_password_reset_email",
         )
 
-    @pytest.fixture
-    def mock_request(self, rf: RequestFactory) -> HttpRequest:
-        return rf.post("https://example.com/foobar")
-
     def test_happy_path(
         self,
         faker: Faker,
         mocker: MockerFixture,
         mock_send_email: MagicMock,
-        mock_request: HttpRequest,
     ) -> None:
         user = User.objects.create_user(
             username=faker.user_name(),
@@ -81,7 +74,10 @@ class TestPasswordResetServiceCreateToken:
             return_value=token,
         )
 
-        result = PasswordResetService.create_token(user, mock_request)
+        result = PasswordResetService.create_token(
+            user,
+            password_reset_page_uri=faker.uri_page(),
+        )
         assert result is not None
 
         assert result.user_id == user.id
@@ -89,13 +85,16 @@ class TestPasswordResetServiceCreateToken:
         assert result.expire_time > timezone.now()
         assert result.consume_time is None
         mock_generate.assert_called_once()
-        mock_send_email.assert_called_once_with(user, token, mock_request)
+        mock_send_email.assert_called_once_with(
+            user,
+            token,
+            password_reset_page_uri=mocker.ANY,
+        )
 
     def test_returns_none_when_rate_limited(
         self,
         faker: Faker,
         mock_send_email: MagicMock,
-        mock_request: HttpRequest,
     ) -> None:
         user = User.objects.create_user(
             username=faker.user_name(),
@@ -104,7 +103,10 @@ class TestPasswordResetServiceCreateToken:
         recent_time = timezone.now() - timedelta(seconds=30)
         create_password_reset_token(user, create_time=recent_time)
 
-        result = PasswordResetService.create_token(user, mock_request)
+        result = PasswordResetService.create_token(
+            user,
+            password_reset_page_uri=faker.uri_page(),
+        )
         assert result is None
 
         mock_send_email.assert_not_called()
@@ -114,7 +116,6 @@ class TestPasswordResetServiceCreateToken:
         self,
         faker: Faker,
         mock_send_email: MagicMock,
-        mock_request: HttpRequest,
     ) -> None:
         user = User.objects.create_user(
             username=faker.user_name(),
@@ -123,7 +124,10 @@ class TestPasswordResetServiceCreateToken:
         old_time = timezone.now() - timedelta(seconds=120)
         create_password_reset_token(user, create_time=old_time)
 
-        result = PasswordResetService.create_token(user, mock_request)
+        result = PasswordResetService.create_token(
+            user,
+            password_reset_page_uri=faker.uri_page(),
+        )
         assert result is not None
 
         assert result.user_id == user.id
@@ -134,7 +138,6 @@ class TestPasswordResetServiceCreateToken:
         faker: Faker,
         mocker: MockerFixture,
         mock_send_email: MagicMock,
-        mock_request: HttpRequest,
     ) -> None:
         user = User.objects.create_user(
             username=faker.user_name(),
@@ -147,7 +150,10 @@ class TestPasswordResetServiceCreateToken:
         )
 
         with pytest.raises(Exception, match="Database error"):
-            PasswordResetService.create_token(user, mock_request)
+            PasswordResetService.create_token(
+                user,
+                password_reset_page_uri=faker.uri_page(),
+            )
 
         assert not PasswordResetToken.objects.filter(user=user).exists()
         mock_send_email.assert_not_called()
@@ -156,7 +162,6 @@ class TestPasswordResetServiceCreateToken:
         self,
         faker: Faker,
         mock_send_email: MagicMock,
-        mock_request: HttpRequest,
     ) -> None:
         user = await User.objects.acreate_user(
             username=faker.user_name(),
@@ -165,7 +170,8 @@ class TestPasswordResetServiceCreateToken:
 
         async def create_token_task() -> PasswordResetToken | None:
             return await sync_to_async(PasswordResetService.create_token)(
-                user, mock_request
+                user,
+                password_reset_page_uri=faker.uri_page(),
             )
 
         results = await asyncio.gather(

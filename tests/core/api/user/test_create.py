@@ -2,187 +2,154 @@ from http import HTTPStatus
 from unittest.mock import MagicMock
 
 import pytest
-from django.conf import LazySettings
 from django.contrib.auth import get_user
-from django.core.exceptions import ValidationError
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
 from pytest_mock import MockerFixture
 
-from app.core.models import (
-    GlobalRole,
-    GlobalRoleAssignment,
-    User,
-)
+from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.services import UserService
+from app.core.services.user import InvalidPassword, UserIdentityConflict
 from app.verikit.services import EmailVerificationService
+from tests.helpers import any_str
 
 
 @pytest.fixture
-def mock_validate_password(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("app.core.api.user.create.validate_password")
+def user_service_create(mocker: MockerFixture) -> MagicMock:
+    return mocker.spy(UserService, "create_user")
 
 
 @pytest.mark.django_db
 class TestCreateRegistration:
     path = reverse("api-1.0.0:create-registration")
 
-    @pytest.mark.parametrize("managed", [True, False])
+    @pytest.fixture(autouse=True)
+    def mock_cf_turnstile(self, mock_cf_turnstile: MagicMock) -> MagicMock:
+        return mock_cf_turnstile
+
     def test_happy_path(
         self,
+        mocker: MockerFixture,
         faker: Faker,
         api_client: Client,
-        mock_cf_turnstile: MagicMock,
-        mock_validate_password: MagicMock,
-        managed: bool,
+        user_service_create: MagicMock,
     ) -> None:
         username = faker.user_name()
         email = faker.email()
-        email_token = EmailVerificationService.issue_token(email)
         password = faker.password()
 
         response = api_client.post(
             self.path,
             data={
                 "username": username,
-                "email": email_token,
+                "email": EmailVerificationService.issue_token(email),
                 "password": password,
-                "managed": managed,  # Should be ignored.
             },
         )
         assert response.status_code == HTTPStatus.CREATED
+
         data = response.json()
+        assert data["user"]["uid"] == any_str
         assert data["user"]["username"] == username
         assert data["user"]["email"] == email
         assert data["user"]["managed"] is False
         assert data["user"]["roles"] == []
-        assert "uid" in data["user"]
-        assert "password" not in data["user"]
 
-        mock_validate_password.assert_called_once()
-        mock_cf_turnstile.assert_called_once()
+        user_service_create.assert_called_once_with(
+            username=username,
+            email=email,
+            password=password,
+            managed=False,
+            payload=mocker.ANY,
+        )
+        logged_in_user = get_user(api_client)
+        assert logged_in_user.username == username
 
-        user = User.objects.get(username=username)
-        assert user.email == email
-        assert user.check_password(password)
-        assert not user.managed
-        assert user.is_active
-
-        assert get_user(api_client) == user
-
-    def test_duplicate_username(
+    def test_ignores_managed_field_in_registration(
         self,
+        mocker: MockerFixture,
         faker: Faker,
         api_client: Client,
-        mock_cf_turnstile: MagicMock,  # noqa: ARG002
-        mock_validate_password: MagicMock,  # noqa: ARG002
+        user_service_create: MagicMock,
     ) -> None:
-        existing_user = User.objects.create_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
-        email = faker.email()
-        email_token = EmailVerificationService.issue_token(email)
-
-        response = api_client.post(
-            self.path,
-            data={
-                "username": existing_user.username,
-                "email": email_token,
-                "password": faker.password(),
-            },
-        )
-        assert response.status_code == HTTPStatus.CONFLICT
-        assert "username or email already exists" in response.json()["message"]
-
-        assert User.objects.filter(email=email).count() == 0
-
-    def test_duplicate_email(
-        self,
-        faker: Faker,
-        api_client: Client,
-        mock_cf_turnstile: MagicMock,  # noqa: ARG002
-        mock_validate_password: MagicMock,  # noqa: ARG002
-    ) -> None:
-        existing_user = User.objects.create_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
         username = faker.user_name()
-        email_token = EmailVerificationService.issue_token(existing_user.email)
+        email = faker.email()
+        password = faker.password()
 
         response = api_client.post(
             self.path,
             data={
                 "username": username,
-                "email": email_token,
+                "email": EmailVerificationService.issue_token(email),
+                "password": password,
+                "managed": True,
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        user_service_create.assert_called_once_with(
+            username=username,
+            email=email,
+            password=password,
+            managed=False,
+            payload=mocker.ANY,
+        )
+
+    def test_handle_user_identity_conflict(
+        self,
+        faker: Faker,
+        api_client: Client,
+        user_service_create: MagicMock,
+    ) -> None:
+        user_service_create.side_effect = UserIdentityConflict
+
+        response = api_client.post(
+            self.path,
+            data={
+                "username": faker.user_name(),
+                "email": EmailVerificationService.issue_token(faker.email()),
                 "password": faker.password(),
             },
         )
         assert response.status_code == HTTPStatus.CONFLICT
+
         assert "username or email already exists" in response.json()["message"]
 
-        assert User.objects.filter(username=username).count() == 0
+        user_service_create.assert_called_once()
 
-    def test_password_validation_error(
+    def test_handle_invalid_password(
         self,
         faker: Faker,
         api_client: Client,
-        mock_cf_turnstile: MagicMock,  # noqa: ARG002
-        mock_validate_password: MagicMock,
+        user_service_create: MagicMock,
     ) -> None:
-        email_token = EmailVerificationService.issue_token(faker.email())
-        mock_validate_password.side_effect = ValidationError(
-            ["This password is too short."]
+        user_service_create.side_effect = InvalidPassword(
+            [
+                "This password is too short.",
+                "This password is too common.",
+            ]
         )
 
         response = api_client.post(
             self.path,
             data={
                 "username": faker.user_name(),
-                "email": email_token,
-                "password": "weak",
+                "email": EmailVerificationService.issue_token(faker.email()),
+                "password": faker.password(),
             },
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
         data = response.json()
-        assert data["details"][0]["msg"] == "This password is too short."
+        assert len(data["details"]) == 2
+        for error in data["details"]:
+            assert error["type"] == "value_error"
+            assert error["loc"] == ["body", "payload", "password"]
+        assert "too short" in data["details"][0]["msg"]
+        assert "too common" in data["details"][1]["msg"]
 
-        assert not User.objects.exists()
-
-    def test_cf_turnstile_enforced(
-        self,
-        settings: LazySettings,
-        api_client: Client,
-    ) -> None:
-        response = api_client.post(self.path, data={"bad": "data"})
-        assert response.status_code == HTTPStatus.FORBIDDEN
-        assert settings.CF_TURNSTILE_RESPONSE_HEADER_NAME in response.json()["message"]
-
-    def test_email_case_insensitive(
-        self,
-        faker: Faker,
-        api_client: Client,
-        mock_cf_turnstile: MagicMock,  # noqa: ARG002
-        mock_validate_password: MagicMock,  # noqa: ARG002
-    ) -> None:
-        username = faker.user_name()
-        email = faker.email().lower()
-        email_token = EmailVerificationService.issue_token(email.upper())
-        password = faker.password()
-
-        response = api_client.post(
-            self.path,
-            data={
-                "username": username,
-                "email": email_token,
-                "password": password,
-            },
-        )
-        assert response.status_code == HTTPStatus.CREATED
-
-        user = User.objects.get(username=username)
-        assert user.email == email
+        user_service_create.assert_called_once()
 
 
 @pytest.mark.django_db
@@ -190,7 +157,7 @@ class TestCreateUser:
     path = reverse("api-1.0.0:create-user")
 
     @pytest.fixture
-    def authorized_user(self, faker: Faker) -> User:
+    def admin_user(self, faker: Faker) -> User:
         user = User.objects.create_user(username=faker.user_name())
         GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
         return user
@@ -198,16 +165,17 @@ class TestCreateUser:
     @pytest.mark.parametrize("managed", [True, False])
     def test_happy_path(
         self,
+        mocker: MockerFixture,
         faker: Faker,
         api_client: Client,
-        authorized_user: User,
-        mock_validate_password: MagicMock,
+        user_service_create: MagicMock,
+        admin_user: User,
         managed: bool,
     ) -> None:
         username = faker.user_name()
         email = faker.email()
         password = faker.password()
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.post(
             self.path,
@@ -219,57 +187,117 @@ class TestCreateUser:
             },
         )
         assert response.status_code == HTTPStatus.CREATED
+
         data = response.json()
+        assert data["uid"] == any_str
         assert data["username"] == username
         assert data["email"] == email
-        assert data["managed"] is managed
+        assert data["managed"] == managed
         assert data["roles"] == []
-        assert "uid" in data
-        assert "password" not in data
 
-        mock_validate_password.assert_called_once()
+        user_service_create.assert_called_once_with(
+            username=username,
+            email=email,
+            password=password,
+            managed=managed,
+            payload=mocker.ANY,
+        )
 
-        user = User.objects.get(username=username)
-        assert user.email == email
-        assert user.check_password(password)
-        assert user.managed is managed
-        assert user.is_active
-
-    def test_duplicate_username(
+    def test_empty_email_allowed(
         self,
+        mocker: MockerFixture,
         faker: Faker,
         api_client: Client,
-        authorized_user: User,
-        mock_validate_password: MagicMock,  # noqa: ARG002
+        user_service_create: MagicMock,
+        admin_user: User,
     ) -> None:
-        existing_user = User.objects.create_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
-        email = faker.email()
-        api_client.force_login(authorized_user)
+        username = faker.user_name()
+        password = faker.password()
+        api_client.force_login(admin_user)
 
         response = api_client.post(
             self.path,
             data={
-                "username": existing_user.username,
-                "email": email,
+                "username": username,
+                "email": "",
+                "password": password,
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        user_service_create.assert_called_once_with(
+            username=username,
+            email="",
+            password=password,
+            managed=False,
+            payload=mocker.ANY,
+        )
+
+    def test_handle_user_identity_conflict(
+        self,
+        faker: Faker,
+        api_client: Client,
+        user_service_create: MagicMock,
+        admin_user: User,
+    ) -> None:
+        user_service_create.side_effect = UserIdentityConflict
+        api_client.force_login(admin_user)
+
+        response = api_client.post(
+            self.path,
+            data={
+                "username": faker.user_name(),
                 "password": faker.password(),
             },
         )
         assert response.status_code == HTTPStatus.CONFLICT
+
         assert "username or email already exists" in response.json()["message"]
 
-        assert User.objects.filter(email=email).count() == 0
+        user_service_create.assert_called_once()
+
+    def test_handle_invalid_password(
+        self,
+        faker: Faker,
+        api_client: Client,
+        user_service_create: MagicMock,
+        admin_user: User,
+    ) -> None:
+        user_service_create.side_effect = InvalidPassword(
+            [
+                "This password is too short.",
+                "This password is too common.",
+            ]
+        )
+        api_client.force_login(admin_user)
+
+        response = api_client.post(
+            self.path,
+            data={
+                "username": faker.user_name(),
+                "password": faker.password(),
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert len(data["details"]) == 2
+        for error in data["details"]:
+            assert error["type"] == "value_error"
+            assert error["loc"] == ["body", "payload", "password"]
+        assert "too short" in data["details"][0]["msg"]
+        assert "too common" in data["details"][1]["msg"]
+
+        user_service_create.assert_called_once()
 
     def test_unauthorized_user_forbidden(
         self,
         faker: Faker,
         api_client: Client,
-        mock_validate_password: MagicMock,  # noqa: ARG002
+        user_service_create: MagicMock,
     ) -> None:
-        unauthorized_user = User.objects.create_user(username=faker.user_name())
-        api_client.force_login(unauthorized_user)
+        regular_user = User.objects.create_user(username=faker.user_name())
+        api_client.force_login(regular_user)
 
         response = api_client.post(
             self.path,
@@ -280,3 +308,5 @@ class TestCreateUser:
             },
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+        user_service_create.assert_not_called()

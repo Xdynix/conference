@@ -66,6 +66,7 @@ class TestListConferences:
 
         response = api_client.get(self.path, {"order": "asc"})
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == {
             "items": [
                 {
@@ -120,6 +121,7 @@ class TestListConferences:
 
         response = api_client.get(self.path)
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == {"items": []}
 
         mock_visible_conferences.assert_awaited_once_with(AnonymousUser())

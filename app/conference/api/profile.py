@@ -22,7 +22,7 @@ async def patch_profile(user: User, payload: PatchDict[ProfileSchema]) -> bool:
     profile, _ = await Profile.objects.aget_or_create(user=user)
     for attr, value in payload.items():
         setattr(profile, attr, value)
-    await profile.asave(update_fields=list(payload.keys()))
+    await profile.asave(update_fields=list(payload))
     return True
 
 
@@ -39,10 +39,9 @@ async def update_current_user_profile(
     """Update the current user's profile."""
     user = await request.auser()
 
-    updated = await patch_profile(user, payload)
+    await patch_profile(user, payload)
 
-    if updated:
-        logger.info("User updated profile.", user=user)
+    logger.info("User updated profile.", user=user)
 
     return await user_response_registry.dump(user)
 
@@ -64,10 +63,9 @@ async def update_profile(
         uid=user_id,
     )
 
-    updated = await patch_profile(user, payload)
+    await patch_profile(user, payload)
 
-    if updated:
-        actor = await request.auser()
-        logger.info("Admin updated user profile.", user=user, actor=actor)
+    actor = await request.auser()
+    logger.info("Admin updated user profile.", user=user, actor=actor)
 
     return await user_response_registry.dump(user)

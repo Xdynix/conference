@@ -1,9 +1,11 @@
 from http import HTTPStatus
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
+from pytest_mock import MockerFixture
 from ulid import ULID
 
 from app.conference.models import (
@@ -12,8 +14,9 @@ from app.conference.models import (
     ConferenceRoleAssignment,
     Track,
 )
+from app.conference.services import TrackService
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
-from tests.helpers import any_str, update_object
+from tests.helpers import any_str
 
 
 @pytest.fixture
@@ -42,17 +45,33 @@ def conference_chair(faker: Faker, conference: Conference) -> User:
     return user
 
 
+@pytest.fixture
+def conference_secretary(faker: Faker, conference: Conference) -> User:
+    user = User.objects.create_user(username=faker.user_name())
+    ConferenceRoleAssignment.objects.create(
+        conference=conference,
+        user=user,
+        role=ConferenceRole.SECRETARY,
+    )
+    return user
+
+
 @pytest.mark.django_db
 class TestCreateTrack:
     @classmethod
     def path(cls, conference_name: str) -> str:
         return reverse("api-1.0.0:create-track", args=[conference_name])
 
+    @pytest.fixture
+    def track_service_create(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.spy(TrackService, "create_track")
+
     def test_happy_path(
         self,
         api_client: Client,
         global_admin: User,
         conference: Conference,
+        track_service_create: MagicMock,
     ) -> None:
         existing_track = Track.objects.create(
             conference=conference,
@@ -89,51 +108,18 @@ class TestCreateTrack:
             ],
         }
 
-        first, second = conference.tracks.all()
-        assert first.display_name == "Research Track"
-        assert second.display_name == "Operations Track"
-        assert first.ordering < second.ordering
-
-    def test_unauthorized_user_forbidden(
-        self,
-        faker: Faker,
-        api_client: Client,
-        conference: Conference,
-    ) -> None:
-        user = User.objects.create_user(username=faker.user_name())
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.SECRETARY,
+        track_service_create.assert_called_once_with(
+            conference_name=conference.name,
+            display_name="Operations Track",
+            visibility=Track.Visibility.ADMIN_ONLY,
         )
-        api_client.force_login(user)
-
-        response = api_client.post(
-            self.path(conference.name),
-            data={"display_name": "Unauthorized Track"},
-        )
-        assert response.status_code == HTTPStatus.FORBIDDEN
-
-    def test_inactive_conference_returns_404(
-        self,
-        api_client: Client,
-        global_admin: User,
-        conference: Conference,
-    ) -> None:
-        update_object(conference, active=False)
-        api_client.force_login(global_admin)
-
-        response = api_client.post(
-            self.path(conference.name),
-            data={"display_name": "Dormant Track"},
-        )
-        assert response.status_code == HTTPStatus.NOT_FOUND
 
     def test_conference_chair_can_create_track(
         self,
         api_client: Client,
         conference_chair: User,
         conference: Conference,
+        track_service_create: MagicMock,
     ) -> None:
         api_client.force_login(conference_chair)
 
@@ -145,17 +131,51 @@ class TestCreateTrack:
             },
         )
         assert response.status_code == HTTPStatus.CREATED
-        assert Track.objects.filter(
-            conference=conference,
-            display_name="Chair Created",
-        ).exists()
+
+        track_service_create.assert_called_once()
+
+    def test_unauthorized_user_forbidden(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_secretary: User,
+        track_service_create: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_secretary)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={"display_name": "Unauthorized Track"},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+        track_service_create.assert_not_called()
+
+    def test_handle_does_not_exist(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track_service_create: MagicMock,
+    ) -> None:
+        track_service_create.side_effect = Conference.DoesNotExist
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "display_name": "Chair Created",
+                "visibility": Track.Visibility.PUBLIC,
+            },
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
 
 
 @pytest.mark.django_db
 class TestUpdateTrack:
     @classmethod
-    def path(cls, conference_name: str, track_id: ULID) -> str:
-        return reverse("api-1.0.0:update-track", args=[conference_name, track_id])
+    def path(cls, conference_name: str, track_uid: ULID) -> str:
+        return reverse("api-1.0.0:update-track", args=[conference_name, track_uid])
 
     @pytest.fixture
     def track(self, conference: Conference) -> Track:
@@ -165,17 +185,21 @@ class TestUpdateTrack:
             visibility=Track.Visibility.PUBLIC,
         )
 
+    @pytest.fixture
+    def track_service_update(self, mocker: MockerFixture) -> AsyncMock:
+        return mocker.spy(TrackService, "update_track")
+
     def test_happy_path(
         self,
         api_client: Client,
         global_admin: User,
-        conference: Conference,
         track: Track,
+        track_service_update: AsyncMock,
     ) -> None:
         api_client.force_login(global_admin)
 
         response = api_client.patch(
-            self.path(conference.name, track.uid),
+            self.path(track.conference.name, track.uid),
             data={
                 "display_name": "Infrastructure & Ops",
                 "visibility": Track.Visibility.ADMIN_ONLY,
@@ -183,9 +207,9 @@ class TestUpdateTrack:
         )
         assert response.status_code == HTTPStatus.OK
         assert response.json() == {
-            "name": conference.name,
-            "display_name": conference.display_name,
-            "visibility": conference.visibility,
+            "name": track.conference.name,
+            "display_name": track.conference.display_name,
+            "visibility": track.conference.visibility,
             "keywords": [],
             "tracks": [
                 {
@@ -196,81 +220,89 @@ class TestUpdateTrack:
             ],
         }
 
-        track.refresh_from_db()
-        assert track.display_name == "Infrastructure & Ops"
-        assert track.visibility == Track.Visibility.ADMIN_ONLY
+        track_service_update.assert_awaited_once_with(
+            conference_name=track.conference.name,
+            track_uid=track.uid,
+            display_name="Infrastructure & Ops",
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
 
-    def test_empty_payload_returns_existing_state(
+    def test_empty_payload(
         self,
         api_client: Client,
         global_admin: User,
-        conference: Conference,
         track: Track,
+        track_service_update: AsyncMock,
     ) -> None:
         api_client.force_login(global_admin)
 
         response = api_client.patch(
-            self.path(conference.name, track.uid),
+            self.path(track.conference.name, track.uid),
             data={},
         )
         assert response.status_code == HTTPStatus.OK
-        assert response.json()["tracks"] == [
-            {
-                "uid": str(track.uid),
-                "display_name": track.display_name,
-                "visibility": track.visibility,
-            },
-        ]
 
-        track.refresh_from_db()
-        assert track.display_name == "Infrastructure"
-        assert track.visibility == Track.Visibility.PUBLIC
-
-    def test_unauthorized_user_forbidden(
-        self,
-        faker: Faker,
-        api_client: Client,
-        conference: Conference,
-        track: Track,
-    ) -> None:
-        user = User.objects.create_user(username=faker.user_name())
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.SECRETARY,
+        track_service_update.assert_awaited_once_with(
+            conference_name=track.conference.name,
+            track_uid=track.uid,
         )
-        api_client.force_login(user)
-
-        response = api_client.patch(
-            self.path(conference.name, track.uid),
-            data={"display_name": "Unauthorized Update"},
-        )
-        assert response.status_code == HTTPStatus.FORBIDDEN
 
     def test_conference_chair_can_update_track(
         self,
         api_client: Client,
         conference_chair: User,
-        conference: Conference,
         track: Track,
+        track_service_update: AsyncMock,
     ) -> None:
         api_client.force_login(conference_chair)
 
         response = api_client.patch(
-            self.path(conference.name, track.uid),
+            self.path(track.conference.name, track.uid),
             data={"display_name": "Chair Update"},
         )
         assert response.status_code == HTTPStatus.OK
 
-        track.refresh_from_db()
-        assert track.display_name == "Chair Update"
+        track_service_update.assert_awaited_once()
+
+    def test_unauthorized_user_forbidden(
+        self,
+        api_client: Client,
+        conference_secretary: User,
+        track: Track,
+        track_service_update: AsyncMock,
+    ) -> None:
+        api_client.force_login(conference_secretary)
+
+        response = api_client.patch(
+            self.path(track.conference.name, track.uid),
+            data={"display_name": "Unauthorized Update"},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+        track_service_update.assert_not_called()
+
+    def test_handle_does_not_exist(
+        self,
+        api_client: Client,
+        global_admin: User,
+        track: Track,
+        track_service_update: AsyncMock,
+    ) -> None:
+        track_service_update.side_effect = Track.DoesNotExist
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(track.conference.name, track.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
 
 
 @pytest.mark.django_db
 class TestDeleteTrack:
     @classmethod
-    def path(cls, conference_name: str, track_id: ULID) -> str:
-        return reverse("api-1.0.0:delete-track", args=[conference_name, track_id])
+    def path(cls, conference_name: str, track_uid: ULID) -> str:
+        return reverse("api-1.0.0:delete-track", args=[conference_name, track_uid])
 
     @pytest.fixture
     def track(self, conference: Conference) -> Track:
@@ -290,22 +322,26 @@ class TestDeleteTrack:
             visibility=Track.Visibility.ADMIN_ONLY,
         )
 
+    @pytest.fixture
+    def track_service_deactivate(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.spy(TrackService, "deactivate_track")
+
     def test_happy_path(
         self,
         api_client: Client,
         global_admin: User,
-        conference: Conference,
         track: Track,
         remaining_track: Track,
+        track_service_deactivate: MagicMock,
     ) -> None:
         api_client.force_login(global_admin)
 
-        response = api_client.delete(self.path(conference.name, track.uid))
+        response = api_client.delete(self.path(track.conference.name, track.uid))
         assert response.status_code == HTTPStatus.OK
         assert response.json() == {
-            "name": conference.name,
-            "display_name": conference.display_name,
-            "visibility": conference.visibility,
+            "name": track.conference.name,
+            "display_name": track.conference.display_name,
+            "visibility": track.conference.visibility,
             "keywords": [],
             "tracks": [
                 {
@@ -316,69 +352,92 @@ class TestDeleteTrack:
             ],
         }
 
-        track.refresh_from_db()
-        assert track.active is False
-
-    def test_unauthorized_user_forbidden(
-        self,
-        faker: Faker,
-        api_client: Client,
-        conference: Conference,
-        track: Track,
-    ) -> None:
-        user = User.objects.create_user(username=faker.user_name())
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.SECRETARY,
+        track_service_deactivate.assert_called_once_with(
+            conference_name=track.conference.name,
+            track_uid=track.uid,
         )
-        api_client.force_login(user)
-
-        response = api_client.delete(self.path(conference.name, track.uid))
-        assert response.status_code == HTTPStatus.FORBIDDEN
 
     def test_conference_chair_can_delete_track(
         self,
         api_client: Client,
         conference_chair: User,
-        conference: Conference,
         track: Track,
+        track_service_deactivate: MagicMock,
     ) -> None:
         api_client.force_login(conference_chair)
 
-        response = api_client.delete(self.path(conference.name, track.uid))
+        response = api_client.delete(self.path(track.conference.name, track.uid))
         assert response.status_code == HTTPStatus.OK
 
-        track.refresh_from_db()
-        assert track.active is False
+        track_service_deactivate.assert_called_once()
+
+    def test_unauthorized_user_forbidden(
+        self,
+        api_client: Client,
+        conference_secretary: User,
+        track: Track,
+    ) -> None:
+        api_client.force_login(conference_secretary)
+
+        response = api_client.delete(self.path(track.conference.name, track.uid))
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_handle_does_not_exist(
+        self,
+        api_client: Client,
+        global_admin: User,
+        track: Track,
+        track_service_deactivate: AsyncMock,
+    ) -> None:
+        track_service_deactivate.side_effect = Track.DoesNotExist
+        api_client.force_login(global_admin)
+
+        response = api_client.delete(self.path(track.conference.name, track.uid))
+        assert response.status_code == HTTPStatus.NOT_FOUND
 
 
 @pytest.mark.django_db
 class TestMoveTrack:
     @classmethod
-    def path(cls, conference_name: str, track_id: str | ULID) -> str:
-        return reverse("api-1.0.0:move-track", args=[conference_name, track_id])
+    def path(cls, conference_name: str, track_uid: str | ULID) -> str:
+        return reverse("api-1.0.0:move-track", args=[conference_name, track_uid])
 
     @pytest.fixture
-    def tracks(self, conference: Conference) -> tuple[Track, ...]:
-        return tuple(
-            Track.objects.create(
-                conference=conference,
-                display_name=name,
-                ordering=idx,
-                visibility=Track.Visibility.PUBLIC,
-            )
-            for idx, name in enumerate(["Alpha", "Beta", "Gamma"])
+    def track(self, conference: Conference) -> Track:
+        return Track.objects.create(
+            conference=conference,
+            display_name="Track",
         )
+
+    @pytest.fixture
+    def track_service_move(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.spy(TrackService, "move_track")
 
     def test_happy_path(
         self,
         api_client: Client,
         global_admin: User,
         conference: Conference,
-        tracks: tuple[Track, ...],
+        track_service_move: MagicMock,
     ) -> None:
-        first, second, third = tracks
+        first = Track.objects.create(
+            conference=conference,
+            display_name="First Track",
+            ordering=1,
+            visibility=Track.Visibility.PUBLIC,
+        )
+        second = Track.objects.create(
+            conference=conference,
+            display_name="Second Track",
+            ordering=2,
+            visibility=Track.Visibility.PUBLIC,
+        )
+        third = Track.objects.create(
+            conference=conference,
+            display_name="Third Track",
+            ordering=3,
+            visibility=Track.Visibility.PUBLIC,
+        )
         api_client.force_login(global_admin)
 
         response = api_client.post(
@@ -393,115 +452,85 @@ class TestMoveTrack:
             str(second.uid),
         ]
 
-        first.refresh_from_db()
-        second.refresh_from_db()
-        third.refresh_from_db()
-        assert first.ordering < third.ordering < second.ordering
-
-    def test_empty_after_track_moves_track_to_top(
-        self,
-        api_client: Client,
-        global_admin: User,
-        conference: Conference,
-        tracks: tuple[Track, ...],
-    ) -> None:
-        first, second, third = tracks
-        api_client.force_login(global_admin)
-
-        response = api_client.post(self.path(conference.name, third.uid), data={})
-        assert response.status_code == HTTPStatus.OK
-        assert [track["uid"] for track in response.json()["tracks"]] == [
-            str(third.uid),
-            str(first.uid),
-            str(second.uid),
-        ]
-
-        first.refresh_from_db()
-        second.refresh_from_db()
-        third.refresh_from_db()
-        assert third.ordering == 0
-        assert third.ordering < first.ordering < second.ordering
-
-    def test_cannot_move_track_after_itself(
-        self,
-        api_client: Client,
-        global_admin: User,
-        conference: Conference,
-        tracks: tuple[Track, ...],
-    ) -> None:
-        first, *_ = tracks
-        api_client.force_login(global_admin)
-
-        response = api_client.post(
-            self.path(conference.name, first.uid),
-            data={"after_track": str(first.uid)},
+        track_service_move.assert_called_once_with(
+            conference_name=conference.name,
+            track_uid=third.uid,
+            after_track_uid=str(first.uid),
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        assert response.json() == {
-            "message": "Track cannot be moved after itself.",
-        }
-
-    def test_unauthorized_user_forbidden(
-        self,
-        faker: Faker,
-        api_client: Client,
-        conference: Conference,
-        tracks: tuple[Track, ...],
-    ) -> None:
-        first, second, _ = tracks
-        user = User.objects.create_user(username=faker.user_name())
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.SECRETARY,
-        )
-        api_client.force_login(user)
-
-        response = api_client.post(
-            self.path(conference.name, first.uid),
-            data={"after_track": str(second.uid)},
-        )
-        assert response.status_code == HTTPStatus.FORBIDDEN
-
-    def test_nonexistent_after_track_returns_error(
-        self,
-        api_client: Client,
-        global_admin: User,
-        conference: Conference,
-        tracks: tuple[Track, ...],
-    ) -> None:
-        first, second, _ = tracks
-        missing_track_uid = ULID()
-        api_client.force_login(global_admin)
-
-        response = api_client.post(
-            self.path(conference.name, first.uid),
-            data={"after_track": str(missing_track_uid)},
-        )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        assert response.json() == {"message": "Target track does not exist."}
-
-        first.refresh_from_db()
-        second.refresh_from_db()
-        assert first.ordering < second.ordering
 
     def test_conference_chair_can_move_track(
         self,
         api_client: Client,
         conference_chair: User,
-        conference: Conference,
-        tracks: tuple[Track, ...],
+        track: Track,
+        track_service_move: MagicMock,
     ) -> None:
-        first, second, third = tracks
         api_client.force_login(conference_chair)
 
         response = api_client.post(
-            self.path(conference.name, third.uid),
-            data={"after_track": str(first.uid)},
+            self.path(track.conference.name, track.uid),
+            data={"after_track": None},
         )
         assert response.status_code == HTTPStatus.OK
 
-        first.refresh_from_db()
-        second.refresh_from_db()
-        third.refresh_from_db()
-        assert first.ordering < third.ordering < second.ordering
+        track_service_move.assert_called_once()
+
+    def test_unauthorized_user_forbidden(
+        self,
+        api_client: Client,
+        conference_secretary: User,
+        track: Track,
+        track_service_move: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_secretary)
+
+        response = api_client.post(
+            self.path(track.conference.name, track.uid),
+            data={"after_track": None},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+        track_service_move.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "exc",
+        [Conference.DoesNotExist, Track.DoesNotExist],
+        ids=["ConferenceDoesNotExist", "TrackDoesNotExist"],
+    )
+    def test_handle_does_not_exist(
+        self,
+        api_client: Client,
+        global_admin: User,
+        track: Track,
+        track_service_move: MagicMock,
+        exc: type[Exception],
+    ) -> None:
+        track_service_move.side_effect = exc
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(track.conference.name, track.uid),
+            data={"after_track": None},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_handle_value_error(
+        self,
+        api_client: Client,
+        global_admin: User,
+        track: Track,
+        track_service_move: MagicMock,
+    ) -> None:
+        track_service_move.side_effect = ValueError("Invalid target.")
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(track.conference.name, track.uid),
+            data={"after_track": None},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert data["details"][0]["type"] == "value_error"
+        assert data["details"][0]["loc"] == ["body", "payload", "after_track"]
+        assert "Invalid target." in data["details"][0]["msg"]

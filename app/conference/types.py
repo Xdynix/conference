@@ -4,8 +4,8 @@ __all__ = (
     "ConferenceDisplayName",
     "ConferenceName",
     "DesiredPaperCount",
-    "Keyword",
     "KeywordSetName",
+    "KeywordText",
     "Profile",
     "Track",
     "TrackDisplayName",
@@ -86,7 +86,7 @@ class Track(Schema):
     visibility: TrackModel.Visibility
 
 
-Keyword = Annotated[
+KeywordText = Annotated[
     str,
     Field(
         min_length=1,

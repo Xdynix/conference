@@ -1,7 +1,6 @@
 from http import HTTPStatus
 from typing import Any
 
-from django.db import IntegrityError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
@@ -12,43 +11,13 @@ from ulid import ULID
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole, User
 from app.core.registry.user_response import user_response_registry
+from app.core.services import UserService
+from app.core.services.user import UserIdentityConflict
 from app.core.types import AuthedHttpRequest, EmailStr, Username
 from app.ninja.errors import ErrorResponse
 from app.verikit.types import VerifiedEmailStr
 
 from .core import UserResponse, router
-
-
-async def patch_user(
-    user: User,
-    username: Username | None,
-    email: str | None,
-) -> bool:
-    update_fields: list[str] = []
-
-    if username is not None:
-        user.username = username
-        update_fields.append("username")
-
-    if email is not None:
-        user.email = email
-        update_fields.append("email")
-
-    if update_fields:
-        try:
-            await user.asave(update_fields=update_fields)
-        except IntegrityError as exc:
-            # Determine which field caused the conflict.
-            if "username" in update_fields and "email" in update_fields:
-                message = _("A user with that username or email already exists.")
-            elif "username" in update_fields:
-                message = _("A user with that username already exists.")
-            else:
-                message = _("A user with that email already exists.")
-
-            raise HttpError(HTTPStatus.CONFLICT, message) from exc
-
-    return bool(update_fields)
 
 
 class UpdateCurrentUserRequest(Schema):
@@ -60,7 +29,7 @@ class UpdateCurrentUserRequest(Schema):
     "/users/me",
     response={
         HTTPStatus.OK: UserResponse,
-        HTTPStatus.FORBIDDEN: ErrorResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
         HTTPStatus.CONFLICT: ErrorResponse,
     },
     summary="Update My Account",
@@ -79,14 +48,21 @@ async def update_current_user(
 
     if user.managed:
         raise HttpError(
-            HTTPStatus.FORBIDDEN,
+            HTTPStatus.BAD_REQUEST,
             _("Managed users cannot modify their username or email."),
         )
 
-    updated = await patch_user(user, payload.username, payload.email)
+    try:
+        user = await UserService.update_user(
+            user=user,
+            username=payload.username,
+            email=payload.email,
+        )
+    except UserIdentityConflict as exc:
+        message = _("A user with that username or email already exists.")
+        raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
-    if updated:
-        logger.info("User updated account.", user=user)
+    logger.info("User updated account.", user=user)
 
     return await user_response_registry.dump(user)
 
@@ -122,11 +98,18 @@ async def update_user(
         uid=user_id,
     )
 
-    updated = await patch_user(user, payload.username, payload.email)
+    try:
+        user = await UserService.update_user(
+            user=user,
+            username=payload.username,
+            email=payload.email,
+        )
+    except UserIdentityConflict as exc:
+        message = _("A user with that username or email already exists.")
+        raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
-    if updated:
-        actor = await request.auser()
-        logger.info("Admin updated user account.", user=user, actor=actor)
+    actor = await request.auser()
+    logger.info("Admin updated user account.", user=user, actor=actor)
 
     return await user_response_registry.dump(user)
 

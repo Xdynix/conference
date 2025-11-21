@@ -1,31 +1,143 @@
-__all__ = (
-    "ConferenceService",
-    "InvitationService",
-)
-
 from collections import defaultdict
 from collections.abc import Collection
+from typing import TypedDict
 
 from django.contrib.auth.models import AnonymousUser
-from django.core.signing import BadSignature, Signer
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q, QuerySet
-from django.utils import timezone
-from loguru import logger
 
 from app.conference.models import (
     Conference,
     ConferenceRole,
-    ConferenceRoleAssignment,
-    Invitation,
+    Keyword,
+    KeywordSet,
     Track,
     TrackRole,
-    TrackRoleAssignment,
 )
 from app.core.models import GlobalRole, User
 
 
+class ConferenceNameConflict(Exception):
+    pass
+
+
+class TrackData(TypedDict):
+    display_name: str
+    visibility: Track.Visibility
+
+
 class ConferenceService:
+    @classmethod
+    @transaction.atomic
+    def create_conference(
+        cls,
+        *,
+        name: str,
+        display_name: str,
+        visibility: Conference.Visibility,
+        keywords: Collection[Keyword],
+        keyword_sets: Collection[KeywordSet],
+        tracks: Collection[TrackData],
+    ) -> Conference:
+        """Creates a new conference with associated keywords and tracks.
+
+        Returns:
+            The newly created conference instance.
+
+        Raises:
+            ConferenceNameConflict: If a conference with that name already exists.
+        """
+        try:
+            conference = Conference.objects.create(
+                name=name,
+                display_name=display_name,
+                visibility=visibility,
+            )
+        except IntegrityError as exc:
+            raise ConferenceNameConflict from exc
+
+        assigned_keywords: set[Keyword] = set(keywords)
+        for keyword_set in keyword_sets:
+            assigned_keywords.update(keyword_set.keywords.all())
+        if assigned_keywords:
+            conference.keywords.set(assigned_keywords)
+
+        track_objects = [
+            Track(
+                conference=conference,
+                display_name=track["display_name"],
+                ordering=idx,
+                visibility=track["visibility"],
+            )
+            for idx, track in enumerate(tracks)
+        ]
+        if track_objects:
+            Track.objects.bulk_create(track_objects)
+
+        return conference
+
+    @classmethod
+    @transaction.atomic
+    def update_conference(
+        cls,
+        *,
+        name: str,
+        display_name: str | None = None,
+        visibility: Conference.Visibility | None = None,
+        keywords: Collection[Keyword] | None = None,
+        keyword_sets: Collection[KeywordSet] | None = None,
+    ) -> Conference:
+        """Updates a conference's attributes.
+
+        Returns:
+            The updated conference instance.
+
+        Raises:
+            Conference.DoesNotExist: If the conference is not found.
+        """
+        conference = Conference.objects.active().select_for_update().get(name=name)
+
+        update_fields: list[str] = []
+
+        if display_name is not None:
+            conference.display_name = display_name
+            update_fields.append("display_name")
+
+        if visibility is not None:
+            conference.visibility = visibility
+            update_fields.append("visibility")
+
+        keywords_provided = keywords is not None
+        keyword_sets_provided = keyword_sets is not None
+        keywords_updated = keywords_provided or keyword_sets_provided
+        if keywords_updated:
+            assigned_keywords: set[Keyword] = set()
+            assigned_keywords.update(keywords or [])
+            for keyword_set in keyword_sets or []:
+                assigned_keywords.update(keyword_set.keywords.all())
+            conference.keywords.set(assigned_keywords)
+
+        if update_fields or keywords_updated:
+            conference.save(update_fields=[*update_fields, "update_time"])
+
+        return conference
+
+    @classmethod
+    @transaction.atomic
+    def deactivate_conference(cls, *, name: str) -> Conference:
+        """Deactivates a conference.
+
+        Returns:
+            The deactivated conference instance.
+
+        Raises:
+            Conference.DoesNotExist: If the conference is not found.
+        """
+        conference = Conference.objects.active().select_for_update().get(name=name)
+        conference.active = False
+        conference.save(update_fields=["active", "update_time"])
+        return conference
+
     @classmethod
     async def visible_conferences(
         cls,
@@ -142,83 +254,3 @@ class ConferenceService:
             conference.prefetched_tracks = conference_tracks[conference.id]
 
         return conferences
-
-
-class InvitationService:
-    token_signer = Signer(salt="conference.invitation_code")
-
-    # TODO: Add send-invitation method.
-
-    @classmethod
-    def get_invitation_token(cls, invitation: Invitation) -> str:
-        """Return a deterministic signed token that represents the invitation."""
-        return cls.token_signer.sign(str(invitation.uid))
-
-    @classmethod
-    async def retrieve_invitation(cls, token: str) -> Invitation | None:
-        """Return the invitation for ``token`` or ``None`` when it is invalid."""
-        try:
-            invitation_uid = cls.token_signer.unsign(token)
-        except BadSignature:
-            return None
-
-        return await Invitation.objects.filter(uid=invitation_uid).afirst()
-
-    @classmethod
-    @logger.catch(reraise=True)
-    def redeem_invitation(cls, invitation: Invitation, user: User) -> bool:
-        """Redeem an invitation by assigning roles to the user.
-
-        The invitation becomes accepted if it is currently pending or previously
-        rejected. Already accepted invitations remain unchanged.
-
-        Args:
-            invitation: The invitation to redeem. Must be in ``PENDING`` or ``REJECTED``
-                status.
-            user: The user redeeming the invitation.
-
-        Returns:
-            ``True`` if the invitation was accepted during this call, ``False`` if it
-            was already accepted.
-        """
-        with transaction.atomic():
-            # Lock the invitation row to prevent concurrent redemption.
-            invitation = Invitation.objects.select_for_update().get(pk=invitation.pk)
-
-            if invitation.status == Invitation.Status.ACCEPTED:
-                return False
-
-            invitation.invitee_user = user
-            invitation.accept_time = timezone.now()
-            invitation.save(update_fields=["invitee_user", "accept_time"])
-
-            conference_role_assignments = [
-                ConferenceRoleAssignment(
-                    conference=invitation.conference,
-                    user=user,
-                    role=role,
-                )
-                for role in invitation.conference_role_entries.values_list(
-                    "role", flat=True
-                )
-            ]
-            ConferenceRoleAssignment.objects.bulk_create(
-                conference_role_assignments,
-                ignore_conflicts=True,
-            )
-
-            entries = invitation.track_role_entries
-            track_role_assignments = [
-                TrackRoleAssignment(
-                    track_id=track_id,
-                    user=user,
-                    role=role,
-                )
-                for track_id, role in entries.values_list("track_id", "role")
-            ]
-            TrackRoleAssignment.objects.bulk_create(
-                track_role_assignments,
-                ignore_conflicts=True,
-            )
-
-            return True

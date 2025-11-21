@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.http import JsonResponse
+from django.urls import reverse
 from django.utils.translation import gettext as _
 from ninja import Router, Schema
 from ninja.decorators import decorate_view
@@ -58,7 +59,15 @@ async def create_password_reset(
     # services (such as OIDC). Currently, this system does not implement such
     # authentication, but is reserved for future expansion.
     if user is not None and user.has_usable_password():
-        result = await sync_to_async(PasswordResetService.create_token)(user, request)
+        password_reset_page_uri = (
+            settings.PASSWORD_RESET_PAGE_URI
+            # Fallback to minimum password reset page.
+            or request.build_absolute_uri(reverse("core:password-reset"))
+        )
+        result = await sync_to_async(PasswordResetService.create_token)(
+            user,
+            password_reset_page_uri=password_reset_page_uri,
+        )
         if result is None:
             message = _("A password reset token was recently issued for this user.")
             interval_seconds = int(

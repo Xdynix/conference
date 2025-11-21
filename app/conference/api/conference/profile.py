@@ -1,25 +1,16 @@
-from http import HTTPStatus
-
 from django.shortcuts import aget_object_or_404
-from django.utils.translation import gettext as _
 from loguru import logger
 from ninja import Field, PatchDict, Schema
-from ninja.errors import HttpError
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_roles
-from app.conference.models import (
-    Conference,
-    ConferenceRole,
-    Keyword,
-    UserConferenceProfile,
-)
-from app.conference.services import ConferenceService
-from app.conference.types import DesiredPaperCount
-from app.conference.types import Keyword as KeywordText
+from app.conference.models import Conference, ConferenceRole, UserConferenceProfile
+from app.conference.services import ConferenceService, UserConferenceProfileService
+from app.conference.types import DesiredPaperCount, KeywordText
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest
+from app.ninja.errors import make_validation_error
 
 from .core import router
 
@@ -34,24 +25,9 @@ class UserConferenceProfileResponse(Schema):
 
 
 async def get_visible_conference(user: User, conference_name: str) -> Conference:
+    """Get a conference visible to the user."""
     conferences = await ConferenceService.visible_conferences(user)
     return await aget_object_or_404(conferences, name=conference_name)
-
-
-async def ensure_profile(
-    *, user: User, conference: Conference
-) -> UserConferenceProfile:
-    profile, _ = await UserConferenceProfile.objects.aget_or_create(
-        user=user,
-        conference=conference,
-    )
-    return profile
-
-
-async def load_profile(profile: UserConferenceProfile) -> UserConferenceProfile:
-    return await UserConferenceProfile.objects.prefetch_related(
-        "interested_keywords"
-    ).aget(pk=profile.pk)
 
 
 @router.get(
@@ -68,8 +44,11 @@ async def get_current_user_conference_profile(
     user = await request.auser()
     conference = await get_visible_conference(user, conference_name)
 
-    profile = await ensure_profile(user=user, conference=conference)
-    return await load_profile(profile)
+    profile = await UserConferenceProfileService.get_or_create_profile(
+        user=user,
+        conference=conference,
+    )
+    return await UserConferenceProfileService.load_profile_with_keywords(profile)
 
 
 @router.get(
@@ -93,44 +72,16 @@ async def get_user_conference_profile(
     )
     user = await aget_object_or_404(User.objects.active(), uid=user_id)
 
-    profile = await ensure_profile(user=user, conference=conference)
-    return await load_profile(profile)
-
-
-async def resolve_keywords(keyword_texts: list[str]) -> list[Keyword]:
-    provided = set(keyword_texts)
-    if not provided:  # pragma: no cover
-        return []
-
-    keywords = [keyword async for keyword in Keyword.objects.filter(text__in=provided)]
-    missing = provided - {keyword.text for keyword in keywords}
-    if missing:
-        message = _("Unknown keywords: {keywords}.").format(
-            keywords=", ".join(sorted(missing)),
-        )
-        raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, message)
-    return keywords
+    profile = await UserConferenceProfileService.get_or_create_profile(
+        user=user,
+        conference=conference,
+    )
+    return await UserConferenceProfileService.load_profile_with_keywords(profile)
 
 
 class UserConferenceProfileSchema(Schema):
     desired_paper_count: DesiredPaperCount
     interested_keywords: list[KeywordText] = Field(max_length=100)
-
-
-async def patch_profile(
-    profile: UserConferenceProfile,
-    payload: PatchDict[UserConferenceProfileSchema],
-) -> None:
-    keywords: list[Keyword] | None = None
-    if "interested_keywords" in payload:  # pragma: no branch
-        keywords = await resolve_keywords(payload["interested_keywords"])
-
-    if "desired_paper_count" in payload:
-        profile.desired_paper_count = payload["desired_paper_count"]
-        await profile.asave(update_fields=["desired_paper_count", "update_time"])
-
-    if keywords is not None:  # pragma: no branch
-        await profile.interested_keywords.aset(keywords)
 
 
 @router.patch(
@@ -148,16 +99,31 @@ async def update_current_user_conference_profile(
     user = await request.auser()
     conference = await get_visible_conference(user, conference_name)
 
-    profile = await ensure_profile(user=user, conference=conference)
-    if payload:  # pragma: no branch
-        await patch_profile(profile, payload)
+    profile = await UserConferenceProfileService.get_or_create_profile(
+        user=user,
+        conference=conference,
+    )
 
-        logger.info(
-            "User updated conference profile.",
-            user=user,
-            conference=conference,
-        )
-    return await load_profile(profile)
+    if payload:
+        try:
+            await UserConferenceProfileService.update_profile(
+                profile=profile,
+                desired_paper_count=payload.get("desired_paper_count"),
+                interested_keywords=payload.get("interested_keywords"),
+            )
+        except ValueError as exc:
+            raise make_validation_error(
+                path="interested_keywords",
+                message=str(exc),
+            ) from exc
+
+    logger.info(
+        "User updated conference profile.",
+        user=user,
+        conference=conference,
+    )
+
+    return await UserConferenceProfileService.load_profile_with_keywords(profile)
 
 
 @router.patch(
@@ -185,15 +151,30 @@ async def update_user_conference_profile(
         uid=user_id,
     )
 
-    profile = await ensure_profile(user=user, conference=conference)
-    if payload:  # pragma: no branch
-        await patch_profile(profile, payload)
+    profile = await UserConferenceProfileService.get_or_create_profile(
+        user=user,
+        conference=conference,
+    )
 
-        actor = await request.auser()
-        logger.info(
-            "Conference profile updated by admin.",
-            actor=actor,
-            user=user,
-            conference=conference,
-        )
-    return await load_profile(profile)
+    if payload:
+        try:
+            await UserConferenceProfileService.update_profile(
+                profile=profile,
+                desired_paper_count=payload.get("desired_paper_count"),
+                interested_keywords=payload.get("interested_keywords"),
+            )
+        except ValueError as exc:
+            raise make_validation_error(
+                path="interested_keywords",
+                message=str(exc),
+            ) from exc
+
+    actor = await request.auser()
+    logger.info(
+        "Conference profile updated by admin.",
+        actor=actor,
+        user=user,
+        conference=conference,
+    )
+
+    return await UserConferenceProfileService.load_profile_with_keywords(profile)

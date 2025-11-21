@@ -1,9 +1,11 @@
 from http import HTTPStatus
+from unittest.mock import MagicMock
 
 import pytest
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
+from pytest_mock import MockerFixture
 
 from app.conference.models import (
     Conference,
@@ -11,10 +13,51 @@ from app.conference.models import (
     ConferenceRoleAssignment,
     Keyword,
     KeywordSet,
-    Track,
 )
-from app.core.models import User
-from tests.helpers import any_list, update_object
+from app.conference.services import ConferenceService, KeywordService
+from app.core.models import GlobalRole, GlobalRoleAssignment, User
+
+
+@pytest.fixture
+def global_admin(faker: Faker) -> User:
+    user = User.objects.create_user(username=faker.user_name())
+    GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
+    return user
+
+
+@pytest.fixture
+def conference(faker: Faker) -> Conference:
+    return Conference.objects.create(
+        name=faker.slug(),
+        display_name=faker.sentence(),
+    )
+
+
+@pytest.fixture
+def conference_chair(faker: Faker, conference: Conference) -> User:
+    user = User.objects.create_user(username=faker.user_name())
+    ConferenceRoleAssignment.objects.create(
+        conference=conference,
+        user=user,
+        role=ConferenceRole.CHAIR,
+    )
+    return user
+
+
+@pytest.fixture
+def conference_secretary(faker: Faker, conference: Conference) -> User:
+    user = User.objects.create_user(username=faker.user_name())
+    ConferenceRoleAssignment.objects.create(
+        conference=conference,
+        user=user,
+        role=ConferenceRole.SECRETARY,
+    )
+    return user
+
+
+@pytest.fixture
+def conference_service_update(mocker: MockerFixture) -> MagicMock:
+    return mocker.spy(ConferenceService, "update_conference")
 
 
 @pytest.mark.django_db
@@ -23,47 +66,18 @@ class TestUpdateConference:
     def path(cls, conference_name: str) -> str:
         return reverse("api-1.0.0:update-conference", args=[conference_name])
 
-    @pytest.fixture
-    def conference(self) -> Conference:
-        conference = Conference.objects.create(
-            name="cyber-2025",
-            display_name="Cyber Security Conference",
-        )
-        Track.objects.create(
-            conference=conference,
-            display_name="Research Track",
-            visibility=Track.Visibility.PUBLIC,
-            ordering=1,
-        )
-        Track.objects.create(
-            conference=conference,
-            display_name="Operations Track",
-            visibility=Track.Visibility.ADMIN_ONLY,
-            ordering=2,
-        )
-        return conference
-
-    @pytest.fixture
-    def authorized_user(self, faker: Faker, conference: Conference) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.CHAIR,
-        )
-        return user
-
     def test_happy_path(
         self,
         api_client: Client,
+        global_admin: User,
         conference: Conference,
-        authorized_user: User,
+        conference_service_update: MagicMock,
     ) -> None:
         keyword = Keyword.objects.create(text="AI")
         keyword_from_set = Keyword.objects.create(text="Security")
         keyword_set = KeywordSet.objects.create(name="sec-suite")
         keyword_set.keywords.set([keyword_from_set])
-        api_client.force_login(authorized_user)
+        api_client.force_login(global_admin)
 
         response = api_client.patch(
             self.path(conference.name),
@@ -75,33 +89,91 @@ class TestUpdateConference:
             },
         )
         assert response.status_code == HTTPStatus.OK
+        assert response.json()["name"] == conference.name
+        assert response.json()["display_name"] == "Cyber Security Summit"
+        assert response.json()["visibility"] == Conference.Visibility.PUBLIC
+        assert set(response.json()["keywords"]) == {"AI", "Security"}
+        assert response.json()["tracks"] == []
 
-        data = response.json()
-        assert data == {
-            "name": "cyber-2025",
-            "display_name": "Cyber Security Summit",
-            "visibility": Conference.Visibility.PUBLIC,
-            "keywords": ["AI", "Security"],
-            "tracks": any_list,
-        }
+        conference_service_update.assert_called_once_with(
+            name=conference.name,
+            display_name="Cyber Security Summit",
+            visibility=Conference.Visibility.PUBLIC,
+            keywords=[keyword],
+            keyword_sets=[keyword_set],
+        )
 
-        conference.refresh_from_db()
-        assert conference.display_name == "Cyber Security Summit"
-        assert conference.visibility == Conference.Visibility.PUBLIC
-        assert list(conference.keywords.values_list("text", flat=True)) == [
-            "AI",
-            "Security",
-        ]
+    def test_partial_update(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+        conference_service_update: MagicMock,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name),
+            data={"display_name": "Updated Name"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        conference_service_update.assert_called_once_with(
+            name=conference.name,
+            display_name="Updated Name",
+            visibility=None,
+            keywords=None,
+            keyword_sets=None,
+        )
+
+    def test_empty_payload(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+        conference_service_update: MagicMock,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        conference_service_update.assert_called_once_with(
+            name=conference.name,
+            display_name=None,
+            visibility=None,
+            keywords=None,
+            keyword_sets=None,
+        )
+
+    def test_conference_chair_can_update(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        conference_service_update: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.patch(
+            self.path(conference.name),
+            data={"display_name": "Chair Updated"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        conference_service_update.assert_called_once()
 
     def test_unauthorized_user_forbidden(
         self,
-        faker: Faker,
         api_client: Client,
         conference: Conference,
+        conference_secretary: User,
+        conference_service_update: MagicMock,
     ) -> None:
-        update_object(conference, visibility=Conference.Visibility.PUBLIC)
-        user = User.objects.create_user(username=faker.user_name())
-        api_client.force_login(user)
+        api_client.force_login(conference_secretary)
 
         response = api_client.patch(
             self.path(conference.name),
@@ -109,20 +181,76 @@ class TestUpdateConference:
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
 
-    def test_unknown_keyword_returns_422(
+        conference_service_update.assert_not_called()
+
+    def test_handle_does_not_exist(
         self,
         api_client: Client,
+        global_admin: User,
         conference: Conference,
-        authorized_user: User,
+        conference_service_update: MagicMock,
     ) -> None:
-        api_client.force_login(authorized_user)
+        conference_service_update.side_effect = Conference.DoesNotExist
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name),
+            data={"display_name": "Updated Name"},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_handle_unknown_keywords(
+        self,
+        mocker: MockerFixture,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        conference_service_update: MagicMock,
+    ) -> None:
+        mocker.patch.object(
+            KeywordService,
+            "validate_keyword_texts",
+            side_effect=ValueError("Unknown keywords: nonexistent."),
+        )
+        api_client.force_login(conference_chair)
 
         response = api_client.patch(
             self.path(conference.name),
             data={"keywords": ["nonexistent"]},
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        assert response.json()["message"].startswith("Unknown keywords")
 
-        conference.refresh_from_db()
-        assert list(conference.keywords.values_list("text", flat=True)) == []
+        data = response.json()
+        assert data["details"][0]["type"] == "value_error"
+        assert data["details"][0]["loc"] == ["body", "payload", "keywords"]
+        assert "Unknown keywords" in data["details"][0]["msg"]
+
+        conference_service_update.assert_not_called()
+
+    def test_handle_unknown_keyword_sets(
+        self,
+        mocker: MockerFixture,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        conference_service_update: MagicMock,
+    ) -> None:
+        mocker.patch.object(
+            KeywordService,
+            "validate_keyword_set_names",
+            side_effect=ValueError("Unknown keyword sets: nonexistent."),
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.patch(
+            self.path(conference.name),
+            data={"keyword_sets": ["nonexistent"]},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert data["details"][0]["type"] == "value_error"
+        assert data["details"][0]["loc"] == ["body", "payload", "keyword_sets"]
+        assert "Unknown keyword sets" in data["details"][0]["msg"]
+
+        conference_service_update.assert_not_called()

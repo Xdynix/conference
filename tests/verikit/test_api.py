@@ -41,10 +41,12 @@ class TestCreateEmailVerification:
         response = api_client.post(self.path, data={"email": email})
 
         assert response.status_code == HTTPStatus.CREATED
+
         data = response.json()
         assert data["email"] == email
         assert "create_time" in data
         assert "expire_time" in data
+
         mock_issue_code.assert_called_once_with(email)
         mock_cf_turnstile.assert_called_once()
 

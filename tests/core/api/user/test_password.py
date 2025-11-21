@@ -1,20 +1,28 @@
 from http import HTTPStatus
+from unittest.mock import MagicMock
 
 import pytest
 from django.contrib.auth import get_user
-from django.core.exceptions import ValidationError
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
 from pytest_mock import MockerFixture
 from ulid import ULID
 
-from app.core.models import (
-    GlobalRole,
-    GlobalRoleAssignment,
-    User,
-)
+from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.services import UserService
+from app.core.services.user import InvalidPassword
 from tests.helpers import update_object
+
+
+@pytest.fixture
+def user_service_update_password(mocker: MockerFixture) -> MagicMock:
+    return mocker.spy(UserService, "update_password")
+
+
+@pytest.fixture
+def user_service_change_password(mocker: MockerFixture) -> MagicMock:
+    return mocker.spy(UserService, "change_password")
 
 
 @pytest.fixture
@@ -22,22 +30,24 @@ def old_password() -> str:
     return "OldPassword123!"
 
 
+@pytest.fixture
+def user(faker: Faker, old_password: str) -> User:
+    return User.objects.create_user(
+        username=faker.user_name(),
+        password=old_password,
+    )
+
+
 @pytest.mark.django_db
 class TestUpdateCurrentUserPassword:
     path = reverse("api-1.0.0:update-current-user-password")
 
-    @pytest.fixture
-    def user(self, faker: Faker, old_password: str) -> User:
-        return User.objects.create_user(
-            username=faker.user_name(),
-            password=old_password,
-        )
-
     def test_happy_path(
         self,
         api_client: Client,
-        user: User,
         old_password: str,
+        user: User,
+        user_service_change_password: MagicMock,
     ) -> None:
         new_password = "NewPassword456!"
         api_client.force_login(user)
@@ -50,20 +60,22 @@ class TestUpdateCurrentUserPassword:
             },
         )
         assert response.status_code == HTTPStatus.NO_CONTENT
-        assert response.content == b""
 
-        user.refresh_from_db()
-        assert user.check_password(new_password)
-        assert not user.check_password(old_password)
-
+        user_service_change_password.assert_called_once_with(
+            user=user,
+            old_password=old_password,
+            new_password=new_password,
+        )
+        # Session should remain active after password change.
         assert get_user(api_client) == user
 
-    def test_invalid_old_password(
+    def test_handle_invalid_old_password(
         self,
         api_client: Client,
         user: User,
-        old_password: str,
+        user_service_change_password: MagicMock,
     ) -> None:
+        user_service_change_password.side_effect = ValueError("Invalid old password.")
         api_client.force_login(user)
 
         response = api_client.put(
@@ -75,59 +87,52 @@ class TestUpdateCurrentUserPassword:
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-        response_data = response.json()
-        assert response_data["details"][0]["type"] == "value_error"
-        assert response_data["details"][0]["loc"] == ["body", "payload", "old_password"]
-        assert "Invalid old password" in response_data["details"][0]["msg"]
+        data = response.json()
+        assert data["details"][0]["type"] == "value_error"
+        assert data["details"][0]["loc"] == ["body", "payload", "old_password"]
+        assert "Invalid old password" in data["details"][0]["msg"]
 
-        user.refresh_from_db()
-        assert user.check_password(old_password)
+        user_service_change_password.assert_called_once()
 
-    def test_weak_new_password(
+    def test_handle_invalid_password(
         self,
-        mocker: MockerFixture,
         api_client: Client,
-        user: User,
         old_password: str,
+        user: User,
+        user_service_change_password: MagicMock,
     ) -> None:
-        mock_validate = mocker.patch(
-            "app.core.api.user.password.validate_password",
-            side_effect=ValidationError(
-                [
-                    (
-                        "This password is too short. "
-                        "It must contain at least 8 characters."
-                    ),
-                    "This password is too common.",
-                ]
-            ),
+        user_service_change_password.side_effect = InvalidPassword(
+            [
+                "This password is too short. It must contain at least 8 characters.",
+                "This password is too common.",
+            ]
         )
-        new_password = "weak"
         api_client.force_login(user)
 
         response = api_client.put(
             self.path,
             data={
                 "old_password": old_password,
-                "new_password": new_password,
+                "new_password": "weak",
             },
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-        response_data = response.json()
-        assert len(response_data["details"]) == 2
-        for error in response_data["details"]:
+        data = response.json()
+        assert len(data["details"]) == 2
+        for error in data["details"]:
             assert error["type"] == "value_error"
             assert error["loc"] == ["body", "payload", "new_password"]
-        assert "too short" in response_data["details"][0]["msg"]
-        assert "too common" in response_data["details"][1]["msg"]
+        assert "too short" in data["details"][0]["msg"]
+        assert "too common" in data["details"][1]["msg"]
 
-        user.refresh_from_db()
-        assert user.check_password(old_password)
+        user_service_change_password.assert_called_once()
 
-        mock_validate.assert_called_once_with(new_password, user=user)
-
-    def test_unauthenticated_user_forbidden(self, api_client: Client) -> None:
+    def test_unauthenticated_user_unauthorized(
+        self,
+        api_client: Client,
+        user_service_change_password: MagicMock,
+    ) -> None:
         response = api_client.put(
             self.path,
             data={
@@ -137,6 +142,8 @@ class TestUpdateCurrentUserPassword:
         )
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
+        user_service_change_password.assert_not_called()
+
 
 @pytest.mark.django_db
 class TestUpdateUserPassword:
@@ -145,48 +152,41 @@ class TestUpdateUserPassword:
         return reverse("api-1.0.0:update-user-password", args=[user_id])
 
     @pytest.fixture
-    def authorized_user(self, faker: Faker) -> User:
+    def admin_user(self, faker: Faker) -> User:
         user = User.objects.create_user(username=faker.user_name())
         GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
         return user
 
-    @pytest.fixture
-    def user(self, faker: Faker, old_password: str) -> User:
-        return User.objects.create_user(
-            username=faker.user_name(),
-            password=old_password,
-        )
-
     def test_happy_path(
         self,
         api_client: Client,
-        authorized_user: User,
         user: User,
-        old_password: str,
+        admin_user: User,
+        user_service_update_password: MagicMock,
     ) -> None:
         new_password = "NewPassword456!"
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.put(
             self.path(user_id=user.uid),
             data={"new_password": new_password},
         )
         assert response.status_code == HTTPStatus.NO_CONTENT
-        assert response.content == b""
 
-        user.refresh_from_db()
-        assert user.check_password(new_password)
-        assert not user.check_password(old_password)
+        user_service_update_password.assert_called_once_with(
+            user=user,
+            new_password=new_password,
+        )
 
-    def test_change_inactive_user_forbidden(
+    def test_update_inactive_user_not_found(
         self,
         api_client: Client,
-        authorized_user: User,
         user: User,
-        old_password: str,
+        admin_user: User,
+        user_service_update_password: MagicMock,
     ) -> None:
         update_object(user, is_active=False)
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.put(
             self.path(user_id=user.uid),
@@ -194,18 +194,17 @@ class TestUpdateUserPassword:
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
-        user.refresh_from_db()
-        assert user.check_password(old_password)
+        user_service_update_password.assert_not_called()
 
-    def test_change_superuser_forbidden(
+    def test_update_superuser_not_found(
         self,
         api_client: Client,
-        authorized_user: User,
         user: User,
-        old_password: str,
+        admin_user: User,
+        user_service_update_password: MagicMock,
     ) -> None:
         update_object(user, is_superuser=True)
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.put(
             self.path(user_id=user.uid),
@@ -213,15 +212,15 @@ class TestUpdateUserPassword:
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
-        user.refresh_from_db()
-        assert user.check_password(old_password)
+        user_service_update_password.assert_not_called()
 
-    def test_nonexistent_user_forbidden(
+    def test_nonexistent_user_not_found(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
+        user_service_update_password: MagicMock,
     ) -> None:
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.put(
             self.path(user_id=ULID()),
@@ -229,51 +228,49 @@ class TestUpdateUserPassword:
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
-    def test_weak_new_password(
+        user_service_update_password.assert_not_called()
+
+    def test_handle_invalid_password(
         self,
-        mocker: MockerFixture,
         api_client: Client,
-        authorized_user: User,
         user: User,
-        old_password: str,
+        admin_user: User,
+        user_service_update_password: MagicMock,
     ) -> None:
-        mock_validate = mocker.patch(
-            "app.core.api.user.password.validate_password",
-            side_effect=ValidationError(
-                [
-                    (
-                        "This password is too short. "
-                        "It must contain at least 8 characters."
-                    ),
-                    "This password is too common.",
-                ]
-            ),
+        user_service_update_password.side_effect = InvalidPassword(
+            [
+                "This password is too short. It must contain at least 8 characters.",
+                "This password is too common.",
+            ]
         )
-        new_password = "weak"
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.put(
             self.path(user_id=user.uid),
-            data={"new_password": new_password},
+            data={"new_password": "weak"},
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-        response_data = response.json()
-        assert len(response_data["details"]) == 2
-        for error in response_data["details"]:
+        data = response.json()
+        assert len(data["details"]) == 2
+        for error in data["details"]:
             assert error["type"] == "value_error"
             assert error["loc"] == ["body", "payload", "new_password"]
-        assert "too short" in response_data["details"][0]["msg"]
-        assert "too common" in response_data["details"][1]["msg"]
+        assert "too short" in data["details"][0]["msg"]
+        assert "too common" in data["details"][1]["msg"]
 
-        user.refresh_from_db()
-        assert user.check_password(old_password)
+        user_service_update_password.assert_called_once()
 
-        mock_validate.assert_called_once()
-
-    def test_unauthorized_user_forbidden(self, api_client: Client, user: User) -> None:
+    def test_unauthorized_user_forbidden(
+        self,
+        api_client: Client,
+        user: User,
+        user_service_update_password: MagicMock,
+    ) -> None:
         response = api_client.put(
             self.path(user_id=user.uid),
             data={"new_password": "NewPassword456!"},
         )
         assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+        user_service_update_password.assert_not_called()

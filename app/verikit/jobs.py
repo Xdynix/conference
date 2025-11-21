@@ -12,4 +12,7 @@ def cleanup_expired_verifications() -> None:
         create_time__lt=Now() - settings.VERIKIT_VERIFICATION_RETENTION
     ).delete()
     if deleted_count:  # pragma: no branch
-        logger.info(f"Cleaned up {deleted_count} expired email verifications.")
+        logger.info(
+            "Cleaned up expired email verifications.",
+            deleted_count=deleted_count,
+        )

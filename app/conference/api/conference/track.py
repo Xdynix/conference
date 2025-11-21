@@ -1,52 +1,26 @@
 from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
-from django.db import transaction
-from django.shortcuts import aget_object_or_404, get_object_or_404
-from django.utils.translation import gettext as _
+from django.http import Http404
 from loguru import logger
 from ninja import PatchDict, Schema
-from ninja.errors import HttpError
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, Track
-from app.conference.services import ConferenceService
+from app.conference.services import TrackService
 from app.conference.types import ConferenceDetail, TrackDisplayName
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
-from app.ninja.errors import ErrorResponse
+from app.ninja.errors import ErrorResponse, make_validation_error
 
-from .core import router
-from .create import TrackSchema as CreateTrackSchema
+from .core import prefetch_conference, router
 
 
-@transaction.atomic
-def create_new_track(
-    *,
-    conference_name: str,
-    payload: CreateTrackSchema,
-) -> tuple[Conference, Track]:
-    # Lock the conference row to prevent race conditions when calculating the next
-    # ordering value, even though we don't update the conference itself.
-    conference = get_object_or_404(
-        Conference.objects.active().select_for_update(),
-        name=conference_name,
-    )
-    last_ordering = (
-        conference.tracks.order_by("-ordering")
-        .values_list("ordering", flat=True)
-        .first()
-    )
-    next_ordering = 0 if last_ordering is None else last_ordering + 1
-    track = Track.objects.create(
-        conference=conference,
-        display_name=payload.display_name,
-        ordering=next_ordering,
-        visibility=payload.visibility,
-    )
-    return conference, track
+class CreateTrackRequest(Schema):
+    display_name: TrackDisplayName
+    visibility: Track.Visibility = Track.Visibility.ADMIN_ONLY
 
 
 @router.post(
@@ -60,24 +34,27 @@ def create_new_track(
 async def create_track(
     request: AuthedHttpRequest,
     conference_name: str,
-    payload: CreateTrackSchema,
+    payload: CreateTrackRequest,
 ) -> tuple[int, Conference]:
     """Create a track for a conference."""
-    conference, track = await sync_to_async(create_new_track)(
-        conference_name=conference_name,
-        payload=payload,
-    )
+    try:
+        track = await sync_to_async(TrackService.create_track)(
+            conference_name=conference_name,
+            display_name=payload.display_name,
+            visibility=payload.visibility,
+        )
+    except Conference.DoesNotExist as exc:
+        raise Http404 from exc
 
     user = await request.auser()
+    conference = track.conference
+
     logger.info("Track created.", conference=conference, track=track, user=user)
 
-    conference = await Conference.objects.prefetch_related("keywords").aget(
-        pk=conference.pk,
-    )
-    await ConferenceService.prefetch_tracks(conference, user=user)
-    return HTTPStatus.CREATED, conference
+    return HTTPStatus.CREATED, await prefetch_conference(conference, user)
 
 
+# Separate from CreateTrackRequest: PATCH requires no defaults on omitted fields.
 class TrackSchema(Schema):
     display_name: TrackDisplayName
     visibility: Track.Visibility
@@ -98,40 +75,21 @@ async def update_track(
     payload: PatchDict[TrackSchema],
 ) -> Conference:
     """Update a track for a conference."""
+    try:
+        track = await TrackService.update_track(
+            conference_name=conference_name,
+            track_uid=track_id,
+            **payload,
+        )
+    except Track.DoesNotExist as exc:
+        raise Http404 from exc
+
     user = await request.auser()
+    conference = track.conference
 
-    track = await aget_object_or_404(
-        Track.objects.active()
-        .filter(conference__name=conference_name)
-        .select_related("conference"),
-        uid=track_id,
-    )
-    if payload:
-        for attr, value in payload.items():
-            setattr(track, attr, value)
-        await track.asave(update_fields=[*payload.keys(), "update_time"])
+    logger.info("Track updated.", conference=conference, track=track, user=user)
 
-        logger.info("Track updated.", track=track, user=user)
-
-    conference = await Conference.objects.prefetch_related("keywords").aget(
-        pk=track.conference_id
-    )
-    await ConferenceService.prefetch_tracks(conference, user=user)
-    return conference
-
-
-@transaction.atomic
-def deactivate_track(*, conference_name: str, track_id: ULID) -> Track:
-    track = get_object_or_404(
-        Track.objects.active()
-        .filter(conference__name=conference_name)
-        .select_for_update()
-        .select_related("conference"),
-        uid=track_id,
-    )
-    track.active = False
-    track.save(update_fields=["active", "update_time"])
-    return track
+    return await prefetch_conference(conference, user)
 
 
 @router.delete(
@@ -148,78 +106,24 @@ async def delete_track(
     track_id: ULID,
 ) -> Conference:
     """Delete a track for a conference."""
-    track = await sync_to_async(deactivate_track)(
-        conference_name=conference_name,
-        track_id=track_id,
-    )
+    try:
+        track = await sync_to_async(TrackService.deactivate_track)(
+            conference_name=conference_name,
+            track_uid=track_id,
+        )
+    except Track.DoesNotExist as exc:
+        raise Http404 from exc
 
     user = await request.auser()
-    logger.info("Track deleted.", track=track, user=user)
+    conference = track.conference
 
-    conference = await Conference.objects.prefetch_related("keywords").aget(
-        pk=track.conference_id
-    )
-    await ConferenceService.prefetch_tracks(conference, user=user)
-    return conference
+    logger.info("Track deleted.", conference=conference, track=track, user=user)
+
+    return await prefetch_conference(conference, user)
 
 
 class MoveTrackRequest(Schema):
     after_track: ULID | None = None
-
-
-@transaction.atomic
-def move_track_ordering(
-    *,
-    conference_name: str,
-    track_uid: ULID,
-    after_track_uid: ULID | None,
-) -> Conference:
-    conference = get_object_or_404(
-        Conference.objects.active().select_for_update(),
-        name=conference_name,
-    )
-    track = get_object_or_404(
-        conference.tracks.active(),
-        uid=track_uid,
-    )
-
-    after_track: Track | None = None
-    if after_track_uid is not None:
-        if after_track_uid == track_uid:
-            message = _("Track cannot be moved after itself.")
-            raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, message)
-
-        after_track = conference.tracks.active().filter(uid=after_track_uid).first()
-        if after_track is None:
-            message = _("Target track does not exist.")
-            raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, message)
-
-    # Include inactive tracks in reordering to maintain consistent ordering values
-    # across the entire track history. This simplifies the logic and preserves ordering
-    # continuity if tracks are reactivated later.
-    conference_tracks = list(conference.tracks.exclude(pk=track.pk))
-    if after_track is None:
-        conference_tracks.insert(0, track)
-    else:
-        try:
-            target_index = next(
-                idx
-                for idx, track_obj in enumerate(conference_tracks)
-                if track_obj == after_track
-            )
-        except StopIteration as exc:  # pragma: no cover
-            # Handle very rare edge case where target track was hard-deleted from
-            # database after validation but before fetching `conference_tracks` list.
-            message = _("Target track does not exist.")
-            raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, message) from exc
-        conference_tracks.insert(target_index + 1, track)
-
-    for ordering, track_obj in enumerate(conference_tracks):
-        if track_obj.ordering != ordering:
-            track_obj.ordering = ordering
-            track_obj.save(update_fields=["ordering", "update_time"])
-
-    return conference
 
 
 @router.post(
@@ -239,18 +143,25 @@ async def move_track(
     track_id: ULID,
     payload: MoveTrackRequest,
 ) -> Conference:
-    """Reorder tracks within a conference."""
-    conference = await sync_to_async(move_track_ordering)(
-        conference_name=conference_name,
-        track_uid=track_id,
-        after_track_uid=payload.after_track,
-    )
+    """Reorder a track within the conference.
+
+    Places the track after a specified target track, or at the beginning if no target
+    is provided.
+    """
+    try:
+        track = await sync_to_async(TrackService.move_track)(
+            conference_name=conference_name,
+            track_uid=track_id,
+            after_track_uid=payload.after_track,
+        )
+    except (Conference.DoesNotExist, Track.DoesNotExist) as exc:
+        raise Http404 from exc
+    except ValueError as exc:
+        raise make_validation_error(path="after_track", message=str(exc)) from exc
 
     user = await request.auser()
-    logger.info("Track moved.", conference=conference, user=user)
+    conference = track.conference
 
-    conference = await Conference.objects.prefetch_related("keywords").aget(
-        pk=conference.pk
-    )
-    await ConferenceService.prefetch_tracks(conference, user=user)
-    return conference
+    logger.info("Track moved.", conference=conference, track=track, user=user)
+
+    return await prefetch_conference(conference, user)

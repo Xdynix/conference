@@ -1,16 +1,15 @@
 from http import HTTPStatus
 
 from django.contrib.auth import aupdate_session_auth_hash
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
 from django.shortcuts import aget_object_or_404
-from django.utils.translation import gettext as _
 from loguru import logger
 from ninja import Schema
 from ulid import ULID
 
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole, User
+from app.core.services import UserService
+from app.core.services.user import InvalidPassword
 from app.core.types import AuthedHttpRequest, Password
 from app.ninja.errors import make_validation_error
 
@@ -37,22 +36,24 @@ async def update_current_user_password(
     The user's session remains active after the password change.
     """
     user = await request.auser()
-    old_password = payload.old_password
-    new_password = payload.new_password
-
-    if not await user.acheck_password(old_password.get_secret_value()):
-        raise make_validation_error(
-            path="old_password",
-            message=_("Invalid old password."),
-        )
 
     try:
-        validate_password(new_password.get_secret_value(), user=user)
-    except ValidationError as exc:
-        raise make_validation_error(path="new_password", message=exc.messages) from exc
+        await UserService.change_password(
+            user=user,
+            old_password=payload.old_password.get_secret_value(),
+            new_password=payload.new_password.get_secret_value(),
+        )
+    except ValueError as exc:
+        raise make_validation_error(
+            path="old_password",
+            message=str(exc),
+        ) from exc
+    except InvalidPassword as exc:
+        raise make_validation_error(
+            path="new_password",
+            message=exc.messages,
+        ) from exc
 
-    user.set_password(new_password.get_secret_value())
-    await user.asave(update_fields=["password"])
     # Prevents the current session from being logged out.
     await aupdate_session_auth_hash(request, user)
 
@@ -84,15 +85,17 @@ async def update_user_password(
         User.objects.active().non_superuser(),
         uid=user_id,
     )
-    new_password = payload.new_password
 
     try:
-        validate_password(new_password.get_secret_value(), user=user)
-    except ValidationError as exc:
-        raise make_validation_error(path="new_password", message=exc.messages) from exc
-
-    user.set_password(new_password.get_secret_value())
-    await user.asave(update_fields=["password"])
+        await UserService.update_password(
+            user=user,
+            new_password=payload.new_password.get_secret_value(),
+        )
+    except InvalidPassword as exc:
+        raise make_validation_error(
+            path="new_password",
+            message=exc.messages,
+        ) from exc
 
     actor = await request.auser()
     logger.info("Admin changed user password.", user=user, actor=actor)

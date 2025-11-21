@@ -170,12 +170,12 @@ class TestCursorPaginationAPIIntegration(URLConfTestCase):
         response = api_client.get(self.path, {"page_size": 2})
         assert response.status_code == 200
 
-        payload = response.json()
-        assert payload["items"] == [
+        data = response.json()
+        assert data["items"] == [
             {"username": "charlie"},
             {"username": "bravo"},
         ]
-        assert payload["next_page_token"] == "bravo"
+        assert data["next_page_token"] == "bravo"
 
     def test_endpoint_respects_query_parameters(self, api_client: Client) -> None:
         response = api_client.get(
@@ -188,9 +188,9 @@ class TestCursorPaginationAPIIntegration(URLConfTestCase):
         )
         assert response.status_code == 200
 
-        payload = response.json()
-        assert payload["items"] == [{"username": "charlie"}]
-        assert payload["next_page_token"] is None
+        data = response.json()
+        assert data["items"] == [{"username": "charlie"}]
+        assert data["next_page_token"] is None
 
     def test_endpoint_supports_iterating_pages(self, api_client: Client) -> None:
         all_items: list[dict[str, str]] = []
@@ -205,11 +205,11 @@ class TestCursorPaginationAPIIntegration(URLConfTestCase):
             response = api_client.get(self.path, query_params=query_params)
             assert response.status_code == 200
 
-            payload = response.json()
-            items = payload["items"]
+            data = response.json()
+            items = data["items"]
             all_items.extend(items)
             page_counts.append(len(items))
-            next_token = payload["next_page_token"]
+            next_token = data["next_page_token"]
             if next_token is None:
                 break
 

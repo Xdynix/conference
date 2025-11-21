@@ -1,5 +1,3 @@
-__all__ = ("PasswordResetService",)
-
 import secrets
 from functools import partial
 from hashlib import sha256
@@ -8,9 +6,7 @@ from django.conf import settings
 from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models.functions import Now
-from django.http import HttpRequest
 from django.template.loader import render_to_string
-from django.urls import reverse
 from loguru import logger
 
 from app.core.models import PasswordResetToken, User
@@ -28,11 +24,11 @@ class PasswordResetService:
     password_reset_email_body = "core/password-reset-email-body.html"  # noqa: S105
 
     @classmethod
-    @logger.catch(reraise=True)
     def create_token(
         cls,
         user: User,
-        request: HttpRequest,
+        *,
+        password_reset_page_uri: str,
     ) -> PasswordResetToken | None:
         """Create a password reset token for a given user.
 
@@ -58,12 +54,16 @@ class PasswordResetService:
             password_reset_token.refresh_from_db()
             logger.info("Password reset token created.", user=user)
             transaction.on_commit(
-                partial(cls.send_password_reset_email, user, token, request)
+                partial(
+                    cls.send_password_reset_email,
+                    user,
+                    token,
+                    password_reset_page_uri=password_reset_page_uri,
+                )
             )
             return password_reset_token
 
     @classmethod
-    @logger.catch(reraise=True)
     def consume_token(cls, user: User, token: str, new_password: Password) -> bool:
         """Consume a password reset token and set new password for the given user.
 
@@ -106,13 +106,9 @@ class PasswordResetService:
         cls,
         user: User,
         token: str,
-        request: HttpRequest,
+        *,
+        password_reset_page_uri: str,
     ) -> None:
-        password_reset_page_uri = (
-            settings.PASSWORD_RESET_PAGE_URI
-            # Fallback to minimum password reset page.
-            or request.build_absolute_uri(reverse("core:password-reset"))
-        )
         fragment = f"{user.uid}:{token}"
         context = {
             "site_name": settings.SITE_NAME,

@@ -44,6 +44,7 @@ class TestGetConference:
 
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == {
             "name": conference.name,
             "display_name": conference.display_name,
@@ -57,6 +58,7 @@ class TestGetConference:
                 },
             ],
         }
+
         mock_visible.assert_awaited_once_with(user)
 
     def test_returns_404_when_conference_not_visible(
@@ -71,5 +73,7 @@ class TestGetConference:
         )
 
         response = api_client.get(self.path("missing"))
+
         assert response.status_code == HTTPStatus.NOT_FOUND
+
         mock_visible.assert_awaited_once_with(AnonymousUser())

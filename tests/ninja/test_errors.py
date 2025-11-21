@@ -50,6 +50,7 @@ class TestOasisAPIErrorHandling(URLConfTestCase):
     def test_exception(self, api_client: Client) -> None:
         response = api_client.get("/exception")
         assert response.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
         assert response.json() == {
             "message": "An unexpected error has occurred.",
         }

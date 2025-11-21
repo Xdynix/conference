@@ -17,16 +17,19 @@ class ResponseAssertionsMixin:
     @classmethod
     def assert_response_is_ok(cls, response: Any) -> None:
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == "OK"
 
     @classmethod
     def assert_response_is_forbidden(cls, response: Any) -> None:
         assert response.status_code == HTTPStatus.FORBIDDEN
+
         assert response.json() == {"message": any_str}
 
     @classmethod
     def assert_response_is_unauthorized(cls, response: Any) -> None:
         assert response.status_code == HTTPStatus.UNAUTHORIZED
+
         assert response.json() == {"message": any_str}
 
 

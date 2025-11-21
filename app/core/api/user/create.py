@@ -3,9 +3,6 @@ from typing import Any, Literal
 
 from asgiref.sync import sync_to_async
 from django.contrib.auth import alogin
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
 from django.utils.translation import gettext as _
 from loguru import logger
 from ninja import Schema
@@ -14,9 +11,11 @@ from ninja.errors import HttpError
 
 from app.core.api.session import Session
 from app.core.auth import has_any_roles
-from app.core.models import GlobalRole, User
+from app.core.models import GlobalRole
 from app.core.registry.create_user import create_user_registry
 from app.core.registry.user_response import user_response_registry
+from app.core.services import UserService
+from app.core.services.user import InvalidPassword, UserIdentityConflict
 from app.core.types import AuthedHttpRequest, EmailStr, HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse, make_validation_error
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
@@ -24,37 +23,6 @@ from app.utils.throttling import AnonThrottle, throttling
 from app.verikit.types import VerifiedEmailStr
 
 from .core import UserResponse, router
-
-
-@transaction.atomic
-def create_new_user(
-    username: Username,
-    email: str,
-    password: Password,
-    managed: bool,
-    payload: Any,
-) -> User:
-    # Create a temporary user to validate password.
-    temp_user = User(username=username, email=email)
-    try:
-        validate_password(password.get_secret_value(), user=temp_user)
-    except ValidationError as exc:
-        raise make_validation_error(path="password", message=exc.messages) from exc
-
-    try:
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=password.get_secret_value(),
-            managed=managed,
-        )
-    except IntegrityError as exc:
-        message = _("A user with that username or email already exists.")
-        raise HttpError(HTTPStatus.CONFLICT, message) from exc
-
-    create_user_registry.dispatch(user, payload)
-
-    return user
 
 
 class BaseCreateRegistrationRequest(Schema):
@@ -90,13 +58,19 @@ async def create_registration(
     verification flow. Upon successful registration, the user is automatically logged in
     and a session is created.
     """
-    user = await sync_to_async(create_new_user)(
-        username=payload.username,  # type: ignore[attr-defined]
-        email=payload.email,  # type: ignore[attr-defined]
-        password=payload.password,  # type: ignore[attr-defined]
-        managed=False,
-        payload=payload,
-    )
+    try:
+        user = await sync_to_async(UserService.create_user)(
+            username=payload.username,  # type: ignore[attr-defined]
+            email=payload.email,  # type: ignore[attr-defined]
+            password=payload.password.get_secret_value(),  # type: ignore[attr-defined]
+            managed=False,
+            payload=payload,
+        )
+    except InvalidPassword as exc:
+        raise make_validation_error(path="password", message=exc.messages) from exc
+    except UserIdentityConflict as exc:
+        message = _("A user with that username or email already exists.")
+        raise HttpError(HTTPStatus.CONFLICT, message) from exc
     await alogin(request, user)
 
     logger.info("User registered and logged in.", user=user)
@@ -135,13 +109,19 @@ async def create_user(
     Allows administrators with write permission to create user accounts. Unlike the
     registration endpoint, this does not require email verification.
     """
-    user = await sync_to_async(create_new_user)(
-        username=payload.username,  # type: ignore[attr-defined]
-        email=payload.email,  # type: ignore[attr-defined]
-        password=payload.password,  # type: ignore[attr-defined]
-        managed=payload.managed,  # type: ignore[attr-defined]
-        payload=payload,
-    )
+    try:
+        user = await sync_to_async(UserService.create_user)(
+            username=payload.username,  # type: ignore[attr-defined]
+            email=payload.email,  # type: ignore[attr-defined]
+            password=payload.password.get_secret_value(),  # type: ignore[attr-defined]
+            managed=payload.managed,  # type: ignore[attr-defined]
+            payload=payload,
+        )
+    except InvalidPassword as exc:
+        raise make_validation_error(path="password", message=exc.messages) from exc
+    except UserIdentityConflict as exc:
+        message = _("A user with that username or email already exists.")
+        raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
     actor = await request.auser()
     logger.info("Admin created user.", user=user, actor=actor)

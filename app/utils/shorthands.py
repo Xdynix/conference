@@ -17,12 +17,6 @@ def timedelta_cast(
 ) -> Callable[[str | float], timedelta]:
     """Create a casting function that converts strings or floats to timedelta objects.
 
-    Args:
-        unit: The time unit to use for the timedelta conversion.
-
-    Returns:
-        A callable that takes a string or float and returns a timedelta object.
-
     Examples:
         >>> minutes = timedelta_cast("minutes")
         >>> minutes("30")
@@ -97,12 +91,6 @@ def parse_durations(s: str) -> timedelta:
 
 def sanitize_email_subject(subject: str) -> str:
     """Remove newlines from email subject to prevent header injection.
-
-    Args:
-        subject: The email subject string, potentially containing newlines.
-
-    Returns:
-        The sanitized subject with all newlines removed.
 
     Examples:
         >>> sanitize_email_subject("Hello\\nWorld")

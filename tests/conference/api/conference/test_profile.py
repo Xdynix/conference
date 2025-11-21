@@ -1,9 +1,11 @@
 from http import HTTPStatus
+from unittest.mock import AsyncMock
 
 import pytest
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
+from pytest_mock import MockerFixture
 from ulid import ULID
 
 from app.conference.models import (
@@ -13,6 +15,7 @@ from app.conference.models import (
     Keyword,
     UserConferenceProfile,
 )
+from app.conference.services import UserConferenceProfileService
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from tests.helpers import update_object
 
@@ -20,6 +23,13 @@ from tests.helpers import update_object
 @pytest.fixture
 def user(faker: Faker) -> User:
     return User.objects.create_user(username=faker.user_name())
+
+
+@pytest.fixture
+def global_admin(faker: Faker) -> User:
+    user = User.objects.create_user(username=faker.user_name())
+    GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
+    return user
 
 
 @pytest.fixture
@@ -32,14 +42,7 @@ def conference(faker: Faker) -> Conference:
 
 
 @pytest.fixture
-def global_admin(faker: Faker) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-    return user
-
-
-@pytest.fixture
-def conference_admin(faker: Faker, conference: Conference) -> User:
+def conference_chair(faker: Faker, conference: Conference) -> User:
     user = User.objects.create_user(username=faker.user_name())
     ConferenceRoleAssignment.objects.create(
         conference=conference,
@@ -47,6 +50,27 @@ def conference_admin(faker: Faker, conference: Conference) -> User:
         role=ConferenceRole.CHAIR,
     )
     return user
+
+
+@pytest.fixture
+def conference_reviewer(faker: Faker, conference: Conference) -> User:
+    user = User.objects.create_user(username=faker.user_name())
+    ConferenceRoleAssignment.objects.create(
+        conference=conference,
+        user=user,
+        role=ConferenceRole.REVIEWER,
+    )
+    return user
+
+
+@pytest.fixture
+def profile_service_get_or_create(mocker: MockerFixture) -> AsyncMock:
+    return mocker.spy(UserConferenceProfileService, "get_or_create_profile")
+
+
+@pytest.fixture
+def profile_service_update(mocker: MockerFixture) -> AsyncMock:
+    return mocker.spy(UserConferenceProfileService, "update_profile")
 
 
 @pytest.mark.django_db
@@ -58,11 +82,12 @@ class TestGetCurrentUserConferenceProfile:
             args=[conference_name],
         )
 
-    def test_returns_existing_profile(
+    def test_happy_path(
         self,
         api_client: Client,
         user: User,
         conference: Conference,
+        profile_service_get_or_create: AsyncMock,
     ) -> None:
         profile = UserConferenceProfile.objects.create(
             user=user,
@@ -75,38 +100,20 @@ class TestGetCurrentUserConferenceProfile:
 
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == {
             "desired_paper_count": 9,
             "interested_keywords": ["AI"],
         }
 
-    def test_creates_profile_when_missing(
-        self,
-        api_client: Client,
-        user: User,
-        conference: Conference,
-    ) -> None:
-        api_client.force_login(user)
-
-        response = api_client.get(self.path(conference.name))
-        assert response.status_code == HTTPStatus.OK
-        assert response.json() == {
-            "desired_paper_count": 5,
-            "interested_keywords": [],
-        }
-
-        profile = UserConferenceProfile.objects.get(
-            user=user,
-            conference=conference,
-        )
-        assert profile.desired_paper_count == 5
-        assert not profile.interested_keywords.exists()
+        profile_service_get_or_create.assert_awaited_once()
 
     def test_private_conference_returns_404(
         self,
         api_client: Client,
         user: User,
         conference: Conference,
+        profile_service_get_or_create: AsyncMock,
     ) -> None:
         update_object(conference, visibility=Conference.Visibility.ADMIN_ONLY)
         api_client.force_login(user)
@@ -114,13 +121,18 @@ class TestGetCurrentUserConferenceProfile:
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.NOT_FOUND
 
+        profile_service_get_or_create.assert_not_called()
+
     def test_unauthenticated_user_forbidden(
         self,
         api_client: Client,
         conference: Conference,
+        profile_service_get_or_create: AsyncMock,
     ) -> None:
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+        profile_service_get_or_create.assert_not_called()
 
 
 @pytest.mark.django_db
@@ -132,39 +144,16 @@ class TestGetUserConferenceProfile:
             args=[conference_name, user_id],
         )
 
-    @pytest.fixture
-    def profile_user(self, faker: Faker) -> User:
-        return User.objects.create_user(username=faker.user_name())
-
-    def test_global_admin_creates_profile(
+    def test_happy_path(
         self,
         api_client: Client,
+        user: User,
         global_admin: User,
         conference: Conference,
-        profile_user: User,
-    ) -> None:
-        api_client.force_login(global_admin)
-
-        response = api_client.get(self.path(conference.name, profile_user.uid))
-        assert response.status_code == HTTPStatus.OK
-        assert response.json() == {
-            "desired_paper_count": 5,
-            "interested_keywords": [],
-        }
-        assert UserConferenceProfile.objects.filter(
-            user=profile_user,
-            conference=conference,
-        ).exists()
-
-    def test_returns_existing_profile(
-        self,
-        api_client: Client,
-        global_admin: User,
-        conference: Conference,
-        profile_user: User,
+        profile_service_get_or_create: AsyncMock,
     ) -> None:
         profile = UserConferenceProfile.objects.create(
-            user=profile_user,
+            user=user,
             conference=conference,
             desired_paper_count=2,
         )
@@ -172,62 +161,77 @@ class TestGetUserConferenceProfile:
         profile.interested_keywords.add(keyword)
         api_client.force_login(global_admin)
 
-        response = api_client.get(self.path(conference.name, profile_user.uid))
+        response = api_client.get(self.path(conference.name, user.uid))
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == {
             "desired_paper_count": 2,
             "interested_keywords": ["systems"],
         }
 
-    def test_conference_admin_can_access(
+        profile_service_get_or_create.assert_awaited_once()
+
+    def test_conference_chair_can_access(
         self,
         api_client: Client,
-        conference_admin: User,
+        user: User,
         conference: Conference,
-        profile_user: User,
+        conference_chair: User,
+        profile_service_get_or_create: AsyncMock,
     ) -> None:
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
-        response = api_client.get(self.path(conference.name, profile_user.uid))
+        response = api_client.get(self.path(conference.name, user.uid))
         assert response.status_code == HTTPStatus.OK
+
+        profile_service_get_or_create.assert_awaited_once()
 
     def test_inactive_conference_returns_404(
         self,
         api_client: Client,
+        user: User,
         global_admin: User,
         conference: Conference,
-        profile_user: User,
+        profile_service_get_or_create: AsyncMock,
     ) -> None:
         update_object(conference, active=False)
         api_client.force_login(global_admin)
 
-        response = api_client.get(self.path(conference.name, profile_user.uid))
+        response = api_client.get(self.path(conference.name, user.uid))
         assert response.status_code == HTTPStatus.NOT_FOUND
+
+        profile_service_get_or_create.assert_not_called()
 
     def test_inactive_user_returns_404(
         self,
         api_client: Client,
+        user: User,
         global_admin: User,
         conference: Conference,
-        profile_user: User,
+        profile_service_get_or_create: AsyncMock,
     ) -> None:
-        update_object(profile_user, is_active=False)
+        update_object(user, is_active=False)
         api_client.force_login(global_admin)
 
-        response = api_client.get(self.path(conference.name, profile_user.uid))
+        response = api_client.get(self.path(conference.name, user.uid))
         assert response.status_code == HTTPStatus.NOT_FOUND
+
+        profile_service_get_or_create.assert_not_called()
 
     def test_unauthorized_user_forbidden(
         self,
         api_client: Client,
-        conference: Conference,
         user: User,
-        profile_user: User,
+        conference: Conference,
+        conference_reviewer: User,
+        profile_service_get_or_create: AsyncMock,
     ) -> None:
-        api_client.force_login(user)
+        api_client.force_login(conference_reviewer)
 
-        response = api_client.get(self.path(conference.name, profile_user.uid))
+        response = api_client.get(self.path(conference.name, user.uid))
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+        profile_service_get_or_create.assert_not_called()
 
 
 @pytest.mark.django_db
@@ -239,11 +243,13 @@ class TestUpdateCurrentUserConferenceProfile:
             args=[conference_name],
         )
 
-    def test_updates_profile(
+    def test_happy_path(
         self,
         api_client: Client,
         user: User,
         conference: Conference,
+        profile_service_get_or_create: AsyncMock,
+        profile_service_update: AsyncMock,
     ) -> None:
         Keyword.objects.create(text="ML")
         existing = Keyword.objects.create(text="AI")
@@ -262,42 +268,71 @@ class TestUpdateCurrentUserConferenceProfile:
                 "interested_keywords": ["ML"],
             },
         )
+
         assert response.status_code == HTTPStatus.OK
         assert response.json() == {
             "desired_paper_count": 3,
             "interested_keywords": ["ML"],
         }
 
-        profile.refresh_from_db()
-        assert profile.desired_paper_count == 3
-        assert list(profile.interested_keywords.values_list("text", flat=True)) == [
-            "ML"
-        ]
+        profile_service_get_or_create.assert_awaited_once()
+        profile_service_update.assert_awaited_once_with(
+            profile=profile,
+            desired_paper_count=3,
+            interested_keywords=["ML"],
+        )
 
-    def test_rejects_unknown_keyword(
+    def test_empty_payload(
         self,
         api_client: Client,
         user: User,
         conference: Conference,
+        profile_service_update: AsyncMock,
     ) -> None:
         api_client.force_login(user)
 
         response = api_client.patch(
             self.path(conference.name),
-            data={"interested_keywords": ["missing"]},
+            data={},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        profile_service_update.assert_not_called()
+
+    def test_handle_value_error(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        profile_service_update: AsyncMock,
+    ) -> None:
+        profile_service_update.side_effect = ValueError("Unknown keywords: invalid")
+        api_client.force_login(user)
+
+        response = api_client.patch(
+            self.path(conference.name),
+            data={"interested_keywords": ["invalid"]},
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert data["details"][0]["type"] == "value_error"
+        assert data["details"][0]["loc"] == ["body", "payload", "interested_keywords"]
+        assert "Unknown keywords" in data["details"][0]["msg"]
 
     def test_unauthenticated_user_forbidden(
         self,
         api_client: Client,
         conference: Conference,
+        profile_service_update: AsyncMock,
     ) -> None:
         response = api_client.patch(
             self.path(conference.name),
             data={"desired_paper_count": 7},
         )
         assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+        profile_service_update.assert_not_called()
 
 
 @pytest.mark.django_db
@@ -309,84 +344,113 @@ class TestUpdateUserConferenceProfile:
             args=[conference_name, user_id],
         )
 
-    @pytest.fixture
-    def profile_user(self, faker: Faker) -> User:
-        return User.objects.create_user(username=faker.user_name())
-
-    def test_global_admin_updates_profile(
+    def test_happy_path(
         self,
+        mocker: MockerFixture,
         api_client: Client,
+        user: User,
         global_admin: User,
         conference: Conference,
-        profile_user: User,
+        profile_service_get_or_create: AsyncMock,
+        profile_service_update: AsyncMock,
     ) -> None:
         Keyword.objects.create(text="Security")
         api_client.force_login(global_admin)
 
         response = api_client.patch(
-            self.path(conference.name, profile_user.uid),
+            self.path(conference.name, user.uid),
             data={
                 "desired_paper_count": 6,
                 "interested_keywords": ["Security"],
             },
         )
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == {
             "desired_paper_count": 6,
             "interested_keywords": ["Security"],
         }
 
-        profile = UserConferenceProfile.objects.get(
-            user=profile_user,
-            conference=conference,
+        profile_service_get_or_create.assert_awaited_once()
+        profile_service_update.assert_awaited_once_with(
+            profile=mocker.ANY,
+            desired_paper_count=6,
+            interested_keywords=["Security"],
         )
-        assert profile.desired_paper_count == 6
-        assert list(profile.interested_keywords.values_list("text", flat=True)) == [
-            "Security"
-        ]
 
-    def test_conference_admin_updates_profile(
+    def test_conference_chair_can_update_profile(
         self,
         api_client: Client,
-        conference_admin: User,
+        user: User,
         conference: Conference,
-        profile_user: User,
+        conference_chair: User,
+        profile_service_update: AsyncMock,
     ) -> None:
         Keyword.objects.create(text="cloud")
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.patch(
-            self.path(conference.name, profile_user.uid),
+            self.path(conference.name, user.uid),
             data={"interested_keywords": ["cloud"]},
         )
         assert response.status_code == HTTPStatus.OK
 
-    def test_rejects_unknown_keyword(
+        profile_service_update.assert_awaited_once()
+
+    def test_empty_payload(
         self,
         api_client: Client,
+        user: User,
         global_admin: User,
         conference: Conference,
-        profile_user: User,
+        profile_service_update: AsyncMock,
     ) -> None:
         api_client.force_login(global_admin)
 
         response = api_client.patch(
-            self.path(conference.name, profile_user.uid),
-            data={"interested_keywords": ["unknown"]},
+            self.path(conference.name, user.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        profile_service_update.assert_not_called()
+
+    def test_handle_value_error(
+        self,
+        api_client: Client,
+        user: User,
+        global_admin: User,
+        conference: Conference,
+        profile_service_update: AsyncMock,
+    ) -> None:
+        profile_service_update.side_effect = ValueError("Validation failed")
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name, user.uid),
+            data={"interested_keywords": ["invalid"]},
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert data["details"][0]["type"] == "value_error"
+        assert data["details"][0]["loc"] == ["body", "payload", "interested_keywords"]
+        assert "Validation failed" in data["details"][0]["msg"]
 
     def test_unauthorized_user_forbidden(
         self,
         api_client: Client,
-        conference: Conference,
         user: User,
-        profile_user: User,
+        conference: Conference,
+        conference_reviewer: User,
+        profile_service_update: AsyncMock,
     ) -> None:
-        api_client.force_login(user)
+        api_client.force_login(conference_reviewer)
 
         response = api_client.patch(
-            self.path(conference.name, profile_user.uid),
+            self.path(conference.name, user.uid),
             data={"desired_paper_count": 9},
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+        profile_service_update.assert_not_called()

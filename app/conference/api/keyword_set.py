@@ -3,14 +3,14 @@ from typing import Any
 from ninja import Router, Schema
 
 from app.conference.models import KeywordSet
-from app.conference.types import Keyword, KeywordSetName
+from app.conference.types import KeywordSetName, KeywordText
 
 router = Router(tags=["Keyword Set"])
 
 
 class KeywordSetSchema(Schema):
     name: KeywordSetName
-    keywords: list[Keyword]
+    keywords: list[KeywordText]
 
     @staticmethod
     def resolve_keywords(keyword_set: KeywordSet) -> list[str]:

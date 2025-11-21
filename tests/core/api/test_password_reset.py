@@ -14,7 +14,7 @@ from ulid import ULID
 
 from app.core.models import PasswordResetToken, User
 from app.core.types import Password
-from tests.helpers import AnyValue, update_object
+from tests.helpers import any_str, update_object
 
 
 @pytest.fixture
@@ -48,8 +48,13 @@ class TestCreatePasswordReset:
         response = api_client.post(self.path, data={"email": user.email})
 
         assert response.status_code == HTTPStatus.CREATED
+
         assert response.json() == {}
-        mock_create_token.assert_called_once_with(user, AnyValue())
+
+        mock_create_token.assert_called_once_with(
+            user,
+            password_reset_page_uri=any_str,
+        )
         mock_cf_turnstile.assert_called_once()
 
     def test_inactive_user(
@@ -62,9 +67,10 @@ class TestCreatePasswordReset:
         update_object(user, is_active=False)
 
         response = api_client.post(self.path, data={"email": user.email})
-
         assert response.status_code == HTTPStatus.CREATED
+
         assert response.json() == {}
+
         mock_create_token.assert_not_called()
         mock_cf_turnstile.assert_called_once()
 
@@ -76,9 +82,10 @@ class TestCreatePasswordReset:
         mock_cf_turnstile: MagicMock,
     ) -> None:
         response = api_client.post(self.path, data={"email": faker.email()})
-
         assert response.status_code == HTTPStatus.CREATED
+
         assert response.json() == {}
+
         mock_create_token.assert_not_called()
         mock_cf_turnstile.assert_called_once()
 
@@ -93,9 +100,10 @@ class TestCreatePasswordReset:
         user.save()
 
         response = api_client.post(self.path, data={"email": user.email})
-
         assert response.status_code == HTTPStatus.CREATED
+
         assert response.json() == {}
+
         mock_create_token.assert_not_called()
         mock_cf_turnstile.assert_called_once()
 
@@ -111,12 +119,16 @@ class TestCreatePasswordReset:
         settings.PASSWORD_RESET_TOKEN_INTERVAL = timedelta(seconds=42)
 
         response = api_client.post(self.path, data={"email": user.email})
-
         assert response.status_code == HTTPStatus.TOO_MANY_REQUESTS
+
         data = response.json()
         assert "password reset token was recently issued" in data["message"]
         assert response.headers["Retry-After"] == "42"
-        mock_create_token.assert_called_once_with(user, AnyValue())
+
+        mock_create_token.assert_called_once_with(
+            user,
+            password_reset_page_uri=any_str,
+        )
         mock_cf_turnstile.assert_called_once()
 
     def test_cf_turnstile_enforced(
@@ -125,7 +137,9 @@ class TestCreatePasswordReset:
         api_client: Client,
     ) -> None:
         response = api_client.post(self.path, data={"bad": "data"})
+
         assert response.status_code == HTTPStatus.FORBIDDEN
+
         assert settings.CF_TURNSTILE_RESPONSE_HEADER_NAME in response.json()["message"]
 
 
@@ -164,6 +178,7 @@ class TestConsumePasswordReset:
             },
         )
         assert response.status_code == HTTPStatus.NO_CONTENT
+
         mock_validate_password.assert_called_once_with(new_password, user=user)
         mock_consume_token.assert_called_once_with(user, token, Password(new_password))
 
@@ -186,6 +201,7 @@ class TestConsumePasswordReset:
 
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
+
         mock_validate_password.assert_not_called()
         mock_consume_token.assert_not_called()
 
@@ -213,6 +229,7 @@ class TestConsumePasswordReset:
 
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
+
         mock_validate_password.assert_called_once_with(new_password, user=user)
         mock_consume_token.assert_called_once_with(user, token, Password(new_password))
 
@@ -243,6 +260,7 @@ class TestConsumePasswordReset:
 
         data = response.json()
         assert data["details"][0]["msg"] == "This password is too short."
+
         mock_validate_password.assert_called_once_with(new_password, user=user)
         mock_consume_token.assert_not_called()
 

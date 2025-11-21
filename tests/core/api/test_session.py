@@ -63,14 +63,16 @@ class TestGetSession:
 
         response = api_client.get(self.path)
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == authenticated_session
+        assert "no-cache" in response.headers["Cache-Control"]
 
         assert settings.CSRF_COOKIE_NAME in api_client.cookies
-        assert "no-cache" in response.headers["Cache-Control"]
 
     def test_unauthenticated(self, api_client: Client) -> None:
         response = api_client.get(self.path)
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == {}
 
 
@@ -97,6 +99,7 @@ class TestCreateSession:
 
         response = api_client.post(self.path, data=user_credentials.model_dump())
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == authenticated_session
 
         assert get_user(api_client) == user
@@ -112,6 +115,7 @@ class TestCreateSession:
 
         response = api_client.post(self.path, data=invalid_credentials.model_dump())
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
         assert response.json() == {"message": "Invalid credentials."}
 
         assert not get_user(api_client).is_authenticated
@@ -126,6 +130,7 @@ class TestCreateSession:
 
         response = api_client.post(self.path, data={"bad": "data"})
         assert response.status_code == HTTPStatus.FORBIDDEN
+
         assert settings.CF_TURNSTILE_RESPONSE_HEADER_NAME in response.json()["message"]
 
         assert not get_user(api_client).is_authenticated
@@ -140,6 +145,7 @@ class TestDeleteSession:
 
         response = api_client.delete(self.path)
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == {}
 
         assert not get_user(api_client).is_authenticated
@@ -147,6 +153,7 @@ class TestDeleteSession:
     def test_unauthenticated(self, api_client: Client) -> None:
         response = api_client.delete(self.path)
         assert response.status_code == HTTPStatus.OK
+
         assert response.json() == {}
 
         assert not get_user(api_client).is_authenticated
