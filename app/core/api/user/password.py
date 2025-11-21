@@ -1,18 +1,20 @@
 from http import HTTPStatus
 
 from django.contrib.auth import aupdate_session_auth_hash
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
 from ninja import Schema
-from ninja.errors import ValidationError
 from ulid import ULID
 
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest, Password
+from app.ninja.errors import make_validation_error
 
-from .core import router, validate_password_for_user
+from .core import router
 
 
 class UpdateCurrentUserPasswordRequest(Schema):
@@ -39,17 +41,15 @@ async def update_current_user_password(
     new_password = payload.new_password
 
     if not await user.acheck_password(old_password.get_secret_value()):
-        raise ValidationError(
-            errors=[
-                {
-                    "type": "value_error",
-                    "loc": ["body", "payload", "old_password"],
-                    "msg": _("Invalid old password."),
-                },
-            ]
+        raise make_validation_error(
+            path="old_password",
+            message=_("Invalid old password."),
         )
 
-    validate_password_for_user(new_password, user)
+    try:
+        validate_password(new_password.get_secret_value(), user=user)
+    except ValidationError as exc:
+        raise make_validation_error(path="new_password", message=exc.messages) from exc
 
     user.set_password(new_password.get_secret_value())
     await user.asave(update_fields=["password"])
@@ -86,7 +86,10 @@ async def update_user_password(
     )
     new_password = payload.new_password
 
-    validate_password_for_user(new_password, user)
+    try:
+        validate_password(new_password.get_secret_value(), user=user)
+    except ValidationError as exc:
+        raise make_validation_error(path="new_password", message=exc.messages) from exc
 
     user.set_password(new_password.get_secret_value())
     await user.asave(update_fields=["password"])

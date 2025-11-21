@@ -2,7 +2,7 @@ from http import HTTPStatus
 
 import pytest
 from django.contrib.auth import get_user
-from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.exceptions import ValidationError
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
@@ -90,12 +90,17 @@ class TestUpdateCurrentUserPassword:
         user: User,
         old_password: str,
     ) -> None:
-        mock_validate = mocker.patch("app.core.api.user.core.django_validate_password")
-        mock_validate.side_effect = DjangoValidationError(
-            [
-                "This password is too short. It must contain at least 8 characters.",
-                "This password is too common.",
-            ]
+        mock_validate = mocker.patch(
+            "app.core.api.user.password.validate_password",
+            side_effect=ValidationError(
+                [
+                    (
+                        "This password is too short. "
+                        "It must contain at least 8 characters."
+                    ),
+                    "This password is too common.",
+                ]
+            ),
         )
         new_password = "weak"
         api_client.force_login(user)
@@ -232,12 +237,17 @@ class TestUpdateUserPassword:
         user: User,
         old_password: str,
     ) -> None:
-        mock_validate = mocker.patch("app.core.api.user.core.django_validate_password")
-        mock_validate.side_effect = DjangoValidationError(
-            [
-                "This password is too short. It must contain at least 8 characters.",
-                "This password is too common.",
-            ]
+        mock_validate = mocker.patch(
+            "app.core.api.user.password.validate_password",
+            side_effect=ValidationError(
+                [
+                    (
+                        "This password is too short. "
+                        "It must contain at least 8 characters."
+                    ),
+                    "This password is too common.",
+                ]
+            ),
         )
         new_password = "weak"
         api_client.force_login(authorized_user)

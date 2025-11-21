@@ -1,4 +1,10 @@
-from collections.abc import Callable
+__all__ = (
+    "ErrorResponse",
+    "make_validation_error",
+    "set_exception_handlers",
+)
+
+from collections.abc import Callable, Sequence
 from http import HTTPStatus
 from typing import Any, TypeVar, cast
 
@@ -24,6 +30,33 @@ class ErrorResponse(Schema):
 Exc = TypeVar("Exc", bound=Exception)
 ExcHandlerReturn = tuple[int, ErrorResponse]
 ExcHandler = Callable[[Exc | type[Exc]], ExcHandlerReturn]
+
+
+def make_validation_error(
+    *,
+    path: str | Sequence[str],
+    message: str | Sequence[str],
+    type_: str = "value_error",
+) -> ValidationError:
+    """Create a validation error with Django Ninja's standard error structure.
+
+    Returns:
+        A validation error formatted for consistent API error responses.
+    """
+    if isinstance(path, str):  # pragma: no branch
+        path = [path]
+    if isinstance(message, str):
+        message = [message]
+    return ValidationError(
+        errors=[
+            {
+                "type": type_,
+                "loc": ["body", "payload", *path],
+                "msg": msg,
+            }
+            for msg in message
+        ]
+    )
 
 
 def set_exception_handlers(api: NinjaAPI) -> None:

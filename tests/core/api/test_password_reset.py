@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from django.conf import LazySettings
+from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
 from django.test import Client
 from django.urls import reverse
@@ -140,7 +141,7 @@ class TestConsumePasswordReset:
 
     @pytest.fixture
     def mock_validate_password(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("app.core.api.password_reset.validate_password_for_user")
+        return mocker.patch("app.core.api.password_reset.validate_password")
 
     def test_happy_path(
         self,
@@ -163,8 +164,7 @@ class TestConsumePasswordReset:
             },
         )
         assert response.status_code == HTTPStatus.NO_CONTENT
-
-        mock_validate_password.assert_called_once_with(Password(new_password), user)
+        mock_validate_password.assert_called_once_with(new_password, user=user)
         mock_consume_token.assert_called_once_with(user, token, Password(new_password))
 
     def test_user_not_found(
@@ -213,8 +213,38 @@ class TestConsumePasswordReset:
 
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
-        mock_validate_password.assert_called_once_with(Password(new_password), user)
+        mock_validate_password.assert_called_once_with(new_password, user=user)
         mock_consume_token.assert_called_once_with(user, token, Password(new_password))
+
+    def test_invalid_new_password(
+        self,
+        faker: Faker,
+        api_client: Client,
+        user: User,
+        mock_consume_token: MagicMock,
+        mock_validate_password: MagicMock,
+    ) -> None:
+        token = faker.pystr()
+        new_password = faker.password()
+        mock_validate_password.side_effect = ValidationError(
+            ["This password is too short."]
+        )
+        mock_consume_token.return_value = True
+
+        response = api_client.post(
+            self.path,
+            data={
+                "user_id": str(user.uid),
+                "token": token,
+                "new_password": new_password,
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert data["details"][0]["msg"] == "This password is too short."
+        mock_validate_password.assert_called_once_with(new_password, user=user)
+        mock_consume_token.assert_not_called()
 
 
 @pytest.mark.django_db(transaction=True)
@@ -228,7 +258,7 @@ class TestPasswordResetE2E:
 
     @pytest.fixture(autouse=True)
     def mock_render(self, mocker: MockerFixture) -> MagicMock:
-        mock_render = mocker.patch("app.core.services.render_to_string")
+        mock_render = mocker.patch("app.core.services.password_reset.render_to_string")
 
         def render_side_effect(template_name, context, *_):  # type: ignore[no-untyped-def]
             if template_name.endswith("subject.html"):

@@ -3,6 +3,8 @@ from typing import Annotated
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.utils.translation import gettext as _
 from ninja import Router, Schema
@@ -11,11 +13,10 @@ from ninja.errors import HttpError
 from pydantic import StringConstraints
 from ulid import ULID
 
-from app.core.api.user.core import validate_password_for_user
 from app.core.models import User
 from app.core.services import PasswordResetService
 from app.core.types import EmailStr, HttpRequest, Password
-from app.ninja.errors import ErrorResponse
+from app.ninja.errors import ErrorResponse, make_validation_error
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 from app.utils.throttling import AnonThrottle, throttling
 
@@ -109,7 +110,10 @@ async def consume_password_reset(
     token = payload.token
     new_password = payload.new_password
 
-    validate_password_for_user(new_password, user)
+    try:
+        validate_password(new_password.get_secret_value(), user=user)
+    except ValidationError as exc:
+        raise make_validation_error(path="new_password", message=exc.messages) from exc
 
     if not await sync_to_async(PasswordResetService.consume_token)(
         user,

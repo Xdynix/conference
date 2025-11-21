@@ -3,6 +3,8 @@ from typing import Any, Literal
 
 from asgiref.sync import sync_to_async
 from django.contrib.auth import alogin
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.utils.translation import gettext as _
 from loguru import logger
@@ -16,12 +18,12 @@ from app.core.models import GlobalRole, User
 from app.core.registry.create_user import create_user_registry
 from app.core.registry.user_response import user_response_registry
 from app.core.types import AuthedHttpRequest, EmailStr, HttpRequest, Password, Username
-from app.ninja.errors import ErrorResponse
+from app.ninja.errors import ErrorResponse, make_validation_error
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 from app.utils.throttling import AnonThrottle, throttling
 from app.verikit.types import VerifiedEmailStr
 
-from .core import UserResponse, router, validate_password_for_user
+from .core import UserResponse, router
 
 
 @transaction.atomic
@@ -34,7 +36,10 @@ def create_new_user(
 ) -> User:
     # Create a temporary user to validate password.
     temp_user = User(username=username, email=email)
-    validate_password_for_user(password, temp_user, field_name="password")
+    try:
+        validate_password(password.get_secret_value(), user=temp_user)
+    except ValidationError as exc:
+        raise make_validation_error(path="password", message=exc.messages) from exc
 
     try:
         user = User.objects.create_user(

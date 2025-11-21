@@ -4,10 +4,10 @@ from unittest.mock import MagicMock
 import pytest
 from django.conf import LazySettings
 from django.contrib.auth import get_user
+from django.core.exceptions import ValidationError
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
-from ninja.errors import ValidationError
 from pytest_mock import MockerFixture
 
 from app.core.models import (
@@ -20,7 +20,7 @@ from app.verikit.services import EmailVerificationService
 
 @pytest.fixture
 def mock_validate_password(mocker: MockerFixture) -> MagicMock:
-    return mocker.patch("app.core.api.user.create.validate_password_for_user")
+    return mocker.patch("app.core.api.user.create.validate_password")
 
 
 @pytest.mark.django_db
@@ -133,13 +133,7 @@ class TestCreateRegistration:
     ) -> None:
         email_token = EmailVerificationService.issue_token(faker.email())
         mock_validate_password.side_effect = ValidationError(
-            errors=[
-                {
-                    "type": "value_error",
-                    "loc": ["body", "payload", "password"],
-                    "msg": "This password is too short.",
-                }
-            ]
+            ["This password is too short."]
         )
 
         response = api_client.post(
