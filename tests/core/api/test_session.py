@@ -105,6 +105,30 @@ class TestCreateSession:
         assert get_user(api_client) == user
         mock_cf_turnstile.assert_called_once()
 
+    def test_trims_username(
+        self,
+        api_client: Client,
+        user: User,
+        user_credentials: UserCredentials,
+        authenticated_session: JsonValue,
+        mock_cf_turnstile: MagicMock,
+    ) -> None:
+        assert not get_user(api_client).is_authenticated
+
+        response = api_client.post(
+            self.path,
+            data={
+                "username": f"  {user_credentials.username}  ",
+                "password": user_credentials.password,
+            },
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == authenticated_session
+
+        assert get_user(api_client) == user
+        mock_cf_turnstile.assert_called_once()
+
     def test_invalid_credentials(
         self,
         api_client: Client,
@@ -117,6 +141,28 @@ class TestCreateSession:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         assert response.json() == {"message": "Invalid credentials."}
+
+        assert not get_user(api_client).is_authenticated
+        mock_cf_turnstile.assert_called_once()
+
+    def test_rejects_whitespace_only_username(
+        self,
+        api_client: Client,
+        user_credentials: UserCredentials,
+        mock_cf_turnstile: MagicMock,
+    ) -> None:
+        response = api_client.post(
+            self.path,
+            data={
+                "username": "   ",
+                "password": user_credentials.password,
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        error = response.json()["details"][0]
+        assert error["loc"] == ["body", "payload", "username"]
+        assert "at least 1 character" in error["msg"]
 
         assert not get_user(api_client).is_authenticated
         mock_cf_turnstile.assert_called_once()

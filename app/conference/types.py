@@ -15,6 +15,7 @@ from enum import StrEnum
 from typing import Annotated, Literal
 
 from ninja import Field, Schema
+from pydantic import StringConstraints
 from ulid import ULID
 
 from app.conference.models import Conference as ConferenceModel
@@ -27,16 +28,18 @@ from app.utils.enums import Region
 
 KeywordText = Annotated[
     str,
-    Field(
+    StringConstraints(
         min_length=1,
         max_length=KeywordModel._meta.get_field("text").max_length,
+        strip_whitespace=True,
     ),
 ]
 KeywordSetName = Annotated[
     str,
-    Field(
+    StringConstraints(
         min_length=1,
         max_length=KeywordSetModel._meta.get_field("name").max_length,
+        strip_whitespace=True,
     ),
 ]
 
@@ -46,11 +49,12 @@ track_display_name_field = track_meta.get_field("display_name")
 
 TrackDisplayName = Annotated[
     str,
-    Field(
-        examples=["Regular"],
+    StringConstraints(
         min_length=1,
         max_length=track_display_name_field.max_length,
+        strip_whitespace=True,
     ),
+    Field(examples=["Regular"]),
 ]
 
 
@@ -66,21 +70,26 @@ conference_display_name_field = conference_meta.get_field("display_name")
 
 ConferenceName = Annotated[
     str,
-    Field(
-        description=str(conference_name_field.help_text),
-        examples=["CBPK-2020"],
+    StringConstraints(
         pattern=r"^[-a-zA-Z0-9_]+$",  # django.core.validators.slug_re
         min_length=1,
         max_length=conference_name_field.max_length,
     ),
+    Field(
+        description=str(conference_name_field.help_text),
+        examples=["CBPK-2020"],
+    ),
 ]
 ConferenceDisplayName = Annotated[
     str,
+    StringConstraints(
+        min_length=1,
+        max_length=conference_display_name_field.max_length,
+        strip_whitespace=True,
+    ),
     Field(
         description=str(conference_display_name_field.help_text),
         examples=["Conference on Blockchain Protocols and Knowledge 2020"],
-        min_length=1,
-        max_length=conference_display_name_field.max_length,
     ),
 ]
 
@@ -101,21 +110,30 @@ RegionCode = StrEnum("RegionCode", {region.name: region.name for region in Regio
 
 
 class Profile(Schema):
-    given_name: str = Field(
-        "",
-        examples=["John"],
-        max_length=given_name_field.max_length,
-    )
-    family_name: str = Field(
-        "",
-        examples=["Doe"],
-        max_length=family_name_field.max_length,
-    )
-    affiliation: str = Field(
-        "",
-        examples=["Department of Physics, University of Oxford"],
-        max_length=affiliation_field.max_length,
-    )
+    given_name: Annotated[
+        str,
+        StringConstraints(
+            max_length=given_name_field.max_length,
+            strip_whitespace=True,
+        ),
+        Field(examples=["John"]),
+    ] = ""
+    family_name: Annotated[
+        str,
+        StringConstraints(
+            max_length=family_name_field.max_length,
+            strip_whitespace=True,
+        ),
+        Field(examples=["Doe"]),
+    ] = ""
+    affiliation: Annotated[
+        str,
+        StringConstraints(
+            max_length=affiliation_field.max_length,
+            strip_whitespace=True,
+        ),
+        Field(examples=["Department of Physics, University of Oxford"]),
+    ] = ""
     region_code: Literal[""] | RegionCode = Field("", examples=[Region.GB.name])
 
 

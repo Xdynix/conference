@@ -87,6 +87,52 @@ class TestCreateConference:
         assert call_kwargs["tracks"][1]["display_name"] == "Operations Track"
         assert call_kwargs["tracks"][1]["visibility"] == Track.Visibility.ADMIN_ONLY
 
+    def test_trims_whitespace_fields(
+        self,
+        api_client: Client,
+        conference_service_create: MagicMock,
+        global_admin: User,
+    ) -> None:
+        keyword = Keyword.objects.create(text="AI")
+        keyword_from_set = Keyword.objects.create(text="Security")
+        keyword_set = KeywordSet.objects.create(name="defense-suite")
+        keyword_set.keywords.set([keyword_from_set])
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path,
+            data={
+                "name": "trim-conf",
+                "display_name": "  Cyber Defense Summit  ",
+                "keywords": ["  AI  "],
+                "keyword_sets": ["  defense-suite  "],
+                "tracks": [
+                    {
+                        "display_name": "  Research Track ",
+                        "visibility": Track.Visibility.PUBLIC,
+                    },
+                    {"display_name": " Operations Track  "},
+                ],
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        data = response.json()
+        assert data["display_name"] == "Cyber Defense Summit"
+        assert set(data["keywords"]) == {"AI", "Security"}
+        assert data["tracks"][0]["display_name"] == "Research Track"
+        assert data["tracks"][0]["visibility"] == Track.Visibility.PUBLIC
+        assert data["tracks"][1]["display_name"] == "Operations Track"
+        assert data["tracks"][1]["visibility"] == Track.Visibility.ADMIN_ONLY
+
+        conference_service_create.assert_called_once()
+        call_kwargs = conference_service_create.call_args.kwargs
+        assert call_kwargs["display_name"] == "Cyber Defense Summit"
+        assert list(call_kwargs["keywords"]) == [keyword]
+        assert list(call_kwargs["keyword_sets"]) == [keyword_set]
+        assert call_kwargs["tracks"][0]["display_name"] == "Research Track"
+        assert call_kwargs["tracks"][1]["display_name"] == "Operations Track"
+
     def test_minimal_payload_uses_defaults(
         self,
         api_client: Client,
@@ -198,6 +244,30 @@ class TestCreateConference:
         assert data["details"][0]["type"] == "value_error"
         assert data["details"][0]["loc"] == ["body", "payload", "keyword_sets"]
         assert "Unknown keyword sets" in data["details"][0]["msg"]
+
+        conference_service_create.assert_not_called()
+
+    def test_rejects_whitespace_only_keyword(
+        self,
+        api_client: Client,
+        conference_service_create: MagicMock,
+        global_admin: User,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path,
+            data={
+                "name": "whitespace-keyword-conf",
+                "display_name": "Whitespace Keyword Conf",
+                "keywords": ["   "],
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        error = response.json()["details"][0]
+        assert error["loc"] == ["body", "payload", "keywords", 0]
+        assert "at least 1 character" in error["msg"]
 
         conference_service_create.assert_not_called()
 

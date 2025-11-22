@@ -25,10 +25,10 @@ class CreateTrackPayload(Schema):
 
 
 class CreateConferenceRequest(ConferenceSchema):
-    keywords: list[KeywordText] = Field(default_factory=list)
-    keyword_sets: list[KeywordSetName] = Field(default_factory=list)
+    keywords: list[KeywordText] = Field(default_factory=list, max_length=500)
+    keyword_sets: list[KeywordSetName] = Field(default_factory=list, max_length=50)
     visibility: Conference.Visibility = Conference.Visibility.ADMIN_ONLY
-    tracks: list[CreateTrackPayload] = Field(default_factory=list)  # type: ignore[assignment]
+    tracks: list[CreateTrackPayload] = Field(default_factory=list, max_length=100)  # type: ignore[assignment]
 
 
 @router.post(

@@ -49,6 +49,36 @@ class TestUpdateCurrentUserProfile:
             assert getattr(profile, field) == value
         assert response.json()["profile"] == profile_payload
 
+    def test_trims_whitespace(
+        self,
+        api_client: Client,
+        user: User,
+    ) -> None:
+        api_client.force_login(user)
+
+        response = api_client.patch(
+            self.path,
+            data={
+                "given_name": "  Ada  ",
+                "family_name": "  Lovelace ",
+                "affiliation": "  Analytical Engines  ",
+                "region_code": Region.GB.name,
+            },
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["profile"] == {
+            "given_name": "Ada",
+            "family_name": "Lovelace",
+            "affiliation": "Analytical Engines",
+            "region_code": Region.GB.name,
+        }
+
+        profile = Profile.objects.get(user=user)
+        assert profile.given_name == "Ada"
+        assert profile.family_name == "Lovelace"
+        assert profile.affiliation == "Analytical Engines"
+
     def test_partial_update_existing_profile(
         self,
         faker: Faker,

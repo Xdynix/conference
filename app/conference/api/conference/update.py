@@ -3,7 +3,7 @@ from http import HTTPStatus
 from asgiref.sync import sync_to_async
 from django.http import Http404
 from loguru import logger
-from ninja import PatchDict, Schema
+from ninja import Field, PatchDict, Schema
 
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole
@@ -19,8 +19,8 @@ from .core import ConferenceDetailResponse, prefetch_conference, router
 
 class ConferenceSchema(Schema):
     display_name: ConferenceDisplayName
-    keywords: list[KeywordText]
-    keyword_sets: list[KeywordSetName]
+    keywords: list[KeywordText] = Field(max_length=500)
+    keyword_sets: list[KeywordSetName] = Field(max_length=50)
     visibility: Conference.Visibility
 
 

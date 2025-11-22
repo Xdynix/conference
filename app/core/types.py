@@ -13,7 +13,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.http import HttpRequest as DjangoHttpRequest
 from django.utils.translation import gettext as _
 from ninja import Schema
-from pydantic import AfterValidator, Field, SecretStr
+from pydantic import AfterValidator, Field, SecretStr, StringConstraints
 from pydantic import EmailStr as DefaultEmailStr
 from ulid import ULID
 
@@ -38,18 +38,21 @@ password_field = user_meta.get_field("password")
 
 Username = Annotated[
     str,
-    AfterValidator(UserModel.normalize_username),
-    Field(
-        description=username_field.help_text.removeprefix("Required. "),
-        examples=["user"],
+    StringConstraints(
         pattern=UserModel.username_validator.regex,
         min_length=1,
         max_length=username_field.max_length,
+        strip_whitespace=True,
     ),
+    Field(
+        description=username_field.help_text.removeprefix("Required. "),
+        examples=["user"],
+    ),
+    AfterValidator(UserModel.normalize_username),
 ]
 Password = Annotated[
     SecretStr,
-    Field(
+    StringConstraints(
         min_length=1,
         max_length=password_field.max_length,
     ),

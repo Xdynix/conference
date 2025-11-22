@@ -66,6 +66,38 @@ class TestCreateRegistration:
         logged_in_user = get_user(api_client)
         assert logged_in_user.username == username
 
+    def test_trims_username(
+        self,
+        mocker: MockerFixture,
+        faker: Faker,
+        api_client: Client,
+        user_service_create: MagicMock,
+    ) -> None:
+        username = faker.user_name()
+        email = faker.email()
+        password = faker.password()
+
+        response = api_client.post(
+            self.path,
+            data={
+                "username": f"  {username}  ",
+                "email": EmailVerificationService.issue_token(email),
+                "password": password,
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        data = response.json()
+        assert data["user"]["username"] == username
+
+        user_service_create.assert_called_once_with(
+            username=username,
+            email=email,
+            password=password,
+            managed=False,
+            payload=mocker.ANY,
+        )
+
     def test_ignores_managed_field_in_registration(
         self,
         mocker: MockerFixture,
@@ -117,6 +149,25 @@ class TestCreateRegistration:
         assert "username or email already exists" in response.json()["message"]
 
         user_service_create.assert_called_once()
+
+    def test_rejects_whitespace_only_username(
+        self,
+        api_client: Client,
+        faker: Faker,
+    ) -> None:
+        response = api_client.post(
+            self.path,
+            data={
+                "username": "   ",
+                "email": EmailVerificationService.issue_token(faker.email()),
+                "password": faker.password(),
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        error = response.json()["details"][0]
+        assert error["loc"] == ["body", "payload", "username"]
+        assert "at least 1 character" in error["msg"]
 
     def test_handle_invalid_password(
         self,
