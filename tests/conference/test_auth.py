@@ -1,4 +1,5 @@
 from abc import ABC
+from unittest.mock import AsyncMock
 
 import pytest
 from django.test import Client
@@ -6,7 +7,11 @@ from faker import Faker
 from ninja import NinjaAPI
 from pytest_mock import MockerFixture
 
-from app.conference.auth import has_any_conference_roles, has_any_track_roles
+from app.conference.auth import (
+    has_any_conference_or_track_roles,
+    has_any_conference_roles,
+    has_any_track_roles,
+)
 from app.conference.models import (
     Conference,
     ConferenceRole,
@@ -37,6 +42,21 @@ class BaseAuthTestCase(ResponseAssertionsMixin, URLConfTestCase, ABC):
             display_name=faker.sentence(),
         )
 
+    @pytest.fixture
+    def track(self, faker: Faker, conference: Conference) -> Track:
+        return Track.objects.create(
+            conference=conference,
+            display_name=faker.sentence(),
+        )
+
+    @pytest.fixture
+    def visible_conferences(self, mocker: MockerFixture) -> AsyncMock:
+        return mocker.patch.object(ConferenceService, "visible_conferences")
+
+    @pytest.fixture
+    def visible_tracks(self, mocker: MockerFixture) -> AsyncMock:
+        return mocker.patch.object(ConferenceService, "visible_tracks")
+
 
 class ConferenceAuthTestCase(BaseAuthTestCase):
     path_template = "/auth/conference/{conference_name}"
@@ -66,70 +86,78 @@ class TestHasAnyConferenceRoles(ConferenceAuthTestCase):
 
     def test_superuser_allowed(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
+        visible_conferences: AsyncMock,
     ) -> None:
-        mock_visible = mocker.patch.object(
-            ConferenceService,
-            "visible_conferences",
-            return_value=Conference.objects.none(),
-        )
+        visible_conferences.return_value = Conference.objects.none()
         update_object(user, is_superuser=True)
         client.force_login(user)
 
         response = client.get(self.path("any"))
 
         self.assert_response_is_ok(response)
-        mock_visible.assert_not_called()
+        visible_conferences.assert_not_called()
 
     def test_allows_user_with_matching_role(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
+        visible_conferences: AsyncMock,
     ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
         ConferenceRoleAssignment.objects.create(
             conference=conference,
             user=user,
             role=ConferenceRole.CHAIR,
-        )
-        mock_visible = mocker.patch.object(
-            ConferenceService,
-            "visible_conferences",
-            return_value=Conference.objects.filter(pk=conference.pk),
         )
         client.force_login(user)
 
         response = client.get(self.path(conference.name))
 
         self.assert_response_is_ok(response)
-        mock_visible.assert_awaited_once_with(user)
+        visible_conferences.assert_awaited_once_with(user)
 
     def test_forbids_user_without_required_role(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
+        visible_conferences: AsyncMock,
     ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
         ConferenceRoleAssignment.objects.create(
             conference=conference,
             user=user,
             role=ConferenceRole.SECRETARY,
-        )
-        mock_visible = mocker.patch.object(
-            ConferenceService,
-            "visible_conferences",
-            return_value=Conference.objects.filter(pk=conference.pk),
         )
         client.force_login(user)
 
         response = client.get(self.path(conference.name))
 
         self.assert_response_is_forbidden(response)
-        mock_visible.assert_awaited_once_with(user)
+        visible_conferences.assert_awaited_once_with(user)
+
+    def test_returns_404_when_conference_invisible_even_with_role(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        visible_conferences: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.none()
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.CHAIR,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_not_found(response)
+        visible_conferences.assert_awaited_once_with(user)
 
 
 @pytest.mark.django_db
@@ -139,50 +167,42 @@ class TestHasAnyConferenceRolesMultiple(ConferenceAuthTestCase):
     def test_allows_user_with_any_role(
         self,
         client: Client,
-        conference: Conference,
         user: User,
-        mocker: MockerFixture,
+        conference: Conference,
+        visible_conferences: AsyncMock,
     ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
         ConferenceRoleAssignment.objects.create(
             conference=conference,
             user=user,
             role=ConferenceRole.REVIEWER,
-        )
-        mock_visible = mocker.patch.object(
-            ConferenceService,
-            "visible_conferences",
-            return_value=Conference.objects.filter(pk=conference.pk),
         )
         client.force_login(user)
 
         response = client.get(self.path(conference.name))
 
         self.assert_response_is_ok(response)
-        mock_visible.assert_awaited_once_with(user)
+        visible_conferences.assert_awaited_once_with(user)
 
     def test_forbids_user_without_any_required_roles(
         self,
         client: Client,
-        conference: Conference,
         user: User,
-        mocker: MockerFixture,
+        conference: Conference,
+        visible_conferences: AsyncMock,
     ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
         ConferenceRoleAssignment.objects.create(
             conference=conference,
             user=user,
             role=ConferenceRole.SECRETARY,
-        )
-        mock_visible = mocker.patch.object(
-            ConferenceService,
-            "visible_conferences",
-            return_value=Conference.objects.filter(pk=conference.pk),
         )
         client.force_login(user)
 
         response = client.get(self.path(conference.name))
 
         self.assert_response_is_forbidden(response)
-        mock_visible.assert_awaited_once_with(user)
+        visible_conferences.assert_awaited_once_with(user)
 
 
 class TrackAuthTestCase(BaseAuthTestCase):
@@ -226,28 +246,21 @@ class TestHasAnyTrackRoles(TrackAuthTestCase):
 
     def test_superuser_allowed(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
     ) -> None:
-        mock_conference = mocker.patch.object(
-            ConferenceService,
-            "visible_conferences",
-            return_value=Conference.objects.none(),
-        )
-        mock_tracks = mocker.patch.object(
-            ConferenceService,
-            "visible_tracks",
-            return_value=Track.objects.none(),
-        )
+        visible_conferences.return_value = Conference.objects.none()
+        visible_tracks.return_value = Track.objects.none()
         update_object(user, is_superuser=True)
         client.force_login(user)
 
         response = client.get(self.path("any", "track"))
 
         self.assert_response_is_ok(response)
-        mock_conference.assert_not_called()
-        mock_tracks.assert_not_called()
+        visible_conferences.assert_not_called()
+        visible_tracks.assert_not_called()
 
     def test_allows_user_with_matching_role(
         self,
@@ -256,29 +269,23 @@ class TestHasAnyTrackRoles(TrackAuthTestCase):
         user: User,
         conference: Conference,
         track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
     ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.filter(pk=track.pk)
         TrackRoleAssignment.objects.create(
             track=track,
             user=user,
             role=TrackRole.CHAIR,
-        )
-        mock_conference = mocker.patch.object(
-            ConferenceService,
-            "visible_conferences",
-            return_value=Conference.objects.filter(pk=conference.pk),
-        )
-        mock_tracks = mocker.patch.object(
-            ConferenceService,
-            "visible_tracks",
-            return_value=Track.objects.filter(pk=track.pk),
         )
         client.force_login(user)
 
         response = client.get(self.path(conference.name, str(track.uid)))
 
         self.assert_response_is_ok(response)
-        mock_conference.assert_awaited_once_with(user)
-        mock_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
 
     def test_forbids_user_without_required_role(
         self,
@@ -287,29 +294,72 @@ class TestHasAnyTrackRoles(TrackAuthTestCase):
         user: User,
         conference: Conference,
         track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
     ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.filter(pk=track.pk)
         TrackRoleAssignment.objects.create(
             track=track,
             user=user,
             role=TrackRole.SECRETARY,
-        )
-        mock_conference = mocker.patch.object(
-            ConferenceService,
-            "visible_conferences",
-            return_value=Conference.objects.filter(pk=conference.pk),
-        )
-        mock_tracks = mocker.patch.object(
-            ConferenceService,
-            "visible_tracks",
-            return_value=Track.objects.filter(pk=track.pk),
         )
         client.force_login(user)
 
         response = client.get(self.path(conference.name, str(track.uid)))
 
         self.assert_response_is_forbidden(response)
-        mock_conference.assert_awaited_once_with(user)
-        mock_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+
+    def test_returns_404_when_conference_invisible_even_with_role(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.none()
+        visible_tracks.return_value = Track.objects.filter(pk=track.pk)
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.CHAIR,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name, str(track.uid)))
+
+        self.assert_response_is_not_found(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_not_called()
+
+    def test_returns_404_when_track_invisible_even_with_role(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.none()
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.CHAIR,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name, str(track.uid)))
+
+        self.assert_response_is_not_found(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
 
 
 @pytest.mark.django_db
@@ -323,29 +373,23 @@ class TestHasAnyTrackRolesMultiple(TrackAuthTestCase):
         user: User,
         conference: Conference,
         track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
     ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.filter(pk=track.pk)
         TrackRoleAssignment.objects.create(
             track=track,
             user=user,
             role=TrackRole.REVIEWER,
-        )
-        mock_conference = mocker.patch.object(
-            ConferenceService,
-            "visible_conferences",
-            return_value=Conference.objects.filter(pk=conference.pk),
-        )
-        mock_tracks = mocker.patch.object(
-            ConferenceService,
-            "visible_tracks",
-            return_value=Track.objects.filter(pk=track.pk),
         )
         client.force_login(user)
 
         response = client.get(self.path(conference.name, str(track.uid)))
 
         self.assert_response_is_ok(response)
-        mock_conference.assert_awaited_once_with(user)
-        mock_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
 
     def test_forbids_user_without_any_required_roles(
         self,
@@ -354,26 +398,362 @@ class TestHasAnyTrackRolesMultiple(TrackAuthTestCase):
         user: User,
         conference: Conference,
         track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
     ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.filter(pk=track.pk)
         TrackRoleAssignment.objects.create(
             track=track,
             user=user,
             role=TrackRole.SECRETARY,
-        )
-        mock_conference = mocker.patch.object(
-            ConferenceService,
-            "visible_conferences",
-            return_value=Conference.objects.filter(pk=conference.pk),
-        )
-        mock_tracks = mocker.patch.object(
-            ConferenceService,
-            "visible_tracks",
-            return_value=Track.objects.filter(pk=track.pk),
         )
         client.force_login(user)
 
         response = client.get(self.path(conference.name, str(track.uid)))
 
         self.assert_response_is_forbidden(response)
-        mock_conference.assert_awaited_once_with(user)
-        mock_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+
+
+@pytest.mark.django_db
+class TestHasAnyConferenceOrTrackRoles(ConferenceAuthTestCase):
+    auth = has_any_conference_or_track_roles(
+        ConferenceRole.CHAIR,
+        TrackRole.CHAIR,
+    )
+
+    def test_superuser_allowed(
+        self,
+        client: Client,
+        user: User,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.none()
+        visible_tracks.return_value = Track.objects.none()
+        update_object(user, is_superuser=True)
+        client.force_login(user)
+
+        response = client.get(self.path("any"))
+
+        self.assert_response_is_ok(response)
+        visible_conferences.assert_not_called()
+        visible_tracks.assert_not_called()
+
+    def test_allows_user_with_conference_role(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.none()
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.CHAIR,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_ok(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_not_called()
+
+    def test_allows_user_with_track_role(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.filter(pk=track.pk)
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.CHAIR,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_ok(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+
+    def test_forbids_user_without_required_roles(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.filter(pk=track.pk)
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.SECRETARY,
+        )
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.SECRETARY,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_forbidden(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+
+    def test_returns_404_when_conference_invisible_even_with_role(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.none()
+        visible_tracks.return_value = Track.objects.none()
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.CHAIR,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_not_found(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_not_called()
+
+    def test_returns_forbidden_when_track_invisible_even_with_track_role(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.none()
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.CHAIR,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_forbidden(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+
+
+@pytest.mark.django_db
+class TestHasAnyConferenceOrTrackRolesMultiple(ConferenceAuthTestCase):
+    auth = has_any_conference_or_track_roles(
+        ConferenceRole.CHAIR,
+        ConferenceRole.SECRETARY,
+        TrackRole.CHAIR,
+        TrackRole.REVIEWER,
+    )
+
+    def test_allows_user_with_any_conference_role(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.none()
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.SECRETARY,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_ok(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_not_called()
+
+    def test_allows_user_with_any_track_role(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.filter(pk=track.pk)
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.REVIEWER,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_ok(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+
+    def test_forbids_user_without_any_required_roles(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.filter(pk=track.pk)
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.REVIEWER,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_forbidden(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+
+    def test_forbids_user_when_track_invisible_even_with_role(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.none()
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.CHAIR,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_forbidden(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+
+    def test_returns_404_when_conference_invisible_even_with_role(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.none()
+        visible_tracks.return_value = Track.objects.filter(pk=track.pk)
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.CHAIR,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_not_found(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestHasAnyConferenceOrTrackRolesOnlyConferenceRole(ConferenceAuthTestCase):
+    auth = has_any_conference_or_track_roles(ConferenceRole.CHAIR)
+
+    def test_forbids_user_with_only_track_role(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.filter(pk=track.pk)
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.CHAIR,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_forbidden(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestHasAnyConferenceOrTrackRolesOnlyTrackRole(ConferenceAuthTestCase):
+    auth = has_any_conference_or_track_roles(TrackRole.CHAIR)
+
+    def test_forbids_user_with_only_conference_role(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        user: User,
+        conference: Conference,
+        visible_conferences: AsyncMock,
+        visible_tracks: AsyncMock,
+    ) -> None:
+        visible_conferences.return_value = Conference.objects.filter(pk=conference.pk)
+        visible_tracks.return_value = Track.objects.none()
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.CHAIR,
+        )
+        client.force_login(user)
+
+        response = client.get(self.path(conference.name))
+
+        self.assert_response_is_forbidden(response)
+        visible_conferences.assert_awaited_once_with(user)
+        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])

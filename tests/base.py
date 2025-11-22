@@ -32,6 +32,12 @@ class ResponseAssertionsMixin:
 
         assert response.json() == {"message": any_str}
 
+    @classmethod
+    def assert_response_is_not_found(cls, response: Any) -> None:
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+        assert response.json() == {"message": any_str}
+
 
 URLPatterns = Iterable[URLResolver | URLPattern]
 
