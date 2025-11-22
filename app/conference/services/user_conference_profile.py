@@ -2,7 +2,6 @@ from collections.abc import Collection
 
 from app.conference.models import Conference, UserConferenceProfile
 from app.conference.services import KeywordService
-from app.conference.types import DesiredPaperCount, KeywordText
 from app.core.models import User
 
 
@@ -36,8 +35,8 @@ class UserConferenceProfileService:
         cls,
         *,
         profile: UserConferenceProfile,
-        desired_paper_count: DesiredPaperCount | None = None,
-        interested_keywords: Collection[KeywordText] | None = None,
+        desired_paper_count: int | None = None,
+        interested_keywords: Collection[str] | None = None,
     ) -> None:
         """Update a user's conference profile with validated fields.
 

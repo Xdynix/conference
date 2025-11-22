@@ -9,13 +9,13 @@ from ulid import ULID
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, Track
 from app.conference.services import TrackService
-from app.conference.types import ConferenceDetail, TrackDisplayName
+from app.conference.types import TrackDisplayName
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse, make_validation_error
 
-from .core import prefetch_conference, router
+from .core import ConferenceDetailResponse, prefetch_conference, router
 
 
 class CreateTrackRequest(Schema):
@@ -25,7 +25,7 @@ class CreateTrackRequest(Schema):
 
 @router.post(
     "/conferences/{slug:conference_name}/tracks",
-    response={HTTPStatus.CREATED: ConferenceDetail},
+    response={HTTPStatus.CREATED: ConferenceDetailResponse},
     summary="Create Track",
     auth=(
         has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
@@ -62,7 +62,7 @@ class TrackSchema(Schema):
 
 @router.patch(
     "/conferences/{slug:conference_name}/tracks/{ulid:track_id}",
-    response=ConferenceDetail,
+    response=ConferenceDetailResponse,
     summary="Update Track",
     auth=(
         has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
@@ -94,7 +94,7 @@ async def update_track(
 
 @router.delete(
     "/conferences/{slug:conference_name}/tracks/{ulid:track_id}",
-    response=ConferenceDetail,
+    response=ConferenceDetailResponse,
     summary="Delete Track",
     auth=(
         has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
@@ -129,7 +129,7 @@ class MoveTrackRequest(Schema):
 @router.post(
     "/conferences/{slug:conference_name}/tracks/{ulid:track_id}:move",
     response={
-        HTTPStatus.OK: ConferenceDetail,
+        HTTPStatus.OK: ConferenceDetailResponse,
         HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
     },
     summary="Move Track",

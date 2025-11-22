@@ -8,18 +8,13 @@ from ninja import PatchDict, Schema
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole
 from app.conference.services import ConferenceService, KeywordService
-from app.conference.types import (
-    ConferenceDetail,
-    ConferenceDisplayName,
-    KeywordSetName,
-    KeywordText,
-)
+from app.conference.types import ConferenceDisplayName, KeywordSetName, KeywordText
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse, make_validation_error
 
-from .core import prefetch_conference, router
+from .core import ConferenceDetailResponse, prefetch_conference, router
 
 
 class ConferenceSchema(Schema):
@@ -32,7 +27,7 @@ class ConferenceSchema(Schema):
 @router.patch(
     "/conferences/{slug:conference_name}",
     response={
-        HTTPStatus.OK: ConferenceDetail,
+        HTTPStatus.OK: ConferenceDetailResponse,
         HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
     },
     summary="Update Conference",

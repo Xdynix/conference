@@ -5,11 +5,10 @@ from ninja.pagination import paginate
 
 from app.conference.models import Conference
 from app.conference.services import ConferenceService
-from app.conference.types import Conference as ConferenceSchema
 from app.core.types import HttpRequest
 from app.ninja.pagination import CursorPagination
 
-from .core import router
+from .core import ConferenceResponse, router
 
 
 class ConferencePaginator(CursorPagination[Conference, str]):
@@ -35,7 +34,7 @@ class ConferencePaginator(CursorPagination[Conference, str]):
 
 @router.get(
     "/conferences",
-    response=list[ConferenceSchema],
+    response=list[ConferenceResponse],
     summary="List Conferences",
 )
 @paginate(ConferencePaginator)

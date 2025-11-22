@@ -133,6 +133,34 @@ class MyService:
         ...
 ```
 
+### Schema Design
+
+- Base schemas in `types.py` should not include resolver methods (`resolve_{field_name}`
+  static methods) because they prevent the schema from being used in request payloads.
+- For response schemas that need computed fields, create a separate response schema that
+  inherits from the base schema and adds the resolver methods.
+- Place response schemas with resolver methods in `core.py` when shared across multiple
+  endpoints, or define them inline in `api.py` when endpoint-specific.
+
+**Example pattern**:
+
+```python
+# types.py - base schema without resolvers
+class UserSchema(Schema):
+    id: UUID
+    email: str
+    name: str
+
+
+# core.py or api.py - response schema with resolvers
+class UserResponse(UserSchema):
+    display_name: str
+
+    @staticmethod
+    def resolve_display_name(obj: User) -> str:
+        return f"{obj.name} ({obj.email})"
+```
+
 ### Code Organization
 
 - Follow Django's app-based architecture with clear separation of concerns.

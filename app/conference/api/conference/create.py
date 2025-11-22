@@ -9,20 +9,14 @@ from ninja.errors import HttpError
 from app.conference.models import Conference, Track
 from app.conference.services import ConferenceService, KeywordService
 from app.conference.services.conference import ConferenceNameConflict, TrackData
-from app.conference.types import (
-    ConferenceDetail,
-    ConferenceDisplayName,
-    ConferenceName,
-    KeywordSetName,
-    KeywordText,
-    TrackDisplayName,
-)
+from app.conference.types import Conference as ConferenceSchema
+from app.conference.types import KeywordSetName, KeywordText, TrackDisplayName
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse, make_validation_error
 
-from .core import prefetch_conference, router
+from .core import ConferenceDetailResponse, prefetch_conference, router
 
 
 class CreateTrackPayload(Schema):
@@ -30,19 +24,17 @@ class CreateTrackPayload(Schema):
     visibility: Track.Visibility = Track.Visibility.ADMIN_ONLY
 
 
-class CreateConferenceRequest(Schema):
-    name: ConferenceName
-    display_name: ConferenceDisplayName
+class CreateConferenceRequest(ConferenceSchema):
     keywords: list[KeywordText] = Field(default_factory=list)
     keyword_sets: list[KeywordSetName] = Field(default_factory=list)
     visibility: Conference.Visibility = Conference.Visibility.ADMIN_ONLY
-    tracks: list[CreateTrackPayload] = Field(default_factory=list)
+    tracks: list[CreateTrackPayload] = Field(default_factory=list)  # type: ignore[assignment]
 
 
 @router.post(
     "/conferences",
     response={
-        HTTPStatus.CREATED: ConferenceDetail,
+        HTTPStatus.CREATED: ConferenceDetailResponse,
         HTTPStatus.CONFLICT: ErrorResponse,
         HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
     },
