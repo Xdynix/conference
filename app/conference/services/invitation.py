@@ -1,13 +1,19 @@
 from django.core.signing import BadSignature, Signer
 from django.db import transaction
+from django.db.models import Exists, OuterRef, QuerySet
 from django.utils import timezone
 
 from app.conference.models import (
+    Conference,
+    ConferenceRole,
     ConferenceRoleAssignment,
     Invitation,
+    InvitationConferenceRoleEntry,
+    InvitationTrackRoleEntry,
+    TrackRole,
     TrackRoleAssignment,
 )
-from app.core.models import User
+from app.core.models import GlobalRole, User
 
 
 class InvitationService:
@@ -87,3 +93,74 @@ class InvitationService:
             )
 
             return True
+
+    @classmethod
+    async def visible_invitations(
+        cls,
+        conference: Conference,
+        user: User,
+        global_readable: Collection[GlobalRole] = (
+            GlobalRole.ADMIN,
+            GlobalRole.READ_ALL,
+        ),
+    ) -> QuerySet[Invitation]:
+        """Return invitations for the conference visible to the user.
+
+        Visibility rules:
+
+        - Superusers and users with ADMIN/READ_ALL global roles see all invitations.
+        - Conference admins (chairs and secretaries) see all invitations.
+        - Track admins see invitations that contain ONLY track roles for their tracks
+          (no conference roles).
+        - Other users see no invitations.
+        """
+        invitations = conference.invitations.all()
+
+        is_global_privileged = user.is_superuser or (
+            await user.global_role_assignments.filter(
+                role__in=global_readable
+            ).aexists()
+        )
+        if is_global_privileged:
+            return invitations
+
+        is_conference_admin = await conference.role_assignments.filter(
+            user=user,
+            role__in=ConferenceRole.admins(),
+        ).aexists()
+        if is_conference_admin:
+            return invitations
+
+        administered_track_ids = [
+            track_id
+            async for track_id in conference.tracks.filter(
+                role_assignment__user=user,
+                role_assignment__role__in=TrackRole.admins(),
+            )
+            .distinct()
+            .values_list("pk", flat=True)
+        ]
+
+        if not administered_track_ids:
+            return invitations.none()
+
+        conference_roles = InvitationConferenceRoleEntry.objects.filter(
+            invitation=OuterRef("pk")
+        )
+        administered_track_roles = InvitationTrackRoleEntry.objects.filter(
+            invitation=OuterRef("pk"),
+            track_id__in=administered_track_ids,
+        )
+        other_track_roles = InvitationTrackRoleEntry.objects.filter(
+            invitation=OuterRef("pk")
+        ).exclude(track_id__in=administered_track_ids)
+
+        return invitations.annotate(
+            has_conference_roles=Exists(conference_roles),
+            has_administered_track_roles=Exists(administered_track_roles),
+            has_other_track_roles=Exists(other_track_roles),
+        ).filter(
+            has_administered_track_roles=True,
+            has_other_track_roles=False,
+            has_conference_roles=False,
+        )
