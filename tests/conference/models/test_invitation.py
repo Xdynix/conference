@@ -75,6 +75,18 @@ class TestInvitation:
         )
         assert invitation.status == Invitation.Status.ACCEPTED
 
+    def test_is_mutable_pending(self) -> None:
+        invitation = Invitation()
+        assert invitation.is_mutable() is True
+
+    def test_is_mutable_rejected(self) -> None:
+        invitation = Invitation(reject_time=timezone.now())
+        assert invitation.is_mutable() is True
+
+    def test_is_mutable_accepted(self) -> None:
+        invitation = Invitation(accept_time=timezone.now())
+        assert invitation.is_mutable() is False
+
     def test_unique_pending_invitation_same_email(
         self,
         faker: Faker,

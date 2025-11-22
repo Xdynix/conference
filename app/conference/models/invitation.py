@@ -103,6 +103,15 @@ class Invitation(
             return self.Status.REJECTED
         return self.Status.PENDING
 
+    def is_mutable(self) -> bool:
+        """Returns whether this invitation can be modified.
+
+        Accepted invitations are immutable because roles have been assigned and profile
+        data has been copied to UserConferenceProfile. Pending and rejected invitations
+        remain mutable.
+        """
+        return self.status != self.Status.ACCEPTED
+
 
 class InvitationConferenceRoleEntry(models.Model):
     invitation = models.ForeignKey(
