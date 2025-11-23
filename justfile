@@ -18,7 +18,7 @@ lint:
 
 # execute tests
 test *args:
-    uv run pytest --cov app -n 4 {{ args }}
+    uv run pytest --cov app -n 6 {{ args }}
 
 # shorthand for manage.py
 manage *args:

@@ -110,7 +110,7 @@ addopts = [
     "--doctest-modules",
     "--import-mode", "importlib",
     "--cov-config", "pyproject.toml",
-    "--cov-report", "term",
+    "--cov-report", "term:skip-covered",
     "--cov-report", "html",
     "--cov-fail-under", "100",
 ]
