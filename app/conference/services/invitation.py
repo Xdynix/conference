@@ -1,7 +1,10 @@
+from collections.abc import Collection, Mapping
+
 from django.core.signing import BadSignature, Signer
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Exists, OuterRef, QuerySet
 from django.utils import timezone
+from django.utils.translation import gettext as _
 
 from app.conference.models import (
     Conference,
@@ -10,16 +13,110 @@ from app.conference.models import (
     Invitation,
     InvitationConferenceRoleEntry,
     InvitationTrackRoleEntry,
+    Keyword,
+    Track,
     TrackRole,
     TrackRoleAssignment,
 )
+from app.conference.services.conference import ConferenceService
 from app.core.models import GlobalRole, User
+
+
+class DuplicateInvitation(Exception):
+    pass
 
 
 class InvitationService:
     token_signer = Signer(salt="conference.invitation_code")
 
     # TODO: Add send-invitation method.
+
+    @classmethod
+    @transaction.atomic
+    def create_invitation(
+        cls,
+        *,
+        conference: Conference,
+        inviter: User,
+        invitee_email: str,
+        given_name: str = "",
+        family_name: str = "",
+        affiliation: str = "",
+        region_code: str = "",
+        desired_paper_count: int = 5,
+        interested_keywords: Collection[Keyword] = (),
+        conference_roles: Collection[ConferenceRole] = (),
+        track_roles: Mapping[Track, Collection[TrackRole]] | None = None,
+    ) -> Invitation:
+        """Creates a new invitation with the specified roles and profile data.
+
+        Raises:
+            DuplicateInvitation: If a pending invitation already exists for this
+                conference and email.
+            ValueError: If tracks do not belong to the conference.
+            InsufficientRolePermission: If the inviter lacks permission to assign the
+                specified roles.
+        """
+        # Validate that the inviter can assign the specified roles.
+        ConferenceService.validate_can_assign_roles(
+            user=inviter,
+            conference=conference,
+            conference_roles=conference_roles,
+            track_roles=track_roles,
+        )
+
+        # Create the invitation.
+        try:
+            invitation = Invitation.objects.create(
+                conference=conference,
+                inviter=inviter,
+                invitee_email=invitee_email,
+                given_name=given_name,
+                family_name=family_name,
+                affiliation=affiliation,
+                region_code=region_code,
+                desired_paper_count=desired_paper_count,
+            )
+        except IntegrityError as exc:
+            raise DuplicateInvitation(
+                _("A pending invitation already exists for this conference and email.")
+            ) from exc
+
+        # Set interested keywords.
+        if interested_keywords:
+            invitation.interested_keywords.set(interested_keywords)
+
+        # Create conference role entries.
+        conference_role_entries = [
+            InvitationConferenceRoleEntry(
+                invitation=invitation,
+                role=role,
+            )
+            for role in set(conference_roles)
+        ]
+        if conference_role_entries:
+            InvitationConferenceRoleEntry.objects.bulk_create(
+                conference_role_entries,
+                ignore_conflicts=True,
+            )
+
+        # Create track role entries.
+        track_role_entries = [
+            InvitationTrackRoleEntry(
+                invitation=invitation,
+                track=track,
+                role=role,
+            )
+            for track, roles in (track_roles or {}).items()
+            for role in set(roles)
+        ]
+        if track_role_entries:
+            InvitationTrackRoleEntry.objects.bulk_create(
+                track_role_entries,
+                ignore_conflicts=True,
+            )
+
+        return invitation
 
     @classmethod
     def get_invitation_token(cls, invitation: Invitation) -> str:
