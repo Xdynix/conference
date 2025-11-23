@@ -1,10 +1,11 @@
 from collections import defaultdict
-from collections.abc import Collection
+from collections.abc import Collection, Iterable, Mapping
 from typing import TypedDict
 
 from django.contrib.auth.models import AnonymousUser
 from django.db import IntegrityError, transaction
 from django.db.models import Q, QuerySet
+from django.utils.translation import gettext as _
 
 from app.conference.models import (
     Conference,
@@ -13,11 +14,16 @@ from app.conference.models import (
     KeywordSet,
     Track,
     TrackRole,
+    TrackRoleAssignment,
 )
 from app.core.models import GlobalRole, User
 
 
 class ConferenceNameConflict(Exception):
+    pass
+
+
+class InsufficientRolePermission(Exception):
     pass
 
 
@@ -254,3 +260,141 @@ class ConferenceService:
             conference.prefetched_tracks = conference_tracks[conference.id]
 
         return conferences
+
+    @classmethod
+    def validate_can_assign_roles(
+        cls,
+        user: User,
+        conference: Conference,
+        conference_roles: Iterable[str] = (),
+        track_roles: Mapping[Track, Iterable[str]] | None = None,
+    ) -> None:
+        """Validate that the user can assign the specified roles.
+
+        Permission rules:
+
+        - Superusers and global admins can assign any roles.
+        - Conference chairs can assign any roles.
+        - Conference secretaries can assign REVIEWER roles (conference or track).
+        - Track chairs can assign any track roles for their administered tracks.
+        - Track secretaries can assign only REVIEWER track roles for their tracks.
+
+        Raises:
+            ValueError: If tracks do not belong to the conference.
+            InsufficientRolePermission: If user lacks permission to assign the roles.
+        """
+        requested_conference_roles = set(conference_roles)
+        requested_track_roles = {
+            track: set(roles) for track, roles in (track_roles or {}).items()
+        }
+
+        invalid_tracks = [
+            track
+            for track in requested_track_roles
+            if track.conference_id != conference.pk
+        ]
+        if invalid_tracks:
+            raise ValueError(
+                _(
+                    "The following tracks do not belong to this conference: {tracks}."
+                ).format(
+                    tracks=", ".join(track.display_name for track in invalid_tracks)
+                )
+            )
+
+        if (
+            user.is_superuser
+            or user.global_role_assignments.filter(role=GlobalRole.ADMIN).exists()
+        ):
+            return
+
+        user_conference_roles = set(
+            conference.role_assignments.filter(
+                user=user,
+                role__in=ConferenceRole.admins(),
+            ).values_list("role", flat=True)
+        )
+        is_conference_chair = ConferenceRole.CHAIR in user_conference_roles
+        is_conference_secretary = ConferenceRole.SECRETARY in user_conference_roles
+
+        if requested_conference_roles:
+            if not (is_conference_chair or is_conference_secretary):
+                raise InsufficientRolePermission(
+                    _(
+                        "You must be a conference chair or secretary to assign "
+                        "conference roles."
+                    )
+                )
+
+            if is_conference_secretary and not is_conference_chair:
+                non_reviewer_conference_roles = sorted(
+                    role
+                    for role in requested_conference_roles
+                    if role != ConferenceRole.REVIEWER
+                )
+                if non_reviewer_conference_roles:
+                    raise InsufficientRolePermission(
+                        _(
+                            "Conference secretaries can only assign the REVIEWER role, "
+                            "not: {roles}."
+                        ).format(roles=", ".join(non_reviewer_conference_roles))
+                    )
+
+        if not requested_track_roles:
+            return
+
+        if is_conference_chair:
+            return
+
+        specified_track_ids = [track.pk for track in requested_track_roles]
+        user_track_admin_roles: dict[int, set[str]] = {}
+        for track_id, role in TrackRoleAssignment.objects.filter(
+            track_id__in=specified_track_ids,
+            user=user,
+            role__in=TrackRole.admins(),
+        ).values_list("track_id", "role"):
+            user_track_admin_roles.setdefault(track_id, set()).add(role)
+
+        for track, roles in requested_track_roles.items():
+            track_admin_roles = user_track_admin_roles.get(track.pk, set())
+
+            if TrackRole.CHAIR in track_admin_roles:
+                continue
+
+            if is_conference_secretary:
+                non_reviewer_track_roles = sorted(
+                    role for role in roles if role != TrackRole.REVIEWER
+                )
+                if non_reviewer_track_roles:
+                    raise InsufficientRolePermission(
+                        _(
+                            "Conference secretaries can only assign the REVIEWER role "
+                            'for track "{track}", not: {roles}.'
+                        ).format(
+                            track=track.display_name,
+                            roles=", ".join(non_reviewer_track_roles),
+                        )
+                    )
+                continue
+
+            if not track_admin_roles:
+                raise InsufficientRolePermission(
+                    _(
+                        "You must be a track chair or secretary for track "
+                        '"{track}" to assign roles to it.'
+                    ).format(track=track.display_name)
+                )
+
+            non_reviewer_track_roles = sorted(
+                role for role in roles if role != TrackRole.REVIEWER
+            )
+            if non_reviewer_track_roles:
+                raise InsufficientRolePermission(
+                    _(
+                        "Track secretaries can only assign the REVIEWER role for track "
+                        '"{track}", not: {roles}.'
+                    ).format(
+                        track=track.display_name,
+                        roles=", ".join(non_reviewer_track_roles),
+                    )
+                )
