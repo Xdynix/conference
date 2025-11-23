@@ -2,6 +2,7 @@ __all__ = (
     "Conference",
     "ConferenceDisplayName",
     "ConferenceName",
+    "Invitation",
     "KeywordSetName",
     "KeywordText",
     "Profile",
@@ -15,15 +16,18 @@ from enum import StrEnum
 from typing import Annotated, Literal
 
 from ninja import Field, Schema
-from pydantic import StringConstraints
+from pydantic import AwareDatetime, StringConstraints
 from ulid import ULID
 
 from app.conference.models import Conference as ConferenceModel
+from app.conference.models import ConferenceRole, TrackRole
+from app.conference.models import Invitation as InvitationModel
 from app.conference.models import Keyword as KeywordModel
 from app.conference.models import KeywordSet as KeywordSetModel
 from app.conference.models import Profile as ProfileModel
 from app.conference.models import Track as TrackModel
 from app.conference.models import UserConferenceProfile as UserConferenceProfileModel
+from app.core.types import EmailStr
 from app.utils.enums import Region
 
 KeywordText = Annotated[
@@ -149,3 +153,22 @@ class UserConferenceProfile(Schema):
         ge=0,
     )
     interested_keywords: list[KeywordText]
+
+
+class InvitationTrackRole(Schema):
+    uid: ULID
+    role: TrackRole
+
+
+class Invitation(UserConferenceProfile, Profile):
+    uid: ULID
+    status: InvitationModel.Status
+    invitee_email: EmailStr
+    create_time: AwareDatetime
+    update_time: AwareDatetime
+    accept_time: AwareDatetime | None
+    reject_time: AwareDatetime | None
+    last_email_sent_time: AwareDatetime | None
+    email_send_count: int = Field(ge=0)
+    conference_roles: list[ConferenceRole]
+    track_roles: list[InvitationTrackRole]
