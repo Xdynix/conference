@@ -23,11 +23,6 @@ def conference(faker: Faker) -> Conference:
     )
 
 
-@pytest.fixture
-def inviter(faker: Faker) -> User:
-    return User.objects.create_user(username=faker.user_name())
-
-
 @pytest.mark.django_db
 class TestInvitation:
     def test_str_pending(self) -> None:
@@ -87,50 +82,58 @@ class TestInvitation:
         invitation = Invitation(accept_time=timezone.now())
         assert invitation.is_mutable() is False
 
+    def test_delete_inviter_will_not_cascade(
+        self,
+        faker: Faker,
+        conference: Conference,
+    ) -> None:
+        inviter = User.objects.create(username=faker.user_name())
+        invitation = Invitation.objects.create(
+            conference=conference,
+            inviter=inviter,
+            invitee_email=faker.email(),
+        )
+
+        inviter.delete()
+
+        assert Invitation.objects.filter(pk=invitation.pk).exists()
+        invitation.refresh_from_db()
+        assert invitation.inviter is None
+
     def test_unique_pending_invitation_same_email(
         self,
         faker: Faker,
         conference: Conference,
-        inviter: User,
     ) -> None:
         email = faker.email()
 
         Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=email,
         )
 
         with pytest.raises(IntegrityError):
             Invitation.objects.create(
                 conference=conference,
-                inviter=inviter,
                 invitee_email=email,
             )
 
     def test_unique_pending_invitation_case_insensitive(
         self,
         conference: Conference,
-        inviter: User,
     ) -> None:
         Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email="alice@example.com",
         )
 
         with pytest.raises(IntegrityError):
             Invitation.objects.create(
                 conference=conference,
-                inviter=inviter,
                 invitee_email="ALICE@example.com",
             )
 
-    def test_unique_pending_allows_different_conference(
-        self,
-        faker: Faker,
-        inviter: User,
-    ) -> None:
+    def test_unique_pending_allows_different_conference(self, faker: Faker) -> None:
         email = faker.email()
         conference1 = Conference.objects.create(
             name=faker.slug(),
@@ -143,12 +146,10 @@ class TestInvitation:
 
         Invitation.objects.create(
             conference=conference1,
-            inviter=inviter,
             invitee_email=email,
         )
         Invitation.objects.create(
             conference=conference2,
-            inviter=inviter,
             invitee_email=email,
         )
 
@@ -156,19 +157,16 @@ class TestInvitation:
         self,
         faker: Faker,
         conference: Conference,
-        inviter: User,
     ) -> None:
         email = faker.email()
 
         Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=email,
             accept_time=timezone.now(),
         )
         Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=email,
         )
 
@@ -180,11 +178,9 @@ class TestInvitationConferenceRoleEntry:
         self,
         faker: Faker,
         conference: Conference,
-        inviter: User,
     ) -> Invitation:
         return Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
 
@@ -222,11 +218,9 @@ class TestInvitationTrackRoleEntry:
         self,
         faker: Faker,
         conference: Conference,
-        inviter: User,
     ) -> Invitation:
         return Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
 

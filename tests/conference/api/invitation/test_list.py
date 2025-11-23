@@ -43,11 +43,6 @@ def track(faker: Faker, conference: Conference) -> Track:
 
 
 @pytest.fixture
-def inviter(faker: Faker) -> User:
-    return User.objects.create_user(username=faker.user_name())
-
-
-@pytest.fixture
 def conference_admin(faker: Faker, conference: Conference) -> User:
     user = User.objects.create_user(username=faker.user_name())
     ConferenceRoleAssignment.objects.create(
@@ -75,13 +70,11 @@ class TestListInvitations:
         api_client: Client,
         conference: Conference,
         track: Track,
-        inviter: User,
         conference_admin: User,
         mock_visible: AsyncMock,
     ) -> None:
         invitation1 = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
             given_name="Alice",
             family_name="Smith",
@@ -94,7 +87,6 @@ class TestListInvitations:
         )
         invitation2 = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
             given_name="Bob",
             family_name="Jones",
@@ -162,25 +154,21 @@ class TestListInvitations:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        inviter: User,
         conference_admin: User,
         mock_visible: AsyncMock,
         status: Invitation.Status,
     ) -> None:
         pending_invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
         accepted_invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
             accept_time=timezone.now(),
         )
         rejected_invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
             reject_time=timezone.now(),
         )
@@ -240,7 +228,6 @@ class TestListInvitations:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        inviter: User,
         track: Track,
         mock_visible: AsyncMock,
     ) -> None:
@@ -252,7 +239,6 @@ class TestListInvitations:
         )
         visible_invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
         InvitationTrackRoleEntry.objects.create(
@@ -262,7 +248,6 @@ class TestListInvitations:
         )
         hidden_invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
         InvitationConferenceRoleEntry.objects.create(

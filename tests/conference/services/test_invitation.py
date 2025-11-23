@@ -97,11 +97,9 @@ def track(faker: Faker, conference: Conference) -> Track:
 def invitation(
     faker: Faker,
     conference: Conference,
-    inviter: User,
 ) -> Invitation:
     return Invitation.objects.create(
         conference=conference,
-        inviter=inviter,
         invitee_email=faker.email(),
     )
 
@@ -331,7 +329,6 @@ class TestInvitationServiceCreateInvitation:
         invitee_email = faker.email()
         Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=invitee_email,
         )
 
@@ -358,7 +355,6 @@ class TestInvitationServiceCreateInvitation:
         invitee_email = faker.email()
         Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=invitee_email.lower(),
         )
 
@@ -381,7 +377,6 @@ class TestInvitationServiceCreateInvitation:
         invitee_email = faker.email()
         first_invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=invitee_email,
             accept_time=timezone.now(),
         )
@@ -459,19 +454,6 @@ class TestInvitationServiceCreateInvitation:
 
 @pytest.mark.django_db
 class TestInvitationServiceGetInvitationToken:
-    @pytest.fixture
-    def invitation(
-        self,
-        faker: Faker,
-        conference: Conference,
-        inviter: User,
-    ) -> Invitation:
-        return Invitation.objects.create(
-            conference=conference,
-            inviter=inviter,
-            invitee_email=faker.email(),
-        )
-
     def test_happy_path(self, invitation: Invitation) -> None:
         token = InvitationService.get_invitation_token(invitation)
 
@@ -489,16 +471,13 @@ class TestInvitationServiceGetInvitationToken:
         self,
         faker: Faker,
         conference: Conference,
-        inviter: User,
     ) -> None:
         invitation1 = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
         invitation2 = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
 
@@ -737,12 +716,10 @@ class TestInvitationServiceVisibleInvitations:
         self,
         faker: Faker,
         conference: Conference,
-        inviter: User,
     ) -> InvitationFactory:
         async def make_invitation() -> Invitation:
             return await Invitation.objects.acreate(
                 conference=conference,
-                inviter=inviter,
                 invitee_email=faker.email(),
             )
 

@@ -35,7 +35,10 @@ class Invitation(
     )
     inviter = models.ForeignKey(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        default=None,
         related_name="sent_invitations",
         related_query_name="sent_invitation",
         verbose_name=_("inviter"),

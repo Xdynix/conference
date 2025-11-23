@@ -44,11 +44,6 @@ def track(faker: Faker, conference: Conference) -> Track:
 
 
 @pytest.fixture
-def inviter(faker: Faker) -> User:
-    return User.objects.create_user(username=faker.user_name())
-
-
-@pytest.fixture
 def conference_admin(faker: Faker, conference: Conference) -> User:
     user = User.objects.create_user(username=faker.user_name())
     ConferenceRoleAssignment.objects.create(
@@ -79,13 +74,11 @@ class TestGetInvitation:
         api_client: Client,
         conference: Conference,
         track: Track,
-        inviter: User,
         conference_admin: User,
         mock_visible: AsyncMock,
     ) -> None:
         invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
             given_name="Alice",
             family_name="Smith",
@@ -139,13 +132,11 @@ class TestGetInvitation:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        inviter: User,
         conference_admin: User,
         mock_visible: AsyncMock,
     ) -> None:
         invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
         mock_visible.return_value = Invitation.objects.none()
@@ -184,11 +175,9 @@ class TestGetInvitation:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        inviter: User,
     ) -> None:
         invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
 
@@ -200,11 +189,9 @@ class TestGetInvitation:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        inviter: User,
     ) -> None:
         invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
         user = User.objects.create_user(username=faker.user_name())
@@ -219,7 +206,6 @@ class TestGetInvitation:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        inviter: User,
         mock_visible: AsyncMock,
         global_role: GlobalRole,
     ) -> None:
@@ -230,7 +216,6 @@ class TestGetInvitation:
         )
         invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
         mock_visible.return_value = Invitation.objects.filter(pk=invitation.pk)
@@ -245,7 +230,6 @@ class TestGetInvitation:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        inviter: User,
         mock_visible: AsyncMock,
         conference_role: ConferenceRole,
     ) -> None:
@@ -257,7 +241,6 @@ class TestGetInvitation:
         )
         invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
         mock_visible.return_value = Invitation.objects.filter(pk=invitation.pk)
@@ -273,7 +256,6 @@ class TestGetInvitation:
         api_client: Client,
         conference: Conference,
         track: Track,
-        inviter: User,
         mock_visible: AsyncMock,
         track_role: TrackRole,
     ) -> None:
@@ -285,7 +267,6 @@ class TestGetInvitation:
         )
         invitation = Invitation.objects.create(
             conference=conference,
-            inviter=inviter,
             invitee_email=faker.email(),
         )
         mock_visible.return_value = Invitation.objects.filter(pk=invitation.pk)
