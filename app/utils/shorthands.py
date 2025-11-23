@@ -1,7 +1,6 @@
 __all__ = (
     "days",
     "parse_durations",
-    "sanitize_email_subject",
     "seconds",
     "timedelta_cast",
 )
@@ -87,15 +86,3 @@ def parse_durations(s: str) -> timedelta:
         raise ValueError(f"Invalid unit: {unit_str}")
 
     return timedelta(**{UNITS_MAP[unit_str]: val})
-
-
-def sanitize_email_subject(subject: str) -> str:
-    """Remove newlines from email subject to prevent header injection.
-
-    Examples:
-        >>> sanitize_email_subject("Hello\\nWorld")
-        'HelloWorld'
-        >>> sanitize_email_subject("Single line")
-        'Single line'
-    """
-    return "".join(subject.splitlines())

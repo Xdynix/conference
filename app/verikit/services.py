@@ -13,7 +13,7 @@ from django.template.loader import render_to_string
 from loguru import logger
 
 from app.infra.models import Mutex
-from app.utils.shorthands import sanitize_email_subject
+from app.utils.sanitization import sanitize_email_subject
 from app.verikit.models import EmailVerification
 
 normalize_email = get_user_model().objects.normalize_email

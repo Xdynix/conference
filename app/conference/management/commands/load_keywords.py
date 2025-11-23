@@ -9,6 +9,7 @@ from yaml import YAMLError
 
 from app.conference.models import Keyword, KeywordSet
 from app.utils.commands import BaseYAMLCommand
+from app.utils.sanitization import sanitize_text
 
 
 class KeywordSetDefinition(BaseModel):
@@ -17,11 +18,22 @@ class KeywordSetDefinition(BaseModel):
     name: str = Field(min_length=1)
     keywords: list[str] = Field(default_factory=list)
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def _sanitize_name(cls, value: str) -> str:
+        """Normalize keyword set names using shared sanitizer."""
+        return sanitize_text(value)
+
     @field_validator("keywords")
     @classmethod
     def _strip_keywords(cls, values: list[str]) -> list[str]:
         """Normalize keyword text values."""
-        return [value.strip() for value in values if value.strip()]
+        cleaned_keywords = []
+        for value in values:
+            sanitized = sanitize_text(value)
+            if sanitized:
+                cleaned_keywords.append(sanitized)
+        return cleaned_keywords
 
 
 class Command(BaseYAMLCommand):

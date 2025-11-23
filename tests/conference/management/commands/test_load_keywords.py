@@ -130,6 +130,26 @@ def test_ignores_empty_keywords(tmp_path: Path) -> None:
 
 
 @pytest.mark.django_db
+def test_sanitizes_names_and_keywords(tmp_path: Path) -> None:
+    write_yaml(
+        tmp_path / "topics.yaml",
+        """
+        name: "  Research\u00a0Topics  "
+        keywords:
+          - " AI\u200b "
+          - "  data   science "
+          - "  "
+        """,
+    )
+
+    call_command("load_keywords", str(tmp_path), strict=False)
+
+    keyword_set = KeywordSet.objects.get(name="Research Topics")
+    keywords = set(keyword_set.keywords.values_list("text", flat=True))
+    assert keywords == {"AI", "data science"}
+
+
+@pytest.mark.django_db
 def test_loads_multiple_keyword_sets(tmp_path: Path) -> None:
     write_yaml(
         tmp_path / "topics.yaml",

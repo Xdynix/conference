@@ -12,7 +12,7 @@ from loguru import logger
 from app.core.models import PasswordResetToken, User
 from app.core.types import Password
 from app.infra.models import Mutex
-from app.utils.shorthands import sanitize_email_subject
+from app.utils.sanitization import sanitize_email_subject
 
 normalize_email = User.objects.normalize_email
 

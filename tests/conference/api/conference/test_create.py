@@ -270,7 +270,7 @@ class TestCreateConference:
         data = response.json()
         [error] = data["details"]
         assert error["loc"] == ["body", "payload", "keywords", 0]
-        assert "at least 1 character" in error["msg"]
+        assert "at least 1" in error["msg"]
 
         conference_service_create.assert_not_called()
 

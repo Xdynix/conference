@@ -16,7 +16,7 @@ from enum import StrEnum
 from typing import Annotated, Literal
 
 from ninja import Field, Schema
-from pydantic import AwareDatetime, StringConstraints
+from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 from ulid import ULID
 
 from app.conference.models import Conference as ConferenceModel
@@ -29,9 +29,11 @@ from app.conference.models import Track as TrackModel
 from app.conference.models import UserConferenceProfile as UserConferenceProfileModel
 from app.core.types import EmailStr
 from app.utils.enums import Region
+from app.utils.sanitization import sanitize_text
 
 KeywordText = Annotated[
     str,
+    BeforeValidator(sanitize_text),
     StringConstraints(
         min_length=1,
         max_length=KeywordModel._meta.get_field("text").max_length,
@@ -40,6 +42,7 @@ KeywordText = Annotated[
 ]
 KeywordSetName = Annotated[
     str,
+    BeforeValidator(sanitize_text),
     StringConstraints(
         min_length=1,
         max_length=KeywordSetModel._meta.get_field("name").max_length,
@@ -53,6 +56,7 @@ track_display_name_field = track_meta.get_field("display_name")
 
 TrackDisplayName = Annotated[
     str,
+    BeforeValidator(sanitize_text),
     StringConstraints(
         min_length=1,
         max_length=track_display_name_field.max_length,
@@ -86,6 +90,7 @@ ConferenceName = Annotated[
 ]
 ConferenceDisplayName = Annotated[
     str,
+    BeforeValidator(sanitize_text),
     StringConstraints(
         min_length=1,
         max_length=conference_display_name_field.max_length,
@@ -116,6 +121,7 @@ RegionCode = StrEnum("RegionCode", {region.name: region.name for region in Regio
 class Profile(Schema):
     given_name: Annotated[
         str,
+        BeforeValidator(sanitize_text),
         StringConstraints(
             max_length=given_name_field.max_length,
             strip_whitespace=True,
@@ -124,6 +130,7 @@ class Profile(Schema):
     ] = ""
     family_name: Annotated[
         str,
+        BeforeValidator(sanitize_text),
         StringConstraints(
             max_length=family_name_field.max_length,
             strip_whitespace=True,
@@ -132,6 +139,7 @@ class Profile(Schema):
     ] = ""
     affiliation: Annotated[
         str,
+        BeforeValidator(sanitize_text),
         StringConstraints(
             max_length=affiliation_field.max_length,
             strip_whitespace=True,
