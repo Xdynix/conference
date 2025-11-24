@@ -88,9 +88,10 @@ class TestUpdateCurrentUserPassword:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert data["details"][0]["type"] == "value_error"
-        assert data["details"][0]["loc"] == ["body", "payload", "old_password"]
-        assert "Invalid old password" in data["details"][0]["msg"]
+        [error] = data["details"]
+        assert error["type"] == "value_error"
+        assert error["loc"] == ["body", "payload", "old_password"]
+        assert "Invalid old password" in error["msg"]
 
         user_service_change_password.assert_called_once()
 
@@ -119,12 +120,13 @@ class TestUpdateCurrentUserPassword:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert len(data["details"]) == 2
-        for error in data["details"]:
-            assert error["type"] == "value_error"
-            assert error["loc"] == ["body", "payload", "new_password"]
-        assert "too short" in data["details"][0]["msg"]
-        assert "too common" in data["details"][1]["msg"]
+        [error1, error2] = data["details"]
+        assert error1["type"] == "value_error"
+        assert error1["loc"] == ["body", "payload", "new_password"]
+        assert "too short" in error1["msg"]
+        assert error2["type"] == "value_error"
+        assert error2["loc"] == ["body", "payload", "new_password"]
+        assert "too common" in error2["msg"]
 
         user_service_change_password.assert_called_once()
 
@@ -252,12 +254,13 @@ class TestUpdateUserPassword:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert len(data["details"]) == 2
-        for error in data["details"]:
-            assert error["type"] == "value_error"
-            assert error["loc"] == ["body", "payload", "new_password"]
-        assert "too short" in data["details"][0]["msg"]
-        assert "too common" in data["details"][1]["msg"]
+        [error1, error2] = data["details"]
+        assert error1["type"] == "value_error"
+        assert error1["loc"] == ["body", "payload", "new_password"]
+        assert "too short" in error1["msg"]
+        assert error2["type"] == "value_error"
+        assert error2["loc"] == ["body", "payload", "new_password"]
+        assert "too common" in error2["msg"]
 
         user_service_update_password.assert_called_once()
 

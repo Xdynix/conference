@@ -165,7 +165,8 @@ class TestCreateRegistration:
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-        error = response.json()["details"][0]
+        data = response.json()
+        [error] = data["details"]
         assert error["loc"] == ["body", "payload", "username"]
         assert "at least 1 character" in error["msg"]
 
@@ -193,12 +194,13 @@ class TestCreateRegistration:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert len(data["details"]) == 2
-        for error in data["details"]:
-            assert error["type"] == "value_error"
-            assert error["loc"] == ["body", "payload", "password"]
-        assert "too short" in data["details"][0]["msg"]
-        assert "too common" in data["details"][1]["msg"]
+        [error1, error2] = data["details"]
+        assert error1["type"] == "value_error"
+        assert error1["loc"] == ["body", "payload", "password"]
+        assert "too short" in error1["msg"]
+        assert error2["type"] == "value_error"
+        assert error2["loc"] == ["body", "payload", "password"]
+        assert "too common" in error2["msg"]
 
         user_service_create.assert_called_once()
 
@@ -332,12 +334,13 @@ class TestCreateUser:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert len(data["details"]) == 2
-        for error in data["details"]:
-            assert error["type"] == "value_error"
-            assert error["loc"] == ["body", "payload", "password"]
-        assert "too short" in data["details"][0]["msg"]
-        assert "too common" in data["details"][1]["msg"]
+        [error1, error2] = data["details"]
+        assert error1["type"] == "value_error"
+        assert error1["loc"] == ["body", "payload", "password"]
+        assert "too short" in error1["msg"]
+        assert error2["type"] == "value_error"
+        assert error2["loc"] == ["body", "payload", "password"]
+        assert "too common" in error2["msg"]
 
         user_service_create.assert_called_once()
 

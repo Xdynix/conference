@@ -160,7 +160,8 @@ class TestCreateSession:
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-        error = response.json()["details"][0]
+        data = response.json()
+        [error] = data["details"]
         assert error["loc"] == ["body", "payload", "username"]
         assert "at least 1 character" in error["msg"]
 

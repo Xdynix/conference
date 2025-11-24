@@ -210,9 +210,10 @@ class TestCreateConference:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert data["details"][0]["type"] == "value_error"
-        assert data["details"][0]["loc"] == ["body", "payload", "keywords"]
-        assert "Unknown keywords" in data["details"][0]["msg"]
+        [error] = data["details"]
+        assert error["type"] == "value_error"
+        assert error["loc"] == ["body", "payload", "keywords"]
+        assert "Unknown keywords" in error["msg"]
 
         conference_service_create.assert_not_called()
 
@@ -241,9 +242,10 @@ class TestCreateConference:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert data["details"][0]["type"] == "value_error"
-        assert data["details"][0]["loc"] == ["body", "payload", "keyword_sets"]
-        assert "Unknown keyword sets" in data["details"][0]["msg"]
+        [error] = data["details"]
+        assert error["type"] == "value_error"
+        assert error["loc"] == ["body", "payload", "keyword_sets"]
+        assert "Unknown keyword sets" in error["msg"]
 
         conference_service_create.assert_not_called()
 
@@ -265,7 +267,8 @@ class TestCreateConference:
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-        error = response.json()["details"][0]
+        data = response.json()
+        [error] = data["details"]
         assert error["loc"] == ["body", "payload", "keywords", 0]
         assert "at least 1 character" in error["msg"]
 

@@ -316,9 +316,10 @@ class TestUpdateCurrentUserConferenceProfile:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert data["details"][0]["type"] == "value_error"
-        assert data["details"][0]["loc"] == ["body", "payload", "interested_keywords"]
-        assert "Unknown keywords" in data["details"][0]["msg"]
+        [error] = data["details"]
+        assert error["type"] == "value_error"
+        assert error["loc"] == ["body", "payload", "interested_keywords"]
+        assert "Unknown keywords" in error["msg"]
 
     def test_unauthenticated_user_forbidden(
         self,
@@ -433,9 +434,10 @@ class TestUpdateUserConferenceProfile:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert data["details"][0]["type"] == "value_error"
-        assert data["details"][0]["loc"] == ["body", "payload", "interested_keywords"]
-        assert "Validation failed" in data["details"][0]["msg"]
+        [error] = data["details"]
+        assert error["type"] == "value_error"
+        assert error["loc"] == ["body", "payload", "interested_keywords"]
+        assert "Validation failed" in error["msg"]
 
     def test_unauthorized_user_forbidden(
         self,

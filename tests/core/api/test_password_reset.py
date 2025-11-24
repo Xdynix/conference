@@ -259,7 +259,8 @@ class TestConsumePasswordReset:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert data["details"][0]["msg"] == "This password is too short."
+        [error] = data["details"]
+        assert error["msg"] == "This password is too short."
 
         mock_validate_password.assert_called_once_with(new_password, user=user)
         mock_consume_token.assert_not_called()

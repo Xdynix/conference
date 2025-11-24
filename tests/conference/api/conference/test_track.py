@@ -531,6 +531,7 @@ class TestMoveTrack:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert data["details"][0]["type"] == "value_error"
-        assert data["details"][0]["loc"] == ["body", "payload", "after_track"]
-        assert "Invalid target." in data["details"][0]["msg"]
+        [error] = data["details"]
+        assert error["type"] == "value_error"
+        assert error["loc"] == ["body", "payload", "after_track"]
+        assert "Invalid target." in error["msg"]
