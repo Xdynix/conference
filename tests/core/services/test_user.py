@@ -346,11 +346,9 @@ class TestUserServiceSetRoles:
         assert set(user_roles) == set(roles)
 
     def test_replaces_existing_roles(self, user: User) -> None:
-        # Create initial roles.
         GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
         GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.READ_ALL)
 
-        # Replace with new roles.
         new_roles = [GlobalRole.ADMIN]
         UserService.set_roles(user=user, roles=new_roles)
 
@@ -359,11 +357,9 @@ class TestUserServiceSetRoles:
         assert GlobalRole.READ_ALL not in user_roles
 
     def test_removes_all_roles_when_empty_list(self, user: User) -> None:
-        # Create initial roles.
         GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
         GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.READ_ALL)
 
-        # Remove all roles.
         UserService.set_roles(user=user, roles=[])
 
         assert not user.global_role_assignments.exists()
@@ -371,7 +367,6 @@ class TestUserServiceSetRoles:
     def test_idempotent_when_setting_same_roles(self, user: User) -> None:
         roles = [GlobalRole.ADMIN, GlobalRole.READ_ALL]
 
-        # Set roles twice.
         UserService.set_roles(user=user, roles=roles)
         UserService.set_roles(user=user, roles=roles)
 

@@ -306,21 +306,17 @@ class TestPasswordResetE2E:
             password=old_password,
         )
 
-        # Request password reset via API.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
 
-        # Check email was sent.
         assert len(mailoutbox) == 1
         sent_email = mailoutbox[0]
         assert sent_email.to == [email]
 
-        # Extract token from email body.
         email_body = sent_email.body
         fragment = email_body.split("#")[-1]
         user_id_str, token = fragment.split(":")
 
-        # Reset password via API.
         response = api_client.post(
             self.consume_path,
             data={
@@ -331,7 +327,6 @@ class TestPasswordResetE2E:
         )
         assert response.status_code == HTTPStatus.NO_CONTENT
 
-        # Verify password was changed.
         user.refresh_from_db()
         assert not user.check_password(old_password)
         assert user.check_password(new_password)
@@ -352,17 +347,14 @@ class TestPasswordResetE2E:
         )
         wrong_token = "wrong_token_123"
 
-        # Request password reset via API.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
 
-        # Extract correct token but use wrong one.
         sent_email = mailoutbox[0]
         fragment = sent_email.body.split("#")[-1]
         user_id_str, correct_token = fragment.split(":")
         assert wrong_token != correct_token
 
-        # Try to reset password with wrong token via API.
         response = api_client.post(
             self.consume_path,
             data={
@@ -375,7 +367,6 @@ class TestPasswordResetE2E:
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
 
-        # Verify password was not changed.
         user.refresh_from_db()
         assert user.check_password(old_password)
         assert not user.check_password(new_password)
@@ -397,16 +388,13 @@ class TestPasswordResetE2E:
         )
         settings.PASSWORD_RESET_TOKEN_EXPIRY = timedelta(seconds=-1)
 
-        # Request password reset that expires immediately via API.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
 
-        # Extract token from email.
         sent_email = mailoutbox[0]
         fragment = sent_email.body.split("#")[-1]
         user_id_str, token = fragment.split(":")
 
-        # Try to reset password with expired token via API.
         response = api_client.post(
             self.consume_path,
             data={
@@ -419,7 +407,6 @@ class TestPasswordResetE2E:
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
 
-        # Verify password was not changed.
         user.refresh_from_db()
         assert user.check_password(old_password)
         assert not user.check_password(new_password)
@@ -437,17 +424,16 @@ class TestPasswordResetE2E:
             email=email,
         )
 
-        # Request first token via API.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
         assert len(mailoutbox) == 1
 
-        # Try to request second token immediately (should be rate limited) via API.
+        # Rate limiting should have prevented a second email.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.TOO_MANY_REQUESTS
         data = response.json()
         assert "password reset token was recently issued" in data["message"]
-        assert len(mailoutbox) == 1  # No additional email sent.
+        assert len(mailoutbox) == 1
 
     def test_used_token_cannot_be_reused(
         self,
@@ -464,7 +450,6 @@ class TestPasswordResetE2E:
             password=old_password,
         )
 
-        # Complete flow once via API.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
 
@@ -482,7 +467,6 @@ class TestPasswordResetE2E:
         )
         assert response.status_code == HTTPStatus.NO_CONTENT
 
-        # Try to reuse the same token via API.
         response = api_client.post(
             self.consume_path,
             data={
@@ -495,7 +479,6 @@ class TestPasswordResetE2E:
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
 
-        # Verify password was only changed once.
         user.refresh_from_db()
         assert not user.check_password(old_password)
         assert user.check_password(new_password)

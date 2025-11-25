@@ -147,8 +147,11 @@ class TestListUsers:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert all(item["managed"] is managed for item in data["items"])
-        assert any(item["uid"] == str(managed_user.uid) for item in data["items"])
+        response_items = data["items"]
+        managed_statuses = [item["managed"] for item in response_items]
+        assert all(status is managed for status in managed_statuses)
+        user_uids = {item["uid"] for item in response_items}
+        assert str(managed_user.uid) in user_uids
 
     def test_excludes_inactive_users(
         self,
@@ -164,7 +167,8 @@ class TestListUsers:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert all(item["uid"] != str(inactive_user.uid) for item in data["items"])
+        user_uids = {item["uid"] for item in data["items"]}
+        assert str(inactive_user.uid) not in user_uids
 
     def test_unauthorized_user_forbidden(
         self,

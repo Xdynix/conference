@@ -8,7 +8,7 @@ from django.conf import settings
 
 
 async def verify_cf_turnstile_response(
-    response: str,
+    cf_turnstile_response: str,
     /,
     *,
     remote_ip: str | None = None,
@@ -19,7 +19,8 @@ async def verify_cf_turnstile_response(
     """Verify a Cloudflare Turnstile response with the Turnstile API.
 
     Args:
-        response: The Cloudflare Turnstile response from the client-side widget.
+        cf_turnstile_response: The Cloudflare Turnstile response from the client-side
+            widget.
         remote_ip: The user's IP address for additional verification.
         idempotency_key: Optional UUID to prevent duplicate verifications.
         secret_key: The Cloudflare Turnstile secret key for API authentication.
@@ -40,7 +41,7 @@ async def verify_cf_turnstile_response(
 
     payload = {
         "secret": secret_key,
-        "response": response,
+        "response": cf_turnstile_response,
     }
     if remote_ip is not None:
         payload["remoteip"] = remote_ip
@@ -53,7 +54,8 @@ async def verify_cf_turnstile_response(
         timeout=3,
     ) as client:
         # TODO: Retry 5xx and 429 if idempotency key is set.
-        res = await client.post(verify_url, json=payload)
-    res.raise_for_status()
-    data = res.json()
-    return data.get("success", False), data
+        response = await client.post(verify_url, json=payload)
+    response.raise_for_status()
+    result = response.json()
+    is_success = result.get("success", False)
+    return is_success, result

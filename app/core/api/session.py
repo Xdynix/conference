@@ -143,6 +143,10 @@ async def assume_session(
             status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
             message=_("Impersonated not found."),
         )
+    # Prevent superusers from impersonating other superusers. This security policy
+    # prevents privilege escalation chains, limits blast radius if a superuser account
+    # is compromised, and avoids chained impersonation scenarios. Superusers already
+    # have full system access without needing impersonation.
     if impersonated.is_superuser:
         raise HttpError(
             status_code=HTTPStatus.UNPROCESSABLE_ENTITY,

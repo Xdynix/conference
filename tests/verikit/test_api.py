@@ -205,22 +205,18 @@ class TestEmailVerificationE2E:
     ) -> None:
         email = faker.email()
 
-        # Issue code via API.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
         data = response.json()
         assert data["email"] == email
 
-        # Check email was sent.
         assert len(mailoutbox) == 1
         sent_email = mailoutbox[0]
         assert sent_email.to == [email]
 
-        # Extract code from email body.
         email_body = sent_email.body
         code = email_body.removeprefix("Code: ").strip()
 
-        # Verify code via API.
         response = api_client.post(
             self.verify_path,
             data={"email": email, "code": code},
@@ -231,7 +227,6 @@ class TestEmailVerificationE2E:
         token = data["token"]
         assert isinstance(token, str)
 
-        # Verify token using service method.
         verified_email = EmailVerificationService.verify_token(token)
         assert verified_email and verified_email.lower() == email.lower()
 
@@ -244,15 +239,12 @@ class TestEmailVerificationE2E:
         email = faker.email().lower()
         email_upper = email.upper()
 
-        # Issue code with lowercase email via API.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
 
-        # Extract code from email.
         sent_email = mailoutbox[0]
         code = sent_email.body.removeprefix("Code: ").strip()
 
-        # Verify code with uppercase email via API.
         response = api_client.post(
             self.verify_path,
             data={"email": email_upper, "code": code},
@@ -262,7 +254,6 @@ class TestEmailVerificationE2E:
         token = data["token"]
         assert isinstance(token, str)
 
-        # Verify token with mixed case email.
         verified_email = EmailVerificationService.verify_token(token)
         assert verified_email and verified_email.lower() == email.lower()
 
@@ -275,16 +266,13 @@ class TestEmailVerificationE2E:
         email = faker.email()
         wrong_code = "000000"
 
-        # Issue code via API.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
 
-        # Extract correct code but use wrong one.
         sent_email = mailoutbox[0]
         correct_code = sent_email.body.removeprefix("Code: ").strip()
         assert wrong_code != correct_code
 
-        # Try to verify with wrong code via API.
         response = api_client.post(
             self.verify_path,
             data={"email": email, "code": wrong_code},
@@ -303,15 +291,12 @@ class TestEmailVerificationE2E:
         email = faker.email()
         settings.VERIKIT_EMAIL_CODE_EXPIRY = timedelta(seconds=-1)
 
-        # Issue code that expires immediately via API.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
 
-        # Extract code from email.
         sent_email = mailoutbox[0]
         code = sent_email.body.removeprefix("Code: ").strip()
 
-        # Try to verify expired code via API.
         response = api_client.post(
             self.verify_path,
             data={"email": email, "code": code},
@@ -328,17 +313,16 @@ class TestEmailVerificationE2E:
     ) -> None:
         email = faker.email()
 
-        # Issue first code via API.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
         assert len(mailoutbox) == 1
 
-        # Try to issue second code immediately (should be rate limited) via API.
+        # Verify rate limiting blocked the second email send.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.TOO_MANY_REQUESTS
         data = response.json()
         assert "verification code was recently issued" in data["message"]
-        assert len(mailoutbox) == 1  # No additional email sent.
+        assert len(mailoutbox) == 1
 
     def test_used_code_cannot_be_reused(
         self,
@@ -348,7 +332,6 @@ class TestEmailVerificationE2E:
     ) -> None:
         email = faker.email()
 
-        # Complete flow once via API.
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
 
@@ -363,7 +346,6 @@ class TestEmailVerificationE2E:
         token1 = data["token"]
         assert isinstance(token1, str)
 
-        # Try to reuse the same code via API.
         response = api_client.post(
             self.verify_path,
             data={"email": email, "code": code},

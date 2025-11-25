@@ -33,6 +33,11 @@ class Invitation(
         related_query_name="invitation",
         verbose_name=_("conference"),
     )
+    # Use SET_NULL instead of CASCADE because invitations don't have direct ownership
+    # from the inviter. They can be updated by conference admins or other authorized
+    # users, not just the original inviter. Preserving the invitation record when users
+    # are deleted maintains data integrity and allows continued management of the
+    # invitation lifecycle.
     inviter = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -79,6 +84,10 @@ class Invitation(
         verbose_name = _("invitation")
         verbose_name_plural = _("invitations")
         constraints = (
+            # Enforce uniqueness only for pending invitations. This allows the same
+            # email to receive multiple invitations over time (e.g., accepting one
+            # invitation, then later receiving another for additional roles), while
+            # preventing duplicate pending invitations that would confuse recipients.
             models.UniqueConstraint(
                 "conference",
                 Lower("invitee_email"),

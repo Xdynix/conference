@@ -57,7 +57,6 @@ class InvitationService:
             InsufficientRolePermission: If the inviter lacks permission to assign the
                 specified roles.
         """
-        # Validate that the inviter can assign the specified roles.
         ConferenceService.validate_can_assign_roles(
             user=inviter,
             conference=conference,
@@ -65,7 +64,6 @@ class InvitationService:
             track_roles=track_roles,
         )
 
-        # Create the invitation.
         try:
             invitation = Invitation.objects.create(
                 conference=conference,
@@ -82,11 +80,9 @@ class InvitationService:
                 _("A pending invitation already exists for this conference and email.")
             ) from exc
 
-        # Set interested keywords.
         if interested_keywords:
             invitation.interested_keywords.set(interested_keywords)
 
-        # Create conference role entries.
         conference_role_entries = [
             InvitationConferenceRoleEntry(
                 invitation=invitation,
@@ -100,7 +96,6 @@ class InvitationService:
                 ignore_conflicts=True,
             )
 
-        # Create track role entries.
         track_role_entries = [
             InvitationTrackRoleEntry(
                 invitation=invitation,
@@ -150,7 +145,9 @@ class InvitationService:
             was already accepted.
         """
         with transaction.atomic():
-            # Lock the invitation row to prevent concurrent redemption.
+            # Lock the invitation row to prevent concurrent redemption attempts from
+            # creating duplicate role assignments. The lock is held until the
+            # transaction commits, ensuring atomicity of the redemption process.
             invitation = Invitation.objects.select_for_update().get(pk=invitation.pk)
 
             if invitation.status == Invitation.Status.ACCEPTED:

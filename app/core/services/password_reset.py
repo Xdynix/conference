@@ -34,6 +34,11 @@ class PasswordResetService:
 
         If there is already a token created recently, return ``None``.
         """
+        # Lock by normalized email to serialize operations per email address. The
+        # transaction alone doesn't provide row-level locking, and there's no guarantee
+        # a row exists to lock. Mutex ensures concurrent requests for the same email
+        # are serialized, preventing race conditions in rate limiting and token
+        # creation.
         with Mutex.lock_in_transaction(
             normalize_email(user.email),
             namespace=cls.__name__,
@@ -51,8 +56,13 @@ class PasswordResetService:
                 token_hash=token_hash,
                 expire_time=Now() + settings.PASSWORD_RESET_TOKEN_EXPIRY,
             )
+            # Refresh to load database-generated fields (create_time, expire_time with
+            # database functions) before passing to the on_commit callback.
             password_reset_token.refresh_from_db()
             logger.info("Password reset token created.", user=user)
+            # Defer email sending until after transaction commits. If the transaction
+            # rolls back, we don't want to send emails for data that was never
+            # persisted.
             transaction.on_commit(
                 partial(
                     cls.send_password_reset_email,
@@ -75,6 +85,10 @@ class PasswordResetService:
             expire_time__gte=Now(),
             consume_time__isnull=True,
         )
+        # Lock by normalized email to serialize operations per email address. The
+        # transaction alone doesn't provide row-level locking, and there's no guarantee
+        # a row exists to lock. Mutex ensures concurrent token consumption attempts for
+        # the same user are serialized, preventing race conditions.
         with Mutex.lock_in_transaction(
             normalize_email(user.email),
             namespace=cls.__name__,

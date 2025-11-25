@@ -294,8 +294,12 @@ these results into appropriate HTTP responses with status codes.
   88-character limit; otherwise, place each argument on its own line ending with a
   comma.
 - Prefer `@classmethod` for shared helper methods across the codebase. Reserve
-- `@staticmethod` for documented special cases where binding to the class is
+  `@staticmethod` for documented special cases where binding to the class is
   undesirable.
+- **Comments**: Write self-explanatory code that clearly conveys intent. Do not add
+  comments that merely repeat what the code is doing. Only add comments when the intent
+  is not explicit from the code itself or to explain design decisions, non-obvious
+  behavior, or important context that cannot be expressed through code alone.
 - Keep commit message subjects at or under 50 characters.
 - Always request user permission before running the test suite.
 - Use the current file content as the baseline for edits; if a user change appears

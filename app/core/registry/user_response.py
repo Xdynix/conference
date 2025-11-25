@@ -155,13 +155,12 @@ user_response_registry = UserResponseRegistry()
 
 
 async def _get_user_roles(user: User) -> list[str]:
-    return [
-        role
-        async for role in GlobalRoleAssignment.objects.filter(user=user)
+    roles = (
+        GlobalRoleAssignment.objects.filter(user=user)
         .order_by("role")
         .values_list("role", flat=True)
-        .distinct()
-    ]
+    )
+    return [role async for role in roles]
 
 
 async def _batch_get_user_roles(users: Sequence[User]) -> Sequence[list[str]]:

@@ -347,13 +347,14 @@ class ConferenceService:
             return
 
         specified_track_ids = [track.pk for track in requested_track_roles]
-        user_track_admin_roles: dict[int, set[str]] = {}
-        for track_id, role in TrackRoleAssignment.objects.filter(
+        user_track_admin_roles: defaultdict[int, set[str]] = defaultdict(set)
+        admin_assignments = TrackRoleAssignment.objects.filter(
             track_id__in=specified_track_ids,
             user=user,
             role__in=TrackRole.admins(),
-        ).values_list("track_id", "role"):
-            user_track_admin_roles.setdefault(track_id, set()).add(role)
+        ).values_list("track_id", "role")
+        for track_id, role in admin_assignments:
+            user_track_admin_roles[track_id].add(role)
 
         for track, roles in requested_track_roles.items():
             track_admin_roles = user_track_admin_roles.get(track.pk, set())

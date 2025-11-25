@@ -24,6 +24,8 @@ class AdminSite(DefaultAdminSite):
 
     @override
     def has_permission(self, request: HttpRequest) -> bool:
-        # Only superusers are allowed to access the admin site.
+        # Restrict admin site to superusers only. Django admin is difficult to secure
+        # with fine-grained permissions, and features like autocomplete search can leak
+        # data through unprotected queries.
         user = request.user
         return bool(user.is_active and user.is_superuser)

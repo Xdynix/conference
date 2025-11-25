@@ -101,7 +101,7 @@ class CursorPagination[ModelT: Model, TokenT](AsyncPaginationBase):
     ) -> dict[str, Any]:
         """Build pagination output from fetched items and determine next page token."""
         if len(items) > pagination.page_size:
-            del items[pagination.page_size :]  # Remove extra items.
+            del items[pagination.page_size :]
             next_page_token = cast(TokenT, getattr(items[-1], self.cursor_field))
         else:
             next_page_token = None

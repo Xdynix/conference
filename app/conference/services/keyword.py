@@ -34,11 +34,12 @@ class KeywordService:
         if keyword_texts is None:
             return None
         provided = set(keyword_texts)
-        keywords = (
-            [keyword async for keyword in Keyword.objects.filter(text__in=provided)]
-            if provided
-            else []
-        )
+        if provided:
+            keywords = [
+                keyword async for keyword in Keyword.objects.filter(text__in=provided)
+            ]
+        else:
+            keywords = []
         missing = provided - {keyword.text for keyword in keywords}
         if missing:
             raise ValueError(
@@ -75,14 +76,13 @@ class KeywordService:
         if keyword_set_names is None:
             return None
         provided = set(keyword_set_names)
-        keyword_sets = (
-            [
+        if provided:
+            keyword_sets = [
                 keyword_set
                 async for keyword_set in KeywordSet.objects.filter(name__in=provided)
             ]
-            if provided
-            else []
-        )
+        else:
+            keyword_sets = []
         missing = provided - {keyword_set.name for keyword_set in keyword_sets}
         if missing:
             raise ValueError(
