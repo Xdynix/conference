@@ -238,6 +238,33 @@ class InvitationService:
         return invitation
 
     @classmethod
+    @transaction.atomic
+    def delete_invitation(cls, *, invitation_uid: ULID, user: User) -> None:
+        """Delete an invitation after validating management permissions.
+
+        Raises:
+            Invitation.DoesNotExist: If the invitation is not found.
+            InsufficientRolePermission: If the user cannot manage the invitation's
+                roles.
+        """
+        invitation = Invitation.objects.select_for_update().get(uid=invitation_uid)
+
+        conference_roles, track_roles = cls.get_invitation_roles(invitation)
+        try:
+            ConferenceService.validate_can_assign_roles(
+                user=user,
+                conference=invitation.conference,
+                conference_roles=conference_roles,
+                track_roles=track_roles,
+            )
+        except InsufficientRolePermission as exc:
+            raise InsufficientRolePermission(
+                _("You cannot manage this invitation.")
+            ) from exc
+
+        invitation.delete()
+
+    @classmethod
     def get_invitation_roles(
         cls,
         invitation: Invitation,
