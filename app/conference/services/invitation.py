@@ -346,7 +346,17 @@ class InvitationService:
                 ignore_conflicts=True,
             )
 
-            entries = invitation.track_role_entries
+            entries = invitation.track_role_entries.select_related("track")
+            # Defensive: track entries should always belong to the invitation's
+            # conference. If not, something outside normal flows (manual edits,
+            # migrations) has tampered with data; fail loudly.
+            for entry in entries:
+                if entry.track.conference_id != invitation.conference_id:
+                    raise RuntimeError(
+                        "Invitation track role does not belong to "
+                        f"invitation conference. {invitation.uid=}"
+                    )
+
             track_role_assignments = [
                 TrackRoleAssignment(
                     track_id=track_id,

@@ -1093,7 +1093,7 @@ class TestInvitationServiceRedeemInvitation:
     def invitee(self, faker: Faker) -> User:
         return User.objects.create_user(username=faker.user_name())
 
-    def test_happy_path(self, invitee: User, invitation: Invitation) -> None:
+    def test_happy_path(self, invitation: Invitation, invitee: User) -> None:
         result = InvitationService.redeem_invitation(invitation, invitee)
         assert result is True
 
@@ -1104,8 +1104,8 @@ class TestInvitationServiceRedeemInvitation:
 
     def test_returns_false_when_already_accepted(
         self,
-        invitee: User,
         invitation: Invitation,
+        invitee: User,
     ) -> None:
         update_object(
             invitation,
@@ -1124,8 +1124,8 @@ class TestInvitationServiceRedeemInvitation:
 
     def test_returns_true_when_already_rejected(
         self,
-        invitee: User,
         invitation: Invitation,
+        invitee: User,
     ) -> None:
         update_object(invitation, reject_time=timezone.now())
 
@@ -1140,8 +1140,8 @@ class TestInvitationServiceRedeemInvitation:
     def test_assigns_conference_roles(
         self,
         conference: Conference,
-        invitee: User,
         invitation: Invitation,
+        invitee: User,
     ) -> None:
         add_invitation_roles(
             invitation,
@@ -1166,8 +1166,8 @@ class TestInvitationServiceRedeemInvitation:
         self,
         faker: Faker,
         conference: Conference,
-        invitee: User,
         invitation: Invitation,
+        invitee: User,
     ) -> None:
         track1 = Track.objects.create(
             conference=conference,
@@ -1246,6 +1246,28 @@ class TestInvitationServiceRedeemInvitation:
             ).count()
             == 1
         )
+
+    def test_raises_when_track_not_in_conference(
+        self,
+        faker: Faker,
+        invitation: Invitation,
+        invitee: User,
+    ) -> None:
+        other_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        other_track = Track.objects.create(
+            conference=other_conference,
+            display_name=faker.word(),
+        )
+        invitation.track_role_entries.create(
+            track=other_track,
+            role=TrackRole.REVIEWER,
+        )
+
+        with pytest.raises(RuntimeError, match="track role does not belong to"):
+            InvitationService.redeem_invitation(invitation, invitee)
 
 
 InvitationFactory = Callable[..., Awaitable[Invitation]]

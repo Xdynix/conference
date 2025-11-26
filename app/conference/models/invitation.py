@@ -98,6 +98,17 @@ class Invitation(
                     "A pending invitation already exists for this conference and email."
                 ),
             ),
+            models.CheckConstraint(
+                # Defensive: normal flows set `invitee_user` together with
+                # `accept_time`. If this constraint fires, data was corrupted or
+                # manually edited.
+                name="invitation_invitee_user_requires_accept_time",
+                condition=Q(invitee_user__isnull=True) | Q(accept_time__isnull=False),
+                violation_error_code="invalid",
+                violation_error_message=_(
+                    "Invitee user may only be set on accepted invitations."
+                ),
+            ),
         )
         indexes = (
             models.Index(fields=("conference", "accept_time", "reject_time")),
