@@ -6,6 +6,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Exists, OuterRef, QuerySet
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from ulid import ULID
 
 from app.conference.models import (
     Conference,
@@ -19,11 +20,16 @@ from app.conference.models import (
     TrackRole,
     TrackRoleAssignment,
 )
-from app.conference.services.conference import ConferenceService
 from app.core.models import GlobalRole, User
+
+from .conference import ConferenceService, InsufficientRolePermission
 
 
 class DuplicateInvitation(Exception):
+    pass
+
+
+class ImmutableInvitation(Exception):
     pass
 
 
@@ -107,6 +113,123 @@ class InvitationService:
             for role in set(roles)
         ]
         if track_role_entries:
+            InvitationTrackRoleEntry.objects.bulk_create(
+                track_role_entries,
+                ignore_conflicts=True,
+            )
+
+        return invitation
+
+    @classmethod
+    @transaction.atomic
+    def update_invitation(
+        cls,
+        *,
+        invitation_uid: ULID,
+        user: User,
+        given_name: str | None = None,
+        family_name: str | None = None,
+        affiliation: str | None = None,
+        region_code: str | None = None,
+        desired_paper_count: int | None = None,
+        interested_keywords: Collection[Keyword] | None = None,
+        conference_roles: Collection[ConferenceRole] | None = None,
+        track_roles: Mapping[Track, Collection[TrackRole]] | None = None,
+    ) -> Invitation:
+        """Updates an invitation with new profile data and/or roles.
+
+        The invitee email cannot be changed after creation.
+
+        Raises:
+            Invitation.DoesNotExist: If the invitation is not found.
+            ImmutableInvitation: If the invitation is not mutable (status is ACCEPTED).
+            ValueError: If tracks do not belong to the conference.
+            InsufficientRolePermission: If the user lacks permission to manage the
+                current or new roles.
+        """
+        invitation = Invitation.objects.select_for_update().get(uid=invitation_uid)
+
+        if not invitation.is_mutable():
+            raise ImmutableInvitation(_("Cannot update accepted invitation."))
+
+        current_conference_roles, current_track_roles = cls.get_invitation_roles(
+            invitation
+        )
+        try:
+            ConferenceService.validate_can_assign_roles(
+                user=user,
+                conference=invitation.conference,
+                conference_roles=current_conference_roles,
+                track_roles=current_track_roles,
+            )
+        except InsufficientRolePermission as exc:
+            raise InsufficientRolePermission(
+                _("You cannot manage this invitation.")
+            ) from exc
+
+        new_conference_roles = (
+            conference_roles
+            if conference_roles is not None
+            else current_conference_roles
+        )
+        new_track_roles = (
+            track_roles if track_roles is not None else current_track_roles
+        )
+        ConferenceService.validate_can_assign_roles(
+            user=user,
+            conference=invitation.conference,
+            conference_roles=new_conference_roles,
+            track_roles=new_track_roles,
+        )
+
+        update_fields = []
+        if given_name is not None:
+            invitation.given_name = given_name
+            update_fields.append("given_name")
+        if family_name is not None:
+            invitation.family_name = family_name
+            update_fields.append("family_name")
+        if affiliation is not None:
+            invitation.affiliation = affiliation
+            update_fields.append("affiliation")
+        if region_code is not None:
+            invitation.region_code = region_code
+            update_fields.append("region_code")
+        if desired_paper_count is not None:
+            invitation.desired_paper_count = desired_paper_count
+            update_fields.append("desired_paper_count")
+
+        if update_fields:
+            invitation.save(update_fields=update_fields)
+
+        if interested_keywords is not None:
+            invitation.interested_keywords.set(interested_keywords)
+
+        if conference_roles is not None:
+            invitation.conference_role_entries.all().delete()
+            conference_role_entries = [
+                InvitationConferenceRoleEntry(
+                    invitation=invitation,
+                    role=role,
+                )
+                for role in set(conference_roles)
+            ]
+            InvitationConferenceRoleEntry.objects.bulk_create(
+                conference_role_entries,
+                ignore_conflicts=True,
+            )
+
+        if track_roles is not None:
+            invitation.track_role_entries.all().delete()
+            track_role_entries = [
+                InvitationTrackRoleEntry(
+                    invitation=invitation,
+                    track=track,
+                    role=role,
+                )
+                for track, roles in track_roles.items()
+                for role in set(roles)
+            ]
             InvitationTrackRoleEntry.objects.bulk_create(
                 track_role_entries,
                 ignore_conflicts=True,
