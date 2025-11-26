@@ -71,6 +71,10 @@ async def update_conference(
         raise Http404 from exc
 
     user = await request.auser()
-    logger.info("Conference updated.", conference=conference, user=user)
+    logger.info(
+        "Conference updated.",
+        conference_name=conference.name,
+        user_uid=user.uid,
+    )
 
     return await prefetch_conference(conference, user)

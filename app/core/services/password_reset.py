@@ -59,7 +59,7 @@ class PasswordResetService:
             # Refresh to load database-generated fields (create_time, expire_time with
             # database functions) before passing to the on_commit callback.
             password_reset_token.refresh_from_db()
-            logger.info("Password reset token created.", user=user)
+            logger.info("Password reset token created.", user_uid=user.uid)
             # Defer email sending until after transaction commits. If the transaction
             # rolls back, we don't want to send emails for data that was never
             # persisted.
@@ -104,7 +104,7 @@ class PasswordResetService:
 
             user.set_password(new_password.get_secret_value())
             user.save(update_fields=["password"])
-            logger.info("Password reset token consumed.", user=user)
+            logger.info("Password reset token consumed.", user_uid=user.uid)
             return True
 
     @classmethod
@@ -139,6 +139,10 @@ class PasswordResetService:
 
         body = render(cls.password_reset_email_body)
 
-        logger.info("Sending password reset email.", email=user.email)
+        logger.info(
+            "Sending password reset email.",
+            user_uid=user.uid,
+            email=user.email,
+        )
         mail = EmailMessage(subject, body, to=[user.email])
         mail.send()

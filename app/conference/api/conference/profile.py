@@ -118,8 +118,8 @@ async def update_current_user_conference_profile(
 
     logger.info(
         "User updated conference profile.",
-        user=user,
-        conference=conference,
+        user_uid=user.uid,
+        conference_name=conference.name,
     )
 
     return await UserConferenceProfileService.load_profile_with_keywords(profile)
@@ -171,9 +171,9 @@ async def update_user_conference_profile(
     actor = await request.auser()
     logger.info(
         "Conference profile updated by admin.",
-        actor=actor,
-        user=user,
-        conference=conference,
+        actor_uid=actor.uid,
+        user_uid=user.uid,
+        conference_name=conference.name,
     )
 
     return await UserConferenceProfileService.load_profile_with_keywords(profile)

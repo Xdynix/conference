@@ -104,9 +104,9 @@ async def create_invitation(
 
     logger.info(
         "Invitation created.",
-        invitation=invitation,
-        conference=conference,
-        inviter=user,
+        invitation_uid=invitation.uid,
+        conference_name=conference.name,
+        inviter_uid=user.uid,
     )
 
     return HTTPStatus.CREATED, await prefetch_invitation(invitation)

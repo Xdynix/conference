@@ -59,6 +59,11 @@ async def delete_invitation(
     except InsufficientRolePermission as exc:
         raise HttpError(HTTPStatus.FORBIDDEN, str(exc)) from exc
 
-    logger.info("Invitation deleted.", conference=conference, user=user)
+    logger.info(
+        "Invitation deleted.",
+        conference_name=conference.name,
+        invitation_uid=invitation_id,
+        user_uid=user.uid,
+    )
 
     return HTTPStatus.NO_CONTENT, None

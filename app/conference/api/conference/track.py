@@ -49,7 +49,12 @@ async def create_track(
     user = await request.auser()
     conference = track.conference
 
-    logger.info("Track created.", conference=conference, track=track, user=user)
+    logger.info(
+        "Track created.",
+        conference_name=conference.name,
+        track_uid=track.uid,
+        user_uid=user.uid,
+    )
 
     return HTTPStatus.CREATED, await prefetch_conference(conference, user)
 
@@ -87,7 +92,12 @@ async def update_track(
     user = await request.auser()
     conference = track.conference
 
-    logger.info("Track updated.", conference=conference, track=track, user=user)
+    logger.info(
+        "Track updated.",
+        conference_name=conference.name,
+        track_uid=track.uid,
+        user_uid=user.uid,
+    )
 
     return await prefetch_conference(conference, user)
 
@@ -117,7 +127,12 @@ async def delete_track(
     user = await request.auser()
     conference = track.conference
 
-    logger.info("Track deleted.", conference=conference, track=track, user=user)
+    logger.info(
+        "Track deleted.",
+        conference_name=conference.name,
+        track_uid=track.uid,
+        user_uid=user.uid,
+    )
 
     return await prefetch_conference(conference, user)
 
@@ -162,6 +177,11 @@ async def move_track(
     user = await request.auser()
     conference = track.conference
 
-    logger.info("Track moved.", conference=conference, track=track, user=user)
+    logger.info(
+        "Track moved.",
+        conference_name=conference.name,
+        track_uid=track.uid,
+        user_uid=user.uid,
+    )
 
     return await prefetch_conference(conference, user)

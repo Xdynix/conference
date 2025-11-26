@@ -73,7 +73,7 @@ async def create_registration(
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
     await alogin(request, user)
 
-    logger.info("User registered and logged in.", user=user)
+    logger.info("User registered and logged in.", user_uid=user.uid)
 
     return HTTPStatus.CREATED, await Session.from_request(request)
 
@@ -124,6 +124,10 @@ async def create_user(
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
     actor = await request.auser()
-    logger.info("Admin created user.", user=user, actor=actor)
+    logger.info(
+        "Admin created user.",
+        user_uid=user.uid,
+        actor_uid=actor.uid,
+    )
 
     return HTTPStatus.CREATED, await user_response_registry.dump(user)

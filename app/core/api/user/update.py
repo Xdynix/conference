@@ -62,7 +62,7 @@ async def update_current_user(
         message = _("A user with that username or email already exists.")
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
-    logger.info("User updated account.", user=user)
+    logger.info("User updated account.", user_uid=user.uid)
 
     return await user_response_registry.dump(user)
 
@@ -109,7 +109,11 @@ async def update_user(
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
     actor = await request.auser()
-    logger.info("Admin updated user account.", user=user, actor=actor)
+    logger.info(
+        "Admin updated user account.",
+        user_uid=user.uid,
+        actor_uid=actor.uid,
+    )
 
     return await user_response_registry.dump(user)
 

@@ -75,6 +75,10 @@ async def create_conference(
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
     user = await request.auser()
-    logger.info("Conference created.", conference=conference, user=user)
+    logger.info(
+        "Conference created.",
+        conference_name=conference.name,
+        user_uid=user.uid,
+    )
 
     return HTTPStatus.CREATED, await prefetch_conference(conference, user)

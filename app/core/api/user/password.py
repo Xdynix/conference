@@ -57,7 +57,7 @@ async def update_current_user_password(
     # Prevents the current session from being logged out.
     await aupdate_session_auth_hash(request, user)
 
-    logger.info("User changed password.", user=user)
+    logger.info("User changed password.", user_uid=user.uid)
 
     return HTTPStatus.NO_CONTENT, None
 
@@ -98,6 +98,10 @@ async def update_user_password(
         ) from exc
 
     actor = await request.auser()
-    logger.info("Admin changed user password.", user=user, actor=actor)
+    logger.info(
+        "Admin changed user password.",
+        user_uid=user.uid,
+        actor_uid=actor.uid,
+    )
 
     return HTTPStatus.NO_CONTENT, None

@@ -113,9 +113,9 @@ async def update_invitation(
 
     logger.info(
         "Invitation updated.",
-        invitation=invitation,
-        conference=conference,
-        user=user,
+        invitation_uid=invitation.uid,
+        conference_name=conference.name,
+        user_uid=user.uid,
     )
 
     return await prefetch_invitation(invitation)

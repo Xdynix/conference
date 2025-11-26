@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Literal, Self
+from typing import Literal, Self, cast
 
 from django.contrib.auth import aauthenticate, alogin, alogout
 from django.utils.translation import gettext as _
@@ -13,7 +13,7 @@ from ninja.errors import HttpError
 from app.core.auth import is_superuser
 from app.core.models import User
 from app.core.registry.user_response import user_response_registry
-from app.core.types import HttpRequest, Password, Username
+from app.core.types import AuthedHttpRequest, HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 from app.utils.throttling import AnonThrottle, throttling
@@ -89,7 +89,7 @@ async def create_session(
         )
     await alogin(request, user)
 
-    logger.info("User logged in.", user=user)
+    logger.info("User logged in.", user_uid=user.uid)
 
     return await Session.from_request(request)
 
@@ -104,7 +104,7 @@ async def delete_session(request: HttpRequest) -> Session:
     if (user := await request.auser()).is_authenticated:
         await alogout(request)
 
-        logger.info("User logged out.", user=user)
+        logger.info("User logged out.", user_uid=user.uid)
 
     return await Session.from_request(request)
 
@@ -123,7 +123,7 @@ class AssumeSessionRequest(Schema):
     auth=is_superuser,
 )
 async def assume_session(
-    request: HttpRequest,
+    request: AuthedHttpRequest,
     payload: AssumeSessionRequest,
 ) -> Session:
     """Impersonate a user as another user.
@@ -159,8 +159,8 @@ async def assume_session(
 
     logger.info(
         "Impersonation started.",
-        impersonator=impersonator,
-        impersonated=impersonated,
+        impersonator_uid=impersonator.uid,
+        impersonated_uid=impersonated.uid,
     )
 
     return await Session.from_request(request)
@@ -185,13 +185,13 @@ async def revert_session(request: HttpRequest) -> Session:
 
     impersonator = await User.objects.active().filter(id=impersonator_id).afirst()
     if impersonator is not None:
-        impersonated = await request.auser()
+        impersonated = cast(User, await request.auser())
         await alogin(request, impersonator)
 
         logger.info(
             "Impersonation stopped.",
-            impersonator=impersonator,
-            impersonated=impersonated,
+            impersonator_uid=impersonator.uid,
+            impersonated_uid=impersonated.uid,
         )
     else:
         await alogout(request)

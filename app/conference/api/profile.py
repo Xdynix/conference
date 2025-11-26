@@ -41,7 +41,7 @@ async def update_current_user_profile(
 
     await patch_profile(user, payload)
 
-    logger.info("User updated profile.", user=user)
+    logger.info("User updated profile.", user_uid=user.uid)
 
     return await user_response_registry.dump(user)
 
@@ -66,6 +66,10 @@ async def update_profile(
     await patch_profile(user, payload)
 
     actor = await request.auser()
-    logger.info("Admin updated user profile.", user=user, actor=actor)
+    logger.info(
+        "Admin updated user profile.",
+        user_uid=user.uid,
+        actor_uid=actor.uid,
+    )
 
     return await user_response_registry.dump(user)

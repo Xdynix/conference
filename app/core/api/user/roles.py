@@ -41,8 +41,8 @@ async def update_user_roles(
     actor = await request.auser()
     logger.info(
         "Admin updated user roles.",
-        user=user,
-        actor=actor,
+        user_uid=user.uid,
+        actor_uid=actor.uid,
         roles=payload.roles,
     )
 

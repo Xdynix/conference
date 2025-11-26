@@ -32,6 +32,10 @@ async def delete_conference(
         raise Http404 from exc
 
     user = await request.auser()
-    logger.info("Conference deleted.", conference=conference, user=user)
+    logger.info(
+        "Conference deleted.",
+        conference_name=conference.name,
+        user_uid=user.uid,
+    )
 
     return HTTPStatus.NO_CONTENT, None
