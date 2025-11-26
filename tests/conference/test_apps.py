@@ -5,12 +5,16 @@ from unittest.mock import MagicMock
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 from faker import Faker
+from ulid import ULID
 
-from app.conference.models import Profile
+from app.conference.models import Conference, Invitation, Profile
+from app.conference.services import InvitationService
 from app.core.models import User
 from app.utils.enums import Region
 from app.verikit.services import EmailVerificationService
+from tests.helpers import approx_now, update_object
 
 
 @pytest.fixture(autouse=True)
@@ -267,6 +271,218 @@ class TestProfileInjectionInUserCreationEndpoints:
         profile = Profile.objects.filter(user__username=username).get()
         for field in ("given_name", "family_name", "affiliation", "region_code"):
             assert getattr(profile, field) == profile_data[field] == ""
+
+
+@pytest.mark.django_db
+class TestInvitationRedeemInUserCreationEndpoints:
+    create_registration_path = reverse("api-1.0.0:create-registration")
+    create_user_path = reverse("api-1.0.0:create-user")
+
+    @pytest.fixture
+    def conference(self, faker: Faker) -> Conference:
+        return Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+
+    @pytest.fixture
+    def invitation(self, faker: Faker, conference: Conference) -> Invitation:
+        return Invitation.objects.create(
+            conference=conference,
+            invitee_email=faker.email(),
+        )
+
+    @classmethod
+    def assert_invitation_token_error(cls, error: dict[str, Any], message: str) -> None:
+        assert error["loc"] == ["body", "payload", "invitation_token"]
+        assert error["msg"] == message
+
+    def test_redeems_invitation_on_registration(
+        self,
+        faker: Faker,
+        api_client: Client,
+        invitation: Invitation,
+    ) -> None:
+        username = faker.user_name()
+        email_token = EmailVerificationService.issue_token(faker.email())
+        invitation_token = InvitationService.get_invitation_token(invitation)
+
+        response = api_client.post(
+            self.create_registration_path,
+            data={
+                "username": username,
+                "email": email_token,
+                "password": faker.password(),
+                "invitation_token": invitation_token,
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        invitation.refresh_from_db()
+        assert invitation.invitee_user == User.objects.get(username=username)
+        assert invitation.accept_time == approx_now()
+        assert invitation.status == Invitation.Status.ACCEPTED
+
+    @pytest.mark.parametrize(
+        "invitation_token",
+        [
+            "bad-token",
+            InvitationService.token_signer.sign(str(ULID.from_int(0))),
+        ],
+    )
+    def test_invalid_invitation_rejects_registration(
+        self,
+        faker: Faker,
+        api_client: Client,
+        invitation_token: str,
+    ) -> None:
+        username = faker.user_name()
+        email_token = EmailVerificationService.issue_token(faker.email())
+
+        response = api_client.post(
+            self.create_registration_path,
+            data={
+                "username": username,
+                "email": email_token,
+                "password": faker.password(),
+                "invitation_token": invitation_token,
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        [error] = data["details"]
+        self.assert_invitation_token_error(error, "Invalid invitation token.")
+
+        assert not User.objects.filter(username=username).exists()
+
+    def test_redeemed_invitation_rejects_registration(
+        self,
+        faker: Faker,
+        api_client: Client,
+        invitation: Invitation,
+    ) -> None:
+        original_user = User.objects.create_user(username=faker.user_name())
+        update_object(
+            invitation,
+            invitee_user=original_user,
+            accept_time=timezone.now(),
+        )
+        email_token = EmailVerificationService.issue_token(faker.email())
+        invitation_token = InvitationService.get_invitation_token(invitation)
+
+        response = api_client.post(
+            self.create_registration_path,
+            data={
+                "username": faker.user_name(),
+                "email": email_token,
+                "password": faker.password(),
+                "invitation_token": invitation_token,
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        [error] = data["details"]
+        self.assert_invitation_token_error(error, "Invitation already redeemed.")
+
+        invitation.refresh_from_db()
+        assert invitation.invitee_user == original_user
+
+    def test_redeems_invitation_on_admin_user_create(
+        self,
+        faker: Faker,
+        api_client: Client,
+        admin_user: User,
+        invitation: Invitation,
+    ) -> None:
+        username = faker.user_name()
+        invitation_token = InvitationService.get_invitation_token(invitation)
+        api_client.force_login(admin_user)
+
+        response = api_client.post(
+            self.create_user_path,
+            data={
+                "username": username,
+                "email": faker.email(),
+                "password": faker.password(),
+                "invitation_token": invitation_token,
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        invitation.refresh_from_db()
+        assert invitation.invitee_user == User.objects.get(username=username)
+        assert invitation.accept_time == approx_now()
+        assert invitation.status == Invitation.Status.ACCEPTED
+
+    @pytest.mark.parametrize(
+        "invitation_token",
+        [
+            "bad-token",
+            InvitationService.token_signer.sign(str(ULID.from_int(0))),
+        ],
+    )
+    def test_invalid_invitation_rejects_admin_user_create(
+        self,
+        faker: Faker,
+        api_client: Client,
+        admin_user: User,
+        invitation_token: str,
+    ) -> None:
+        username = faker.user_name()
+        api_client.force_login(admin_user)
+
+        response = api_client.post(
+            self.create_user_path,
+            data={
+                "username": username,
+                "email": faker.email(),
+                "password": faker.password(),
+                "invitation_token": invitation_token,
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        [error] = data["details"]
+        self.assert_invitation_token_error(error, "Invalid invitation token.")
+
+        assert not User.objects.filter(username=username).exists()
+
+    def test_redeemed_invitation_rejects_admin_user_create(
+        self,
+        faker: Faker,
+        api_client: Client,
+        admin_user: User,
+        invitation: Invitation,
+    ) -> None:
+        original_user = User.objects.create_user(username=faker.user_name())
+        update_object(
+            invitation,
+            invitee_user=original_user,
+            accept_time=timezone.now(),
+        )
+        api_client.force_login(admin_user)
+        invitation_token = InvitationService.get_invitation_token(invitation)
+
+        response = api_client.post(
+            self.create_user_path,
+            data={
+                "username": faker.user_name(),
+                "email": faker.email(),
+                "password": faker.password(),
+                "invitation_token": invitation_token,
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        [error] = data["details"]
+        self.assert_invitation_token_error(error, "Invitation already redeemed.")
+
+        invitation.refresh_from_db()
+        assert invitation.invitee_user == original_user
 
 
 @pytest.mark.django_db

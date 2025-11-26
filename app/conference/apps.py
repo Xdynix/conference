@@ -3,6 +3,8 @@ from collections.abc import Sequence
 from django.apps import AppConfig
 from pydantic import Field
 
+from app.ninja.errors import make_validation_error
+
 
 class ConferenceConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
@@ -15,7 +17,13 @@ class ConferenceConfig(AppConfig):
 
 
 def register_create_user() -> None:
+    from django.core.signing import BadSignature
+    from django.utils.translation import gettext as _
+    from loguru import logger
+
+    from app.conference.models import Invitation as InvitationModel
     from app.conference.models import Profile
+    from app.conference.services import InvitationService
     from app.conference.types import Profile as ProfileSchema
     from app.core.models import User
     from app.core.registry.create_user import create_user_registry
@@ -29,10 +37,51 @@ def register_create_user() -> None:
             region_code=payload.region_code,
         )
 
+    def redeem_invitation(user: User, invitation_token: str) -> None:
+        if not invitation_token:
+            return
+
+        try:
+            invitation_uid = InvitationService.token_signer.unsign(invitation_token)
+        except BadSignature as exc:
+            raise make_validation_error(
+                path="invitation_token",
+                message=_("Invalid invitation token."),
+            ) from exc
+
+        invitation = (
+            InvitationModel.objects.select_related("conference")
+            .filter(uid=invitation_uid)
+            .first()
+        )
+        if invitation is None:
+            raise make_validation_error(
+                path="invitation_token",
+                message=_("Invalid invitation token."),
+            )
+
+        accepted = InvitationService.redeem_invitation(invitation, user)
+        if not accepted:
+            raise make_validation_error(
+                path="invitation_token",
+                message=_("Invitation already redeemed."),
+            )
+        logger.info(
+            "Invitation redeemed during user creation.",
+            invitation_uid=invitation.uid,
+            conference_id=invitation.conference_id,
+            user_uid=user.uid,
+        )
+
     create_user_registry.register(
         "profile",
         (ProfileSchema, Field(default_factory=ProfileSchema)),  # type: ignore[arg-type]
         handler=create_profile,
+    )
+    create_user_registry.register(
+        "invitation_token",
+        (str, Field(default="")),
+        handler=redeem_invitation,
     )
 
 
