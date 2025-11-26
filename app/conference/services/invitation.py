@@ -1,3 +1,4 @@
+from collections import defaultdict
 from collections.abc import Collection, Mapping
 
 from django.core.signing import BadSignature, Signer
@@ -112,6 +113,29 @@ class InvitationService:
             )
 
         return invitation
+
+    @classmethod
+    def get_invitation_roles(
+        cls,
+        invitation: Invitation,
+    ) -> tuple[list[str], dict[Track, list[str]]]:
+        """Extract roles from an invitation for permission checking.
+
+        Returns:
+            Tuple of ``(conference_roles, track_roles)`` where conference_roles is a
+            list of ``ConferenceRole`` and ``track_roles`` is a dict mapping ``Track``
+            to list of ``TrackRole``. Format matches ``validate_can_assign_roles``
+            parameters.
+        """
+        conference_roles = [
+            entry.role for entry in invitation.conference_role_entries.all()
+        ]
+
+        track_roles_dict: dict[Track, list[str]] = defaultdict(list)
+        for entry in invitation.track_role_entries.select_related("track").all():
+            track_roles_dict[entry.track].append(entry.role)
+
+        return conference_roles, dict(track_roles_dict)
 
     @classmethod
     def get_invitation_token(cls, invitation: Invitation) -> str:
