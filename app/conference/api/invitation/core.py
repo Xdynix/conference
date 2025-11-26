@@ -1,8 +1,13 @@
-from typing import Any
+from collections import defaultdict
+from collections.abc import Iterable
+from typing import Any, Protocol
 
+from django.db.models import QuerySet
+from django.utils.translation import gettext as _
 from ninja import Router
+from ulid import ULID
 
-from app.conference.models import Invitation
+from app.conference.models import Invitation, Track, TrackRole
 from app.conference.types import Invitation as InvitationSchema
 
 router = Router(tags=["Invitation"], exclude_none=True)
@@ -23,3 +28,65 @@ class InvitationResponse(InvitationSchema):
             {"uid": entry.track.uid, "role": entry.role}
             for entry in invitation.track_role_entries.all()
         ]
+
+
+class TrackRoleItem(Protocol):
+    uid: ULID
+    role: TrackRole
+
+
+async def validate_and_group_track_roles(
+    track_roles: Iterable[TrackRoleItem],
+) -> dict[Track, list[TrackRole]]:
+    """Validate track UIDs exist and group roles by track.
+
+    Args:
+        track_roles: Iterable of objects with uid and role attributes.
+
+    Returns:
+        Dict mapping Track objects to lists of TrackRole values.
+
+    Raises:
+        ValueError: If any track UIDs are invalid (not found in database).
+    """
+    track_uids = {track_role.uid for track_role in track_roles}
+
+    if not track_uids:
+        return {}
+
+    tracks = [
+        track async for track in Track.objects.active().filter(uid__in=track_uids)
+    ]
+    track_objs = {track.uid: track for track in tracks}
+
+    missing_uids = track_uids - set(track_objs)
+    if missing_uids:
+        message = _("Invalid track UID(s): {uids}").format(
+            uids=", ".join(sorted(str(uid) for uid in missing_uids))
+        )
+        raise ValueError(message)
+
+    track_roles_mapping: dict[Track, list[TrackRole]] = defaultdict(list)
+    for track_role in track_roles:
+        track = track_objs[track_role.uid]
+        track_roles_mapping[track].append(track_role.role)
+
+    return dict(track_roles_mapping)
+
+
+_INVITATION_PREFETCH = (
+    "interested_keywords",
+    "conference_role_entries",
+    "track_role_entries__track",
+)
+
+
+def with_invitation_prefetch(queryset: QuerySet[Invitation]) -> QuerySet[Invitation]:
+    """Apply prefetch_related for invitation serialization to a queryset."""
+    return queryset.prefetch_related(*_INVITATION_PREFETCH)
+
+
+async def prefetch_invitation(invitation: Invitation) -> Invitation:
+    """Refetch an invitation with all related data prefetched for serialization."""
+    qs = with_invitation_prefetch(Invitation.objects.all())
+    return await qs.aget(pk=invitation.pk)

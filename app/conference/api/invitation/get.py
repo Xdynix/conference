@@ -8,7 +8,7 @@ from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 
-from .core import InvitationResponse, router
+from .core import InvitationResponse, router, with_invitation_prefetch
 
 
 @router.get(
@@ -38,10 +38,6 @@ async def get_invitation(
     invitations = await InvitationService.visible_invitations(conference, user)
 
     return await aget_object_or_404(
-        invitations.prefetch_related(
-            "interested_keywords",
-            "conference_role_entries",
-            "track_role_entries__track",
-        ),
+        with_invitation_prefetch(invitations),
         uid=invitation_id,
     )

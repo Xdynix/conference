@@ -1,37 +1,29 @@
-from collections import defaultdict
 from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
-from ninja import Field, Schema
+from ninja import Field
 from ninja.errors import HttpError
-from ulid import ULID
 
 from app.conference.auth import has_any_conference_or_track_roles
-from app.conference.models import (
-    Conference,
-    ConferenceRole,
-    Invitation,
-    Track,
-    TrackRole,
-)
+from app.conference.models import Conference, ConferenceRole, Invitation, TrackRole
 from app.conference.services import InvitationService, KeywordService
 from app.conference.services.conference import InsufficientRolePermission
 from app.conference.services.invitation import DuplicateInvitation
-from app.conference.types import KeywordText, Profile
+from app.conference.types import InvitationTrackRole, KeywordText, Profile
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest, EmailStr
 from app.ninja.errors import ErrorResponse, make_validation_error
 
-from .core import InvitationResponse, router
-
-
-class InvitationTrackRole(Schema):
-    uid: ULID
-    role: TrackRole
+from .core import (
+    InvitationResponse,
+    prefetch_invitation,
+    router,
+    validate_and_group_track_roles,
+)
 
 
 class CreateInvitationRequest(Profile):
@@ -46,8 +38,9 @@ class CreateInvitationRequest(Profile):
     "/conferences/{slug:conference_name}/invitations",
     response={
         HTTPStatus.CREATED: InvitationResponse,
-        HTTPStatus.CONFLICT: ErrorResponse,
         HTTPStatus.FORBIDDEN: ErrorResponse,
+        HTTPStatus.CONFLICT: ErrorResponse,
+        HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
     },
     summary="Create Invitation",
     auth=(
@@ -80,27 +73,10 @@ async def create_invitation(
             message=str(exc),
         ) from exc
 
-    track_uids = {track_role.uid for track_role in payload.track_roles}
-
-    if track_uids:
-        tracks = [
-            track async for track in Track.objects.active().filter(uid__in=track_uids)
-        ]
-        track_objs = {track.uid: track for track in tracks}
-
-        missing_uids = track_uids - set(track_objs)
-        if missing_uids:
-            message = _("Invalid track UID(s): {uids}").format(
-                uids=", ".join(sorted(str(uid) for uid in missing_uids))
-            )
-            raise make_validation_error(path="track_roles", message=message)
-    else:
-        track_objs = {}
-
-    track_roles_mapping = defaultdict(list)
-    for track_role in payload.track_roles:
-        track = track_objs[track_role.uid]
-        track_roles_mapping[track].append(track_role.role)
+    try:
+        track_roles_mapping = await validate_and_group_track_roles(payload.track_roles)
+    except ValueError as exc:
+        raise make_validation_error(path="track_roles", message=str(exc)) from exc
 
     try:
         invitation = await sync_to_async(InvitationService.create_invitation)(
@@ -133,9 +109,4 @@ async def create_invitation(
         inviter=user,
     )
 
-    invitation = await Invitation.objects.prefetch_related(
-        "interested_keywords",
-        "conference_role_entries",
-        "track_role_entries__track",
-    ).aget(pk=invitation.pk)
-    return HTTPStatus.CREATED, invitation
+    return HTTPStatus.CREATED, await prefetch_invitation(invitation)

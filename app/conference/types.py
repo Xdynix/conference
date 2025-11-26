@@ -3,6 +3,7 @@ __all__ = (
     "ConferenceDisplayName",
     "ConferenceName",
     "Invitation",
+    "InvitationTrackRole",
     "KeywordSetName",
     "KeywordText",
     "Profile",
