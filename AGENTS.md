@@ -36,6 +36,18 @@ uv run manage.py shell -c \
   "from app.core.models import User; print(User.objects.count())"
 ```
 
+### Accessing Library Documentation
+
+- Use the configured Context7 MCP server for up-to-date library docs instead of relying
+  on model memory.
+- Workflow: call `resolve-library-id` with the library name, then call
+  `get-library-docs` with the returned ID (set `mode` to `code` for APIs or `info` for
+  guides; increment `page` if more context is needed).
+- If multiple libraries match, prefer the closest name match with good reputation and
+  coverage; ask the user when the intent is unclear.
+- Keep responses concise and cite only the relevant snippets; avoid guessing when docs
+  are available.
+
 ## Project Structure
 
 The project follows Django's app-based architecture. This structure may evolve over
@@ -226,6 +238,26 @@ class UserResponse(UserSchema):
   `assert await Model.objects.filter().acount() == 1`.
 - **Annotations**: Add `# noqa: ARG002` for intentionally unused fixture parameters.
 - **Imports**: Import `MagicMock` from `unittest.mock` for better type hints.
+
+#### API Test Pattern
+
+- **Happy path**: Exercise most parameters, assert the full response shape, and verify
+  service calls with expected arguments (respect ordering vs set comparison rules).
+- **Parsing/sanitization**: Include small cases for missing vs empty inputs,
+  trimming/normalizing, and defaults; assert both response payload and service call
+  arguments.
+- **Validation**: Check error translation details (`loc`/`msg`/`type`), including
+  invalid identifiers or business constraints enforced in the view.
+- **Service errors**: Cover service exceptions mapped to HTTP responses; parametrize
+  when multiple exceptions share a flow.
+- **Visibility/not-found**: Add 404 cases for scoped lookups (e.g., visibility filters)
+  separate from service errors.
+- **Authorization**: Include unauthenticated, unauthorized, and allowed roles;
+  parametrize allowed roles to reduce duplication.
+- **Instrumentation**: Prefer spies for service methods; use patches when side effects
+  or heavy setup make spies impractical.
+- **Partial updates**: For patch-style endpoints, add “omit keeps existing” and “empty
+  clears value” tests to lock in patch semantics.
 
 ### Error Handling
 
