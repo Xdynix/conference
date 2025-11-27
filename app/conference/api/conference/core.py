@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AnonymousUser
+from django.db.models import Prefetch
 from ninja import Field, Router
 
 from app.conference.models import Conference
@@ -11,7 +12,10 @@ router = Router(tags=["Conference"], exclude_none=True)
 
 
 class ConferenceResponse(ConferenceSchema):
-    tracks: list[TrackSchema] = Field(validation_alias="prefetched_tracks")
+    # `visible_tracks` is attached via `Prefetch` in the list/detail views rather than
+    # being a model field. The validation_alias keeps serialization aligned with the
+    # prefetch to avoid extra queries.
+    tracks: list[TrackSchema] = Field(validation_alias="visible_tracks")
 
 
 class ConferenceDetailResponse(ConferenceResponse):
@@ -35,8 +39,14 @@ async def prefetch_conference(
     Returns:
         The conference instance with keywords and tracks prefetched.
     """
-    conference = await Conference.objects.prefetch_related("keywords").aget(
-        pk=conference.pk
+    return (
+        await Conference.objects.prefetch_related("keywords")
+        .prefetch_related(
+            Prefetch(
+                "tracks",
+                queryset=await ConferenceService.visible_tracks(user),
+                to_attr="visible_tracks",
+            ),
+        )
+        .aget(pk=conference.pk)
     )
-    await ConferenceService.prefetch_tracks(conference, user=user)
-    return conference

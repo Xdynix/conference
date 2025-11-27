@@ -264,7 +264,6 @@ class TestHasAnyTrackRoles(TrackAuthTestCase):
 
     def test_allows_user_with_matching_role(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -285,11 +284,10 @@ class TestHasAnyTrackRoles(TrackAuthTestCase):
 
         self.assert_response_is_ok(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)
 
     def test_forbids_user_without_required_role(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -310,7 +308,7 @@ class TestHasAnyTrackRoles(TrackAuthTestCase):
 
         self.assert_response_is_forbidden(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)
 
     def test_returns_404_when_conference_invisible_even_with_role(
         self,
@@ -338,7 +336,6 @@ class TestHasAnyTrackRoles(TrackAuthTestCase):
 
     def test_returns_404_when_track_invisible_even_with_role(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -359,7 +356,7 @@ class TestHasAnyTrackRoles(TrackAuthTestCase):
 
         self.assert_response_is_not_found(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)
 
 
 @pytest.mark.django_db
@@ -368,7 +365,6 @@ class TestHasAnyTrackRolesMultiple(TrackAuthTestCase):
 
     def test_allows_user_with_any_role(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -389,11 +385,10 @@ class TestHasAnyTrackRolesMultiple(TrackAuthTestCase):
 
         self.assert_response_is_ok(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)
 
     def test_forbids_user_without_any_required_roles(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -414,7 +409,7 @@ class TestHasAnyTrackRolesMultiple(TrackAuthTestCase):
 
         self.assert_response_is_forbidden(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)
 
 
 @pytest.mark.django_db
@@ -467,7 +462,6 @@ class TestHasAnyConferenceOrTrackRoles(ConferenceAuthTestCase):
 
     def test_allows_user_with_track_role(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -488,11 +482,10 @@ class TestHasAnyConferenceOrTrackRoles(ConferenceAuthTestCase):
 
         self.assert_response_is_ok(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)
 
     def test_forbids_user_without_required_roles(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -518,7 +511,7 @@ class TestHasAnyConferenceOrTrackRoles(ConferenceAuthTestCase):
 
         self.assert_response_is_forbidden(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)
 
     def test_returns_404_when_conference_invisible_even_with_role(
         self,
@@ -545,7 +538,6 @@ class TestHasAnyConferenceOrTrackRoles(ConferenceAuthTestCase):
 
     def test_returns_forbidden_when_track_invisible_even_with_track_role(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -566,7 +558,7 @@ class TestHasAnyConferenceOrTrackRoles(ConferenceAuthTestCase):
 
         self.assert_response_is_forbidden(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)
 
 
 @pytest.mark.django_db
@@ -603,7 +595,6 @@ class TestHasAnyConferenceOrTrackRolesMultiple(ConferenceAuthTestCase):
 
     def test_allows_user_with_any_track_role(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -624,11 +615,10 @@ class TestHasAnyConferenceOrTrackRolesMultiple(ConferenceAuthTestCase):
 
         self.assert_response_is_ok(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)
 
     def test_forbids_user_without_any_required_roles(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -649,11 +639,10 @@ class TestHasAnyConferenceOrTrackRolesMultiple(ConferenceAuthTestCase):
 
         self.assert_response_is_forbidden(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)
 
     def test_forbids_user_when_track_invisible_even_with_role(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -674,7 +663,7 @@ class TestHasAnyConferenceOrTrackRolesMultiple(ConferenceAuthTestCase):
 
         self.assert_response_is_forbidden(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)
 
     def test_returns_404_when_conference_invisible_even_with_role(
         self,
@@ -736,7 +725,6 @@ class TestHasAnyConferenceOrTrackRolesOnlyTrackRole(ConferenceAuthTestCase):
 
     def test_forbids_user_with_only_conference_role(
         self,
-        mocker: MockerFixture,
         client: Client,
         user: User,
         conference: Conference,
@@ -756,4 +744,4 @@ class TestHasAnyConferenceOrTrackRolesOnlyTrackRole(ConferenceAuthTestCase):
 
         self.assert_response_is_forbidden(response)
         visible_conferences.assert_awaited_once_with(user)
-        visible_tracks.assert_awaited_once_with(user, [mocker.ANY])
+        visible_tracks.assert_awaited_once_with(user)

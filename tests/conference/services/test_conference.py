@@ -473,7 +473,7 @@ class TestConferenceServiceVisibleTracks:
             visibility=Track.Visibility.ADMIN_ONLY,
         )
 
-        qs = await ConferenceService.visible_tracks(AnonymousUser(), [conference])
+        qs = await ConferenceService.visible_tracks(AnonymousUser())
         tracks = [track async for track in qs]
 
         assert tracks == [public_track]
@@ -497,7 +497,7 @@ class TestConferenceServiceVisibleTracks:
         )
         await a_update_object(user, is_superuser=True)
 
-        qs = await ConferenceService.visible_tracks(user, [conference])
+        qs = await ConferenceService.visible_tracks(user)
         tracks = [track async for track in qs]
 
         assert tracks == [first_track, second_track]
@@ -514,7 +514,7 @@ class TestConferenceServiceVisibleTracks:
         )
         await GlobalRoleAssignment.objects.acreate(user=user, role=GlobalRole.READ_ALL)
 
-        qs = await ConferenceService.visible_tracks(user, [conference])
+        qs = await ConferenceService.visible_tracks(user)
         tracks = [track async for track in qs]
 
         assert tracks == [private_track]
@@ -542,7 +542,7 @@ class TestConferenceServiceVisibleTracks:
             role=ConferenceRole.SECRETARY,
         )
 
-        qs = await ConferenceService.visible_tracks(user, [conference])
+        qs = await ConferenceService.visible_tracks(user)
         tracks = [track async for track in qs]
 
         assert tracks == [public_track, private_track]
@@ -568,7 +568,7 @@ class TestConferenceServiceVisibleTracks:
             role=TrackRole.CHAIR,
         )
 
-        qs = await ConferenceService.visible_tracks(user, [conference])
+        qs = await ConferenceService.visible_tracks(user)
         tracks = [track async for track in qs]
 
         assert tracks == [assigned_track]
@@ -601,10 +601,7 @@ class TestConferenceServiceVisibleTracks:
         )
         await a_update_object(user, is_superuser=True)
 
-        qs = await ConferenceService.visible_tracks(
-            user,
-            [active_conference, inactive_conference],
-        )
+        qs = await ConferenceService.visible_tracks(user)
         tracks = [track async for track in qs]
 
         assert tracks == [active_track]

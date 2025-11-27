@@ -97,11 +97,7 @@ class TestListConferences:
         }
 
         mock_visible_conferences.assert_awaited_once_with(user)
-        mock_visible_tracks.assert_awaited_once_with(
-            user,
-            (alpha, beta),
-            global_readable=mocker.ANY,
-        )
+        mock_visible_tracks.assert_awaited_once_with(user)
 
     def test_returns_empty_list_when_service_has_no_results(
         self,
@@ -125,8 +121,40 @@ class TestListConferences:
         assert response.json() == {"items": []}
 
         mock_visible_conferences.assert_awaited_once_with(AnonymousUser())
-        mock_visible_tracks.assert_awaited_once_with(
-            AnonymousUser(),
-            (),
-            global_readable=mocker.ANY,
+        mock_visible_tracks.assert_awaited_once_with(AnonymousUser())
+
+    def test_scopes_tracks_to_matching_conference(self, api_client: Client) -> None:
+        alpha = Conference.objects.create(
+            name="alpha-conf",
+            display_name="Alpha Conf",
+            visibility=Conference.Visibility.PUBLIC,
         )
+        beta = Conference.objects.create(
+            name="beta-conf",
+            display_name="Beta Conf",
+            visibility=Conference.Visibility.PUBLIC,
+        )
+        alpha_track = Track.objects.create(
+            conference=alpha,
+            display_name="Alpha Track",
+            visibility=Track.Visibility.PUBLIC,
+        )
+        beta_track = Track.objects.create(
+            conference=beta,
+            display_name="Beta Track",
+            visibility=Track.Visibility.PUBLIC,
+        )
+
+        response = api_client.get(self.path, {"order": "asc"})
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()["items"]
+        assert [item["name"] for item in data] == [alpha.name, beta.name]
+        tracks_by_conf = {
+            item["name"]: [track["display_name"] for track in item["tracks"]]
+            for item in data
+        }
+        assert tracks_by_conf == {
+            alpha.name: [alpha_track.display_name],
+            beta.name: [beta_track.display_name],
+        }

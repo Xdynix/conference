@@ -128,9 +128,9 @@ def has_any_track_roles(
             conferences,
             name=conference_name,
         )
-        tracks = await ConferenceService.visible_tracks(user, [conference])
+        tracks = await ConferenceService.visible_tracks(user)
         track = await aget_object_or_404(
-            tracks,
+            tracks.filter(conference=conference),
             uid=track_id,
         )
         return await track.role_assignments.filter(
@@ -206,9 +206,9 @@ def has_any_conference_or_track_roles(
 
         # Check track roles (only visible tracks in this conference).
         if track_roles:
-            visible_tracks = await ConferenceService.visible_tracks(user, [conference])
+            tracks = await ConferenceService.visible_tracks(user)
             return await TrackRoleAssignment.objects.filter(
-                track__in=visible_tracks,
+                track__in=tracks.filter(conference=conference),
                 user=user,
                 role__in=track_roles,
             ).aexists()

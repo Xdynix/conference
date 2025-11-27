@@ -194,13 +194,12 @@ class ConferenceService:
     async def visible_tracks(
         cls,
         user: User | AnonymousUser,
-        conferences: Collection[Conference] | QuerySet[Conference],
         global_readable: Collection[GlobalRole] = (
             GlobalRole.ADMIN,
             GlobalRole.READ_ALL,
         ),
     ) -> QuerySet[Track]:
-        """Return the queryset of tracks within ``conferences`` visible to ``user``.
+        """Return the queryset of active tracks visible to ``user``.
 
         The queryset includes:
 
@@ -209,7 +208,7 @@ class ConferenceService:
         - private tracks whose parent conference the user administers; and
         - private tracks where the user has a track-admin role.
         """
-        tracks = Track.objects.active().filter(conference__in=conferences)
+        tracks = Track.objects.active()
 
         if not user.is_authenticated:
             return tracks.filter(visibility=Track.Visibility.PUBLIC)
@@ -234,32 +233,6 @@ class ConferenceService:
         return tracks.filter(
             is_public | is_conference_admin | is_track_admin
         ).distinct()
-
-    @classmethod
-    async def prefetch_tracks(
-        cls,
-        *conferences: Conference,
-        user: User | AnonymousUser,
-        global_readable: Collection[GlobalRole] = (
-            GlobalRole.ADMIN,
-            GlobalRole.READ_ALL,
-        ),
-    ) -> Collection[Conference]:
-        """Attach track lists to conferences according to ``visible_tracks`` rules."""
-        tracks = await cls.visible_tracks(
-            user,
-            conferences,
-            global_readable=global_readable,
-        )
-
-        conference_tracks: dict[int, list[Track]] = defaultdict(list)
-        async for track in tracks:
-            conference_tracks[track.conference_id].append(track)
-
-        for conference in conferences:
-            conference.prefetched_tracks = conference_tracks[conference.id]
-
-        return conferences
 
     @classmethod
     def validate_can_assign_roles(
