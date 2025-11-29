@@ -12,6 +12,7 @@ from app.patches import (
     monkeypatch_django_ninja_openapi_csrf,
     monkeypatch_django_ninja_patch_dict,
 )
+from app.utils.cf_turnstile.types import CFTurnstileMode
 from app.utils.shorthands import days, seconds
 
 # Common
@@ -255,6 +256,14 @@ MUTEX_RETENTION = config("MUTEX_RETENTION", default=7, cast=days)
 
 
 # Cloudflare Turnstile
+
+CF_TURNSTILE_MODE: CFTurnstileMode = config(
+    "CF_TURNSTILE_MODE",
+    default=CFTurnstileMode.STRICT,
+    cast=CFTurnstileMode,
+)
+
+# TODO: Add geo-based mode overriding.
 
 CF_TURNSTILE_SITE_KEY = config("CF_TURNSTILE_SITE_KEY", default="")
 

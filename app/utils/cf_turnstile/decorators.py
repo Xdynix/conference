@@ -14,6 +14,7 @@ from django.utils.translation import gettext_lazy as _
 from ipware import get_client_ip
 from loguru import logger
 
+from app.utils.cf_turnstile.types import CFTurnstileMode
 from app.utils.cf_turnstile.verify import verify_cf_turnstile_response
 
 
@@ -32,6 +33,10 @@ async def check_cf_turnstile_response(
         ``None`` if verification passes or should be skipped, otherwise returns an
         ``HttpResponse`` with appropriate error status and message.
     """
+    if settings.CF_TURNSTILE_MODE == CFTurnstileMode.DISABLED:
+        logger.debug("CF Turnstile verification disabled; bypassing check.")
+        return None
+
     if not enforce_on_safe and request.method in ("GET", "HEAD", "OPTIONS", "TRACE"):
         return None
 
@@ -132,6 +137,7 @@ def cf_turnstile_required[F: Callable[..., Any]](
     This decorator intercepts requests and validates Cloudflare Turnstile responses
     before allowing access to the protected view. Verification can be bypassed by:
 
+    - **Disabled Mode**: Set ``CF_TURNSTILE_MODE=disabled`` to skip verification.
     - **Superuser Accounts**: Users with ``is_superuser=True`` automatically bypass
       verification.
     - **Bypass Secrets**: Providing a secret value configured in

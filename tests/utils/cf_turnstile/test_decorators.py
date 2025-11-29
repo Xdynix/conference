@@ -13,6 +13,7 @@ from faker import Faker
 from pytest_mock import MockerFixture
 
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
+from app.utils.cf_turnstile.types import CFTurnstileMode
 from tests.base import URLConfTestCase, URLPatterns
 
 
@@ -80,6 +81,24 @@ class TestCfTurnstileRequired(URLConfTestCase):
         response = getattr(client, method)("/protected-safe/")
         assert response.status_code == HTTPStatus.FORBIDDEN
         assert response.json() == {"message": f"Missing {mock_header_name} header."}
+
+    @pytest.mark.parametrize(
+        "url",
+        ["/protected/", "/protected-safe/", "/async-protected/"],
+    )
+    def test_disabled_mode_bypasses_verification(
+        self,
+        settings: LazySettings,
+        client: Client,
+        mock_verify: AsyncMock,
+        url: str,
+    ) -> None:
+        settings.CF_TURNSTILE_MODE = CFTurnstileMode.DISABLED
+
+        response = client.post(url)
+
+        assert response.status_code == HTTPStatus.OK
+        mock_verify.assert_not_called()
 
     @pytest.mark.parametrize(
         "url",
