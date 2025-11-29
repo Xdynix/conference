@@ -455,6 +455,36 @@ class TestConferenceServiceVisibleConferences:
 
         assert conferences == [target]
 
+    async def test_inactive_track_admin_does_not_gain_visibility(
+        self,
+        user: User,
+    ) -> None:
+        target = await Conference.objects.acreate(
+            name="target-conf",
+            display_name="Target",
+            visibility=Conference.Visibility.ADMIN_ONLY,
+        )
+        await Conference.objects.acreate(
+            name="other-conf",
+            display_name="Other",
+            visibility=Conference.Visibility.ADMIN_ONLY,
+        )
+        inactive_track = await Track.objects.acreate(
+            conference=target,
+            display_name="Inactive Track",
+            active=False,
+        )
+        await TrackRoleAssignment.objects.acreate(
+            track=inactive_track,
+            user=user,
+            role=TrackRole.CHAIR,
+        )
+
+        qs = await ConferenceService.visible_conferences(user)
+        conferences = [conf async for conf in qs.order_by("name")]
+
+        assert conferences == []
+
 
 @pytest.mark.django_db(transaction=True)
 class TestConferenceServiceVisibleTracks:
@@ -1090,6 +1120,30 @@ class TestConferenceServiceValidateCanAssignRoles:
                 conference=conference,
                 conference_roles=[],
                 track_roles={other_track: [TrackRole.REVIEWER]},
+            )
+
+    def test_inactive_track_rejected_as_not_belonging_to_conference(
+        self,
+        user: User,
+        conference: Conference,
+        track_a: Track,
+    ) -> None:
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.CHAIR,
+        )
+        update_object(track_a, active=False)
+
+        with pytest.raises(
+            ValueError,
+            match="The following tracks do not belong to this conference",
+        ):
+            ConferenceService.validate_can_assign_roles(
+                user=user,
+                conference=conference,
+                conference_roles=[],
+                track_roles={track_a: [TrackRole.REVIEWER]},
             )
 
     @pytest.mark.parametrize(

@@ -36,6 +36,15 @@ class ImmutableInvitation(Exception):
 class InvitationService:
     token_signer = Signer(salt="conference.invitation_code")
 
+    # Note: Service methods assume the conference is active. API layer validates
+    # conference active status via Conference.objects.active(). Service methods do not
+    # re-validate conference active status for consistency with how conference roles are
+    # handled (we trust the caller has validated the conference object).
+
+    # TODO: Review whether to enforce conference active check in service layer for
+    #  defense in depth, especially for methods called outside API endpoints (Django
+    #  admin, management commands, background jobs).
+
     # TODO: Add send-invitation method.
 
     @classmethod
@@ -282,7 +291,9 @@ class InvitationService:
         ]
 
         track_roles_dict: dict[Track, list[str]] = defaultdict(list)
-        for entry in invitation.track_role_entries.select_related("track").all():
+        for entry in invitation.track_role_entries.select_related("track").filter(
+            track__active=True,
+        ):
             track_roles_dict[entry.track].append(entry.role)
 
         return conference_roles, dict(track_roles_dict)
@@ -349,7 +360,9 @@ class InvitationService:
                 ignore_conflicts=True,
             )
 
-            entries = invitation.track_role_entries.select_related("track")
+            entries = invitation.track_role_entries.select_related("track").filter(
+                track__active=True,
+            )
             # Defensive: track entries should always belong to the invitation's
             # conference. If not, something outside normal flows (manual edits,
             # migrations) has tampered with data; fail loudly.
@@ -414,12 +427,15 @@ class InvitationService:
 
         administered_track_ids = [
             track_id
-            async for track_id in conference.tracks.filter(
-                role_assignment__user=user,
-                role_assignment__role__in=TrackRole.admins(),
+            async for track_id in (
+                conference.tracks.active()
+                .filter(
+                    role_assignment__user=user,
+                    role_assignment__role__in=TrackRole.admins(),
+                )
+                .distinct()
+                .values_list("pk", flat=True)
             )
-            .distinct()
-            .values_list("pk", flat=True)
         ]
 
         if not administered_track_ids:
@@ -430,10 +446,12 @@ class InvitationService:
         )
         administered_track_roles = InvitationTrackRoleEntry.objects.filter(
             invitation=OuterRef("pk"),
+            track__active=True,
             track_id__in=administered_track_ids,
         )
         other_track_roles = InvitationTrackRoleEntry.objects.filter(
-            invitation=OuterRef("pk")
+            invitation=OuterRef("pk"),
+            track__active=True,
         ).exclude(track_id__in=administered_track_ids)
 
         return invitations.annotate(

@@ -993,6 +993,30 @@ class TestInvitationServiceGetInvitationRoles:
         assert track_roles_result[track_b] == [TrackRole.REVIEWER]
         assert track_roles_result[track_c] == [TrackRole.SECRETARY]
 
+    def test_inactive_tracks_filtered_out(
+        self,
+        faker: Faker,
+        invitation: Invitation,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        inactive_track = Track.objects.create(
+            conference=conference,
+            display_name=faker.word(),
+            active=False,
+        )
+        add_invitation_roles(
+            invitation,
+            track_roles={
+                track: [TrackRole.CHAIR],
+                inactive_track: [TrackRole.SECRETARY],
+            },
+        )
+
+        _, track_roles_result = InvitationService.get_invitation_roles(invitation)
+
+        assert inactive_track not in track_roles_result
+
 
 @pytest.mark.django_db
 class TestInvitationServiceGetInvitationToken:
@@ -1200,18 +1224,18 @@ class TestInvitationServiceRedeemInvitation:
         assert result is True
 
         assert TrackRoleAssignment.objects.filter(
-            user=invitee,
             track=track1,
+            user=invitee,
             role=TrackRole.SECRETARY,
         ).exists()
         assert TrackRoleAssignment.objects.filter(
-            user=invitee,
             track=track1,
+            user=invitee,
             role=TrackRole.REVIEWER,
         ).exists()
         assert TrackRoleAssignment.objects.filter(
-            user=invitee,
             track=track2,
+            user=invitee,
             role=TrackRole.SECRETARY,
         ).exists()
 
@@ -1228,8 +1252,8 @@ class TestInvitationServiceRedeemInvitation:
             role=ConferenceRole.CHAIR,
         )
         TrackRoleAssignment.objects.create(
-            user=invitee,
             track=track,
+            user=invitee,
             role=TrackRole.SECRETARY,
         )
         add_invitation_roles(
@@ -1251,8 +1275,8 @@ class TestInvitationServiceRedeemInvitation:
         )
         assert (
             TrackRoleAssignment.objects.filter(
-                user=invitee,
                 track=track,
+                user=invitee,
                 role=TrackRole.SECRETARY,
             ).count()
             == 1
@@ -1279,6 +1303,44 @@ class TestInvitationServiceRedeemInvitation:
 
         with pytest.raises(RuntimeError, match="track role does not belong to"):
             InvitationService.redeem_invitation(invitation, invitee)
+
+    def test_inactive_track_roles_not_assigned(
+        self,
+        faker: Faker,
+        conference: Conference,
+        invitation: Invitation,
+        invitee: User,
+    ) -> None:
+        active_track = Track.objects.create(
+            conference=conference,
+            display_name=faker.word(),
+        )
+        inactive_track = Track.objects.create(
+            conference=conference,
+            display_name=faker.word(),
+            active=False,
+        )
+        add_invitation_roles(
+            invitation,
+            track_roles={
+                active_track: [TrackRole.CHAIR],
+                inactive_track: [TrackRole.SECRETARY],
+            },
+        )
+
+        result = InvitationService.redeem_invitation(invitation, invitee)
+        assert result is True
+
+        assert TrackRoleAssignment.objects.filter(
+            track=active_track,
+            user=invitee,
+            role=TrackRole.CHAIR,
+        ).exists()
+        assert not TrackRoleAssignment.objects.filter(
+            track=inactive_track,
+            user=invitee,
+            role=TrackRole.SECRETARY,
+        ).exists()
 
 
 InvitationFactory = Callable[..., Awaitable[Invitation]]
@@ -1390,8 +1452,8 @@ class TestInvitationServiceVisibleInvitations:
     ) -> None:
         track_admin = await User.objects.acreate_user(username=faker.user_name())
         await TrackRoleAssignment.objects.acreate(
-            user=track_admin,
             track=track_a,
+            user=track_admin,
             role=track_role,
         )
         invitation = await make_invitation()
@@ -1416,8 +1478,8 @@ class TestInvitationServiceVisibleInvitations:
     ) -> None:
         track_admin = await User.objects.acreate_user(username=faker.user_name())
         await TrackRoleAssignment.objects.acreate(
-            user=track_admin,
             track=track_a,
+            user=track_admin,
             role=track_role,
         )
         invitation = await make_invitation()
@@ -1434,6 +1496,40 @@ class TestInvitationServiceVisibleInvitations:
         assert await result.acount() == 0
 
     @pytest.mark.parametrize("track_role", TrackRole.admins())
+    async def test_track_admin_ignores_inactive_other_tracks(
+        self,
+        faker: Faker,
+        conference: Conference,
+        make_invitation: InvitationFactory,
+        track_a: Track,
+        track_role: TrackRole,
+    ) -> None:
+        inactive_track = await Track.objects.acreate(
+            conference=conference,
+            display_name=faker.word(),
+            active=False,
+        )
+        track_admin = await User.objects.acreate_user(username=faker.user_name())
+        await TrackRoleAssignment.objects.acreate(
+            track=track_a,
+            user=track_admin,
+            role=track_role,
+        )
+        invitation = await make_invitation()
+        await a_add_invitation_roles(
+            invitation,
+            track_roles={
+                track_a: [TrackRole.REVIEWER],
+                inactive_track: [TrackRole.REVIEWER],
+            },
+        )
+
+        result = await InvitationService.visible_invitations(conference, track_admin)
+
+        assert await result.acount() == 1
+        assert {i async for i in result} == {invitation}
+
+    @pytest.mark.parametrize("track_role", TrackRole.admins())
     async def test_track_admin_does_not_see_other_tracks_invitation(
         self,
         faker: Faker,
@@ -1445,8 +1541,8 @@ class TestInvitationServiceVisibleInvitations:
     ) -> None:
         track_admin = await User.objects.acreate_user(username=faker.user_name())
         await TrackRoleAssignment.objects.acreate(
-            user=track_admin,
             track=track_a,
+            user=track_admin,
             role=track_role,
         )
         invitation = await make_invitation()
@@ -1469,8 +1565,8 @@ class TestInvitationServiceVisibleInvitations:
     ) -> None:
         track_admin = await User.objects.acreate_user(username=faker.user_name())
         await TrackRoleAssignment.objects.acreate(
-            user=track_admin,
             track=track_a,
+            user=track_admin,
             role=track_role,
         )
         invitation = await make_invitation()
@@ -1495,8 +1591,8 @@ class TestInvitationServiceVisibleInvitations:
     ) -> None:
         track_admin = await User.objects.acreate_user(username=faker.user_name())
         await TrackRoleAssignment.objects.acreate(
-            user=track_admin,
             track=track_a,
+            user=track_admin,
             role=track_role,
         )
         await make_invitation()
@@ -1532,8 +1628,8 @@ class TestInvitationServiceVisibleInvitations:
     ) -> None:
         reviewer = await User.objects.acreate_user(username=faker.user_name())
         await TrackRoleAssignment.objects.acreate(
-            user=reviewer,
             track=track_a,
+            user=reviewer,
             role=TrackRole.REVIEWER,
         )
         await make_invitation()
@@ -1567,8 +1663,8 @@ class TestInvitationServiceVisibleInvitations:
         track_admin = await User.objects.acreate_user(username=faker.user_name())
         for track in (track_a, track_b, track_c):
             await TrackRoleAssignment.objects.acreate(
-                user=track_admin,
                 track=track,
+                user=track_admin,
                 role=TrackRole.CHAIR,
             )
         invitation = await make_invitation()
@@ -1594,8 +1690,8 @@ class TestInvitationServiceVisibleInvitations:
         track_admin = await User.objects.acreate_user(username=faker.user_name())
         for track in (track_a, track_b, track_c):
             await TrackRoleAssignment.objects.acreate(
-                user=track_admin,
                 track=track,
+                user=track_admin,
                 role=TrackRole.CHAIR,
             )
         invitation = await make_invitation()
@@ -1624,8 +1720,8 @@ class TestInvitationServiceVisibleInvitations:
         track_admin = await User.objects.acreate_user(username=faker.user_name())
         for track in (track_a, track_b):
             await TrackRoleAssignment.objects.acreate(
-                user=track_admin,
                 track=track,
+                user=track_admin,
                 role=TrackRole.CHAIR,
             )
         invitation = await make_invitation()
@@ -1651,8 +1747,8 @@ class TestInvitationServiceVisibleInvitations:
     ) -> None:
         track_admin = await User.objects.acreate_user(username=faker.user_name())
         await TrackRoleAssignment.objects.acreate(
-            user=track_admin,
             track=track_a,
+            user=track_admin,
             role=TrackRole.CHAIR,
         )
 
@@ -1696,3 +1792,30 @@ class TestInvitationServiceVisibleInvitations:
         assert len(result_list) == 2
         assert len(set(result_list)) == 2
         assert set(result_list) == {visible_invitation1, visible_invitation2}
+
+    async def test_inactive_track_admin_sees_no_invitations(
+        self,
+        faker: Faker,
+        conference: Conference,
+        make_invitation: InvitationFactory,
+    ) -> None:
+        inactive_track = await Track.objects.acreate(
+            conference=conference,
+            display_name=faker.word(),
+            active=False,
+        )
+        track_admin = await User.objects.acreate_user(username=faker.user_name())
+        await TrackRoleAssignment.objects.acreate(
+            track=inactive_track,
+            user=track_admin,
+            role=TrackRole.CHAIR,
+        )
+        invitation = await make_invitation()
+        await a_add_invitation_roles(
+            invitation,
+            track_roles={inactive_track: [TrackRole.REVIEWER]},
+        )
+
+        result = await InvitationService.visible_invitations(conference, track_admin)
+
+        assert await result.acount() == 0

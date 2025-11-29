@@ -183,6 +183,7 @@ class ConferenceService:
             role_assignment__role__in=ConferenceRole.admins(),
         )
         is_track_admin = Q(
+            track__active=True,
             track__role_assignment__user=user,
             track__role_assignment__role__in=TrackRole.admins(),
         )
@@ -264,7 +265,7 @@ class ConferenceService:
         invalid_tracks = [
             track
             for track in requested_track_roles
-            if track.conference_id != conference.pk
+            if track.conference_id != conference.pk or not track.active
         ]
         if invalid_tracks:
             raise ValueError(

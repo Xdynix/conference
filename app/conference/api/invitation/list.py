@@ -12,7 +12,7 @@ from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.pagination import CursorPagination
 
-from .core import InvitationResponse, router
+from .core import InvitationResponse, router, with_invitation_prefetch
 
 
 @router.get(
@@ -64,8 +64,4 @@ async def list_invitations(
             case _ as unreachable:
                 assert_never(unreachable)
 
-    return invitations.prefetch_related(
-        "interested_keywords",
-        "conference_role_entries",
-        "track_role_entries__track",
-    )
+    return with_invitation_prefetch(invitations)

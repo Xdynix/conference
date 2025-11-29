@@ -2,12 +2,12 @@ from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any, Protocol
 
-from django.db.models import QuerySet
+from django.db.models import Prefetch, QuerySet
 from django.utils.translation import gettext as _
 from ninja import Router
 from ulid import ULID
 
-from app.conference.models import Invitation, Track, TrackRole
+from app.conference.models import Invitation, InvitationTrackRoleEntry, Track, TrackRole
 from app.conference.types import Invitation as InvitationSchema
 
 router = Router(tags=["Invitation"], exclude_none=True)
@@ -26,7 +26,7 @@ class InvitationResponse(InvitationSchema):
     def resolve_track_roles(invitation: Invitation) -> list[dict[str, Any]]:
         return [
             {"uid": entry.track.uid, "role": entry.role}
-            for entry in invitation.track_role_entries.all()
+            for entry in invitation.active_track_role_entries  # type: ignore[attr-defined]
         ]
 
 
@@ -74,16 +74,20 @@ async def validate_and_group_track_roles(
     return dict(track_roles_mapping)
 
 
-_INVITATION_PREFETCH = (
-    "interested_keywords",
-    "conference_role_entries",
-    "track_role_entries__track",
-)
-
-
 def with_invitation_prefetch(queryset: QuerySet[Invitation]) -> QuerySet[Invitation]:
     """Apply prefetch_related for invitation serialization to a queryset."""
-    return queryset.prefetch_related(*_INVITATION_PREFETCH)
+    return queryset.prefetch_related(
+        "interested_keywords",
+        "conference_role_entries",
+    ).prefetch_related(
+        Prefetch(
+            "track_role_entries",
+            queryset=InvitationTrackRoleEntry.objects.filter(
+                track__active=True
+            ).select_related("track"),
+            to_attr="active_track_role_entries",
+        )
+    )
 
 
 async def prefetch_invitation(invitation: Invitation) -> Invitation:

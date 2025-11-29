@@ -127,6 +127,53 @@ class TestGetInvitation:
 
         mock_visible.assert_awaited_once_with(conference, conference_admin)
 
+    def test_inactive_track_roles_excluded_from_response(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        conference_admin: User,
+        mock_visible: AsyncMock,
+    ) -> None:
+        active_track = Track.objects.create(
+            conference=conference,
+            display_name=faker.word(),
+        )
+        inactive_track = Track.objects.create(
+            conference=conference,
+            display_name=faker.word(),
+            active=False,
+        )
+        invitation = Invitation.objects.create(
+            conference=conference,
+            invitee_email=faker.email(),
+        )
+        InvitationTrackRoleEntry.objects.create(
+            invitation=invitation,
+            track=active_track,
+            role=TrackRole.CHAIR,
+        )
+        InvitationTrackRoleEntry.objects.create(
+            invitation=invitation,
+            track=inactive_track,
+            role=TrackRole.SECRETARY,
+        )
+        mock_visible.return_value = Invitation.objects.filter(pk=invitation.pk)
+        api_client.force_login(conference_admin)
+
+        response = api_client.get(self.path(conference.name, invitation.uid))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["track_roles"] == [
+            {
+                "uid": str(active_track.uid),
+                "role": TrackRole.CHAIR,
+            }
+        ]
+
+        mock_visible.assert_awaited_once_with(conference, conference_admin)
+
     def test_returns_404_when_invitation_not_visible(
         self,
         faker: Faker,
