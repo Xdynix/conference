@@ -237,6 +237,11 @@ RUNSERVER_PLUS_EXCLUDE_PATTERNS = [
 ]
 
 
+# django-ipware
+
+# TODO: Configure `IPWARE_META_PRECEDENCE_ORDER`.
+
+
 # Site
 
 SITE_NAME = config("SITE_NAME", default="Django")
