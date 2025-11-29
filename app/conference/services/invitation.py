@@ -293,14 +293,17 @@ class InvitationService:
         return cls.token_signer.sign(str(invitation.uid))
 
     @classmethod
-    async def retrieve_invitation(cls, token: str) -> Invitation | None:
+    def retrieve_invitation(cls, token: str) -> Invitation | None:
         """Return the invitation for ``token`` or ``None`` when it is invalid."""
         try:
             invitation_uid = cls.token_signer.unsign(token)
         except BadSignature:
             return None
 
-        return await Invitation.objects.filter(uid=invitation_uid).afirst()
+        return Invitation.objects.filter(
+            uid=invitation_uid,
+            conference__active=True,
+        ).first()
 
     @classmethod
     def redeem_invitation(cls, invitation: Invitation, user: User) -> bool:

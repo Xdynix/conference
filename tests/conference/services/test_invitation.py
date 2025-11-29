@@ -1029,34 +1029,34 @@ class TestInvitationServiceGetInvitationToken:
         assert token1 != token2
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 class TestInvitationServiceRetrieveInvitation:
-    async def test_happy_path(self, invitation: Invitation) -> None:
+    def test_happy_path(self, invitation: Invitation) -> None:
         token = InvitationService.get_invitation_token(invitation)
 
-        result = await InvitationService.retrieve_invitation(token)
+        result = InvitationService.retrieve_invitation(token)
 
         assert result == invitation
 
-    async def test_returns_none_for_invalid_token(self) -> None:
+    def test_returns_none_for_invalid_token(self) -> None:
         invalid_token = "invalid:token:signature"
 
-        result = await InvitationService.retrieve_invitation(invalid_token)
+        result = InvitationService.retrieve_invitation(invalid_token)
 
         assert result is None
 
-    async def test_returns_none_for_tampered_token(
+    def test_returns_none_for_tampered_token(
         self,
         invitation: Invitation,
     ) -> None:
         token = InvitationService.get_invitation_token(invitation)
         tampered_token = token[:-6] + "foobar"
 
-        result = await InvitationService.retrieve_invitation(tampered_token)
+        result = InvitationService.retrieve_invitation(tampered_token)
 
         assert result is None
 
-    async def test_returns_none_for_nonexistent_invitation(
+    def test_returns_none_for_nonexistent_invitation(
         self,
         mocker: MockerFixture,
     ) -> None:
@@ -1067,12 +1067,12 @@ class TestInvitationServiceRetrieveInvitation:
         )
         fake_token = "fake:token"
 
-        result = await InvitationService.retrieve_invitation(fake_token)
+        result = InvitationService.retrieve_invitation(fake_token)
 
         assert result is None
         mock_unsign.assert_called_once_with(fake_token)
 
-    async def test_handles_bad_signature_exception(
+    def test_handles_bad_signature_exception(
         self,
         mocker: MockerFixture,
     ) -> None:
@@ -1082,7 +1082,18 @@ class TestInvitationServiceRetrieveInvitation:
             side_effect=BadSignature("Invalid signature"),
         )
 
-        result = await InvitationService.retrieve_invitation("bad:token")
+        result = InvitationService.retrieve_invitation("bad:token")
+
+        assert result is None
+
+    def test_returns_none_for_inactive_conference(
+        self,
+        invitation: Invitation,
+    ) -> None:
+        update_object(invitation.conference, active=False)
+        token = InvitationService.get_invitation_token(invitation)
+
+        result = InvitationService.retrieve_invitation(token)
 
         assert result is None
 

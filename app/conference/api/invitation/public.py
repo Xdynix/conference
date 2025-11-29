@@ -56,7 +56,9 @@ async def lookup_invitation(
     """Retrieve an invitation by token."""
     # Use POST with a body instead of GET/path params so the token stays out of URLs
     # and access logs. The RPC-style path is intentional to protect the secret token.
-    invitation = await InvitationService.retrieve_invitation(payload.invitation_token)
+    invitation = await sync_to_async(InvitationService.retrieve_invitation)(
+        payload.invitation_token
+    )
     if invitation is None:
         raise Http404
 
@@ -83,7 +85,9 @@ async def redeem_invitation(
     payload: InvitationTokenPayload,
 ) -> tuple[int, None]:
     """Redeem an invitation using its token."""
-    invitation = await InvitationService.retrieve_invitation(payload.invitation_token)
+    invitation = await sync_to_async(InvitationService.retrieve_invitation)(
+        payload.invitation_token
+    )
     if invitation is None:
         raise Http404
 
@@ -122,7 +126,9 @@ async def reject_invitation(
     payload: InvitationTokenPayload,
 ) -> tuple[int, None]:
     """Reject an invitation."""
-    invitation = await InvitationService.retrieve_invitation(payload.invitation_token)
+    invitation = await sync_to_async(InvitationService.retrieve_invitation)(
+        payload.invitation_token
+    )
     if invitation is None:
         return HTTPStatus.NO_CONTENT, None
 

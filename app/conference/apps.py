@@ -17,11 +17,9 @@ class ConferenceConfig(AppConfig):
 
 
 def register_create_user() -> None:
-    from django.core.signing import BadSignature
     from django.utils.translation import gettext as _
     from loguru import logger
 
-    from app.conference.models import Invitation as InvitationModel
     from app.conference.models import Profile
     from app.conference.services import InvitationService
     from app.conference.types import Profile as ProfileSchema
@@ -41,19 +39,7 @@ def register_create_user() -> None:
         if not invitation_token:
             return
 
-        try:
-            invitation_uid = InvitationService.token_signer.unsign(invitation_token)
-        except BadSignature as exc:
-            raise make_validation_error(
-                path="invitation_token",
-                message=_("Invalid invitation token."),
-            ) from exc
-
-        invitation = (
-            InvitationModel.objects.select_related("conference")
-            .filter(uid=invitation_uid)
-            .first()
-        )
+        invitation = InvitationService.retrieve_invitation(invitation_token)
         if invitation is None:
             raise make_validation_error(
                 path="invitation_token",
