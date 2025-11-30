@@ -1426,8 +1426,8 @@ class TestInvitationServiceVisibleInvitations:
     ) -> None:
         conference_admin = await User.objects.acreate_user(username=faker.user_name())
         await ConferenceRoleAssignment.objects.acreate(
-            user=conference_admin,
             conference=conference,
+            user=conference_admin,
             role=conference_role,
         )
         invitation1 = await make_invitation()
