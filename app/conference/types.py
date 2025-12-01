@@ -7,6 +7,7 @@ __all__ = (
     "KeywordSetName",
     "KeywordText",
     "Profile",
+    "RoleAssignment",
     "Track",
     "TrackDisplayName",
     "UserConferenceProfile",
@@ -28,7 +29,7 @@ from app.conference.models import KeywordSet as KeywordSetModel
 from app.conference.models import Profile as ProfileModel
 from app.conference.models import Track as TrackModel
 from app.conference.models import UserConferenceProfile as UserConferenceProfileModel
-from app.core.types import EmailStr
+from app.core.types import EmailStr, User
 from app.utils.enums import Region
 from app.utils.sanitization import sanitize_text
 
@@ -181,3 +182,14 @@ class Invitation(UserConferenceProfile, Profile):
     email_send_count: int = Field(ge=0)
     conference_roles: list[ConferenceRole]
     track_roles: list[InvitationTrackRole]
+
+
+class RoleAssignmentTrackRole(Schema):
+    uid: ULID
+    role: TrackRole
+
+
+class RoleAssignment(User):
+    profile: Profile | None
+    conference_roles: list[ConferenceRole]
+    track_roles: list[RoleAssignmentTrackRole]
