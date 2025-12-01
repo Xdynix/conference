@@ -1,5 +1,8 @@
+from unittest.mock import MagicMock
+
 import pytest
 from faker import Faker
+from pytest_mock import MockerFixture
 
 from app.conference.models import (
     Conference,
@@ -9,7 +12,8 @@ from app.conference.models import (
     TrackRole,
     TrackRoleAssignment,
 )
-from app.conference.services import RoleAssignmentService
+from app.conference.services import ConferenceService, RoleAssignmentService
+from app.conference.services.conference import InsufficientRolePermission
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 
 
@@ -35,6 +39,21 @@ def track_b(faker: Faker, conference: Conference) -> Track:
         conference=conference,
         display_name=faker.word(),
     )
+
+
+@pytest.fixture
+def mock_validate_can_assign_roles(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch.object(ConferenceService, "validate_can_assign_roles")
+
+
+@pytest.fixture
+def requesting_user(faker: Faker) -> User:
+    return User.objects.create_user(username=faker.user_name())
+
+
+@pytest.fixture
+def target_user(faker: Faker) -> User:
+    return User.objects.create_user(username=faker.user_name())
 
 
 @pytest.mark.django_db(transaction=True)
@@ -774,3 +793,411 @@ class TestVisibleTrackRoleAssignments:
         )
 
         assert await result.acount() == 0
+
+
+@pytest.mark.django_db
+class TestAddConferenceRole:
+    def test_happy_path(
+        self,
+        mock_validate_can_assign_roles: MagicMock,
+        conference: Conference,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        RoleAssignmentService.add_conference_role(
+            conference=conference,
+            target_user=target_user,
+            role=ConferenceRole.REVIEWER,
+            requesting_user=requesting_user,
+        )
+
+        assert ConferenceRoleAssignment.objects.filter(
+            conference=conference,
+            user=target_user,
+            role=ConferenceRole.REVIEWER,
+        ).exists()
+
+        mock_validate_can_assign_roles.assert_called_once_with(
+            user=requesting_user,
+            conference=conference,
+            conference_roles=[ConferenceRole.REVIEWER],
+        )
+
+    def test_idempotent_adding_existing_role(
+        self,
+        mock_validate_can_assign_roles: MagicMock,  # noqa: ARG002
+        conference: Conference,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=target_user,
+            role=ConferenceRole.REVIEWER,
+        )
+
+        RoleAssignmentService.add_conference_role(
+            conference=conference,
+            target_user=target_user,
+            role=ConferenceRole.REVIEWER,
+            requesting_user=requesting_user,
+        )
+
+        assert (
+            ConferenceRoleAssignment.objects.filter(
+                conference=conference,
+                user=target_user,
+                role=ConferenceRole.REVIEWER,
+            ).count()
+            == 1
+        )
+
+    def test_permission_error_propagates(
+        self,
+        mock_validate_can_assign_roles: MagicMock,
+        conference: Conference,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        mock_validate_can_assign_roles.side_effect = InsufficientRolePermission(
+            "test error"
+        )
+
+        with pytest.raises(InsufficientRolePermission):
+            RoleAssignmentService.add_conference_role(
+                conference=conference,
+                target_user=target_user,
+                role=ConferenceRole.REVIEWER,
+                requesting_user=requesting_user,
+            )
+
+        assert not ConferenceRoleAssignment.objects.filter(
+            conference=conference,
+            user=target_user,
+        ).exists()
+
+
+@pytest.mark.django_db
+class TestRemoveConferenceRole:
+    def test_happy_path(
+        self,
+        mock_validate_can_assign_roles: MagicMock,
+        conference: Conference,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=target_user,
+            role=ConferenceRole.REVIEWER,
+        )
+
+        RoleAssignmentService.remove_conference_role(
+            conference=conference,
+            target_user=target_user,
+            role=ConferenceRole.REVIEWER,
+            requesting_user=requesting_user,
+        )
+
+        assert not ConferenceRoleAssignment.objects.filter(
+            conference=conference,
+            user=target_user,
+            role=ConferenceRole.REVIEWER,
+        ).exists()
+
+        mock_validate_can_assign_roles.assert_called_once_with(
+            user=requesting_user,
+            conference=conference,
+            conference_roles=[ConferenceRole.REVIEWER],
+        )
+
+    def test_idempotent_removing_missing_role(
+        self,
+        mock_validate_can_assign_roles: MagicMock,  # noqa: ARG002
+        conference: Conference,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        RoleAssignmentService.remove_conference_role(
+            conference=conference,
+            target_user=target_user,
+            role=ConferenceRole.REVIEWER,
+            requesting_user=requesting_user,
+        )
+
+        assert not ConferenceRoleAssignment.objects.filter(
+            conference=conference,
+            user=target_user,
+        ).exists()
+
+    def test_permission_error_propagates(
+        self,
+        mock_validate_can_assign_roles: MagicMock,
+        conference: Conference,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=target_user,
+            role=ConferenceRole.REVIEWER,
+        )
+        mock_validate_can_assign_roles.side_effect = InsufficientRolePermission(
+            "test error"
+        )
+
+        with pytest.raises(InsufficientRolePermission):
+            RoleAssignmentService.remove_conference_role(
+                conference=conference,
+                target_user=target_user,
+                role=ConferenceRole.REVIEWER,
+                requesting_user=requesting_user,
+            )
+
+        assert ConferenceRoleAssignment.objects.filter(
+            conference=conference,
+            user=target_user,
+            role=ConferenceRole.REVIEWER,
+        ).exists()
+
+
+@pytest.mark.django_db
+class TestAddTrackRole:
+    def test_happy_path(
+        self,
+        mock_validate_can_assign_roles: MagicMock,
+        conference: Conference,
+        track_a: Track,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        RoleAssignmentService.add_track_role(
+            conference=conference,
+            track=track_a,
+            target_user=target_user,
+            role=TrackRole.REVIEWER,
+            requesting_user=requesting_user,
+        )
+
+        assert TrackRoleAssignment.objects.filter(
+            track=track_a,
+            user=target_user,
+            role=TrackRole.REVIEWER,
+        ).exists()
+
+        mock_validate_can_assign_roles.assert_called_once_with(
+            user=requesting_user,
+            conference=conference,
+            track_roles={track_a: [TrackRole.REVIEWER]},
+        )
+
+    def test_idempotent_adding_existing_role(
+        self,
+        mock_validate_can_assign_roles: MagicMock,  # noqa: ARG002
+        conference: Conference,
+        track_a: Track,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        TrackRoleAssignment.objects.create(
+            track=track_a,
+            user=target_user,
+            role=TrackRole.REVIEWER,
+        )
+
+        RoleAssignmentService.add_track_role(
+            conference=conference,
+            track=track_a,
+            target_user=target_user,
+            role=TrackRole.REVIEWER,
+            requesting_user=requesting_user,
+        )
+
+        assert (
+            TrackRoleAssignment.objects.filter(
+                track=track_a,
+                user=target_user,
+                role=TrackRole.REVIEWER,
+            ).count()
+            == 1
+        )
+
+    def test_permission_error_propagates(
+        self,
+        mock_validate_can_assign_roles: MagicMock,
+        conference: Conference,
+        track_a: Track,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        mock_validate_can_assign_roles.side_effect = InsufficientRolePermission(
+            "test error"
+        )
+
+        with pytest.raises(InsufficientRolePermission):
+            RoleAssignmentService.add_track_role(
+                conference=conference,
+                track=track_a,
+                target_user=target_user,
+                role=TrackRole.REVIEWER,
+                requesting_user=requesting_user,
+            )
+
+        assert not TrackRoleAssignment.objects.filter(
+            track=track_a,
+            user=target_user,
+        ).exists()
+
+    def test_inactive_track_rejected(
+        self,
+        faker: Faker,
+        mock_validate_can_assign_roles: MagicMock,
+        conference: Conference,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        inactive_track = Track.objects.create(
+            conference=conference,
+            display_name=faker.word(),
+            active=False,
+        )
+        mock_validate_can_assign_roles.side_effect = ValueError("test error")
+
+        with pytest.raises(ValueError):
+            RoleAssignmentService.add_track_role(
+                conference=conference,
+                track=inactive_track,
+                target_user=target_user,
+                role=TrackRole.REVIEWER,
+                requesting_user=requesting_user,
+            )
+
+        assert not TrackRoleAssignment.objects.filter(
+            track=inactive_track,
+            user=target_user,
+        ).exists()
+
+
+@pytest.mark.django_db
+class TestRemoveTrackRole:
+    def test_happy_path(
+        self,
+        mock_validate_can_assign_roles: MagicMock,
+        conference: Conference,
+        track_a: Track,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        TrackRoleAssignment.objects.create(
+            track=track_a,
+            user=target_user,
+            role=TrackRole.REVIEWER,
+        )
+
+        RoleAssignmentService.remove_track_role(
+            conference=conference,
+            track=track_a,
+            target_user=target_user,
+            role=TrackRole.REVIEWER,
+            requesting_user=requesting_user,
+        )
+
+        assert not TrackRoleAssignment.objects.filter(
+            track=track_a,
+            user=target_user,
+            role=TrackRole.REVIEWER,
+        ).exists()
+
+        mock_validate_can_assign_roles.assert_called_once_with(
+            user=requesting_user,
+            conference=conference,
+            track_roles={track_a: [TrackRole.REVIEWER]},
+        )
+
+    def test_idempotent_removing_missing_role(
+        self,
+        mock_validate_can_assign_roles: MagicMock,  # noqa: ARG002
+        conference: Conference,
+        track_a: Track,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        RoleAssignmentService.remove_track_role(
+            conference=conference,
+            track=track_a,
+            target_user=target_user,
+            role=TrackRole.REVIEWER,
+            requesting_user=requesting_user,
+        )
+
+        assert not TrackRoleAssignment.objects.filter(
+            track=track_a,
+            user=target_user,
+        ).exists()
+
+    def test_permission_error_propagates(
+        self,
+        mock_validate_can_assign_roles: MagicMock,
+        conference: Conference,
+        track_a: Track,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        TrackRoleAssignment.objects.create(
+            track=track_a,
+            user=target_user,
+            role=TrackRole.REVIEWER,
+        )
+        mock_validate_can_assign_roles.side_effect = InsufficientRolePermission(
+            "test error"
+        )
+
+        with pytest.raises(InsufficientRolePermission):
+            RoleAssignmentService.remove_track_role(
+                conference=conference,
+                track=track_a,
+                target_user=target_user,
+                role=TrackRole.REVIEWER,
+                requesting_user=requesting_user,
+            )
+
+        assert TrackRoleAssignment.objects.filter(
+            track=track_a,
+            user=target_user,
+            role=TrackRole.REVIEWER,
+        ).exists()
+
+    def test_inactive_track_rejected(
+        self,
+        faker: Faker,
+        mock_validate_can_assign_roles: MagicMock,
+        conference: Conference,
+        requesting_user: User,
+        target_user: User,
+    ) -> None:
+        inactive_track = Track.objects.create(
+            conference=conference,
+            display_name=faker.word(),
+            active=False,
+        )
+        TrackRoleAssignment.objects.create(
+            track=inactive_track,
+            user=target_user,
+            role=TrackRole.REVIEWER,
+        )
+        mock_validate_can_assign_roles.side_effect = ValueError("test error")
+
+        with pytest.raises(ValueError):
+            RoleAssignmentService.remove_track_role(
+                conference=conference,
+                track=inactive_track,
+                target_user=target_user,
+                role=TrackRole.REVIEWER,
+                requesting_user=requesting_user,
+            )
+
+        assert TrackRoleAssignment.objects.filter(
+            track=inactive_track,
+            user=target_user,
+            role=TrackRole.REVIEWER,
+        ).exists()

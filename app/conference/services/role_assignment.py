@@ -1,14 +1,17 @@
 from collections.abc import Collection
 
+from django.db import transaction
 from django.db.models import Exists, OuterRef, Q, QuerySet
 
 from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    Track,
     TrackRole,
     TrackRoleAssignment,
 )
+from app.conference.services.conference import ConferenceService
 from app.core.models import GlobalRole, User
 
 
@@ -196,3 +199,131 @@ class RoleAssignmentService:
             return assignments.none()
 
         return assignments.filter(track_id__in=administered_track_ids)
+
+    @classmethod
+    @transaction.atomic
+    def add_conference_role(
+        cls,
+        conference: Conference,
+        target_user: User,
+        role: ConferenceRole,
+        requesting_user: User,
+    ) -> None:
+        """Add a conference role to the target user.
+
+        This operation is idempotent: adding an existing role succeeds silently.
+
+        Raises:
+            InsufficientRolePermission: If requesting user lacks permission.
+        """
+        # Lock target user row to prevent concurrent modifications.
+        target_user = User.objects.select_for_update().get(pk=target_user.pk)
+
+        ConferenceService.validate_can_assign_roles(
+            user=requesting_user,
+            conference=conference,
+            conference_roles=[role],
+        )
+
+        ConferenceRoleAssignment.objects.get_or_create(
+            conference=conference,
+            user=target_user,
+            role=role,
+        )
+
+    @classmethod
+    @transaction.atomic
+    def remove_conference_role(
+        cls,
+        conference: Conference,
+        target_user: User,
+        role: ConferenceRole,
+        requesting_user: User,
+    ) -> None:
+        """Remove a conference role from the target user.
+
+        This operation is idempotent: removing a missing role succeeds silently.
+
+        Raises:
+            InsufficientRolePermission: If requesting user lacks permission.
+        """
+        # Lock target user row to prevent concurrent modifications.
+        target_user = User.objects.select_for_update().get(pk=target_user.pk)
+
+        ConferenceService.validate_can_assign_roles(
+            user=requesting_user,
+            conference=conference,
+            conference_roles=[role],
+        )
+
+        ConferenceRoleAssignment.objects.filter(
+            conference=conference,
+            user=target_user,
+            role=role,
+        ).delete()
+
+    @classmethod
+    @transaction.atomic
+    def add_track_role(
+        cls,
+        conference: Conference,
+        track: Track,
+        target_user: User,
+        role: TrackRole,
+        requesting_user: User,
+    ) -> None:
+        """Add a track role to the target user.
+
+        This operation is idempotent: adding an existing role succeeds silently.
+
+        Raises:
+            ValueError: If tracks do not belong to the conference.
+            InsufficientRolePermission: If requesting user lacks permission.
+        """
+        # Lock target user row to prevent concurrent modifications.
+        target_user = User.objects.select_for_update().get(pk=target_user.pk)
+
+        ConferenceService.validate_can_assign_roles(
+            user=requesting_user,
+            conference=conference,
+            track_roles={track: [role]},
+        )
+
+        TrackRoleAssignment.objects.get_or_create(
+            track=track,
+            user=target_user,
+            role=role,
+        )
+
+    @classmethod
+    @transaction.atomic
+    def remove_track_role(
+        cls,
+        conference: Conference,
+        track: Track,
+        target_user: User,
+        role: TrackRole,
+        requesting_user: User,
+    ) -> None:
+        """Remove a track role from the target user.
+
+        This operation is idempotent: removing a missing role succeeds silently.
+
+        Raises:
+            ValueError: If tracks do not belong to the conference.
+            InsufficientRolePermission: If requesting user lacks permission.
+        """
+        # Lock target user row to prevent concurrent modifications.
+        target_user = User.objects.select_for_update().get(pk=target_user.pk)
+
+        ConferenceService.validate_can_assign_roles(
+            user=requesting_user,
+            conference=conference,
+            track_roles={track: [role]},
+        )
+
+        TrackRoleAssignment.objects.filter(
+            track=track,
+            user=target_user,
+            role=role,
+        ).delete()
