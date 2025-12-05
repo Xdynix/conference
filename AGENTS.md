@@ -2,6 +2,22 @@
 
 This file provides guidance to coding agents when working with code in this repository.
 
+## Operational Guidelines
+
+### Interaction Protocol
+
+- **Discussion vs. Action:** Treat user questions involving opinions, feasibility, risk
+  assessment, or design exploration (e.g., "Do you think...", "Is it safe...", "How
+  should we...") strictly as conversation. Do **not** execute tools that modify files,
+  memory, or system state based on these queries.
+- **Tests on Demand:** Propose or edit tests freely, but do not execute test commands
+  unless the user explicitly asks to run them.
+- **Explicit Commands:** Only perform modifications (code changes, file creation, memory
+  saves) when the user provides a clear, imperative instruction (e.g., "Implement
+  this," "Save that," "Apply the fix").
+- **When in Doubt:** If a user's intent is ambiguous between discussion and action,
+  provide the analysis first and ask for confirmation before modifying anything.
+
 ## Project Overview
 
 This is a modern Django 5.2+ application built with Python 3.13+ using async-first
@@ -18,7 +34,8 @@ and language features available in Python 3.13+ and Django 5.2+.
 
 ### Task Runner Commands
 
-All development tasks use `just`:
+Humans run tasks via `just`; agents may invoke `uv run pytest` and other tools directly
+when requested.
 
 - `just dev-setup` - Set up development environment (installs deps, pre-commit hooks).
 - `just lint` - Run all linters via pre-commit (ruff, mypy, etc.).
@@ -36,22 +53,9 @@ uv run manage.py shell -c \
   "from app.core.models import User; print(User.objects.count())"
 ```
 
-### Accessing Library Documentation
-
-- Use the configured Context7 MCP server for up-to-date library docs instead of relying
-  on model memory.
-- Workflow: call `resolve-library-id` with the library name, then call
-  `get-library-docs` with the returned ID (set `mode` to `code` for APIs or `info` for
-  guides; increment `page` if more context is needed).
-- If multiple libraries match, prefer the closest name match with good reputation and
-  coverage; ask the user when the intent is unclear.
-- Keep responses concise and cite only the relevant snippets; avoid guessing when docs
-  are available.
-
 ## Project Structure
 
-The project follows Django's app-based architecture. This structure may evolve over
-time, so verify current layout when needed.
+The project follows Django's app-based architecture.
 
 ### Django Apps
 
@@ -64,6 +68,14 @@ time, so verify current layout when needed.
 - **`app/misc/`** - Miscellaneous utilities and views.
 - **`app/admin/`** - Django admin customizations.
 - **`app/turnstile/`** - Cloudflare Turnstile demo. Debugging aide that may be removed.
+
+When adding new features, choose the appropriate app based on responsibility:
+
+- **Authentication/authorization** (users, sessions, global roles, passwords) → `core`.
+- **Conference domain logic** (profiles, invitations, tracks, scoped roles) →
+  `conference`.
+- **Shared infrastructure touching Django** (jobs, scheduling, locks) → `infra`.
+- **Pure utilities without Django dependencies** → `utils`.
 
 ### Shared Modules
 
@@ -133,58 +145,34 @@ async def my_endpoint(request: HttpRequest) -> dict[str, str]:
     return {"status": "ok"}
 ```
 
-**Anti-pattern (avoid)**:
-
-```python
-# Never stack @sync_to_async on top of a transactional method.
-class MyService:
-    @classmethod
-    @sync_to_async  # WRONG: wrapper hides sync-only behavior
-    @transaction.atomic()
-    def transactional_operation(cls, user: User) -> None:
-        ...
-```
+**Anti-pattern**: Never stack `@sync_to_async` on top of `@transaction.atomic()`.
 
 ### Schema Design
 
-- Base schemas in `types.py` should not include resolver methods (`resolve_{field_name}`
-  static methods) because they prevent the schema from being used in request payloads.
+- Resolver methods (`resolve_{field_name}`) belong only in response or request schemas,
+  never in shared base schemas in `types.py`—they prevent reuse across contexts.
 - For response schemas that need computed fields, create a separate response schema that
   inherits from the base schema and adds the resolver methods.
 - Place response schemas with resolver methods in `core.py` when shared across multiple
   endpoints, or define them inline in `api.py` when endpoint-specific.
-
-**Example pattern**:
-
-```python
-# types.py - base schema without resolvers
-class UserSchema(Schema):
-    id: UUID
-    email: str
-    name: str
-
-
-# core.py or api.py - response schema with resolvers
-class UserResponse(UserSchema):
-    display_name: str
-
-    @staticmethod
-    def resolve_display_name(obj: User) -> str:
-        return f"{obj.name} ({obj.email})"
-```
+- See `app/conference/types.py` for examples, particularly `Invitation` which composes
+  base schemas (`UserConferenceProfile`, `Profile`) without resolvers.
 
 ### Code Organization
 
 - Follow Django's app-based architecture with clear separation of concerns.
 - Keep models focused and use mixins for shared behavior.
 - Extract reusable utilities into dedicated modules.
-- Use dependency injection patterns for testability.
 
 ## Development Standards
 
 ### Code Quality and Security
 
-- **Linting**: Configured with ruff (extensive rule set) and mypy (strict mode).
+- **Linting**: Configured with ruff (extensive rule set) and mypy (strict mode). Do not
+  run linters or type checkers unless explicitly asked; pre-commit hooks handle this
+  automatically on commit.
+- **Formatting**: Ruff format runs via `just lint`; rely on it instead of manual
+  reflowing beyond the 88-character target.
 - **Testing**: pytest with 100% code coverage requirement using pytest-django,
   pytest-asyncio, faker, and respx.
 - **Pre-commit**: Automatically runs linters and formatters.
@@ -197,11 +185,19 @@ class UserResponse(UserSchema):
   caller needs to be aware of them. Omit the `Args` section when all arguments are
   self-explanatory from their names and types.
 - **Dependencies**: Managed with uv and organized into dependency groups (dev, lint,
-  test).
+  test). Add production/runtime deps without a group. Add tooling to the appropriate
+  dev group via `uv add --group dev|lint|test <package>`.
+- **Migrations**: Create standard Django migrations as needed. Early-stage cleanup or
+  squashing may be done by humans; keep migration intent clear and focused.
 - **Security**: SSL/HTTPS configured for development with self-signed certificates and
   extensive security settings (secure cookies, CSRF protection).
 
 ### Testing Guidelines
+
+Tests are reviewed by humans before they run.
+
+- When asked to run tests, prefer `uv run pytest <path>` (use `-q` or `-k` as needed).
+  Avoid running inside sandboxes because runs may hang; request native access first.
 
 #### Framework and Database Testing
 
@@ -215,6 +211,7 @@ class UserResponse(UserSchema):
   `IntegrityError` propagation, rollbacks, `transaction.on_commit`, etc.), mark the test
   function or suite with `transaction=True`.
 - Use Django's async ORM methods (`acreate`, `acount`, `aexists`) in async tests.
+- Do not add `@pytest.mark.asyncio`; pytest-asyncio handles async tests automatically.
 
 #### Test Organization and Best Practices
 
@@ -238,26 +235,20 @@ class UserResponse(UserSchema):
   `assert await Model.objects.filter().acount() == 1`.
 - **Annotations**: Add `# noqa: ARG002` for intentionally unused fixture parameters.
 - **Imports**: Import `MagicMock` from `unittest.mock` for better type hints.
+- **Exemplary tests**: See `tests/conference/api/conference/test_create.py` for API
+  endpoint patterns and `tests/conference/services/test_conference.py` for service
+  layer and async testing patterns.
 
 #### API Test Pattern
 
-- **Happy path**: Exercise most parameters, assert the full response shape, and verify
-  service calls with expected arguments (respect ordering vs set comparison rules).
-- **Parsing/sanitization**: Include small cases for missing vs empty inputs,
-  trimming/normalizing, and defaults; assert both response payload and service call
-  arguments.
-- **Validation**: Check error translation details (`loc`/`msg`/`type`), including
-  invalid identifiers or business constraints enforced in the view.
-- **Service errors**: Cover service exceptions mapped to HTTP responses; parametrize
-  when multiple exceptions share a flow.
-- **Visibility/not-found**: Add 404 cases for scoped lookups (e.g., visibility filters)
-  separate from service errors.
-- **Authorization**: Include unauthenticated, unauthorized, and allowed roles;
-  parametrize allowed roles to reduce duplication.
-- **Instrumentation**: Prefer spies for service methods; use patches when side effects
-  or heavy setup make spies impractical.
-- **Partial updates**: For patch-style endpoints, add “omit keeps existing” and “empty
-  clears value” tests to lock in patch semantics.
+Cover these cases (see exemplary tests for implementation details):
+
+- Happy path with full response and service call verification.
+- Input parsing/sanitization and defaults.
+- Validation errors with `loc`/`msg` assertions.
+- Service exception → HTTP response mapping.
+- Authorization (unauthenticated, unauthorized, allowed roles).
+- Partial updates: "omit keeps existing" and "empty clears value".
 
 ### Error Handling
 
@@ -266,7 +257,7 @@ class UserResponse(UserSchema):
 - Use Django Ninja's `HttpError` in API views only (never in services) for translating
   business logic errors into HTTP responses with appropriate status codes.
 - All user-facing error messages must use `gettext` for internationalization: `_("Error
-  message")`.
+  message")`. This is future-proofing; there is no active translation workflow.
 - Never expose internal error details, stack traces, or sensitive information to
   clients.
 - The centralized exception handler in `app/ninja/errors.py` converts all exceptions to
@@ -301,8 +292,8 @@ these results into appropriate HTTP responses with status codes.
 - Log all unexpected errors, important state changes, and security-relevant events.
 - Use appropriate log levels: `logger.info()` for operations, `logger.error()` for
   errors, `logger.exception()` for caught exceptions.
-- Include structured context in logs: `logger.info("User logged in.", user=user,
-  ip=client_ip)`.
+- Include structured business context (actor, target, change summary when light):
+  `logger.info("Role assigned.", actor=admin, target=user, role=role)`.
 
 ### API View Conventions
 
@@ -324,15 +315,31 @@ these results into appropriate HTTP responses with status codes.
   etc.) in complete sentences unless brevity is clearly preferred.
 - Do not wrap function parameters unnecessarily: keep them on one line within the
   88-character limit; otherwise, place each argument on its own line ending with a
-  comma.
+  comma. Formatters enforce the limit; write code naturally within that boundary.
 - Prefer `@classmethod` for shared helper methods across the codebase. Reserve
-  `@staticmethod` for documented special cases where binding to the class is
-  undesirable.
+  `@staticmethod` for documented special cases where binding to the class is undesirable
+  (primarily Django Ninja resolver methods per upstream guidance).
 - **Comments**: Write self-explanatory code that clearly conveys intent. Do not add
   comments that merely repeat what the code is doing. Only add comments when the intent
   is not explicit from the code itself or to explain design decisions, non-obvious
   behavior, or important context that cannot be expressed through code alone.
-- Keep commit message subjects at or under 50 characters.
-- Always request user permission before running the test suite.
+- Keep commit message subjects at or under 50 characters. Use conventional commit
+  format with type prefix (`feat:`, `fix:`, `refactor:`, etc.) but omit scope—prefer
+  `fix: resolve session expiry` over `fix(core): resolve session expiry`.
 - Use the current file content as the baseline for edits; if a user change appears
   problematic, discuss it before reverting.
+
+## Agent Tooling
+
+### Accessing Library Documentation
+
+Use the configured Context7 MCP server for up-to-date library docs instead of relying on
+model memory:
+
+- Call `resolve-library-id` with the library name, then call `get-library-docs` with the
+  returned ID (set `mode` to `code` for APIs or `info` for guides; increment `page` if
+  more context is needed).
+- If multiple libraries match, prefer the closest name match with good reputation and
+  coverage; ask the user when the intent is unclear.
+- Keep responses concise and cite only the relevant snippets; avoid guessing when docs
+  are available.

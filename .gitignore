@@ -3,6 +3,9 @@
 /.idea/
 /.vscode/
 
+# Coding agent configurations
+/.claude
+
 ### Linux template
 *~
 
