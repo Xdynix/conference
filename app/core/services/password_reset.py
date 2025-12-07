@@ -3,25 +3,37 @@ from functools import partial
 from hashlib import sha256
 
 from django.conf import settings
-from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models.functions import Now
-from django.template.loader import render_to_string
 from loguru import logger
+from pydantic import HttpUrl
 
 from app.core.models import PasswordResetToken, User
 from app.core.types import Password
 from app.infra.models import Mutex
-from app.utils.sanitization import sanitize_email_subject
+from app.utils.email import EmailContext, EmailFormatName, EmailTemplate
 
 normalize_email = User.objects.normalize_email
+
+
+class PasswordResetEmailContext(EmailContext):
+    site_name: str
+    reset_link: HttpUrl
+    reset_link_expiry_minutes: int
+    username: str
+
+
+EMAIL_TEMPLATE_DIR = settings.BASE_DIR / "app" / "core" / "templates" / "core"
 
 
 class PasswordResetService:
     token_length = 32
 
-    password_reset_email_subject = "core/password-reset-email-subject.html"  # noqa: S105
-    password_reset_email_body = "core/password-reset-email-body.html"  # noqa: S105
+    password_reset_email_template = EmailTemplate.from_files(
+        subject_path=EMAIL_TEMPLATE_DIR / "password-reset-email-subject.txt.jinja2",
+        body_path=EMAIL_TEMPLATE_DIR / "password-reset-email-body.txt.jinja2",
+        format=EmailFormatName.TEXT,
+    )
 
     @classmethod
     def create_token(
@@ -124,25 +136,19 @@ class PasswordResetService:
         password_reset_page_uri: str,
     ) -> None:
         fragment = f"{user.uid}:{token}"
-        context = {
-            "site_name": settings.SITE_NAME,
-            "reset_link": f"{password_reset_page_uri}#{fragment}",
-            "reset_link_expiry_minutes": int(
+        context = PasswordResetEmailContext(
+            site_name=settings.SITE_NAME,
+            reset_link=HttpUrl(f"{password_reset_page_uri}#{fragment}"),
+            reset_link_expiry_minutes=int(
                 settings.PASSWORD_RESET_TOKEN_EXPIRY.total_seconds() // 60
             ),
-            "user": user,
-        }
-        render = partial(render_to_string, context=context)
-
-        subject: str = render(cls.password_reset_email_subject)
-        subject = sanitize_email_subject(subject)
-
-        body = render(cls.password_reset_email_body)
+            username=user.get_username(),
+        )
+        rendered = cls.password_reset_email_template.render(context)
 
         logger.info(
             "Sending password reset email.",
             user_uid=user.uid,
             email=user.email,
         )
-        mail = EmailMessage(subject, body, to=[user.email])
-        mail.send()
+        rendered.build_message(to=user.email).send()

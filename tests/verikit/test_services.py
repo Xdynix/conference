@@ -9,8 +9,9 @@ from django.utils import timezone
 from faker import Faker
 from pytest_mock import MockerFixture
 
+from app.utils.email import EmailFormatName, EmailTemplate
 from app.verikit.models import EmailVerification
-from app.verikit.services import EmailVerificationService
+from app.verikit.services import EmailVerificationService, VerificationEmailContext
 from tests.helpers import any_str
 
 
@@ -424,3 +425,21 @@ class TestEmailVerificationServiceVerifyToken:
         verified_email = EmailVerificationService.verify_token(tampered_token)
 
         assert verified_email is None
+
+
+class TestEmailVerificationServiceTemplate:
+    def test_default_template_configuration(self, faker: Faker) -> None:
+        template = EmailVerificationService.verification_email_template
+
+        assert isinstance(template, EmailTemplate)
+        assert template.format == EmailFormatName.TEXT
+
+        context = VerificationEmailContext(
+            site_name=faker.company(),
+            code="123456",
+        )
+        rendered = template.render(context)
+
+        assert rendered.format == EmailFormatName.TEXT
+        assert "123456" in rendered.body
+        assert len(rendered.subject) > 0

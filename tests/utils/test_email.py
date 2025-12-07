@@ -117,7 +117,7 @@ class TestEmailTemplate:
         template = EmailTemplate.from_files(
             subject_path=subject_file,
             body_path=body_file,
-            format_=EmailFormatName.TEXT,
+            format=EmailFormatName.TEXT,
         )
         assert template.subject == "Subject {{ var }}"
         assert template.body == "Body content\n"

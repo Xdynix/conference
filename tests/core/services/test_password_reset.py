@@ -7,11 +7,14 @@ from asgiref.sync import sync_to_async
 from django.conf import LazySettings
 from django.utils import timezone
 from faker import Faker
+from pydantic import HttpUrl
 from pytest_mock import MockerFixture
 
 from app.core.models import PasswordResetToken, User
 from app.core.services import PasswordResetService
+from app.core.services.password_reset import PasswordResetEmailContext
 from app.core.types import Password
+from app.utils.email import EmailFormatName, EmailTemplate
 
 
 def create_password_reset_token(
@@ -394,3 +397,23 @@ class TestPasswordResetServiceConsumeToken:
 
         assert len(successful_results) == 1
         assert len(false_results) == 1
+
+
+class TestPasswordResetServiceTemplate:
+    def test_default_template_configuration(self, faker: Faker) -> None:
+        template = PasswordResetService.password_reset_email_template
+
+        assert isinstance(template, EmailTemplate)
+        assert template.format == EmailFormatName.TEXT
+
+        context = PasswordResetEmailContext(
+            site_name=faker.company(),
+            reset_link=HttpUrl(faker.url()),
+            reset_link_expiry_minutes=60,
+            username=faker.user_name(),
+        )
+        rendered = template.render(context)
+
+        assert rendered.format == EmailFormatName.TEXT
+        assert str(context.reset_link) in rendered.body
+        assert len(rendered.subject) > 0

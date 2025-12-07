@@ -231,21 +231,21 @@ class EmailTemplate(BaseModel):
         *,
         subject_path: Path,
         body_path: Path,
-        format_: EmailFormatName = EmailFormatName.TEXT,
+        format: EmailFormatName = EmailFormatName.TEXT,
     ) -> Self:
         """Load template content from files.
 
         Args:
             subject_path: Path to the subject template file.
             body_path: Path to the body template file.
-            format_: Email format to use (defaults to TEXT).
+            format: Email format to use (defaults to TEXT).
 
         Returns:
             An ``EmailTemplate`` instance with content loaded from files.
         """
         subject = Path(subject_path).read_text().strip()
         body = Path(body_path).read_text()
-        return cls(format=format_, subject=subject, body=body)
+        return cls(format=format, subject=subject, body=body)
 
     def render(self, context: EmailContext) -> RenderedEmail:
         """Render the template with the given context."""

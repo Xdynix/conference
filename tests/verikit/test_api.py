@@ -11,6 +11,7 @@ from django.utils import timezone
 from faker import Faker
 from pytest_mock import MockerFixture
 
+from app.utils.email import EmailFormatName, EmailTemplate
 from app.verikit.models import EmailVerification
 from app.verikit.services import EmailVerificationService
 
@@ -182,16 +183,16 @@ class TestEmailVerificationE2E:
         settings.VERIKIT_EMAIL_CODE_INTERVAL = timedelta(seconds=60)
 
     @pytest.fixture(autouse=True)
-    def mock_render(self, mocker: MockerFixture) -> MagicMock:
-        mock_render = mocker.patch("app.verikit.services.render_to_string")
-
-        def render_side_effect(template_name, context, *_):  # type: ignore[no-untyped-def]
-            if template_name.endswith("subject.html"):
-                return "Verification Code"
-            return f"Code: {context['code']}"
-
-        mock_render.side_effect = render_side_effect
-        return mock_render
+    def mock_template(self, mocker: MockerFixture) -> None:
+        mocker.patch.object(
+            EmailVerificationService,
+            "verification_email_template",
+            EmailTemplate(
+                format=EmailFormatName.TEXT,
+                subject="Verification Code",
+                body="Code: {{ code }}",
+            ),
+        )
 
     @pytest.fixture(autouse=True)
     def mock_cf_turnstile(self, mock_cf_turnstile: MagicMock) -> MagicMock:

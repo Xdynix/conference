@@ -13,7 +13,9 @@ from pytest_mock import MockerFixture
 from ulid import ULID
 
 from app.core.models import PasswordResetToken, User
+from app.core.services import PasswordResetService
 from app.core.types import Password
+from app.utils.email import EmailFormatName, EmailTemplate
 from tests.helpers import any_str, update_object
 
 
@@ -276,16 +278,16 @@ class TestPasswordResetE2E:
         settings.PASSWORD_RESET_TOKEN_INTERVAL = timedelta(seconds=60)
 
     @pytest.fixture(autouse=True)
-    def mock_render(self, mocker: MockerFixture) -> MagicMock:
-        mock_render = mocker.patch("app.core.services.password_reset.render_to_string")
-
-        def render_side_effect(template_name, context, *_):  # type: ignore[no-untyped-def]
-            if template_name.endswith("subject.html"):
-                return "Password Reset"
-            return f"Link: {context['reset_link']}"
-
-        mock_render.side_effect = render_side_effect
-        return mock_render
+    def mock_template(self, mocker: MockerFixture) -> None:
+        mocker.patch.object(
+            PasswordResetService,
+            "password_reset_email_template",
+            EmailTemplate(
+                format=EmailFormatName.TEXT,
+                subject="Password Reset",
+                body="Link: {{ reset_link }}",
+            ),
+        )
 
     @pytest.fixture(autouse=True)
     def mock_cf_turnstile(self, mock_cf_turnstile: MagicMock) -> MagicMock:

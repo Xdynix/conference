@@ -4,19 +4,25 @@ from functools import partial
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.core.mail import EmailMessage
 from django.core.signing import BadSignature, SignatureExpired, Signer, TimestampSigner
 from django.db import transaction
 from django.db.models import QuerySet
 from django.db.models.functions import Now
-from django.template.loader import render_to_string
 from loguru import logger
 
 from app.infra.models import Mutex
-from app.utils.sanitization import sanitize_email_subject
+from app.utils.email import EmailContext, EmailFormatName, EmailTemplate
 from app.verikit.models import EmailVerification
 
 normalize_email = get_user_model().objects.normalize_email
+
+
+class VerificationEmailContext(EmailContext):
+    site_name: str
+    code: str
+
+
+EMAIL_TEMPLATE_DIR = settings.BASE_DIR / "app" / "verikit" / "templates" / "verikit"
 
 
 class EmailVerificationService:
@@ -27,8 +33,11 @@ class EmailVerificationService:
     code_signer = Signer(salt="verikit.email_code")
     token_signer = TimestampSigner(salt="verikit.email_token")
 
-    verification_email_subject = "verikit/verification-email-subject.html"
-    verification_email_body = "verikit/verification-email-body.html"
+    verification_email_template = EmailTemplate.from_files(
+        subject_path=EMAIL_TEMPLATE_DIR / "verification-email-subject.txt.jinja2",
+        body_path=EMAIL_TEMPLATE_DIR / "verification-email-body.txt.jinja2",
+        format=EmailFormatName.TEXT,
+    )
 
     @classmethod
     def issue_code(cls, email: str) -> EmailVerification | None:
@@ -154,20 +163,14 @@ class EmailVerificationService:
     @classmethod
     def send_verification_email(cls, email: str, code: str) -> None:
         """Sends a verification email to the given email address."""
-        context = {
-            "site_name": settings.SITE_NAME,
-            "code": code,
-        }
-        render = partial(render_to_string, context=context)
-
-        subject: str = render(cls.verification_email_subject)
-        subject = sanitize_email_subject(subject)
-
-        body = render(cls.verification_email_body)
+        context = VerificationEmailContext(
+            site_name=settings.SITE_NAME,
+            code=code,
+        )
+        rendered = cls.verification_email_template.render(context)
 
         logger.info("Sending verification email.", email=email)
-        mail = EmailMessage(subject, body, to=[email])
-        mail.send()
+        rendered.build_message(to=email).send()
 
     @classmethod
     def issue_token(cls, email: str) -> str:
