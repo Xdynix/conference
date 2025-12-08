@@ -149,7 +149,7 @@ async def my_endpoint(request: HttpRequest) -> dict[str, str]:
 
 #### Row Locking and the Mutex Primitive
 
-Django's `select_for_update()` has **no effect on SQLite**—it does not acquire any
+Django's `select_for_update()` has **no effect on SQLite**. It does not acquire any
 locks. This means code relying on it for serialization will have race conditions during
 development and testing (which use SQLite).
 
@@ -178,7 +178,7 @@ class MyService:
   the decorator.
 - The `namespace` parameter prevents key collisions across different resource types.
 - The lock is held until the transaction commits.
-- Never use `select_for_update()` directly in service code—always prefer `Mutex`.
+- Never use `select_for_update()` directly in service code; always prefer `Mutex`.
 
 **Namespace and key selection**:
 
@@ -187,7 +187,7 @@ class MyService:
   `conference` (conference/track roles) because they all guard modifications to a user's
   role assignments.
 - Within the same namespace, always use a **consistent key format**. If one method uses
-  `str(invitation.uid)`, all methods in that namespace must use `uid`—never mix `pk`,
+  `str(invitation.uid)`, all methods in that namespace must use `uid`. Never mix `pk`,
   `uid`, and `name`. Inconsistent keys create separate locks that don't block each
   other.
 
@@ -211,7 +211,7 @@ with (
 ### Schema Design
 
 - Resolver methods (`resolve_{field_name}`) belong only in response or request schemas,
-  never in shared base schemas in `types.py`—they prevent reuse across contexts.
+  never in shared base schemas in `types.py` because they prevent reuse across contexts.
 - For response schemas that need computed fields, create a separate response schema that
   inherits from the base schema and adds the resolver methods.
 - Place response schemas with resolver methods in `core.py` when shared across multiple
@@ -374,6 +374,7 @@ these results into appropriate HTTP responses with status codes.
   new code blends seamlessly with surrounding modules.
 - Keep natural-language output (logs, error messages, Markdown list items, comments,
   etc.) in complete sentences unless brevity is clearly preferred.
+- Avoid em dashes entirely; use commas, semicolons, or parentheses instead.
 - Do not wrap function parameters unnecessarily: keep them on one line within the
   88-character limit; otherwise, place each argument on its own line ending with a
   comma. Formatters enforce the limit; write code naturally within that boundary.
@@ -385,7 +386,7 @@ these results into appropriate HTTP responses with status codes.
   is not explicit from the code itself or to explain design decisions, non-obvious
   behavior, or important context that cannot be expressed through code alone.
 - Keep commit message subjects at or under 50 characters. Use conventional commit
-  format with type prefix (`feat:`, `fix:`, `refactor:`, etc.) but omit scope—prefer
+  format with type prefix (`feat:`, `fix:`, `refactor:`, etc.) but omit scope. Prefer
   `fix: resolve session expiry` over `fix(core): resolve session expiry`.
 - Use the current file content as the baseline for edits; if a user change appears
   problematic, discuss it before reverting.
