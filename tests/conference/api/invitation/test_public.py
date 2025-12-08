@@ -3,6 +3,7 @@ from http import HTTPStatus
 from unittest.mock import MagicMock
 
 import pytest
+from django.conf import settings
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -63,6 +64,9 @@ class TestLookupInvitation:
                 "name": conference.name,
                 "display_name": conference.display_name,
             },
+            "token": token,
+            "accept_link": f"{settings.INVITATION_ACCEPT_PAGE_URI}#{token}",
+            "reject_link": f"{settings.INVITATION_REJECT_PAGE_URI}#{token}",
         }
 
     def test_invalid_token_returns_not_found(self, api_client: Client) -> None:

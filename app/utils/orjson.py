@@ -1,13 +1,14 @@
 from typing import Any
 
 import orjson
+from pydantic import HttpUrl
 from ulid import ULID
 
 
 def default(obj: Any) -> Any:
     """Serialize non-standard type."""
     match obj:
-        case ULID():
+        case ULID() | HttpUrl():
             return str(obj)
         case _:  # pragma: no cover
             raise TypeError

@@ -2,6 +2,7 @@ from http import HTTPStatus
 from unittest.mock import AsyncMock
 
 import pytest
+from django.conf import settings
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -91,6 +92,8 @@ class TestListInvitations:
             given_name="Bob",
             family_name="Jones",
         )
+        token1 = InvitationService.get_invitation_token(invitation1)
+        token2 = InvitationService.get_invitation_token(invitation2)
         InvitationTrackRoleEntry.objects.create(
             invitation=invitation2,
             track=track,
@@ -126,6 +129,9 @@ class TestListInvitations:
                         },
                     ],
                     "email_send_count": 0,
+                    "token": token2,
+                    "accept_link": f"{settings.INVITATION_ACCEPT_PAGE_URI}#{token2}",
+                    "reject_link": f"{settings.INVITATION_REJECT_PAGE_URI}#{token2}",
                 },
                 {
                     "uid": str(invitation1.uid),
@@ -142,6 +148,9 @@ class TestListInvitations:
                     "conference_roles": [ConferenceRole.REVIEWER],
                     "track_roles": [],
                     "email_send_count": 0,
+                    "token": token1,
+                    "accept_link": f"{settings.INVITATION_ACCEPT_PAGE_URI}#{token1}",
+                    "reject_link": f"{settings.INVITATION_REJECT_PAGE_URI}#{token1}",
                 },
             ],
         }

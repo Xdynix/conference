@@ -2,18 +2,41 @@ from collections import defaultdict
 from collections.abc import Iterable
 from typing import Any, Protocol
 
+from django.conf import settings
 from django.db.models import Prefetch, QuerySet
 from django.utils.translation import gettext as _
-from ninja import Router
+from ninja import Router, Schema
+from pydantic import HttpUrl
 from ulid import ULID
 
 from app.conference.models import Invitation, InvitationTrackRoleEntry, Track, TrackRole
+from app.conference.services import InvitationService
 from app.conference.types import Invitation as InvitationSchema
 
 router = Router(tags=["Invitation"], exclude_none=True)
 
 
-class InvitationResponse(InvitationSchema):
+class InvitationLinksMixin(Schema):
+    token: str
+    accept_link: HttpUrl
+    reject_link: HttpUrl
+
+    @staticmethod
+    def resolve_token(invitation: Invitation) -> str:
+        return InvitationService.get_invitation_token(invitation)
+
+    @staticmethod
+    def resolve_accept_link(invitation: Invitation) -> HttpUrl:
+        token = InvitationService.get_invitation_token(invitation)
+        return HttpUrl(f"{settings.INVITATION_ACCEPT_PAGE_URI}#{token}")
+
+    @staticmethod
+    def resolve_reject_link(invitation: Invitation) -> HttpUrl:
+        token = InvitationService.get_invitation_token(invitation)
+        return HttpUrl(f"{settings.INVITATION_REJECT_PAGE_URI}#{token}")
+
+
+class InvitationResponse(InvitationLinksMixin, InvitationSchema):
     @staticmethod
     def resolve_interested_keywords(invitation: Invitation) -> list[str]:
         return [keyword.text for keyword in invitation.interested_keywords.all()]

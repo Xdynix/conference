@@ -2,6 +2,7 @@ from http import HTTPStatus
 from unittest.mock import AsyncMock
 
 import pytest
+from django.conf import settings
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
@@ -97,6 +98,7 @@ class TestGetInvitation:
             track=track,
             role=TrackRole.CHAIR,
         )
+        token = InvitationService.get_invitation_token(invitation)
         mock_visible.return_value = Invitation.objects.filter(pk=invitation.pk)
         api_client.force_login(conference_admin)
 
@@ -123,6 +125,9 @@ class TestGetInvitation:
                 }
             ],
             "email_send_count": 0,
+            "token": token,
+            "accept_link": f"{settings.INVITATION_ACCEPT_PAGE_URI}#{token}",
+            "reject_link": f"{settings.INVITATION_REJECT_PAGE_URI}#{token}",
         }
 
         mock_visible.assert_awaited_once_with(conference, conference_admin)
