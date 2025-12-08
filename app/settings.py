@@ -338,6 +338,15 @@ PASSWORD_RESET_TOKEN_RETENTION = config(
 PASSWORD_RESET_PAGE_URI = config("PASSWORD_RESET_PAGE_URI", default="")
 
 
+# Conference
+
+INVITATION_EMAIL_INTERVAL = config(
+    "INVITATION_EMAIL_INTERVAL",
+    default=3600,
+    cast=seconds,
+)
+
+
 # Monkeypatch
 
 monkeypatch_django_async_auth()

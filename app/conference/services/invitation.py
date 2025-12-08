@@ -1,11 +1,16 @@
 from collections import defaultdict
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Mapping, Sequence
+from enum import StrEnum
+from typing import Self
 
+from django.conf import settings
 from django.core.signing import BadSignature, Signer
 from django.db import IntegrityError, transaction
-from django.db.models import Exists, OuterRef, QuerySet
+from django.db.models import Exists, F, OuterRef, QuerySet
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from loguru import logger
+from pydantic import BaseModel, ConfigDict, HttpUrl
 from ulid import ULID
 
 from app.conference.models import (
@@ -21,6 +26,7 @@ from app.conference.models import (
     TrackRoleAssignment,
 )
 from app.core.models import GlobalRole, User
+from app.utils.email import EmailContext, EmailTemplate
 
 from .conference import ConferenceService, InsufficientRolePermission
 
@@ -31,6 +37,51 @@ class DuplicateInvitation(Exception):
 
 class ImmutableInvitation(Exception):
     pass
+
+
+class InvitationEmailContext(EmailContext):
+    site_name: str
+    conference_name: str
+    conference_display_name: str
+    given_name: str
+    family_name: str
+    affiliation: str
+    accept_link: HttpUrl
+    reject_link: HttpUrl
+
+    @classmethod
+    def sample(
+        cls,
+        *,
+        invitation_accept_page_uri: str,
+        invitation_reject_page_uri: str,
+    ) -> Self:
+        return cls(
+            site_name=settings.SITE_NAME,
+            conference_name="Sample Conference",
+            conference_display_name="Sample Conference 2025",
+            given_name="John",
+            family_name="Doe",
+            affiliation="Sample University",
+            accept_link=HttpUrl(f"{invitation_accept_page_uri}#sample-token"),
+            reject_link=HttpUrl(f"{invitation_reject_page_uri}#sample-token"),
+        )
+
+
+class SendInvitationStatus(StrEnum):
+    SENT = "sent"
+    SKIPPED = "skipped"
+    NOT_FOUND = "not_found"
+    FAILED = "failed"
+
+
+class SendInvitationResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    invitation_uid: ULID
+    status: SendInvitationStatus
+    invitee_email: str | None = None
+    reason: str | None = None
 
 
 class InvitationService:
@@ -44,8 +95,6 @@ class InvitationService:
     # TODO: Review whether to enforce conference active check in service layer for
     #  defense in depth, especially for methods called outside API endpoints (Django
     #  admin, management commands, background jobs).
-
-    # TODO: Add send-invitation method.
 
     @classmethod
     @transaction.atomic
@@ -302,6 +351,179 @@ class InvitationService:
     def get_invitation_token(cls, invitation: Invitation) -> str:
         """Return a deterministic signed token that represents the invitation."""
         return cls.token_signer.sign(str(invitation.uid))
+
+    @classmethod
+    def _build_email_context(
+        cls,
+        invitation: Invitation,
+        *,
+        invitation_accept_page_uri: str,
+        invitation_reject_page_uri: str,
+    ) -> InvitationEmailContext:
+        """Build email context for an invitation."""
+        token = cls.get_invitation_token(invitation)
+        return InvitationEmailContext(
+            site_name=settings.SITE_NAME,
+            conference_name=invitation.conference.name,
+            conference_display_name=invitation.conference.display_name,
+            given_name=invitation.given_name,
+            family_name=invitation.family_name,
+            affiliation=invitation.affiliation,
+            accept_link=HttpUrl(f"{invitation_accept_page_uri}#{token}"),
+            reject_link=HttpUrl(f"{invitation_reject_page_uri}#{token}"),
+        )
+
+    @classmethod
+    @transaction.atomic
+    def send_invitation(
+        cls,
+        invitation_uid: ULID,
+        *,
+        template: EmailTemplate,
+        invitation_accept_page_uri: str,
+        invitation_reject_page_uri: str,
+        cc: Sequence[str] = (),
+        force_send_to_rejected: bool = False,
+        force_send_to_recent: bool = False,
+    ) -> tuple[bool, str]:
+        """Send an invitation email and update tracking.
+
+        Returns:
+            Tuple of ``(sent, invitee_email)`` where ``sent`` is ``True`` if email was
+            sent, ``False`` if skipped due to rate limiting or rejected status.
+
+        Raises:
+            Invitation.DoesNotExist: If invitation not found.
+            ImmutableInvitation: If the invitation is already accepted.
+        """
+        invitation = (
+            Invitation.objects.select_for_update()
+            .select_related("conference")
+            .get(uid=invitation_uid)
+        )
+
+        if invitation.status == Invitation.Status.ACCEPTED:
+            raise ImmutableInvitation(
+                _("Cannot send invitation that has already been accepted.")
+            )
+
+        if (
+            invitation.status == Invitation.Status.REJECTED
+            and not force_send_to_rejected
+        ):
+            return False, invitation.invitee_email
+
+        now = timezone.now()
+        if (
+            invitation.last_email_sent_time is not None
+            and (now - invitation.last_email_sent_time)
+            <= settings.INVITATION_EMAIL_INTERVAL
+            and not force_send_to_recent
+        ):
+            return False, invitation.invitee_email
+
+        context = cls._build_email_context(
+            invitation,
+            invitation_accept_page_uri=invitation_accept_page_uri,
+            invitation_reject_page_uri=invitation_reject_page_uri,
+        )
+        rendered = template.render(context)
+        email_message = rendered.build_message(to=invitation.invitee_email, cc=cc)
+
+        invitation.last_email_sent_time = now
+        invitation.email_send_count = F("email_send_count") + 1
+        invitation.save(
+            update_fields=[
+                "update_time",
+                "last_email_sent_time",
+                "email_send_count",
+            ]
+        )
+
+        transaction.on_commit(email_message.send)
+
+        return True, invitation.invitee_email
+
+    @classmethod
+    def send_invitations(
+        cls,
+        invitation_uids: Sequence[ULID],
+        *,
+        template: EmailTemplate,
+        invitation_accept_page_uri: str,
+        invitation_reject_page_uri: str,
+        cc: Sequence[str] = (),
+        force_send_to_rejected: bool = False,
+        force_send_to_recent: bool = False,
+    ) -> list[SendInvitationResult]:
+        """Send emails for multiple invitations.
+
+        Each invitation is processed in its own transaction. Failures are isolated and
+        do not affect other invitations.
+        """
+        results: list[SendInvitationResult] = []
+
+        for uid in invitation_uids:
+            try:
+                sent, invitee_email = cls.send_invitation(
+                    uid,
+                    template=template,
+                    invitation_accept_page_uri=invitation_accept_page_uri,
+                    invitation_reject_page_uri=invitation_reject_page_uri,
+                    cc=cc,
+                    force_send_to_rejected=force_send_to_rejected,
+                    force_send_to_recent=force_send_to_recent,
+                )
+            except Invitation.DoesNotExist:
+                results.append(
+                    SendInvitationResult(
+                        invitation_uid=uid,
+                        status=SendInvitationStatus.NOT_FOUND,
+                        reason=_("Invitation not found."),
+                    )
+                )
+            except ImmutableInvitation as exc:
+                results.append(
+                    SendInvitationResult(
+                        invitation_uid=uid,
+                        status=SendInvitationStatus.SKIPPED,
+                        reason=str(exc),
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    "Unknown error when sending invitation.",
+                    invitation_uid=uid,
+                )
+                results.append(
+                    SendInvitationResult(
+                        invitation_uid=uid,
+                        status=SendInvitationStatus.FAILED,
+                        reason=_("An unexpected error has occurred."),
+                    )
+                )
+            else:
+                if sent:
+                    results.append(
+                        SendInvitationResult(
+                            invitation_uid=uid,
+                            status=SendInvitationStatus.SENT,
+                            invitee_email=invitee_email,
+                        )
+                    )
+                else:
+                    results.append(
+                        SendInvitationResult(
+                            invitation_uid=uid,
+                            status=SendInvitationStatus.SKIPPED,
+                            invitee_email=invitee_email,
+                            reason=_(
+                                "Skipped due to rate limiting or rejected status."
+                            ),
+                        )
+                    )
+
+        return results
 
     @classmethod
     def retrieve_invitation(cls, token: str) -> Invitation | None:
