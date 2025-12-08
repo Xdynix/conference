@@ -140,3 +140,8 @@ exclude_also = [
 
 [tool.coverage.html]
 directory = "var/cov-report"
+
+[tool.markdownlint]
+default = true
+MD007 = { indent = 4 }
+MD013 = { line_length = 88, strict = true }

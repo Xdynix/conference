@@ -15,15 +15,5 @@
         72
       ]
     }
-  },
-  "markdownlint": {
-    "default": true,
-    "MD007": {
-      "indent": 4
-    },
-    "MD013": {
-      "line_length": 88,
-      "strict": true
-    }
   }
 }

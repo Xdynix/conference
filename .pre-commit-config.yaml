@@ -31,9 +31,9 @@ repos:
       - id: markdownlint
         args:
           - --config
-          - package.json
+          - pyproject.toml
           - --configPointer
-          - /markdownlint
+          - /tool/markdownlint
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.4
     hooks:
