@@ -95,6 +95,8 @@ class InvitationService:
     # TODO: Review whether to enforce conference active check in service layer for
     #  defense in depth, especially for methods called outside API endpoints (Django
     #  admin, management commands, background jobs).
+    # TODO: Add a non-destructive invitation cancel/revoke flow that preserves history
+    #  but blocks redemption and further delivery.
 
     @classmethod
     @transaction.atomic

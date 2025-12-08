@@ -61,8 +61,8 @@ def mock_visible(mocker: MockerFixture) -> AsyncMock:
 @pytest.mark.django_db
 class TestListInvitations:
     @classmethod
-    def path(cls, name: str) -> str:
-        return reverse("api-1.0.0:list-invitations", args=[name])
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:list-invitations", args=[conference_name])
 
     def test_happy_path(
         self,

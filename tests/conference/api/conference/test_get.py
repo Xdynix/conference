@@ -14,8 +14,8 @@ from app.core.models import User
 @pytest.mark.django_db
 class TestGetConference:
     @classmethod
-    def path(cls, name: str) -> str:
-        return reverse("api-1.0.0:get-conference", args=[name])
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:get-conference", args=[conference_name])
 
     def test_happy_path(self, mocker: MockerFixture, api_client: Client) -> None:
         conference = Conference.objects.create(

@@ -65,8 +65,8 @@ def invitation_service_create(mocker: MockerFixture) -> MagicMock:
 @pytest.mark.django_db(transaction=True)
 class TestCreateInvitation:
     @classmethod
-    def path(cls, name: str) -> str:
-        return reverse("api-1.0.0:create-invitation", args=[name])
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:create-invitation", args=[conference_name])
 
     def test_happy_path(
         self,

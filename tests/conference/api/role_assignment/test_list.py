@@ -71,8 +71,8 @@ def mock_visible_track_assignments(mocker: MockerFixture) -> AsyncMock:
 @pytest.mark.django_db
 class TestListRoleAssignments:
     @classmethod
-    def path(cls, name: str) -> str:
-        return reverse("api-1.0.0:list-role-assignments", args=[name])
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:list-role-assignments", args=[conference_name])
 
     def test_happy_path(
         self,
