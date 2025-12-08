@@ -346,6 +346,16 @@ INVITATION_EMAIL_INTERVAL = config(
     cast=seconds,
 )
 
+INVITATION_ACCEPT_PAGE_URI = config(
+    "INVITATION_ACCEPT_PAGE_URI",
+    default="https://example.com/accept",
+)
+
+INVITATION_REJECT_PAGE_URI = config(
+    "INVITATION_REJECT_PAGE_URI",
+    default="https://example.com/reject",
+)
+
 
 # Monkeypatch
 
