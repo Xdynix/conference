@@ -26,6 +26,7 @@ from app.conference.models import (
     TrackRoleAssignment,
 )
 from app.core.models import GlobalRole, User
+from app.infra.models import Mutex
 from app.utils.email import EmailContext, EmailTemplate
 
 from .conference import ConferenceService, InsufficientRolePermission
@@ -181,7 +182,6 @@ class InvitationService:
         return invitation
 
     @classmethod
-    @transaction.atomic
     def update_invitation(
         cls,
         *,
@@ -207,98 +207,98 @@ class InvitationService:
             InsufficientRolePermission: If the user lacks permission to manage the
                 current or new roles.
         """
-        invitation = Invitation.objects.select_for_update().get(uid=invitation_uid)
+        with Mutex.lock_in_transaction(str(invitation_uid), namespace="invitation"):
+            invitation = Invitation.objects.get(uid=invitation_uid)
 
-        if not invitation.is_mutable():
-            raise ImmutableInvitation(_("Cannot update accepted invitation."))
+            if not invitation.is_mutable():
+                raise ImmutableInvitation(_("Cannot update accepted invitation."))
 
-        current_conference_roles, current_track_roles = cls.get_invitation_roles(
-            invitation
-        )
-        try:
+            current_conference_roles, current_track_roles = cls.get_invitation_roles(
+                invitation
+            )
+            try:
+                ConferenceService.validate_can_assign_roles(
+                    user=user,
+                    conference=invitation.conference,
+                    conference_roles=current_conference_roles,
+                    track_roles=current_track_roles,
+                )
+            except InsufficientRolePermission as exc:
+                raise InsufficientRolePermission(
+                    _("You cannot manage this invitation.")
+                ) from exc
+
+            new_conference_roles = (
+                conference_roles
+                if conference_roles is not None
+                else current_conference_roles
+            )
+            new_track_roles = (
+                track_roles if track_roles is not None else current_track_roles
+            )
             ConferenceService.validate_can_assign_roles(
                 user=user,
                 conference=invitation.conference,
-                conference_roles=current_conference_roles,
-                track_roles=current_track_roles,
+                conference_roles=new_conference_roles,
+                track_roles=new_track_roles,
             )
-        except InsufficientRolePermission as exc:
-            raise InsufficientRolePermission(
-                _("You cannot manage this invitation.")
-            ) from exc
 
-        new_conference_roles = (
-            conference_roles
-            if conference_roles is not None
-            else current_conference_roles
-        )
-        new_track_roles = (
-            track_roles if track_roles is not None else current_track_roles
-        )
-        ConferenceService.validate_can_assign_roles(
-            user=user,
-            conference=invitation.conference,
-            conference_roles=new_conference_roles,
-            track_roles=new_track_roles,
-        )
+            update_fields = []
+            if given_name is not None:
+                invitation.given_name = given_name
+                update_fields.append("given_name")
+            if family_name is not None:
+                invitation.family_name = family_name
+                update_fields.append("family_name")
+            if affiliation is not None:
+                invitation.affiliation = affiliation
+                update_fields.append("affiliation")
+            if region_code is not None:
+                invitation.region_code = region_code
+                update_fields.append("region_code")
+            if desired_paper_count is not None:
+                invitation.desired_paper_count = desired_paper_count
+                update_fields.append("desired_paper_count")
 
-        update_fields = []
-        if given_name is not None:
-            invitation.given_name = given_name
-            update_fields.append("given_name")
-        if family_name is not None:
-            invitation.family_name = family_name
-            update_fields.append("family_name")
-        if affiliation is not None:
-            invitation.affiliation = affiliation
-            update_fields.append("affiliation")
-        if region_code is not None:
-            invitation.region_code = region_code
-            update_fields.append("region_code")
-        if desired_paper_count is not None:
-            invitation.desired_paper_count = desired_paper_count
-            update_fields.append("desired_paper_count")
+            if update_fields:
+                invitation.save(update_fields=update_fields)
 
-        if update_fields:
-            invitation.save(update_fields=update_fields)
+            if interested_keywords is not None:
+                invitation.interested_keywords.set(interested_keywords)
 
-        if interested_keywords is not None:
-            invitation.interested_keywords.set(interested_keywords)
-
-        if conference_roles is not None:
-            invitation.conference_role_entries.all().delete()
-            conference_role_entries = [
-                InvitationConferenceRoleEntry(
-                    invitation=invitation,
-                    role=role,
+            if conference_roles is not None:
+                invitation.conference_role_entries.all().delete()
+                conference_role_entries = [
+                    InvitationConferenceRoleEntry(
+                        invitation=invitation,
+                        role=role,
+                    )
+                    for role in set(conference_roles)
+                ]
+                InvitationConferenceRoleEntry.objects.bulk_create(
+                    conference_role_entries,
+                    ignore_conflicts=True,
                 )
-                for role in set(conference_roles)
-            ]
-            InvitationConferenceRoleEntry.objects.bulk_create(
-                conference_role_entries,
-                ignore_conflicts=True,
-            )
 
-        if track_roles is not None:
-            invitation.track_role_entries.all().delete()
-            track_role_entries = [
-                InvitationTrackRoleEntry(
-                    invitation=invitation,
-                    track=track,
-                    role=role,
+            if track_roles is not None:
+                invitation.track_role_entries.all().delete()
+                track_role_entries = [
+                    InvitationTrackRoleEntry(
+                        invitation=invitation,
+                        track=track,
+                        role=role,
+                    )
+                    for track, roles in track_roles.items()
+                    for role in set(roles)
+                ]
+                InvitationTrackRoleEntry.objects.bulk_create(
+                    track_role_entries,
+                    ignore_conflicts=True,
                 )
-                for track, roles in track_roles.items()
-                for role in set(roles)
-            ]
-            InvitationTrackRoleEntry.objects.bulk_create(
-                track_role_entries,
-                ignore_conflicts=True,
-            )
 
-        return invitation
+            return invitation
 
     @classmethod
-    @transaction.atomic
     def delete_invitation(cls, *, invitation_uid: ULID, user: User) -> None:
         """Delete an invitation after validating management permissions.
 
@@ -307,22 +307,23 @@ class InvitationService:
             InsufficientRolePermission: If the user cannot manage the invitation's
                 roles.
         """
-        invitation = Invitation.objects.select_for_update().get(uid=invitation_uid)
+        with Mutex.lock_in_transaction(str(invitation_uid), namespace="invitation"):
+            invitation = Invitation.objects.get(uid=invitation_uid)
 
-        conference_roles, track_roles = cls.get_invitation_roles(invitation)
-        try:
-            ConferenceService.validate_can_assign_roles(
-                user=user,
-                conference=invitation.conference,
-                conference_roles=conference_roles,
-                track_roles=track_roles,
-            )
-        except InsufficientRolePermission as exc:
-            raise InsufficientRolePermission(
-                _("You cannot manage this invitation.")
-            ) from exc
+            conference_roles, track_roles = cls.get_invitation_roles(invitation)
+            try:
+                ConferenceService.validate_can_assign_roles(
+                    user=user,
+                    conference=invitation.conference,
+                    conference_roles=conference_roles,
+                    track_roles=track_roles,
+                )
+            except InsufficientRolePermission as exc:
+                raise InsufficientRolePermission(
+                    _("You cannot manage this invitation.")
+                ) from exc
 
-        invitation.delete()
+            invitation.delete()
 
     @classmethod
     def get_invitation_roles(
@@ -376,7 +377,6 @@ class InvitationService:
         )
 
     @classmethod
-    @transaction.atomic
     def send_invitation(
         cls,
         invitation_uid: ULID,
@@ -398,53 +398,52 @@ class InvitationService:
             Invitation.DoesNotExist: If invitation not found.
             ImmutableInvitation: If the invitation is already accepted.
         """
-        invitation = (
-            Invitation.objects.select_for_update()
-            .select_related("conference")
-            .get(uid=invitation_uid)
-        )
-
-        if invitation.status == Invitation.Status.ACCEPTED:
-            raise ImmutableInvitation(
-                _("Cannot send invitation that has already been accepted.")
+        with Mutex.lock_in_transaction(str(invitation_uid), namespace="invitation"):
+            invitation = Invitation.objects.select_related("conference").get(
+                uid=invitation_uid
             )
 
-        if (
-            invitation.status == Invitation.Status.REJECTED
-            and not force_send_to_rejected
-        ):
-            return False, invitation.invitee_email
+            if invitation.status == Invitation.Status.ACCEPTED:
+                raise ImmutableInvitation(
+                    _("Cannot send invitation that has already been accepted.")
+                )
 
-        now = timezone.now()
-        if (
-            invitation.last_email_sent_time is not None
-            and (now - invitation.last_email_sent_time)
-            <= settings.INVITATION_EMAIL_INTERVAL
-            and not force_send_to_recent
-        ):
-            return False, invitation.invitee_email
+            if (
+                invitation.status == Invitation.Status.REJECTED
+                and not force_send_to_rejected
+            ):
+                return False, invitation.invitee_email
 
-        context = cls._build_email_context(
-            invitation,
-            invitation_accept_page_uri=invitation_accept_page_uri,
-            invitation_reject_page_uri=invitation_reject_page_uri,
-        )
-        rendered = template.render(context)
-        email_message = rendered.build_message(to=invitation.invitee_email, cc=cc)
+            now = timezone.now()
+            if (
+                invitation.last_email_sent_time is not None
+                and (now - invitation.last_email_sent_time)
+                <= settings.INVITATION_EMAIL_INTERVAL
+                and not force_send_to_recent
+            ):
+                return False, invitation.invitee_email
 
-        invitation.last_email_sent_time = now
-        invitation.email_send_count = F("email_send_count") + 1
-        invitation.save(
-            update_fields=[
-                "update_time",
-                "last_email_sent_time",
-                "email_send_count",
-            ]
-        )
+            context = cls._build_email_context(
+                invitation,
+                invitation_accept_page_uri=invitation_accept_page_uri,
+                invitation_reject_page_uri=invitation_reject_page_uri,
+            )
+            rendered = template.render(context)
+            email_message = rendered.build_message(to=invitation.invitee_email, cc=cc)
 
-        transaction.on_commit(email_message.send)
+            invitation.last_email_sent_time = now
+            invitation.email_send_count = F("email_send_count") + 1
+            invitation.save(
+                update_fields=[
+                    "update_time",
+                    "last_email_sent_time",
+                    "email_send_count",
+                ]
+            )
 
-        return True, invitation.invitee_email
+            transaction.on_commit(email_message.send)
+
+            return True, invitation.invitee_email
 
     @classmethod
     def send_invitations(
@@ -556,11 +555,11 @@ class InvitationService:
             ``True`` if the invitation was accepted during this call, ``False`` if it
             was already accepted.
         """
-        with transaction.atomic():
-            # Lock the invitation row to prevent concurrent redemption attempts from
-            # creating duplicate role assignments. The lock is held until the
-            # transaction commits, ensuring atomicity of the redemption process.
-            invitation = Invitation.objects.select_for_update().get(pk=invitation.pk)
+        with (
+            Mutex.lock_in_transaction(str(invitation.uid), namespace="invitation"),
+            Mutex.lock_in_transaction(str(user.pk), namespace="user_role_assignments"),
+        ):
+            invitation = Invitation.objects.get(pk=invitation.pk)
 
             if invitation.status == Invitation.Status.ACCEPTED:
                 return False

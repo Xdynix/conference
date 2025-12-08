@@ -8,6 +8,7 @@ from django.utils.translation import gettext as _
 
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from app.core.registry.create_user import create_user_registry
+from app.infra.models import Mutex
 
 
 class InvalidPassword(Exception):
@@ -151,7 +152,6 @@ class UserService:
         await cls.update_password(user=user, new_password=new_password)
 
     @classmethod
-    @transaction.atomic
     def set_roles(
         cls,
         *,
@@ -163,12 +163,11 @@ class UserService:
         Removes roles not in the provided collection and adds new roles, ignoring
         conflicts if a role assignment already exists.
         """
-        # Lock the user row to prevent race conditions when modifying role assignments,
-        # even though we don't update the user itself.
-        User.objects.select_for_update().get(pk=user.pk)
-
-        GlobalRoleAssignment.objects.filter(user=user).exclude(role__in=roles).delete()
-        GlobalRoleAssignment.objects.bulk_create(
-            [GlobalRoleAssignment(user=user, role=role) for role in roles],
-            ignore_conflicts=True,
-        )
+        with Mutex.lock_in_transaction(str(user.pk), namespace="user_role_assignments"):
+            GlobalRoleAssignment.objects.filter(user=user).exclude(
+                role__in=roles
+            ).delete()
+            GlobalRoleAssignment.objects.bulk_create(
+                [GlobalRoleAssignment(user=user, role=role) for role in roles],
+                ignore_conflicts=True,
+            )

@@ -1,6 +1,5 @@
 from collections.abc import Collection
 
-from django.db import transaction
 from django.db.models import Exists, OuterRef, Q, QuerySet
 
 from app.conference.models import (
@@ -13,6 +12,7 @@ from app.conference.models import (
 )
 from app.conference.services.conference import ConferenceService
 from app.core.models import GlobalRole, User
+from app.infra.models import Mutex
 
 
 class RoleAssignmentService:
@@ -201,7 +201,6 @@ class RoleAssignmentService:
         return assignments.filter(track_id__in=administered_track_ids)
 
     @classmethod
-    @transaction.atomic
     def add_conference_role(
         cls,
         conference: Conference,
@@ -216,23 +215,23 @@ class RoleAssignmentService:
         Raises:
             InsufficientRolePermission: If requesting user lacks permission.
         """
-        # Lock target user row to prevent concurrent modifications.
-        target_user = User.objects.select_for_update().get(pk=target_user.pk)
+        with Mutex.lock_in_transaction(
+            str(target_user.pk),
+            namespace="user_role_assignments",
+        ):
+            ConferenceService.validate_can_assign_roles(
+                user=requesting_user,
+                conference=conference,
+                conference_roles=[role],
+            )
 
-        ConferenceService.validate_can_assign_roles(
-            user=requesting_user,
-            conference=conference,
-            conference_roles=[role],
-        )
-
-        ConferenceRoleAssignment.objects.get_or_create(
-            conference=conference,
-            user=target_user,
-            role=role,
-        )
+            ConferenceRoleAssignment.objects.get_or_create(
+                conference=conference,
+                user=target_user,
+                role=role,
+            )
 
     @classmethod
-    @transaction.atomic
     def remove_conference_role(
         cls,
         conference: Conference,
@@ -247,23 +246,23 @@ class RoleAssignmentService:
         Raises:
             InsufficientRolePermission: If requesting user lacks permission.
         """
-        # Lock target user row to prevent concurrent modifications.
-        target_user = User.objects.select_for_update().get(pk=target_user.pk)
+        with Mutex.lock_in_transaction(
+            str(target_user.pk),
+            namespace="user_role_assignments",
+        ):
+            ConferenceService.validate_can_assign_roles(
+                user=requesting_user,
+                conference=conference,
+                conference_roles=[role],
+            )
 
-        ConferenceService.validate_can_assign_roles(
-            user=requesting_user,
-            conference=conference,
-            conference_roles=[role],
-        )
-
-        ConferenceRoleAssignment.objects.filter(
-            conference=conference,
-            user=target_user,
-            role=role,
-        ).delete()
+            ConferenceRoleAssignment.objects.filter(
+                conference=conference,
+                user=target_user,
+                role=role,
+            ).delete()
 
     @classmethod
-    @transaction.atomic
     def add_track_role(
         cls,
         conference: Conference,
@@ -280,23 +279,23 @@ class RoleAssignmentService:
             ValueError: If tracks do not belong to the conference.
             InsufficientRolePermission: If requesting user lacks permission.
         """
-        # Lock target user row to prevent concurrent modifications.
-        target_user = User.objects.select_for_update().get(pk=target_user.pk)
+        with Mutex.lock_in_transaction(
+            str(target_user.pk),
+            namespace="user_role_assignments",
+        ):
+            ConferenceService.validate_can_assign_roles(
+                user=requesting_user,
+                conference=conference,
+                track_roles={track: [role]},
+            )
 
-        ConferenceService.validate_can_assign_roles(
-            user=requesting_user,
-            conference=conference,
-            track_roles={track: [role]},
-        )
-
-        TrackRoleAssignment.objects.get_or_create(
-            track=track,
-            user=target_user,
-            role=role,
-        )
+            TrackRoleAssignment.objects.get_or_create(
+                track=track,
+                user=target_user,
+                role=role,
+            )
 
     @classmethod
-    @transaction.atomic
     def remove_track_role(
         cls,
         conference: Conference,
@@ -313,17 +312,18 @@ class RoleAssignmentService:
             ValueError: If tracks do not belong to the conference.
             InsufficientRolePermission: If requesting user lacks permission.
         """
-        # Lock target user row to prevent concurrent modifications.
-        target_user = User.objects.select_for_update().get(pk=target_user.pk)
+        with Mutex.lock_in_transaction(
+            str(target_user.pk),
+            namespace="user_role_assignments",
+        ):
+            ConferenceService.validate_can_assign_roles(
+                user=requesting_user,
+                conference=conference,
+                track_roles={track: [role]},
+            )
 
-        ConferenceService.validate_can_assign_roles(
-            user=requesting_user,
-            conference=conference,
-            track_roles={track: [role]},
-        )
-
-        TrackRoleAssignment.objects.filter(
-            track=track,
-            user=target_user,
-            role=role,
-        ).delete()
+            TrackRoleAssignment.objects.filter(
+                track=track,
+                user=target_user,
+                role=role,
+            ).delete()

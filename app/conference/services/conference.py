@@ -17,6 +17,7 @@ from app.conference.models import (
     TrackRoleAssignment,
 )
 from app.core.models import GlobalRole, User
+from app.infra.models import Mutex
 
 
 class ConferenceNameConflict(Exception):
@@ -83,7 +84,6 @@ class ConferenceService:
         return conference
 
     @classmethod
-    @transaction.atomic
     def update_conference(
         cls,
         *,
@@ -101,35 +101,35 @@ class ConferenceService:
         Raises:
             Conference.DoesNotExist: If the conference is not found.
         """
-        conference = Conference.objects.active().select_for_update().get(name=name)
+        with Mutex.lock_in_transaction(name, namespace="conference"):
+            conference = Conference.objects.active().get(name=name)
 
-        update_fields: list[str] = []
+            update_fields: list[str] = []
 
-        if display_name is not None:
-            conference.display_name = display_name
-            update_fields.append("display_name")
+            if display_name is not None:
+                conference.display_name = display_name
+                update_fields.append("display_name")
 
-        if visibility is not None:
-            conference.visibility = visibility
-            update_fields.append("visibility")
+            if visibility is not None:
+                conference.visibility = visibility
+                update_fields.append("visibility")
 
-        keywords_provided = keywords is not None
-        keyword_sets_provided = keyword_sets is not None
-        keywords_updated = keywords_provided or keyword_sets_provided
-        if keywords_updated:
-            assigned_keywords: set[Keyword] = set()
-            assigned_keywords.update(keywords or [])
-            for keyword_set in keyword_sets or []:
-                assigned_keywords.update(keyword_set.keywords.all())
-            conference.keywords.set(assigned_keywords)
+            keywords_provided = keywords is not None
+            keyword_sets_provided = keyword_sets is not None
+            keywords_updated = keywords_provided or keyword_sets_provided
+            if keywords_updated:
+                assigned_keywords: set[Keyword] = set()
+                assigned_keywords.update(keywords or [])
+                for keyword_set in keyword_sets or []:
+                    assigned_keywords.update(keyword_set.keywords.all())
+                conference.keywords.set(assigned_keywords)
 
-        if update_fields or keywords_updated:
-            conference.save(update_fields=[*update_fields, "update_time"])
+            if update_fields or keywords_updated:
+                conference.save(update_fields=[*update_fields, "update_time"])
 
-        return conference
+            return conference
 
     @classmethod
-    @transaction.atomic
     def deactivate_conference(cls, *, name: str) -> Conference:
         """Deactivates a conference.
 
@@ -139,10 +139,11 @@ class ConferenceService:
         Raises:
             Conference.DoesNotExist: If the conference is not found.
         """
-        conference = Conference.objects.active().select_for_update().get(name=name)
-        conference.active = False
-        conference.save(update_fields=["active", "update_time"])
-        return conference
+        with Mutex.lock_in_transaction(name, namespace="conference"):
+            conference = Conference.objects.active().get(name=name)
+            conference.active = False
+            conference.save(update_fields=["active", "update_time"])
+            return conference
 
     @classmethod
     async def visible_conferences(

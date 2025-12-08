@@ -147,6 +147,67 @@ async def my_endpoint(request: HttpRequest) -> dict[str, str]:
 
 **Anti-pattern**: Never stack `@sync_to_async` on top of `@transaction.atomic()`.
 
+#### Row Locking and the Mutex Primitive
+
+Django's `select_for_update()` has **no effect on SQLite**—it does not acquire any
+locks. This means code relying on it for serialization will have race conditions during
+development and testing (which use SQLite).
+
+Use the `Mutex` primitive from `app.infra.models` instead. It provides database-backed
+distributed locking that works on both PostgreSQL (using `SELECT FOR UPDATE`) and SQLite
+(using write transactions that serialize writers).
+
+**Example pattern**:
+
+```python
+from app.infra.models import Mutex
+
+
+class MyService:
+    @classmethod
+    def update_with_lock(cls, resource_id: str) -> None:
+        with Mutex.lock_in_transaction(resource_id, namespace="my_resource"):
+            resource = Resource.objects.get(pk=resource_id)
+            # ... modify resource ...
+            resource.save()
+```
+
+**Key points**:
+
+- `Mutex.lock_in_transaction()` opens its own `transaction.atomic()`, so you don't need
+  the decorator.
+- The `namespace` parameter prevents key collisions across different resource types.
+- The lock is held until the transaction commits.
+- Never use `select_for_update()` directly in service code—always prefer `Mutex`.
+
+**Namespace and key selection**:
+
+- Use a **shared namespace** when the same logical resource is modified from multiple
+  apps. For example, `user_role_assignments` is used in both `core` (global roles) and
+  `conference` (conference/track roles) because they all guard modifications to a user's
+  role assignments.
+- Within the same namespace, always use a **consistent key format**. If one method uses
+  `str(invitation.uid)`, all methods in that namespace must use `uid`—never mix `pk`,
+  `uid`, and `name`. Inconsistent keys create separate locks that don't block each
+  other.
+
+**Multiple locks and ordering**:
+
+When acquiring multiple mutexes in one operation, always acquire them in a consistent
+order across the codebase to avoid deadlocks. For example, if `redeem_invitation` locks
+`invitation` then `user_role_assignments`, any other operation that needs both locks
+must use the same order. Document the expected order when introducing new multi-lock
+patterns.
+
+```python
+# Correct: consistent order (invitation → user_role_assignments)
+with (
+    Mutex.lock_in_transaction(str(invitation.uid), namespace="invitation"),
+    Mutex.lock_in_transaction(str(user.pk), namespace="user_role_assignments"),
+):
+    ...
+```
+
 ### Schema Design
 
 - Resolver methods (`resolve_{field_name}`) belong only in response or request schemas,
