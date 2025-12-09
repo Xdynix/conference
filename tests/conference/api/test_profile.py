@@ -132,7 +132,7 @@ class TestUpdateCurrentUserProfile:
         assert not Profile.objects.filter(user=user).exists()
         assert "profile" not in response.json()
 
-    def test_unauthenticated_user_forbidden(
+    def test_unauthenticated_user_unauthorized(
         self,
         api_client: Client,
         profile_payload: dict[str, str],

@@ -123,7 +123,7 @@ class TestGetCurrentUserConferenceProfile:
 
         profile_service_get_or_create.assert_not_called()
 
-    def test_unauthenticated_user_forbidden(
+    def test_unauthenticated_user_unauthorized(
         self,
         api_client: Client,
         conference: Conference,
@@ -321,7 +321,7 @@ class TestUpdateCurrentUserConferenceProfile:
         assert error["loc"] == ["body", "payload", "interested_keywords"]
         assert "Unknown keywords" in error["msg"]
 
-    def test_unauthenticated_user_forbidden(
+    def test_unauthenticated_user_unauthorized(
         self,
         api_client: Client,
         conference: Conference,

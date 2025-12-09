@@ -101,8 +101,8 @@ class TestListConferences:
 
     def test_returns_empty_list_when_service_has_no_results(
         self,
-        api_client: Client,
         mocker: MockerFixture,
+        api_client: Client,
     ) -> None:
         mock_visible_conferences = mocker.patch.object(
             ConferenceService,

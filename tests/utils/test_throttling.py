@@ -161,8 +161,8 @@ class TestAuthThrottle:
     @pytest.mark.django_db(transaction=True)
     async def test_get_cache_key_authenticated_user(
         self,
-        faker: Faker,
         mocker: MockerFixture,
+        faker: Faker,
         throttle: AuthThrottle,
     ) -> None:
         user = await get_user_model().objects.acreate_user(username=faker.user_name())
@@ -235,8 +235,8 @@ class TestAnonThrottle:
     @pytest.mark.django_db(transaction=True)
     async def test_get_cache_key_authenticated_user(
         self,
-        faker: Faker,
         mocker: MockerFixture,
+        faker: Faker,
         throttle: AnonThrottle,
         mock_get_client_ip: MagicMock,
     ) -> None:

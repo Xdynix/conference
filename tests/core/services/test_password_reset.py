@@ -62,8 +62,8 @@ class TestPasswordResetServiceCreateToken:
 
     def test_happy_path(
         self,
-        faker: Faker,
         mocker: MockerFixture,
+        faker: Faker,
         mock_send_email: MagicMock,
     ) -> None:
         user = User.objects.create_user(
@@ -138,8 +138,8 @@ class TestPasswordResetServiceCreateToken:
 
     def test_uses_database_transaction(
         self,
-        faker: Faker,
         mocker: MockerFixture,
+        faker: Faker,
         mock_send_email: MagicMock,
     ) -> None:
         user = User.objects.create_user(
@@ -335,8 +335,8 @@ class TestPasswordResetServiceConsumeToken:
 
     def test_uses_database_transaction(
         self,
-        faker: Faker,
         mocker: MockerFixture,
+        faker: Faker,
     ) -> None:
         old_password = faker.password()
         new_password = faker.password()

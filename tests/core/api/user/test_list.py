@@ -181,7 +181,7 @@ class TestListUsers:
         response = api_client.get(self.path)
         assert response.status_code == HTTPStatus.FORBIDDEN
 
-    def test_unauthenticated_user_forbidden(
+    def test_unauthenticated_user_unauthorized(
         self,
         api_client: Client,
     ) -> None:

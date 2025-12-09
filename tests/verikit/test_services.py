@@ -53,8 +53,8 @@ class TestEmailVerificationServiceIssueCode:
 
     def test_happy_path(
         self,
-        faker: Faker,
         mocker: MockerFixture,
+        faker: Faker,
         mock_send: MagicMock,
     ) -> None:
         email = faker.email()
@@ -172,8 +172,8 @@ class TestEmailVerificationServiceIssueCode:
 
     def test_uses_database_transaction(
         self,
-        faker: Faker,
         mocker: MockerFixture,
+        faker: Faker,
         mock_send: MagicMock,
     ) -> None:
         email = faker.email()

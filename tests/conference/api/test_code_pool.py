@@ -181,7 +181,7 @@ class TestListCodePools:
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.FORBIDDEN
 
-    def test_unauthenticated_unauthorized(
+    def test_unauthenticated_user_unauthorized(
         self,
         api_client: Client,
         conference: Conference,

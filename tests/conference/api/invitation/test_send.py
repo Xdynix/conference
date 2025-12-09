@@ -175,7 +175,7 @@ class TestPreviewInvitationEmail:
         )
         assert response.status_code == HTTPStatus.OK
 
-    def test_unauthenticated_returns_401(
+    def test_unauthenticated_user_unauthorized(
         self,
         api_client: Client,
         conference: Conference,
@@ -417,7 +417,7 @@ class TestSendInvitations:
 
         mock_send_invitations.assert_called_once()
 
-    def test_unauthenticated_returns_401(
+    def test_unauthenticated_user_unauthorized(
         self,
         api_client: Client,
         conference: Conference,
