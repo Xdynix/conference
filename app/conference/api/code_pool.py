@@ -1,6 +1,13 @@
+from http import HTTPStatus
+from typing import Annotated
+
+from django.db import IntegrityError
 from django.shortcuts import aget_object_or_404
-from ninja import Router, Schema
-from pydantic import AwareDatetime
+from django.utils.translation import gettext as _
+from loguru import logger
+from ninja import Field, Router, Schema
+from ninja.errors import HttpError
+from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_roles
@@ -8,14 +15,42 @@ from app.conference.models import CodePool, Conference, ConferenceRole
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
+from app.utils.sanitization import sanitize_text
 
 router = Router(tags=["Code Pool"], exclude_none=True)
+
+code_pool_meta = CodePool._meta
+code_pool_name_field = code_pool_meta.get_field("name")
+code_pool_prefix_field = code_pool_meta.get_field("prefix")
+
+CodePoolName = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        min_length=1,
+        max_length=code_pool_name_field.max_length,
+        strip_whitespace=True,
+    ),
+]
+CodePoolPrefix = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        min_length=1,
+        max_length=code_pool_prefix_field.max_length,
+        strip_whitespace=True,
+    ),
+    Field(
+        description=str(code_pool_prefix_field.help_text),
+        examples=["CBPK-2"],
+    ),
+]
 
 
 class CodePoolResponse(Schema):
     uid: ULID
-    name: str
-    prefix: str
+    name: CodePoolName
+    prefix: CodePoolPrefix
     next_sequence: int
     create_time: AwareDatetime
     update_time: AwareDatetime
@@ -40,3 +75,50 @@ async def list_code_pools(
         name=conference_name,
     )
     return [pool async for pool in conference.code_pools.order_by("prefix")]
+
+
+class CreateCodePoolRequest(Schema):
+    name: CodePoolName
+    prefix: CodePoolPrefix
+
+
+@router.post(
+    "/conferences/{slug:conference_name}/code-pools",
+    response={HTTPStatus.CREATED: CodePoolResponse},
+    summary="Create Code Pool",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
+    ),
+)
+async def create_code_pool(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    payload: CreateCodePoolRequest,
+) -> tuple[int, CodePool]:
+    """Create a new code pool for the conference."""
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+
+    try:
+        pool = await CodePool.objects.acreate(
+            conference=conference,
+            name=payload.name,
+            prefix=payload.prefix,
+        )
+    except IntegrityError as exc:
+        raise HttpError(
+            HTTPStatus.CONFLICT,
+            _("A code pool with this prefix already exists for this conference."),
+        ) from exc
+
+    user = await request.auser()
+    logger.info(
+        "Code pool created.",
+        code_pool_uid=pool.uid,
+        conference_name=conference.name,
+        actor_uid=user.uid,
+    )
+
+    return HTTPStatus.CREATED, pool
