@@ -2,6 +2,7 @@ from http import HTTPStatus
 from typing import Annotated
 
 from django.db import IntegrityError
+from django.db.models import ProtectedError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
@@ -176,3 +177,48 @@ async def update_code_pool(
     )
 
     return pool
+
+
+@router.delete(
+    "/conferences/{slug:conference_name}/code-pools/{ulid:code_pool_id}",
+    response={HTTPStatus.NO_CONTENT: None},
+    summary="Delete Code Pool",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
+    ),
+)
+async def delete_code_pool(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    code_pool_id: ULID,
+) -> tuple[HTTPStatus, None]:
+    """Delete a code pool.
+
+    Fails if any tracks are still referencing this pool.
+    """
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+    pool = await aget_object_or_404(
+        CodePool.objects.filter(conference=conference),
+        uid=code_pool_id,
+    )
+
+    try:
+        await pool.adelete()
+    except ProtectedError as exc:
+        raise HttpError(
+            HTTPStatus.CONFLICT,
+            _("Cannot delete code pool: it is still referenced by one or more tracks."),
+        ) from exc
+
+    user = await request.auser()
+    logger.info(
+        "Code pool deleted.",
+        code_pool_uid=code_pool_id,
+        conference_name=conference.name,
+        actor_uid=user.uid,
+    )
+
+    return HTTPStatus.NO_CONTENT, None
