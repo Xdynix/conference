@@ -70,7 +70,8 @@ class Region(StrEnum):
     CU = "Cuba"
     CW = "Curaçao"
     CY = "Cyprus"
-    CZ = "Czechia"
+    # Manually updated from "Czechia".
+    CZ = "Czech Republic"
     DK = "Denmark"
     DG = "Diego Garcia"
     DJ = "Djibouti"
@@ -84,7 +85,8 @@ class Region(StrEnum):
     EE = "Estonia"
     SZ = "Eswatini"
     ET = "Ethiopia"
-    FK = "Falkland Islands"
+    # Manually updated from "Falkland Islands" to minimize political friction.
+    FK = "Falkland Islands (Islas Malvinas)"
     FO = "Faroe Islands"
     FJ = "Fiji"
     FI = "Finland"
@@ -111,7 +113,8 @@ class Region(StrEnum):
     HT = "Haiti"
     HM = "Heard & McDonald Islands"
     HN = "Honduras"
-    HK = "Hong Kong SAR China"
+    # Manually updated from "Hong Kong SAR China".
+    HK = "Hong Kong SAR"
     HU = "Hungary"
     IS = "Iceland"
     IN = "India"
@@ -141,7 +144,8 @@ class Region(StrEnum):
     LI = "Liechtenstein"
     LT = "Lithuania"
     LU = "Luxembourg"
-    MO = "Macao SAR China"
+    # Manually updated from "Macau SAR China" to align with modern naming conventions.
+    MO = "Macau SAR"
     MG = "Madagascar"
     MW = "Malawi"
     MY = "Malaysia"
@@ -181,7 +185,8 @@ class Region(StrEnum):
     OM = "Oman"
     PK = "Pakistan"
     PW = "Palau"
-    PS = "Palestinian Territories"
+    # Manually updated from "Palestinian Territories".
+    PS = "Palestine"
     PA = "Panama"
     PG = "Papua New Guinea"
     PY = "Paraguay"
@@ -241,7 +246,8 @@ class Region(StrEnum):
     TT = "Trinidad & Tobago"
     TA = "Tristan da Cunha"
     TN = "Tunisia"
-    TR = "Türkiye"
+    # Manually updated from "Türkiye".
+    TR = "Turkey (Türkiye)"
     TM = "Turkmenistan"
     TC = "Turks & Caicos Islands"
     TV = "Tuvalu"
