@@ -5,7 +5,7 @@ from ninja import Router, Schema
 from app.conference.models import KeywordSet
 from app.conference.types import KeywordSetName, KeywordText
 
-router = Router(tags=["Keyword Set"])
+router = Router(tags=["Keyword Set"], exclude_none=True)
 
 
 class KeywordSetSchema(Schema):

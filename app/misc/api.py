@@ -8,7 +8,7 @@ from ninja import Router, Schema
 from ninja.decorators import decorate_view
 from pydantic import AwareDatetime, Field
 
-router = Router(tags=["Misc"])
+router = Router(tags=["Misc"], exclude_none=True)
 
 
 class HealthStatus(Schema):

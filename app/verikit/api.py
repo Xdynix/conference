@@ -17,7 +17,7 @@ from app.verikit.models import EmailVerification
 from app.verikit.services import EmailVerificationService
 from app.verikit.types import EmailStr
 
-router = Router(tags=["Verikit"])
+router = Router(tags=["Verikit"], exclude_none=True)
 
 
 class CreateEmailVerificationRequest(Schema):
