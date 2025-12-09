@@ -5,7 +5,7 @@ from django.db import IntegrityError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
-from ninja import Field, Router, Schema
+from ninja import Field, PatchDict, Router, Schema
 from ninja.errors import HttpError
 from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 from ulid import ULID
@@ -122,3 +122,57 @@ async def create_code_pool(
     )
 
     return HTTPStatus.CREATED, pool
+
+
+class CodePoolSchema(Schema):
+    name: CodePoolName
+    prefix: CodePoolPrefix
+
+
+@router.patch(
+    "/conferences/{slug:conference_name}/code-pools/{ulid:code_pool_id}",
+    response=CodePoolResponse,
+    summary="Update Code Pool",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
+    ),
+)
+async def update_code_pool(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    code_pool_id: ULID,
+    payload: PatchDict[CodePoolSchema],
+) -> CodePool:
+    """Update a code pool's name or prefix."""
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+    pool = await aget_object_or_404(
+        CodePool.objects.filter(conference=conference),
+        uid=code_pool_id,
+    )
+
+    update_fields: list[str] = []
+    for attr, value in payload.items():
+        setattr(pool, attr, value)
+        update_fields.append(attr)
+
+    if update_fields:
+        try:
+            await pool.asave(update_fields=[*update_fields, "update_time"])
+        except IntegrityError as exc:
+            raise HttpError(
+                HTTPStatus.CONFLICT,
+                _("A code pool with this prefix already exists for this conference."),
+            ) from exc
+
+    user = await request.auser()
+    logger.info(
+        "Code pool updated.",
+        code_pool_uid=pool.uid,
+        conference_name=conference.name,
+        actor_uid=user.uid,
+    )
+
+    return pool
