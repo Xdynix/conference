@@ -1,8 +1,10 @@
 from typing import Self
 
 from django.db import models
+from django.db.models import F, Q
 from django.utils.translation import gettext_lazy as _
 
+from app.infra.models import Mutex
 from app.utils.models import TimeStampedModel, ULIDModel
 
 from .keyword import Keyword
@@ -72,6 +74,66 @@ class Conference(TimeStampedModel):
         return self.name
 
 
+class CodePool(TimeStampedModel, ULIDModel):
+    conference = models.ForeignKey(
+        Conference,
+        on_delete=models.CASCADE,
+        related_name="code_pools",
+        related_query_name="code_pool",
+        verbose_name=_("conference"),
+    )
+    name = models.CharField(
+        _("name"),
+        max_length=255,
+        help_text=_("Name of the pool (e.g., 'Main Tracks', 'Workshops')."),
+    )
+    prefix = models.CharField(
+        _("prefix"),
+        max_length=32,
+        help_text=_("Prefix for the paper codes (e.g., 'CBPK-2', 'CBPK-WS-')."),
+    )
+    next_sequence = models.PositiveIntegerField(
+        _("next sequence"),
+        default=1,
+        help_text=_("Next sequence number to be allocated."),
+    )
+
+    class Meta:
+        verbose_name = _("code pool")
+        verbose_name_plural = _("code pools")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("conference", "prefix"),
+                name="unique_pool_prefix",
+                violation_error_code="unique",
+                violation_error_message=_(
+                    "A code pool with this prefix already exists for this conference."
+                ),
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.conference} - {self.name} ({self.prefix})"
+
+    def allocate_code(self) -> str:
+        """Allocate the next sequence number and return the generated paper code.
+
+        Uses ``Mutex`` to ensure serialized access across processes. Safe to call within
+        nested transactions.
+
+        Returns:
+            Generated paper code (e.g., "CBPK-2001").
+        """
+        with Mutex.lock_in_transaction(str(self.pk), namespace="code_pool"):
+            self.refresh_from_db(fields=["next_sequence"])
+            sequence = self.next_sequence
+            self.next_sequence = F("next_sequence") + 1
+            self.save(update_fields=["next_sequence"])
+            # `03d` padding is sufficient for most conferences (up to 999 papers per
+            # pool). If wider padding is needed, add a `sequence_width` field.
+            return f"{self.prefix}{sequence:03d}"
+
+
 class TrackQuerySet(models.QuerySet["Track"]):
     def active(self) -> Self:
         return self.filter(
@@ -91,6 +153,20 @@ class Track(TimeStampedModel, ULIDModel):
         related_name="tracks",
         related_query_name="track",
         verbose_name=_("conference"),
+    )
+    # There is no way to ensure the pool belongs to the same conference for now.
+    # We have to ensure it on the application level.
+    # TODO: Use a composite foreign key after Django adds support for it.
+    code_pool = models.ForeignKey(
+        CodePool,
+        on_delete=models.PROTECT,
+        limit_choices_to=Q(conference=F("conference")),
+        null=True,
+        blank=True,
+        default=None,
+        related_name="tracks",
+        related_query_name="track",
+        verbose_name=_("code pool"),
     )
     display_name = models.CharField(
         _("display name"),

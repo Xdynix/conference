@@ -5,6 +5,7 @@ from django.db.models import Count, QuerySet
 from django.http.request import HttpRequest
 
 from app.conference.models import (
+    CodePool,
     Conference,
     ConferenceRoleAssignment,
     Invitation,
@@ -62,7 +63,18 @@ class ConferenceAdmin(admin.ModelAdmin[Conference]):
     list_filter = ("active", "visibility")
     readonly_fields = ("create_time", "update_time")
     search_fields = ("name", "display_name")
-    # TODO: Add clone operation.
+
+
+@admin.register(CodePool)
+class CodePoolAdmin(admin.ModelAdmin[CodePool]):
+    date_hierarchy = "create_time"
+    list_display = ("name", "conference", "prefix", "next_sequence", "create_time")
+    list_filter = ("conference",)
+    list_select_related = ("conference",)
+    ordering = ("-create_time",)
+    autocomplete_fields = ("conference",)
+    readonly_fields = ("uid", "create_time", "update_time")
+    search_fields = ("uid", "name", "prefix", "conference__name")
 
 
 class TrackRoleAssignmentInline(admin.TabularInline[TrackRoleAssignment, Track]):
@@ -78,8 +90,8 @@ class TrackAdmin(admin.ModelAdmin[Track]):
     inlines = (TrackRoleAssignmentInline,)
     list_display = ("__str__", "visibility", "active", "create_time")
     list_filter = ("active", "visibility", "conference")
-    list_select_related = ("conference",)
-    autocomplete_fields = ("conference",)
+    list_select_related = ("conference", "code_pool")
+    autocomplete_fields = ("conference", "code_pool")
     readonly_fields = ("uid", "create_time", "update_time")
     search_fields = ("uid", "display_name", "conference__name")
 
