@@ -1109,3 +1109,333 @@ class TestGetTrackCodePoolAssignments:
 
         response = api_client.get(self.path("nonexistent-conf"))
         assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+@pytest.mark.django_db
+class TestUpdateTrackCodePoolAssignments:
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse(
+            "api-1.0.0:update-track-code-pool-assignments",
+            args=[conference_name],
+        )
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        pool = CodePool.objects.create(
+            conference=conference,
+            name="Main Pool",
+            prefix="MAIN",
+        )
+        track_a = Track.objects.create(
+            conference=conference,
+            display_name="Track A",
+            ordering=1,
+        )
+        track_b = Track.objects.create(
+            conference=conference,
+            display_name="Track B",
+            ordering=2,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[
+                {"track_uid": str(track_a.uid), "code_pool_uid": str(pool.uid)},
+                {"track_uid": str(track_b.uid), "code_pool_uid": None},
+            ],
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == [
+            {"track_uid": str(track_a.uid), "code_pool_uid": str(pool.uid)},
+            {"track_uid": str(track_b.uid)},
+        ]
+
+        track_a.refresh_from_db()
+        track_b.refresh_from_db()
+        assert track_a.code_pool == pool
+        assert track_b.code_pool is None
+
+    def test_clears_existing_assignment(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        pool = CodePool.objects.create(
+            conference=conference,
+            name="Main Pool",
+            prefix="MAIN",
+        )
+        track = Track.objects.create(
+            conference=conference,
+            display_name="Track",
+            code_pool=pool,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[{"track_uid": str(track.uid), "code_pool_uid": None}],
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        track.refresh_from_db()
+        assert track.code_pool is None
+
+    def test_missing_tracks_rejected(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        Track.objects.create(
+            conference=conference,
+            display_name="Track A",
+        )
+        track_b = Track.objects.create(
+            conference=conference,
+            display_name="Track B",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[{"track_uid": str(track_b.uid), "code_pool_uid": None}],
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert "Missing tracks" in data["message"]
+        assert "Track A" in data["message"]
+
+    def test_invalid_track_uid_rejected(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        track = Track.objects.create(
+            conference=conference,
+            display_name="Track",
+        )
+        invalid_uid = ULID()
+        api_client.force_login(global_admin)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[
+                {"track_uid": str(track.uid), "code_pool_uid": None},
+                {"track_uid": str(invalid_uid), "code_pool_uid": None},
+            ],
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert "Invalid track UIDs" in data["message"]
+        assert str(invalid_uid) in data["message"]
+
+    def test_duplicate_track_uids_rejected(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        track = Track.objects.create(
+            conference=conference,
+            display_name="Track",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[
+                {"track_uid": str(track.uid), "code_pool_uid": None},
+                {"track_uid": str(track.uid), "code_pool_uid": None},
+            ],
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert "Duplicate track UIDs" in data["message"]
+        assert str(track.uid) in data["message"]
+
+    def test_invalid_code_pool_uid_rejected(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        track = Track.objects.create(
+            conference=conference,
+            display_name="Track",
+        )
+        invalid_pool_uid = ULID()
+        api_client.force_login(global_admin)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[
+                {"track_uid": str(track.uid), "code_pool_uid": str(invalid_pool_uid)}
+            ],
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert "Invalid code pool UIDs" in data["message"]
+        assert str(invalid_pool_uid) in data["message"]
+
+    def test_code_pool_from_different_conference_rejected(
+        self,
+        faker: Faker,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        other_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        other_pool = CodePool.objects.create(
+            conference=other_conference,
+            name="Other Pool",
+            prefix="OTH",
+        )
+        track = Track.objects.create(
+            conference=conference,
+            display_name="Track",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[{"track_uid": str(track.uid), "code_pool_uid": str(other_pool.uid)}],
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert "Invalid code pool UIDs" in response.json()["message"]
+
+    def test_inactive_tracks_excluded_from_validation(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        active_track = Track.objects.create(
+            conference=conference,
+            display_name="Active Track",
+            active=True,
+        )
+        Track.objects.create(
+            conference=conference,
+            display_name="Inactive Track",
+            active=False,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[{"track_uid": str(active_track.uid), "code_pool_uid": None}],
+        )
+        assert response.status_code == HTTPStatus.OK
+
+    def test_conference_chair_authorized(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+    ) -> None:
+        track = Track.objects.create(
+            conference=conference,
+            display_name="Track",
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[{"track_uid": str(track.uid), "code_pool_uid": None}],
+        )
+        assert response.status_code == HTTPStatus.OK
+
+    def test_global_read_all_forbidden(
+        self,
+        api_client: Client,
+        global_read_all: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(global_read_all)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[],
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_chair_of_other_conference_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        other_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        user = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=other_conference,
+            user=user,
+            role=ConferenceRole.CHAIR,
+        )
+        api_client.force_login(user)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[],
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_unauthenticated_user_unauthorized(
+        self,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        response = api_client.put(
+            self.path(conference.name),
+            data=[],
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_unauthorized_user_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        api_client.force_login(user)
+
+        response = api_client.put(
+            self.path(conference.name),
+            data=[],
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_conference_not_found(
+        self,
+        api_client: Client,
+        global_admin: User,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.put(
+            self.path("nonexistent-conf"),
+            data=[],
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND

@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated
 
+from asgiref.sync import sync_to_async
 from django.db import IntegrityError
 from django.db.models import ProtectedError
 from django.shortcuts import aget_object_or_404
@@ -16,6 +17,7 @@ from app.conference.models import CodePool, Conference, ConferenceRole, Track
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
+from app.infra.models import Mutex
 from app.utils.sanitization import sanitize_text
 
 router = Router(tags=["Code Pool"], exclude_none=True)
@@ -255,3 +257,113 @@ async def get_track_code_pool_assignments(
     return [
         track async for track in conference.tracks.active().select_related("code_pool")
     ]
+
+
+class TrackCodePoolAssignmentEntry(Schema):
+    track_uid: ULID
+    code_pool_uid: ULID | None
+
+
+def update_track_assignments(
+    conference: Conference,
+    entries: list[TrackCodePoolAssignmentEntry],
+) -> list[Track]:
+    """Update track code pool assignments in a single transaction."""
+    with Mutex.lock_in_transaction(
+        str(conference.pk),
+        namespace="track_code_pool_assignments",
+    ):
+        tracks = {
+            track.uid: track
+            for track in conference.tracks.active().select_related("code_pool")
+        }
+        pools = {pool.uid: pool for pool in conference.code_pools.all()}
+
+        entry_track_uids = {entry.track_uid for entry in entries}
+        missing_tracks = set(tracks.keys()) - entry_track_uids
+        if missing_tracks:
+            missing_names = [tracks[uid].display_name for uid in missing_tracks]
+            raise ValueError(
+                _("Missing tracks in payload: {names}.").format(
+                    names=", ".join(sorted(missing_names))
+                )
+            )
+
+        invalid_track_uids = entry_track_uids - set(tracks.keys())
+        if invalid_track_uids:
+            raise ValueError(
+                _("Invalid track UIDs: {uids}.").format(
+                    uids=", ".join(str(uid) for uid in sorted(invalid_track_uids))
+                )
+            )
+
+        invalid_pool_uids = {
+            entry.code_pool_uid
+            for entry in entries
+            if entry.code_pool_uid and entry.code_pool_uid not in pools
+        }
+        if invalid_pool_uids:
+            raise ValueError(
+                _("Invalid code pool UIDs: {uids}.").format(
+                    uids=", ".join(str(uid) for uid in invalid_pool_uids)
+                )
+            )
+
+        for entry in entries:
+            track = tracks[entry.track_uid]
+            new_pool = pools.get(entry.code_pool_uid) if entry.code_pool_uid else None
+            if track.code_pool != new_pool:
+                track.code_pool = new_pool
+                track.save(update_fields=["code_pool", "update_time"])
+
+        return list(tracks.values())
+
+
+@router.put(
+    "/conferences/{slug:conference_name}/tracks/code-pool-assignments",
+    response=list[TrackCodePoolAssignment],
+    summary="Update Track Code Pool Assignments",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
+    ),
+)
+async def update_track_code_pool_assignments(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    payload: list[TrackCodePoolAssignmentEntry],
+) -> list[Track]:
+    """Update code pool assignments for all tracks.
+
+    All conference tracks must be included in the payload.
+    """
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+
+    duplicate_track_uids: set[ULID] = set()
+    seen_track_uids: set[ULID] = set()
+    for entry in payload:
+        if entry.track_uid in seen_track_uids:
+            duplicate_track_uids.add(entry.track_uid)
+        else:
+            seen_track_uids.add(entry.track_uid)
+    if duplicate_track_uids:
+        message = _("Duplicate track UIDs in payload: {uids}.").format(
+            uids=", ".join(str(uid) for uid in sorted(duplicate_track_uids))
+        )
+        raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, message)
+
+    try:
+        tracks = await sync_to_async(update_track_assignments)(conference, payload)
+    except ValueError as exc:
+        raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    user = await request.auser()
+    logger.info(
+        "Track code pool assignments updated.",
+        conference_name=conference.name,
+        actor_uid=user.uid,
+    )
+
+    return tracks
