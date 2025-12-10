@@ -18,15 +18,6 @@ from tests.helpers import any_str, approx_now
 
 
 @pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
 def global_admin(faker: Faker) -> User:
     user = User.objects.create_user(username=faker.user_name())
     GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
@@ -38,6 +29,15 @@ def global_read_all(faker: Faker) -> User:
     user = User.objects.create_user(username=faker.user_name())
     GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.READ_ALL)
     return user
+
+
+@pytest.fixture
+def conference(faker: Faker) -> Conference:
+    return Conference.objects.create(
+        name=faker.slug(),
+        display_name=faker.sentence(),
+        visibility=Conference.Visibility.PUBLIC,
+    )
 
 
 @pytest.fixture
@@ -112,10 +112,10 @@ class TestListCodePools:
 
     def test_scopes_pools_to_conference(
         self,
+        faker: Faker,
         api_client: Client,
         global_admin: User,
         conference: Conference,
-        faker: Faker,
     ) -> None:
         other_conference = Conference.objects.create(
             name=faker.slug(),
@@ -154,8 +154,8 @@ class TestListCodePools:
     def test_conference_chair_authorized(
         self,
         api_client: Client,
-        conference_chair: User,
         conference: Conference,
+        conference_chair: User,
     ) -> None:
         api_client.force_login(conference_chair)
 
@@ -193,9 +193,9 @@ class TestListCodePools:
 
     def test_unauthorized_user_forbidden(
         self,
+        faker: Faker,
         api_client: Client,
         conference: Conference,
-        faker: Faker,
     ) -> None:
         user = User.objects.create_user(username=faker.user_name())
         api_client.force_login(user)
@@ -287,10 +287,10 @@ class TestCreateCodePool:
 
     def test_same_prefix_different_conference_allowed(
         self,
+        faker: Faker,
         api_client: Client,
         global_admin: User,
         conference: Conference,
-        faker: Faker,
     ) -> None:
         other_conference = Conference.objects.create(
             name=faker.slug(),
@@ -312,8 +312,8 @@ class TestCreateCodePool:
     def test_conference_chair_authorized(
         self,
         api_client: Client,
-        conference_chair: User,
         conference: Conference,
+        conference_chair: User,
     ) -> None:
         api_client.force_login(conference_chair)
 
@@ -374,9 +374,9 @@ class TestCreateCodePool:
 
     def test_unauthorized_user_forbidden(
         self,
+        faker: Faker,
         api_client: Client,
         conference: Conference,
-        faker: Faker,
     ) -> None:
         user = User.objects.create_user(username=faker.user_name())
         api_client.force_login(user)
@@ -587,8 +587,8 @@ class TestUpdateCodePool:
     def test_conference_chair_authorized(
         self,
         api_client: Client,
-        conference_chair: User,
         conference: Conference,
+        conference_chair: User,
     ) -> None:
         pool = CodePool.objects.create(
             conference=conference,
@@ -624,9 +624,9 @@ class TestUpdateCodePool:
 
     def test_chair_of_other_conference_forbidden(
         self,
+        faker: Faker,
         api_client: Client,
         conference: Conference,
-        faker: Faker,
     ) -> None:
         other_conference = Conference.objects.create(
             name=faker.slug(),
@@ -670,9 +670,9 @@ class TestUpdateCodePool:
 
     def test_unauthorized_user_forbidden(
         self,
+        faker: Faker,
         api_client: Client,
         conference: Conference,
-        faker: Faker,
     ) -> None:
         pool = CodePool.objects.create(
             conference=conference,
@@ -704,10 +704,10 @@ class TestUpdateCodePool:
 
     def test_pool_from_different_conference_not_found(
         self,
+        faker: Faker,
         api_client: Client,
         global_admin: User,
         conference: Conference,
-        faker: Faker,
     ) -> None:
         other_conference = Conference.objects.create(
             name=faker.slug(),
@@ -795,8 +795,8 @@ class TestDeleteCodePool:
     def test_conference_chair_authorized(
         self,
         api_client: Client,
-        conference_chair: User,
         conference: Conference,
+        conference_chair: User,
     ) -> None:
         pool = CodePool.objects.create(
             conference=conference,
@@ -826,9 +826,9 @@ class TestDeleteCodePool:
 
     def test_chair_of_other_conference_forbidden(
         self,
+        faker: Faker,
         api_client: Client,
         conference: Conference,
-        faker: Faker,
     ) -> None:
         other_conference = Conference.objects.create(
             name=faker.slug(),
@@ -866,9 +866,9 @@ class TestDeleteCodePool:
 
     def test_unauthorized_user_forbidden(
         self,
+        faker: Faker,
         api_client: Client,
         conference: Conference,
-        faker: Faker,
     ) -> None:
         pool = CodePool.objects.create(
             conference=conference,
@@ -894,10 +894,10 @@ class TestDeleteCodePool:
 
     def test_pool_from_different_conference_not_found(
         self,
+        faker: Faker,
         api_client: Client,
         global_admin: User,
         conference: Conference,
-        faker: Faker,
     ) -> None:
         other_conference = Conference.objects.create(
             name=faker.slug(),
@@ -921,4 +921,191 @@ class TestDeleteCodePool:
         api_client.force_login(global_admin)
 
         response = api_client.delete(self.path("nonexistent-conf", ULID()))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+@pytest.mark.django_db
+class TestGetTrackCodePoolAssignments:
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse(
+            "api-1.0.0:get-track-code-pool-assignments",
+            args=[conference_name],
+        )
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        pool = CodePool.objects.create(
+            conference=conference,
+            name="Main Pool",
+            prefix="MAIN",
+        )
+        track_with_pool = Track.objects.create(
+            conference=conference,
+            display_name="Research Track",
+            code_pool=pool,
+            ordering=1,
+        )
+        track_without_pool = Track.objects.create(
+            conference=conference,
+            display_name="Demo Track",
+            code_pool=None,
+            ordering=2,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == [
+            {
+                "track_uid": str(track_with_pool.uid),
+                "code_pool_uid": str(pool.uid),
+            },
+            {
+                "track_uid": str(track_without_pool.uid),
+            },
+        ]
+
+    def test_returns_empty_list_when_no_tracks(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == []
+
+    def test_scopes_tracks_to_conference(
+        self,
+        faker: Faker,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        other_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        track = Track.objects.create(
+            conference=conference,
+            display_name="Target Track",
+        )
+        Track.objects.create(
+            conference=other_conference,
+            display_name="Other Track",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        [track_assignment_data] = data
+        assert track_assignment_data["track_uid"] == str(track.uid)
+
+    def test_excludes_inactive_tracks(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        active_track = Track.objects.create(
+            conference=conference,
+            display_name="Active Track",
+            active=True,
+        )
+        Track.objects.create(
+            conference=conference,
+            display_name="Inactive Track",
+            active=False,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        [track_assignment_data] = data
+        assert track_assignment_data["track_uid"] == str(active_track.uid)
+
+    def test_global_read_all_authorized(
+        self,
+        api_client: Client,
+        global_read_all: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(global_read_all)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+    def test_conference_chair_authorized(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+    def test_chair_of_other_conference_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        other_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        user = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=other_conference,
+            user=user,
+            role=ConferenceRole.CHAIR,
+        )
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_unauthenticated_user_unauthorized(
+        self,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_unauthorized_user_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_conference_not_found(
+        self,
+        api_client: Client,
+        global_admin: User,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.get(self.path("nonexistent-conf"))
         assert response.status_code == HTTPStatus.NOT_FOUND

@@ -12,7 +12,7 @@ from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_roles
-from app.conference.models import CodePool, Conference, ConferenceRole
+from app.conference.models import CodePool, Conference, ConferenceRole, Track
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
@@ -223,3 +223,35 @@ async def delete_code_pool(
     )
 
     return HTTPStatus.NO_CONTENT, None
+
+
+class TrackCodePoolAssignment(Schema):
+    track_uid: ULID = Field(validation_alias="uid")
+    code_pool_uid: ULID | None
+
+    @staticmethod
+    def resolve_code_pool_uid(track: Track) -> ULID | None:
+        return track.code_pool.uid if track.code_pool else None
+
+
+@router.get(
+    "/conferences/{slug:conference_name}/tracks/code-pool-assignments",
+    response=list[TrackCodePoolAssignment],
+    summary="Get Track Code Pool Assignments",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN, GlobalRole.READ_ALL)
+        | has_any_conference_roles(ConferenceRole.CHAIR)
+    ),
+)
+async def get_track_code_pool_assignments(
+    request: AuthedHttpRequest,  # noqa: ARG001
+    conference_name: str,
+) -> list[Track]:
+    """Return all tracks with their code pool assignments."""
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+    return [
+        track async for track in conference.tracks.active().select_related("code_pool")
+    ]
