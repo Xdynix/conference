@@ -8,6 +8,11 @@ __all__ = (
     "InvitationTrackRoleEntry",
     "Keyword",
     "KeywordSet",
+    "Paper",
+    "PaperAuthor",
+    "PaperDocument",
+    "PaperFinal",
+    "PaperSubmission",
     "Profile",
     "Track",
     "TrackRole",
@@ -23,6 +28,7 @@ from .invitation import (
     InvitationTrackRoleEntry,
 )
 from .keyword import Keyword, KeywordSet
+from .paper import Paper, PaperAuthor, PaperDocument, PaperFinal, PaperSubmission
 from .profile import Profile, UserConferenceProfile
 from .role import (
     ConferenceRole,
