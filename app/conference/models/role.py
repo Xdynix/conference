@@ -16,6 +16,7 @@ class ConferenceRole(models.TextChoices):
     CHAIR = "Chair", _("Chair")
     SECRETARY = "Secretary", _("Secretary")
     REVIEWER = "Reviewer", _("Reviewer")
+    MEMBER = "Member", _("Member")
 
     @classmethod
     def admins(cls) -> Sequence["ConferenceRole"]:
@@ -69,6 +70,7 @@ class TrackRole(models.TextChoices):
     CHAIR = "Chair", _("Chair")
     SECRETARY = "Secretary", _("Secretary")
     REVIEWER = "Reviewer", _("Reviewer")
+    MEMBER = "Member", _("Member")
 
     @classmethod
     def admins(cls) -> Sequence["TrackRole"]:

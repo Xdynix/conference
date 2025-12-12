@@ -161,9 +161,10 @@ class ConferenceService:
         - all public conferences;
         - all conferences when the user is a superuser or holds any ``global_readable``
           role;
-        - private conferences where the user is a conference admin; and
-        - private conferences where the user is an admin on at least one of the
-          conference's tracks.
+        - conferences where the user is a conference admin (regardless of visibility);
+        - conferences where the user is an admin on at least one active track
+          (regardless of visibility); and
+        - member-only conferences where the user has any conference or track role.
         """
         conferences = Conference.objects.active()
 
@@ -188,8 +189,14 @@ class ConferenceService:
             track__role_assignment__user=user,
             track__role_assignment__role__in=TrackRole.admins(),
         )
+        is_member_only = Q(visibility=Conference.Visibility.MEMBER_ONLY)
+        has_any_conference_role = Q(role_assignment__user=user)
+        has_any_track_role = Q(track__active=True, track__role_assignment__user=user)
         return conferences.filter(
-            is_public | is_conference_admin | is_track_admin
+            is_public
+            | is_conference_admin
+            | is_track_admin
+            | (is_member_only & (has_any_conference_role | has_any_track_role))
         ).distinct()
 
     @classmethod
@@ -207,8 +214,10 @@ class ConferenceService:
 
         - all public tracks;
         - all tracks when the user is a superuser or holds any ``global_readable`` role;
-        - private tracks whose parent conference the user administers; and
-        - private tracks where the user has a track-admin role.
+        - tracks whose parent conference the user administers (regardless of
+          visibility);
+        - tracks where the user has a track-admin role (regardless of visibility); and
+        - member-only tracks where the user has any track role.
         """
         tracks = Track.objects.active()
 
@@ -232,8 +241,13 @@ class ConferenceService:
             role_assignment__user=user,
             role_assignment__role__in=TrackRole.admins(),
         )
+        is_member_only = Q(visibility=Track.Visibility.MEMBER_ONLY)
+        has_any_track_role = Q(role_assignment__user=user)
         return tracks.filter(
-            is_public | is_conference_admin | is_track_admin
+            is_public
+            | is_conference_admin
+            | is_track_admin
+            | (is_member_only & has_any_track_role)
         ).distinct()
 
     @classmethod
@@ -250,9 +264,11 @@ class ConferenceService:
 
         - Superusers and global admins can assign any roles.
         - Conference chairs can assign any roles.
-        - Conference secretaries can assign REVIEWER roles (conference or track).
+        - Conference secretaries can assign REVIEWER or MEMBER roles (conference or
+          track).
         - Track chairs can assign any track roles for their administered tracks.
-        - Track secretaries can assign only REVIEWER track roles for their tracks.
+        - Track secretaries can assign only REVIEWER or MEMBER track roles for their
+          tracks.
 
         Raises:
             ValueError: If tracks do not belong to the conference.
@@ -302,17 +318,17 @@ class ConferenceService:
                 )
 
             if is_conference_secretary and not is_conference_chair:
-                non_reviewer_conference_roles = sorted(
+                restricted_conference_roles = sorted(
                     role
                     for role in requested_conference_roles
-                    if role != ConferenceRole.REVIEWER
+                    if role not in (ConferenceRole.REVIEWER, ConferenceRole.MEMBER)
                 )
-                if non_reviewer_conference_roles:
+                if restricted_conference_roles:
                     raise InsufficientRolePermission(
                         _(
-                            "Conference secretaries can only assign the REVIEWER role, "
-                            "not: {roles}."
-                        ).format(roles=", ".join(non_reviewer_conference_roles))
+                            "Conference secretaries can only assign the REVIEWER and "
+                            "MEMBER roles, not: {roles}."
+                        ).format(roles=", ".join(restricted_conference_roles))
                     )
 
         if not requested_track_roles:
@@ -338,17 +354,19 @@ class ConferenceService:
                 continue
 
             if is_conference_secretary:
-                non_reviewer_track_roles = sorted(
-                    role for role in roles if role != TrackRole.REVIEWER
+                restricted_track_roles = sorted(
+                    role
+                    for role in roles
+                    if role not in (TrackRole.REVIEWER, TrackRole.MEMBER)
                 )
-                if non_reviewer_track_roles:
+                if restricted_track_roles:
                     raise InsufficientRolePermission(
                         _(
-                            "Conference secretaries can only assign the REVIEWER role "
-                            'for track "{track}", not: {roles}.'
+                            "Conference secretaries can only assign the REVIEWER and "
+                            'MEMBER roles for track "{track}", not: {roles}.'
                         ).format(
                             track=track.display_name,
-                            roles=", ".join(non_reviewer_track_roles),
+                            roles=", ".join(restricted_track_roles),
                         )
                     )
                 continue
@@ -361,16 +379,18 @@ class ConferenceService:
                     ).format(track=track.display_name)
                 )
 
-            non_reviewer_track_roles = sorted(
-                role for role in roles if role != TrackRole.REVIEWER
+            restricted_track_roles = sorted(
+                role
+                for role in roles
+                if role not in (TrackRole.REVIEWER, TrackRole.MEMBER)
             )
-            if non_reviewer_track_roles:
+            if restricted_track_roles:
                 raise InsufficientRolePermission(
                     _(
-                        "Track secretaries can only assign the REVIEWER role for track "
-                        '"{track}", not: {roles}.'
+                        "Track secretaries can only assign the REVIEWER and MEMBER "
+                        'roles for track "{track}", not: {roles}.'
                     ).format(
                         track=track.display_name,
-                        roles=", ".join(non_reviewer_track_roles),
+                        roles=", ".join(restricted_track_roles),
                     )
                 )

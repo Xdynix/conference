@@ -24,10 +24,12 @@ async def list_conferences(request: HttpRequest) -> QuerySet[Conference]:
 
     - Unauthenticated callers only see public conferences/tracks.
     - Superusers or users with `Admin`/`Read All` global roles see everything.
-    - Authenticated users see a conference when it is public, when they hold a
-      conference admin role, or when they administer at least one of its tracks.
-    - Within a visible conference, tracks show up when they are public or when the user
-      is an admin either at the conference level or for the specific track.
+    - Authenticated users see a conference when it is public, when they hold any
+      conference or track admin role (regardless of visibility), or when they hold any
+      role and the conference is member-only.
+    - Within a visible conference, tracks show up when they are public, when the user
+      is an admin (at the conference or track level), or when the user holds any track
+      role and the track is member-only.
     """
     user = await request.auser()
 

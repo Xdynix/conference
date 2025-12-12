@@ -485,6 +485,128 @@ class TestConferenceServiceVisibleConferences:
 
         assert conferences == []
 
+    @pytest.mark.parametrize(
+        "track_role",
+        [role for role in TrackRole if role not in TrackRole.admins()],
+    )
+    async def test_inactive_track_non_admin_role_does_not_grant_conference_visibility(
+        self,
+        user: User,
+        track_role: TrackRole,
+    ) -> None:
+        member_only = await Conference.objects.acreate(
+            name="member-only-conf",
+            display_name="Member Only",
+            visibility=Conference.Visibility.MEMBER_ONLY,
+        )
+        inactive_track = await Track.objects.acreate(
+            conference=member_only,
+            display_name="Inactive Track",
+            active=False,
+        )
+        await TrackRoleAssignment.objects.acreate(
+            track=inactive_track,
+            user=user,
+            role=track_role,
+        )
+
+        qs = await ConferenceService.visible_conferences(user)
+        conferences = [conf async for conf in qs]
+
+        assert conferences == []
+
+    @pytest.mark.parametrize("conference_role", ConferenceRole)
+    async def test_member_only_conference_visible_to_any_conference_role(
+        self,
+        user: User,
+        conference_role: ConferenceRole,
+    ) -> None:
+        member_only = await Conference.objects.acreate(
+            name="member-only-conf",
+            display_name="Member Only",
+            visibility=Conference.Visibility.MEMBER_ONLY,
+        )
+        await ConferenceRoleAssignment.objects.acreate(
+            conference=member_only,
+            user=user,
+            role=conference_role,
+        )
+
+        qs = await ConferenceService.visible_conferences(user)
+        conferences = [conf async for conf in qs]
+
+        assert conferences == [member_only]
+
+    @pytest.mark.parametrize("track_role", TrackRole)
+    async def test_member_only_conference_visible_to_any_track_role(
+        self,
+        user: User,
+        track_role: TrackRole,
+    ) -> None:
+        member_only = await Conference.objects.acreate(
+            name="member-only-conf",
+            display_name="Member Only",
+            visibility=Conference.Visibility.MEMBER_ONLY,
+        )
+        track = await Track.objects.acreate(
+            conference=member_only,
+            display_name="Track",
+        )
+        await TrackRoleAssignment.objects.acreate(
+            track=track,
+            user=user,
+            role=track_role,
+        )
+
+        qs = await ConferenceService.visible_conferences(user)
+        conferences = [conf async for conf in qs]
+
+        assert conferences == [member_only]
+
+    @pytest.mark.parametrize(
+        "non_admin_role",
+        [role for role in TrackRole if role not in TrackRole.admins()],
+    )
+    async def test_track_non_admin_role_does_not_unlock_admin_only_conference(
+        self,
+        user: User,
+        non_admin_role: TrackRole,
+    ) -> None:
+        admin_only = await Conference.objects.acreate(
+            name="admin-only-conf",
+            display_name="Admin Only",
+            visibility=Conference.Visibility.ADMIN_ONLY,
+        )
+        track = await Track.objects.acreate(
+            conference=admin_only,
+            display_name="Track",
+        )
+        await TrackRoleAssignment.objects.acreate(
+            track=track,
+            user=user,
+            role=non_admin_role,
+        )
+
+        qs = await ConferenceService.visible_conferences(user)
+        conferences = [conf async for conf in qs]
+
+        assert conferences == []
+
+    async def test_user_without_role_cannot_see_member_only_conference(
+        self,
+        user: User,
+    ) -> None:
+        await Conference.objects.acreate(
+            name="member-only-conf",
+            display_name="Member Only",
+            visibility=Conference.Visibility.MEMBER_ONLY,
+        )
+
+        qs = await ConferenceService.visible_conferences(user)
+        conferences = [conf async for conf in qs]
+
+        assert conferences == []
+
 
 @pytest.mark.django_db(transaction=True)
 class TestConferenceServiceVisibleTracks:
@@ -636,6 +758,146 @@ class TestConferenceServiceVisibleTracks:
 
         assert tracks == [active_track]
 
+    @pytest.mark.parametrize("track_role", TrackRole)
+    async def test_member_only_track_visible_to_any_track_role(
+        self,
+        user: User,
+        conference: Conference,
+        track_role: TrackRole,
+    ) -> None:
+        member_only_track = await Track.objects.acreate(
+            conference=conference,
+            display_name="Member Only Track",
+            visibility=Track.Visibility.MEMBER_ONLY,
+        )
+        await TrackRoleAssignment.objects.acreate(
+            track=member_only_track,
+            user=user,
+            role=track_role,
+        )
+
+        qs = await ConferenceService.visible_tracks(user)
+        tracks = [track async for track in qs]
+
+        assert tracks == [member_only_track]
+
+    @pytest.mark.parametrize(
+        "non_admin_role",
+        [role for role in TrackRole if role not in TrackRole.admins()],
+    )
+    async def test_track_non_admin_role_cannot_see_admin_only_track(
+        self,
+        user: User,
+        conference: Conference,
+        non_admin_role: TrackRole,
+    ) -> None:
+        admin_only_track = await Track.objects.acreate(
+            conference=conference,
+            display_name="Admin Only Track",
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+        await TrackRoleAssignment.objects.acreate(
+            track=admin_only_track,
+            user=user,
+            role=non_admin_role,
+        )
+
+        qs = await ConferenceService.visible_tracks(user)
+        tracks = [track async for track in qs]
+
+        assert tracks == []
+
+    @pytest.mark.parametrize("admin_role", TrackRole.admins())
+    async def test_track_admin_can_see_admin_only_track(
+        self,
+        user: User,
+        conference: Conference,
+        admin_role: TrackRole,
+    ) -> None:
+        admin_only_track = await Track.objects.acreate(
+            conference=conference,
+            display_name="Admin Only Track",
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+        await TrackRoleAssignment.objects.acreate(
+            track=admin_only_track,
+            user=user,
+            role=admin_role,
+        )
+
+        qs = await ConferenceService.visible_tracks(user)
+        tracks = [track async for track in qs]
+
+        assert tracks == [admin_only_track]
+
+    async def test_user_without_role_cannot_see_member_only_track(
+        self,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        await Track.objects.acreate(
+            conference=conference,
+            display_name="Member Only Track",
+            visibility=Track.Visibility.MEMBER_ONLY,
+        )
+
+        qs = await ConferenceService.visible_tracks(user)
+        tracks = [track async for track in qs]
+
+        assert tracks == []
+
+    @pytest.mark.parametrize(
+        "conference_role",
+        [role for role in ConferenceRole if role not in ConferenceRole.admins()],
+    )
+    async def test_conference_non_admin_role_does_not_grant_member_only_track_access(
+        self,
+        user: User,
+        conference: Conference,
+        conference_role: ConferenceRole,
+    ) -> None:
+        await Track.objects.acreate(
+            conference=conference,
+            display_name="Member Only Track",
+            visibility=Track.Visibility.MEMBER_ONLY,
+        )
+        await ConferenceRoleAssignment.objects.acreate(
+            conference=conference,
+            user=user,
+            role=conference_role,
+        )
+
+        qs = await ConferenceService.visible_tracks(user)
+        tracks = [track async for track in qs]
+
+        assert tracks == []
+
+    @pytest.mark.parametrize("track_role", TrackRole)
+    @pytest.mark.parametrize("visibility", Track.Visibility)
+    async def test_inactive_track_role_does_not_grant_track_visibility(
+        self,
+        user: User,
+        conference: Conference,
+        track_role: TrackRole,
+        visibility: Track.Visibility,
+    ) -> None:
+        inactive_track = await Track.objects.acreate(
+            conference=conference,
+            display_name="Inactive Track",
+            visibility=visibility,
+            active=False,
+        )
+        await TrackRoleAssignment.objects.acreate(
+            track=inactive_track,
+            user=user,
+            role=track_role,
+        )
+
+        qs = await ConferenceService.visible_tracks(user)
+        tracks = [track async for track in qs]
+
+        assert tracks == []
+
 
 @pytest.mark.django_db
 class TestConferenceServiceValidateCanAssignRoles:
@@ -725,10 +987,15 @@ class TestConferenceServiceValidateCanAssignRoles:
             },
         )
 
-    def test_conference_secretary_can_assign_reviewer_conference_role(
+    @pytest.mark.parametrize(
+        "assignable_role",
+        [role for role in ConferenceRole if role not in ConferenceRole.admins()],
+    )
+    def test_conference_secretary_can_assign_non_admin_conference_role(
         self,
         user: User,
         conference: Conference,
+        assignable_role: ConferenceRole,
     ) -> None:
         ConferenceRoleAssignment.objects.create(
             conference=conference,
@@ -739,18 +1006,15 @@ class TestConferenceServiceValidateCanAssignRoles:
         ConferenceService.validate_can_assign_roles(
             user=user,
             conference=conference,
-            conference_roles=[ConferenceRole.REVIEWER],
+            conference_roles=[assignable_role],
         )
 
-    @pytest.mark.parametrize(
-        "non_reviewer_role",
-        [role for role in ConferenceRole if role != ConferenceRole.REVIEWER],
-    )
-    def test_conference_secretary_cannot_assign_non_reviewer_conference_role(
+    @pytest.mark.parametrize("restricted_role", ConferenceRole.admins())
+    def test_conference_secretary_cannot_assign_admin_conference_role(
         self,
         user: User,
         conference: Conference,
-        non_reviewer_role: ConferenceRole,
+        restricted_role: ConferenceRole,
     ) -> None:
         ConferenceRoleAssignment.objects.create(
             conference=conference,
@@ -760,19 +1024,26 @@ class TestConferenceServiceValidateCanAssignRoles:
 
         with pytest.raises(
             InsufficientRolePermission,
-            match="Conference secretaries can only assign the REVIEWER role",
+            match=(
+                "Conference secretaries can only assign the REVIEWER and MEMBER roles"
+            ),
         ):
             ConferenceService.validate_can_assign_roles(
                 user=user,
                 conference=conference,
-                conference_roles=[non_reviewer_role],
+                conference_roles=[restricted_role],
             )
 
-    def test_conference_secretary_can_assign_reviewer_track_role(
+    @pytest.mark.parametrize(
+        "assignable_role",
+        [role for role in TrackRole if role not in TrackRole.admins()],
+    )
+    def test_conference_secretary_can_assign_non_admin_track_role(
         self,
         user: User,
         conference: Conference,
         track_a: Track,
+        assignable_role: TrackRole,
     ) -> None:
         ConferenceRoleAssignment.objects.create(
             conference=conference,
@@ -783,19 +1054,16 @@ class TestConferenceServiceValidateCanAssignRoles:
         ConferenceService.validate_can_assign_roles(
             user=user,
             conference=conference,
-            track_roles={track_a: [TrackRole.REVIEWER]},
+            track_roles={track_a: [assignable_role]},
         )
 
-    @pytest.mark.parametrize(
-        "non_reviewer_role",
-        [role for role in TrackRole if role != TrackRole.REVIEWER],
-    )
-    def test_conference_secretary_cannot_assign_non_reviewer_track_role(
+    @pytest.mark.parametrize("restricted_role", TrackRole.admins())
+    def test_conference_secretary_cannot_assign_admin_track_role(
         self,
         user: User,
         conference: Conference,
         track_a: Track,
-        non_reviewer_role: TrackRole,
+        restricted_role: TrackRole,
     ) -> None:
         ConferenceRoleAssignment.objects.create(
             conference=conference,
@@ -805,15 +1073,17 @@ class TestConferenceServiceValidateCanAssignRoles:
 
         with pytest.raises(
             InsufficientRolePermission,
-            match="Conference secretaries can only assign the REVIEWER role",
+            match=(
+                "Conference secretaries can only assign the REVIEWER and MEMBER roles"
+            ),
         ):
             ConferenceService.validate_can_assign_roles(
                 user=user,
                 conference=conference,
-                track_roles={track_a: [non_reviewer_role]},
+                track_roles={track_a: [restricted_role]},
             )
 
-    def test_conference_secretary_can_assign_both_conference_and_track_reviewer_roles(
+    def test_conference_secretary_can_assign_both_conference_and_track_non_admin_roles(
         self,
         user: User,
         conference: Conference,
@@ -828,8 +1098,8 @@ class TestConferenceServiceValidateCanAssignRoles:
         ConferenceService.validate_can_assign_roles(
             user=user,
             conference=conference,
-            conference_roles=[ConferenceRole.REVIEWER],
-            track_roles={track_a: [TrackRole.REVIEWER]},
+            conference_roles=[ConferenceRole.REVIEWER, ConferenceRole.MEMBER],
+            track_roles={track_a: [TrackRole.REVIEWER, TrackRole.MEMBER]},
         )
 
     def test_track_chair_can_assign_any_track_roles(
@@ -878,11 +1148,16 @@ class TestConferenceServiceValidateCanAssignRoles:
                 conference_roles=[conference_role],
             )
 
-    def test_track_secretary_can_assign_reviewer_track_role(
+    @pytest.mark.parametrize(
+        "assignable_role",
+        [role for role in TrackRole if role not in TrackRole.admins()],
+    )
+    def test_track_secretary_can_assign_non_admin_track_role(
         self,
         user: User,
         conference: Conference,
         track_a: Track,
+        assignable_role: TrackRole,
     ) -> None:
         TrackRoleAssignment.objects.create(
             track=track_a,
@@ -893,7 +1168,7 @@ class TestConferenceServiceValidateCanAssignRoles:
         ConferenceService.validate_can_assign_roles(
             user=user,
             conference=conference,
-            track_roles={track_a: [TrackRole.REVIEWER]},
+            track_roles={track_a: [assignable_role]},
         )
 
     @pytest.mark.parametrize("conference_role", ConferenceRole)
@@ -922,16 +1197,13 @@ class TestConferenceServiceValidateCanAssignRoles:
                 conference_roles=[conference_role],
             )
 
-    @pytest.mark.parametrize(
-        "non_reviewer_role",
-        [role for role in TrackRole if role != TrackRole.REVIEWER],
-    )
-    def test_track_secretary_cannot_assign_non_reviewer_track_role(
+    @pytest.mark.parametrize("restricted_role", TrackRole.admins())
+    def test_track_secretary_cannot_assign_admin_track_role(
         self,
         user: User,
         conference: Conference,
         track_a: Track,
-        non_reviewer_role: TrackRole,
+        restricted_role: TrackRole,
     ) -> None:
         TrackRoleAssignment.objects.create(
             track=track_a,
@@ -941,12 +1213,12 @@ class TestConferenceServiceValidateCanAssignRoles:
 
         with pytest.raises(
             InsufficientRolePermission,
-            match="Track secretaries can only assign the REVIEWER role for track",
+            match="Track secretaries can only assign the REVIEWER and MEMBER roles",
         ):
             ConferenceService.validate_can_assign_roles(
                 user=user,
                 conference=conference,
-                track_roles={track_a: [non_reviewer_role]},
+                track_roles={track_a: [restricted_role]},
             )
 
     def test_user_without_conference_role_cannot_assign_conference_roles(
@@ -1146,16 +1418,13 @@ class TestConferenceServiceValidateCanAssignRoles:
                 track_roles={track_a: [TrackRole.REVIEWER]},
             )
 
-    @pytest.mark.parametrize(
-        "non_reviewer_role",
-        [role for role in TrackRole if role != TrackRole.REVIEWER],
-    )
-    def test_conference_secretary_and_track_chair_can_assign_non_reviewer_track_roles(
+    @pytest.mark.parametrize("admin_role", TrackRole.admins())
+    def test_conference_secretary_and_track_chair_can_assign_admin_track_roles(
         self,
         user: User,
         conference: Conference,
         track_a: Track,
-        non_reviewer_role: TrackRole,
+        admin_role: TrackRole,
     ) -> None:
         ConferenceRoleAssignment.objects.create(
             conference=conference,
@@ -1171,5 +1440,5 @@ class TestConferenceServiceValidateCanAssignRoles:
         ConferenceService.validate_can_assign_roles(
             user=user,
             conference=conference,
-            track_roles={track_a: [non_reviewer_role]},
+            track_roles={track_a: [admin_role]},
         )

@@ -83,11 +83,11 @@ async def mutate_role_assignment(
 
     - **Global admins**: Can perform all actions on any conference.
     - **Conference chairs**: Can perform all actions within their conference.
-    - **Conference secretaries**: Can only add or remove the `Reviewer` role (for both
-      conference and track roles).
+    - **Conference secretaries**: Can only add or remove the `Reviewer` and `Member`
+      roles (for both conference and track roles).
     - **Track chairs**: Can only perform track actions on tracks they administer.
-    - **Track secretaries**: Can only add or remove the `Reviewer` role for tracks they
-      administer.
+    - **Track secretaries**: Can only add or remove the `Reviewer` and `Member` roles
+      for tracks they administer.
     """
     user = await request.auser()
     conference = await aget_object_or_404(

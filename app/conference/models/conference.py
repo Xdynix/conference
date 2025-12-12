@@ -18,6 +18,7 @@ class ConferenceQuerySet(models.QuerySet["Conference"]):
 class Conference(TimeStampedModel):
     class Visibility(models.TextChoices):
         PUBLIC = "Public", _("Public")
+        MEMBER_ONLY = "Member-Only", _("Member-Only")
         ADMIN_ONLY = "Admin-Only", _("Admin-Only")
 
     name = models.SlugField(
@@ -145,6 +146,7 @@ class TrackQuerySet(models.QuerySet["Track"]):
 class Track(TimeStampedModel, ULIDModel):
     class Visibility(models.TextChoices):
         PUBLIC = "Public", _("Public")
+        MEMBER_ONLY = "Member-Only", _("Member-Only")
         ADMIN_ONLY = "Admin-Only", _("Admin-Only")
 
     conference = models.ForeignKey(
