@@ -55,6 +55,7 @@ class TestGetConference:
                     "uid": str(track.uid),
                     "display_name": track.display_name,
                     "visibility": track.visibility,
+                    "accepts_submissions": False,
                 },
             ],
         }

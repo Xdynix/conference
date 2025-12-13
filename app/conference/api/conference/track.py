@@ -59,10 +59,10 @@ async def create_track(
     return HTTPStatus.CREATED, await prefetch_conference(conference, user)
 
 
-# Separate from CreateTrackRequest: PATCH requires no defaults on omitted fields.
 class TrackSchema(Schema):
     display_name: TrackDisplayName
     visibility: Track.Visibility
+    accepts_submissions: bool
 
 
 @router.patch(

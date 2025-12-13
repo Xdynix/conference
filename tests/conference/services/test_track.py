@@ -67,6 +67,7 @@ class TestTrackServiceUpdateTask:
             track,
             display_name="Old",
             visibility=Track.Visibility.ADMIN_ONLY,
+            accepts_submissions=False,
         )
 
         updated = await TrackService.update_track(
@@ -74,11 +75,13 @@ class TestTrackServiceUpdateTask:
             track_uid=track.uid,
             display_name="New",
             visibility=Track.Visibility.PUBLIC,
+            accepts_submissions=True,
         )
 
         db_updated = await Track.objects.aget(pk=updated.pk)
         assert updated.display_name == db_updated.display_name == "New"
         assert updated.visibility == db_updated.visibility == Track.Visibility.PUBLIC
+        assert updated.accepts_submissions is db_updated.accepts_submissions is True
 
     async def test_inactive_conference(self, track: Track) -> None:
         await a_update_object(track.conference, active=False)

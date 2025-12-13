@@ -194,6 +194,15 @@ class Track(TimeStampedModel, ULIDModel):
         choices=Visibility,
         default=Visibility.ADMIN_ONLY,
     )
+    accepts_submissions = models.BooleanField(
+        _("accepts submissions"),
+        default=False,
+        help_text=_(
+            "Whether this track is currently accepting paper submissions. "
+            "When disabled, authors cannot submit new papers to this track. "
+            "Administrators can still submit regardless of this setting."
+        ),
+    )
 
     objects = TrackQuerySet.as_manager()
 

@@ -72,6 +72,7 @@ class Track(Schema):
     uid: ULID
     display_name: TrackDisplayName
     visibility: TrackModel.Visibility
+    accepts_submissions: bool
 
 
 conference_meta = ConferenceModel._meta

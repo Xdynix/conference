@@ -52,8 +52,14 @@ class TrackRoleAssignmentInline(admin.TabularInline[TrackRoleAssignment, Track])
 class TrackAdmin(admin.ModelAdmin[Track]):
     date_hierarchy = "create_time"
     inlines = (TrackRoleAssignmentInline,)
-    list_display = ("__str__", "visibility", "active", "create_time")
-    list_filter = ("active", "visibility", "conference")
+    list_display = (
+        "__str__",
+        "visibility",
+        "accepts_submissions",
+        "active",
+        "create_time",
+    )
+    list_filter = ("active", "visibility", "accepts_submissions", "conference")
     list_select_related = ("conference", "code_pool")
     autocomplete_fields = ("conference", "code_pool")
     readonly_fields = ("uid", "create_time", "update_time")

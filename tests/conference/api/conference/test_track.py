@@ -99,11 +99,13 @@ class TestCreateTrack:
                     "uid": str(existing_track.uid),
                     "display_name": existing_track.display_name,
                     "visibility": existing_track.visibility,
+                    "accepts_submissions": False,
                 },
                 {
                     "uid": any_str,
                     "display_name": "Operations Track",
                     "visibility": Track.Visibility.ADMIN_ONLY,
+                    "accepts_submissions": False,
                 },
             ],
         }
@@ -203,6 +205,7 @@ class TestUpdateTrack:
             data={
                 "display_name": "Infrastructure & Ops",
                 "visibility": Track.Visibility.ADMIN_ONLY,
+                "accepts_submissions": True,
             },
         )
         assert response.status_code == HTTPStatus.OK
@@ -216,6 +219,7 @@ class TestUpdateTrack:
                     "uid": str(track.uid),
                     "display_name": "Infrastructure & Ops",
                     "visibility": Track.Visibility.ADMIN_ONLY,
+                    "accepts_submissions": True,
                 },
             ],
         }
@@ -225,6 +229,7 @@ class TestUpdateTrack:
             track_uid=track.uid,
             display_name="Infrastructure & Ops",
             visibility=Track.Visibility.ADMIN_ONLY,
+            accepts_submissions=True,
         )
 
     def test_empty_payload(
@@ -348,6 +353,7 @@ class TestDeleteTrack:
                     "uid": str(remaining_track.uid),
                     "display_name": remaining_track.display_name,
                     "visibility": remaining_track.visibility,
+                    "accepts_submissions": False,
                 },
             ],
         }
