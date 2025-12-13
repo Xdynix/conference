@@ -2,7 +2,12 @@ from django.contrib.auth.models import AnonymousUser
 from django.db.models import Prefetch
 from ninja import Field, Router
 
-from app.conference.models import Conference
+from app.conference.models import (
+    Conference,
+    ConferenceRoleAssignment,
+    TrackRoleAssignment,
+    UserConferenceProfile,
+)
 from app.conference.services import ConferenceService
 from app.conference.types import Conference as ConferenceSchema
 from app.conference.types import Track as TrackSchema
@@ -49,4 +54,45 @@ async def prefetch_conference(
             ),
         )
         .aget(pk=conference.pk)
+    )
+
+
+async def prefetch_user_profile(
+    profile: UserConferenceProfile,
+    user: User,
+) -> UserConferenceProfile:
+    """Prefetch related user profile data for efficient serialization.
+
+    Args:
+        profile: The user profile instance to prefetch data for.
+        user: The user requesting the data, used for permission-aware track loading.
+
+    Returns:
+        The user profile instance with keywords and roles prefetched.
+    """
+    conference_id = profile.conference_id
+    visible_tracks = await ConferenceService.visible_tracks(user)
+    visible_conference_tracks = visible_tracks.filter(conference_id=conference_id)
+    return await (
+        UserConferenceProfile.objects.select_related("user")
+        .prefetch_related(
+            "interested_keywords",
+            Prefetch(
+                "user__conference_role_assignments",
+                queryset=ConferenceRoleAssignment.objects.filter(
+                    conference_id=conference_id
+                ).order_by("role"),
+                to_attr="prefetched_conference_roles",
+            ),
+            Prefetch(
+                "user__track_role_assignments",
+                queryset=TrackRoleAssignment.objects.filter(
+                    track__in=visible_conference_tracks
+                )
+                .select_related("track")
+                .order_by("track__ordering", "track__display_name", "role"),
+                to_attr="prefetched_track_roles",
+            ),
+        )
+        .aget(pk=profile.pk)
     )

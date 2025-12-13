@@ -1,10 +1,17 @@
+from typing import Any
+
 from django.shortcuts import aget_object_or_404
 from loguru import logger
-from ninja import Field, PatchDict
+from ninja import Field, PatchDict, Schema
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_roles
-from app.conference.models import Conference, ConferenceRole, UserConferenceProfile
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    TrackRole,
+    UserConferenceProfile,
+)
 from app.conference.services import ConferenceService, UserConferenceProfileService
 from app.conference.types import KeywordText
 from app.conference.types import (
@@ -15,13 +22,35 @@ from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import make_validation_error
 
-from .core import router
+from .core import prefetch_user_profile, router
+
+
+class ProfileTrackRole(Schema):
+    uid: ULID
+    role: TrackRole
 
 
 class UserConferenceProfileResponse(BaseUserConferenceProfileSchema):
+    conference_roles: list[ConferenceRole]
+    track_roles: list[ProfileTrackRole]
+
     @staticmethod
     def resolve_interested_keywords(profile: UserConferenceProfile) -> list[str]:
         return [keyword.text for keyword in profile.interested_keywords.all()]
+
+    @staticmethod
+    def resolve_conference_roles(profile: UserConferenceProfile) -> list[str]:
+        return [
+            assignment.role
+            for assignment in profile.user.prefetched_conference_roles  # type: ignore[attr-defined]
+        ]
+
+    @staticmethod
+    def resolve_track_roles(profile: UserConferenceProfile) -> list[dict[str, Any]]:
+        return [
+            {"uid": assignment.track.uid, "role": assignment.role}
+            for assignment in profile.user.prefetched_track_roles  # type: ignore[attr-defined]
+        ]
 
 
 async def get_visible_conference(user: User, conference_name: str) -> Conference:
@@ -48,7 +77,7 @@ async def get_current_user_conference_profile(
         user=user,
         conference=conference,
     )
-    return await UserConferenceProfileService.load_profile_with_keywords(profile)
+    return await prefetch_user_profile(profile, user)
 
 
 @router.get(
@@ -61,7 +90,7 @@ async def get_current_user_conference_profile(
     ),
 )
 async def get_user_conference_profile(
-    request: AuthedHttpRequest,  # noqa: ARG001
+    request: AuthedHttpRequest,
     conference_name: str,
     user_id: ULID,
 ) -> UserConferenceProfile:
@@ -76,7 +105,8 @@ async def get_user_conference_profile(
         user=user,
         conference=conference,
     )
-    return await UserConferenceProfileService.load_profile_with_keywords(profile)
+    actor = await request.auser()
+    return await prefetch_user_profile(profile, actor)
 
 
 class UserConferenceProfileSchema(BaseUserConferenceProfileSchema):
@@ -122,7 +152,7 @@ async def update_current_user_conference_profile(
         conference_name=conference.name,
     )
 
-    return await UserConferenceProfileService.load_profile_with_keywords(profile)
+    return await prefetch_user_profile(profile, user)
 
 
 @router.patch(
@@ -176,4 +206,4 @@ async def update_user_conference_profile(
         conference_name=conference.name,
     )
 
-    return await UserConferenceProfileService.load_profile_with_keywords(profile)
+    return await prefetch_user_profile(profile, actor)

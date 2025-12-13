@@ -2,8 +2,15 @@ import pytest
 from faker import Faker
 from pytest_mock import MockerFixture
 
-from app.conference.models import Conference, Keyword, UserConferenceProfile
-from app.conference.services import KeywordService, UserConferenceProfileService
+from app.conference.models import (
+    Conference,
+    Keyword,
+    UserConferenceProfile,
+)
+from app.conference.services import (
+    KeywordService,
+    UserConferenceProfileService,
+)
 from app.core.models import User
 
 

@@ -13,6 +13,9 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     Keyword,
+    Track,
+    TrackRole,
+    TrackRoleAssignment,
     UserConferenceProfile,
 )
 from app.conference.services import UserConferenceProfileService
@@ -38,6 +41,15 @@ def conference(faker: Faker) -> Conference:
         name=faker.slug(),
         display_name=faker.sentence(),
         visibility=Conference.Visibility.PUBLIC,
+    )
+
+
+@pytest.fixture
+def track(faker: Faker, conference: Conference) -> Track:
+    return Track.objects.create(
+        conference=conference,
+        display_name=faker.word(),
+        visibility=Track.Visibility.PUBLIC,
     )
 
 
@@ -87,6 +99,7 @@ class TestGetCurrentUserConferenceProfile:
         api_client: Client,
         user: User,
         conference: Conference,
+        track: Track,
         profile_service_get_or_create: AsyncMock,
     ) -> None:
         profile = UserConferenceProfile.objects.create(
@@ -96,6 +109,26 @@ class TestGetCurrentUserConferenceProfile:
         )
         keyword = Keyword.objects.create(text="AI")
         profile.interested_keywords.add(keyword)
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.REVIEWER,
+        )
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.MEMBER,
+        )
+        hidden_track = Track.objects.create(
+            conference=conference,
+            display_name="Private Track",
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+        TrackRoleAssignment.objects.create(
+            track=hidden_track,
+            user=user,
+            role=TrackRole.MEMBER,
+        )
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name))
@@ -104,6 +137,8 @@ class TestGetCurrentUserConferenceProfile:
         assert response.json() == {
             "desired_paper_count": 9,
             "interested_keywords": ["AI"],
+            "conference_roles": ["Reviewer"],
+            "track_roles": [{"uid": str(track.uid), "role": "Member"}],
         }
 
         profile_service_get_or_create.assert_awaited_once()
@@ -150,6 +185,7 @@ class TestGetUserConferenceProfile:
         user: User,
         global_admin: User,
         conference: Conference,
+        track: Track,
         profile_service_get_or_create: AsyncMock,
     ) -> None:
         profile = UserConferenceProfile.objects.create(
@@ -159,6 +195,27 @@ class TestGetUserConferenceProfile:
         )
         keyword = Keyword.objects.create(text="systems")
         profile.interested_keywords.add(keyword)
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.MEMBER,
+        )
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.REVIEWER,
+        )
+        hidden_track = Track.objects.create(
+            conference=conference,
+            display_name="Private Track",
+            ordering=1,
+            visibility=Track.Visibility.ADMIN_ONLY,
+        )
+        TrackRoleAssignment.objects.create(
+            track=hidden_track,
+            user=user,
+            role=TrackRole.MEMBER,
+        )
         api_client.force_login(global_admin)
 
         response = api_client.get(self.path(conference.name, user.uid))
@@ -167,6 +224,11 @@ class TestGetUserConferenceProfile:
         assert response.json() == {
             "desired_paper_count": 2,
             "interested_keywords": ["systems"],
+            "conference_roles": ["Member"],
+            "track_roles": [
+                {"uid": str(track.uid), "role": "Reviewer"},
+                {"uid": str(hidden_track.uid), "role": "Member"},
+            ],
         }
 
         profile_service_get_or_create.assert_awaited_once()
@@ -248,6 +310,7 @@ class TestUpdateCurrentUserConferenceProfile:
         api_client: Client,
         user: User,
         conference: Conference,
+        track: Track,
         profile_service_get_or_create: AsyncMock,
         profile_service_update: AsyncMock,
     ) -> None:
@@ -259,6 +322,16 @@ class TestUpdateCurrentUserConferenceProfile:
             desired_paper_count=8,
         )
         profile.interested_keywords.add(existing)
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.REVIEWER,
+        )
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.MEMBER,
+        )
         api_client.force_login(user)
 
         response = api_client.patch(
@@ -273,6 +346,8 @@ class TestUpdateCurrentUserConferenceProfile:
         assert response.json() == {
             "desired_paper_count": 3,
             "interested_keywords": ["ML"],
+            "conference_roles": ["Reviewer"],
+            "track_roles": [{"uid": str(track.uid), "role": "Member"}],
         }
 
         profile_service_get_or_create.assert_awaited_once()
@@ -352,10 +427,21 @@ class TestUpdateUserConferenceProfile:
         user: User,
         global_admin: User,
         conference: Conference,
+        track: Track,
         profile_service_get_or_create: AsyncMock,
         profile_service_update: AsyncMock,
     ) -> None:
         Keyword.objects.create(text="Security")
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=ConferenceRole.MEMBER,
+        )
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=TrackRole.REVIEWER,
+        )
         api_client.force_login(global_admin)
 
         response = api_client.patch(
@@ -370,6 +456,8 @@ class TestUpdateUserConferenceProfile:
         assert response.json() == {
             "desired_paper_count": 6,
             "interested_keywords": ["Security"],
+            "conference_roles": ["Member"],
+            "track_roles": [{"uid": str(track.uid), "role": "Reviewer"}],
         }
 
         profile_service_get_or_create.assert_awaited_once()

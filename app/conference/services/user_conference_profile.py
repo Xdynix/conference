@@ -1,6 +1,9 @@
 from collections.abc import Collection
 
-from app.conference.models import Conference, UserConferenceProfile
+from app.conference.models import (
+    Conference,
+    UserConferenceProfile,
+)
 from app.conference.services import KeywordService
 from app.core.models import User
 
@@ -19,16 +22,6 @@ class UserConferenceProfileService:
             conference=conference,
         )
         return profile
-
-    @classmethod
-    async def load_profile_with_keywords(
-        cls,
-        profile: UserConferenceProfile,
-    ) -> UserConferenceProfile:
-        """Load a profile with prefetched interested keywords."""
-        return await UserConferenceProfile.objects.prefetch_related(
-            "interested_keywords"
-        ).aget(pk=profile.pk)
 
     @classmethod
     async def update_profile(
