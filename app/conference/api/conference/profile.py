@@ -26,7 +26,7 @@ from .core import prefetch_user_profile, router
 
 
 class ProfileTrackRole(Schema):
-    uid: ULID
+    track: ULID
     role: TrackRole
 
 
@@ -48,7 +48,7 @@ class UserConferenceProfileResponse(BaseUserConferenceProfileSchema):
     @staticmethod
     def resolve_track_roles(profile: UserConferenceProfile) -> list[dict[str, Any]]:
         return [
-            {"uid": assignment.track.uid, "role": assignment.role}
+            {"track": assignment.track.uid, "role": assignment.role}
             for assignment in profile.user.prefetched_track_roles  # type: ignore[attr-defined]
         ]
 

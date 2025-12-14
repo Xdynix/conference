@@ -171,7 +171,7 @@ class TestMutateRoleAssignment:
             self.path(conference.name, target_user.uid),
             data={
                 "action": "add_track_role",
-                "track_uid": str(active_track.uid),
+                "track": str(active_track.uid),
                 "role": TrackRole.REVIEWER,
             },
         )
@@ -204,7 +204,7 @@ class TestMutateRoleAssignment:
             self.path(conference.name, target_user.uid),
             data={
                 "action": "remove_track_role",
-                "track_uid": str(active_track.uid),
+                "track": str(active_track.uid),
                 "role": TrackRole.CHAIR,
             },
         )
@@ -218,7 +218,7 @@ class TestMutateRoleAssignment:
             requesting_user=global_admin,
         )
 
-    def test_invalid_track_uid(
+    def test_invalid_track(
         self,
         api_client: Client,
         global_admin: User,
@@ -231,7 +231,7 @@ class TestMutateRoleAssignment:
             self.path(conference.name, target_user.uid),
             data={
                 "action": "add_track_role",
-                "track_uid": str(ULID()),
+                "track": str(ULID()),
                 "role": TrackRole.REVIEWER,
             },
         )
@@ -239,7 +239,7 @@ class TestMutateRoleAssignment:
 
         data = response.json()
         [error] = data["details"]
-        assert error["loc"] == ["body", "payload", "track_uid"]
+        assert error["loc"] == ["body", "payload", "track"]
         assert error["msg"] == "Invalid track UID."
 
     def test_inactive_track_rejected(
@@ -261,7 +261,7 @@ class TestMutateRoleAssignment:
             self.path(conference.name, target_user.uid),
             data={
                 "action": "add_track_role",
-                "track_uid": str(inactive_track.uid),
+                "track": str(inactive_track.uid),
                 "role": TrackRole.REVIEWER,
             },
         )
@@ -269,7 +269,7 @@ class TestMutateRoleAssignment:
 
         data = response.json()
         [error] = data["details"]
-        assert error["loc"] == ["body", "payload", "track_uid"]
+        assert error["loc"] == ["body", "payload", "track"]
         assert error["msg"] == "Invalid track UID."
 
     def test_track_from_different_conference_rejected(
@@ -296,7 +296,7 @@ class TestMutateRoleAssignment:
             self.path(conference.name, target_user.uid),
             data={
                 "action": "add_track_role",
-                "track_uid": str(other_track.uid),
+                "track": str(other_track.uid),
                 "role": TrackRole.REVIEWER,
             },
         )
@@ -304,10 +304,10 @@ class TestMutateRoleAssignment:
 
         data = response.json()
         [error] = data["details"]
-        assert error["loc"] == ["body", "payload", "track_uid"]
+        assert error["loc"] == ["body", "payload", "track"]
         assert error["msg"] == "Invalid track UID."
 
-    def test_track_uid_ignored_for_conference_action(
+    def test_track_ignored_for_conference_action(
         self,
         mocker: MockerFixture,
         api_client: Client,
@@ -326,7 +326,7 @@ class TestMutateRoleAssignment:
             data={
                 "action": "add_conference_role",
                 "role": ConferenceRole.CHAIR,
-                "track_uid": str(ULID()),
+                "track": str(ULID()),
             },
         )
         assert response.status_code == HTTPStatus.OK
@@ -408,7 +408,7 @@ class TestMutateRoleAssignment:
             self.path(conference.name, target_user.uid),
             data={
                 "action": "add_track_role",
-                "track_uid": str(active_track.uid),
+                "track": str(active_track.uid),
                 "role": TrackRole.REVIEWER,
             },
         )
@@ -416,7 +416,7 @@ class TestMutateRoleAssignment:
 
         data = response.json()
         [error] = data["details"]
-        assert error["loc"] == ["body", "payload", "track_uid"]
+        assert error["loc"] == ["body", "payload", "track"]
         assert error["msg"] == "Track validation failed"
 
     def test_conference_not_found(
@@ -555,7 +555,7 @@ class TestMutateRoleAssignment:
             self.path(conference.name, target_user.uid),
             data={
                 "action": "add_track_role",
-                "track_uid": str(active_track.uid),
+                "track": str(active_track.uid),
                 "role": TrackRole.REVIEWER,
             },
         )

@@ -1,5 +1,5 @@
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Collection
 from typing import Any, Protocol
 
 from django.conf import settings
@@ -48,23 +48,23 @@ class InvitationResponse(InvitationUrlsMixin, InvitationSchema):
     @staticmethod
     def resolve_track_roles(invitation: Invitation) -> list[dict[str, Any]]:
         return [
-            {"uid": entry.track.uid, "role": entry.role}
+            {"track": entry.track.uid, "role": entry.role}
             for entry in invitation.active_track_role_entries  # type: ignore[attr-defined]
         ]
 
 
 class TrackRoleItem(Protocol):
-    uid: ULID
+    track: ULID
     role: TrackRole
 
 
 async def validate_and_group_track_roles(
-    track_roles: Iterable[TrackRoleItem],
+    track_roles: Collection[TrackRoleItem],
 ) -> dict[Track, list[TrackRole]]:
-    """Validate track UIDs exist and group roles by track.
+    """Validate tracks exist and group roles by track.
 
     Args:
-        track_roles: Iterable of objects with uid and role attributes.
+        track_roles: Collection of objects with track UIDs and role attributes.
 
     Returns:
         Dict mapping Track objects to lists of TrackRole values.
@@ -72,7 +72,7 @@ async def validate_and_group_track_roles(
     Raises:
         ValueError: If any track UIDs are invalid (not found in database).
     """
-    track_uids = {track_role.uid for track_role in track_roles}
+    track_uids = {track_role.track for track_role in track_roles}
 
     if not track_uids:
         return {}
@@ -84,14 +84,14 @@ async def validate_and_group_track_roles(
 
     missing_uids = track_uids - set(track_objs)
     if missing_uids:
-        message = _("Invalid track UID(s): {uids}").format(
+        message = _("Invalid tracks: {uids}").format(
             uids=", ".join(sorted(str(uid) for uid in missing_uids))
         )
         raise ValueError(message)
 
     track_roles_mapping: dict[Track, list[TrackRole]] = defaultdict(list)
     for track_role in track_roles:
-        track = track_objs[track_role.uid]
+        track = track_objs[track_role.track]
         track_roles_mapping[track].append(track_role.role)
 
     return dict(track_roles_mapping)

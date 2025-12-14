@@ -1,5 +1,5 @@
 from collections import defaultdict
-from collections.abc import Collection, Iterable, Mapping
+from collections.abc import Collection, Mapping
 from typing import TypedDict
 
 from django.contrib.auth.models import AnonymousUser
@@ -255,8 +255,8 @@ class ConferenceService:
         cls,
         user: User,
         conference: Conference,
-        conference_roles: Iterable[str] = (),
-        track_roles: Mapping[Track, Iterable[str]] | None = None,
+        conference_roles: Collection[str] = (),
+        track_roles: Mapping[Track, Collection[str]] | None = None,
     ) -> None:
         """Validate that the user can assign the specified roles.
 
@@ -337,7 +337,7 @@ class ConferenceService:
         if is_conference_chair:
             return
 
-        specified_track_ids = [track.pk for track in requested_track_roles]
+        specified_track_ids = [track.id for track in requested_track_roles]
         user_track_admin_roles: defaultdict[int, set[str]] = defaultdict(set)
         admin_assignments = TrackRoleAssignment.objects.filter(
             track_id__in=specified_track_ids,

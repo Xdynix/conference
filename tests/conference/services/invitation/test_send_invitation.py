@@ -345,10 +345,10 @@ class TestInvitationServiceSendInvitations:
         )
 
         [result_a, result_b] = results
-        assert result_a.invitation_uid == invitation_a.uid
+        assert result_a.invitation == invitation_a.uid
         assert result_a.status == SendInvitationStatus.SENT
         assert result_a.invitee_email == invitation_a.invitee_email
-        assert result_b.invitation_uid == invitation_b.uid
+        assert result_b.invitation == invitation_b.uid
         assert result_b.status == SendInvitationStatus.SENT
         assert result_b.invitee_email == invitation_b.invitee_email
 
@@ -382,9 +382,9 @@ class TestInvitationServiceSendInvitations:
         )
 
         [result_a, result_nonexistent] = results
-        assert result_a.invitation_uid == invitation_a.uid
+        assert result_a.invitation == invitation_a.uid
         assert result_a.status == SendInvitationStatus.SENT
-        assert result_nonexistent.invitation_uid == nonexistent_uid
+        assert result_nonexistent.invitation == nonexistent_uid
         assert result_nonexistent.status == SendInvitationStatus.NOT_FOUND
         assert result_nonexistent.reason is not None
 
@@ -407,9 +407,9 @@ class TestInvitationServiceSendInvitations:
         )
 
         [result_a, result_b] = results
-        assert result_a.invitation_uid == invitation_a.uid
+        assert result_a.invitation == invitation_a.uid
         assert result_a.status == SendInvitationStatus.SENT
-        assert result_b.invitation_uid == invitation_b.uid
+        assert result_b.invitation == invitation_b.uid
         assert result_b.status == SendInvitationStatus.SKIPPED
         assert result_b.invitee_email == invitation_b.invitee_email
         assert result_b.reason is not None
@@ -433,9 +433,9 @@ class TestInvitationServiceSendInvitations:
         )
 
         [result_a, result_b] = results
-        assert result_a.invitation_uid == invitation_a.uid
+        assert result_a.invitation == invitation_a.uid
         assert result_a.status == SendInvitationStatus.SENT
-        assert result_b.invitation_uid == invitation_b.uid
+        assert result_b.invitation == invitation_b.uid
         assert result_b.status == SendInvitationStatus.SKIPPED
         assert result_b.reason is not None
 
@@ -461,9 +461,9 @@ class TestInvitationServiceSendInvitations:
         )
 
         [result_a, result_b] = results
-        assert result_a.invitation_uid == invitation_a.uid
+        assert result_a.invitation == invitation_a.uid
         assert result_a.status == SendInvitationStatus.SENT
-        assert result_b.invitation_uid == invitation_b.uid
+        assert result_b.invitation == invitation_b.uid
         assert result_b.status == SendInvitationStatus.FAILED
         assert result_b.reason is not None
 
@@ -486,7 +486,7 @@ class TestInvitationServiceSendInvitations:
         )
 
         [result] = results
-        assert result.invitation_uid == invitation_a.uid
+        assert result.invitation == invitation_a.uid
         assert result.status == SendInvitationStatus.SENT
 
         mock_send.assert_called_once()
@@ -508,7 +508,7 @@ class TestInvitationServiceSendInvitations:
         )
 
         [result] = results
-        assert result.invitation_uid == invitation_a.uid
+        assert result.invitation == invitation_a.uid
         assert result.status == SendInvitationStatus.SENT
 
         mock_send.assert_called_once()

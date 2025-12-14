@@ -138,7 +138,7 @@ class TestGetCurrentUserConferenceProfile:
             "desired_paper_count": 9,
             "interested_keywords": ["AI"],
             "conference_roles": ["Reviewer"],
-            "track_roles": [{"uid": str(track.uid), "role": "Member"}],
+            "track_roles": [{"track": str(track.uid), "role": "Member"}],
         }
 
         profile_service_get_or_create.assert_awaited_once()
@@ -226,8 +226,8 @@ class TestGetUserConferenceProfile:
             "interested_keywords": ["systems"],
             "conference_roles": ["Member"],
             "track_roles": [
-                {"uid": str(track.uid), "role": "Reviewer"},
-                {"uid": str(hidden_track.uid), "role": "Member"},
+                {"track": str(track.uid), "role": "Reviewer"},
+                {"track": str(hidden_track.uid), "role": "Member"},
             ],
         }
 
@@ -347,7 +347,7 @@ class TestUpdateCurrentUserConferenceProfile:
             "desired_paper_count": 3,
             "interested_keywords": ["ML"],
             "conference_roles": ["Reviewer"],
-            "track_roles": [{"uid": str(track.uid), "role": "Member"}],
+            "track_roles": [{"track": str(track.uid), "role": "Member"}],
         }
 
         profile_service_get_or_create.assert_awaited_once()
@@ -457,7 +457,7 @@ class TestUpdateUserConferenceProfile:
             "desired_paper_count": 6,
             "interested_keywords": ["Security"],
             "conference_roles": ["Member"],
-            "track_roles": [{"uid": str(track.uid), "role": "Reviewer"}],
+            "track_roles": [{"track": str(track.uid), "role": "Reviewer"}],
         }
 
         profile_service_get_or_create.assert_awaited_once()

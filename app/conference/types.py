@@ -166,7 +166,7 @@ class UserConferenceProfile(Schema):
 
 
 class InvitationTrackRole(Schema):
-    uid: ULID
+    track: ULID
     role: TrackRole
 
 
@@ -185,7 +185,7 @@ class Invitation(UserConferenceProfile, Profile):
 
 
 class RoleAssignmentTrackRole(Schema):
-    uid: ULID
+    track: ULID
     role: TrackRole
 
 

@@ -26,7 +26,7 @@ class RoleAssignmentResponse(RoleAssignmentSchema):
     @staticmethod
     def resolve_track_roles(user: User) -> list[dict[str, Any]]:
         return [
-            {"uid": assignment.track.uid, "role": assignment.role}
+            {"track": assignment.track.uid, "role": assignment.role}
             for assignment in user.visible_track_roles  # type: ignore[attr-defined]
         ]
 

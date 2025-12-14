@@ -248,7 +248,7 @@ class TestSendInvitations:
     ) -> None:
         mock_send_invitations.return_value = [
             SendInvitationResult(
-                invitation_uid=invitation.uid,
+                invitation=invitation.uid,
                 status=SendInvitationStatus.SENT,
                 invitee_email=invitation.invitee_email,
             )
@@ -260,7 +260,7 @@ class TestSendInvitations:
             data={
                 "subject": "Invitation",
                 "body": "Please join",
-                "invitation_uids": [str(invitation.uid)],
+                "invitations": [str(invitation.uid)],
             },
         )
         assert response.status_code == HTTPStatus.OK
@@ -268,7 +268,7 @@ class TestSendInvitations:
         data = response.json()
         [result] = data["results"]
         assert result == {
-            "invitation_uid": str(invitation.uid),
+            "invitation": str(invitation.uid),
             "status": SendInvitationStatus.SENT,
             "invitee_email": invitation.invitee_email,
         }
@@ -296,7 +296,7 @@ class TestSendInvitations:
             data={
                 "subject": "Invitation",
                 "body": "Please join",
-                "invitation_uids": [str(invitation.uid)],
+                "invitations": [str(invitation.uid)],
                 "force_send_to_rejected": True,
                 "force_send_to_recent": True,
             },
@@ -307,7 +307,7 @@ class TestSendInvitations:
         assert call_kwargs["force_send_to_rejected"] is True
         assert call_kwargs["force_send_to_recent"] is True
 
-    def test_deduplicates_invitation_uids(
+    def test_deduplicates_invitations(
         self,
         api_client: Client,
         global_admin: User,
@@ -323,7 +323,7 @@ class TestSendInvitations:
             data={
                 "subject": "Invitation",
                 "body": "Please join",
-                "invitation_uids": [
+                "invitations": [
                     str(invitation.uid),
                     str(invitation.uid),
                     str(invitation.uid),
@@ -353,19 +353,19 @@ class TestSendInvitations:
             data={
                 "subject": "Invitation",
                 "body": "Please join",
-                "invitation_uids": [str(invitation.uid), str(nonexistent_uid)],
+                "invitations": [str(invitation.uid), str(nonexistent_uid)],
             },
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
         [error] = data["details"]
-        assert error["loc"] == ["body", "payload", "invitation_uids"]
+        assert error["loc"] == ["body", "payload", "invitations"]
         assert str(nonexistent_uid) in error["msg"]
 
         mock_send_invitations.assert_not_called()
 
-    def test_empty_invitation_uids_rejected(
+    def test_empty_invitations_rejected(
         self,
         api_client: Client,
         global_admin: User,
@@ -379,7 +379,7 @@ class TestSendInvitations:
             data={
                 "subject": "Invitation",
                 "body": "Please join",
-                "invitation_uids": [],
+                "invitations": [],
             },
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -410,7 +410,7 @@ class TestSendInvitations:
             data={
                 "subject": "Invitation",
                 "body": "Please join",
-                "invitation_uids": [str(invitation.uid)],
+                "invitations": [str(invitation.uid)],
             },
         )
         assert response.status_code == HTTPStatus.OK
@@ -429,7 +429,7 @@ class TestSendInvitations:
             data={
                 "subject": "Invitation",
                 "body": "Please join",
-                "invitation_uids": [str(invitation.uid)],
+                "invitations": [str(invitation.uid)],
             },
         )
         assert response.status_code == HTTPStatus.UNAUTHORIZED
@@ -457,7 +457,7 @@ class TestSendInvitations:
             data={
                 "subject": "Invitation",
                 "body": "Please join",
-                "invitation_uids": [str(invitation.uid)],
+                "invitations": [str(invitation.uid)],
             },
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
@@ -486,7 +486,7 @@ class TestSendInvitations:
             data={
                 "subject": "Invitation",
                 "body": "Please join",
-                "invitation_uids": [str(invitation.uid)],
+                "invitations": [str(invitation.uid)],
             },
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
@@ -510,7 +510,7 @@ class TestSendInvitations:
             data={
                 "subject": "Invitation",
                 "body": "Please join",
-                "invitation_uids": [str(invitation.uid)],
+                "invitations": [str(invitation.uid)],
             },
         )
         assert response.status_code == HTTPStatus.FORBIDDEN

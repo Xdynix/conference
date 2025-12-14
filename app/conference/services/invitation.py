@@ -79,7 +79,7 @@ class SendInvitationStatus(StrEnum):
 class SendInvitationResult(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    invitation_uid: ULID
+    invitation: ULID
     status: SendInvitationStatus
     invitee_email: str | None = None
     reason: str | None = None
@@ -478,7 +478,7 @@ class InvitationService:
             except Invitation.DoesNotExist:
                 results.append(
                     SendInvitationResult(
-                        invitation_uid=uid,
+                        invitation=uid,
                         status=SendInvitationStatus.NOT_FOUND,
                         reason=_("Invitation not found."),
                     )
@@ -486,7 +486,7 @@ class InvitationService:
             except ImmutableInvitation as exc:
                 results.append(
                     SendInvitationResult(
-                        invitation_uid=uid,
+                        invitation=uid,
                         status=SendInvitationStatus.SKIPPED,
                         reason=str(exc),
                     )
@@ -498,7 +498,7 @@ class InvitationService:
                 )
                 results.append(
                     SendInvitationResult(
-                        invitation_uid=uid,
+                        invitation=uid,
                         status=SendInvitationStatus.FAILED,
                         reason=_("An unexpected error has occurred."),
                     )
@@ -507,7 +507,7 @@ class InvitationService:
                 if sent:
                     results.append(
                         SendInvitationResult(
-                            invitation_uid=uid,
+                            invitation=uid,
                             status=SendInvitationStatus.SENT,
                             invitee_email=invitee_email,
                         )
@@ -515,7 +515,7 @@ class InvitationService:
                 else:
                     results.append(
                         SendInvitationResult(
-                            invitation_uid=uid,
+                            invitation=uid,
                             status=SendInvitationStatus.SKIPPED,
                             invitee_email=invitee_email,
                             reason=_(

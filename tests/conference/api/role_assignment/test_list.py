@@ -135,7 +135,7 @@ class TestListRoleAssignments:
             "conference_roles": [],
             "track_roles": [
                 {
-                    "uid": str(active_track.uid),
+                    "track": str(active_track.uid),
                     "role": TrackRole.REVIEWER,
                 }
             ],
@@ -384,7 +384,7 @@ class TestListRoleAssignments:
             "managed": False,
             "conference_roles": [],
             "track_roles": [
-                {"uid": str(active_track.uid), "role": TrackRole.REVIEWER},
+                {"track": str(active_track.uid), "role": TrackRole.REVIEWER},
             ],
         }
 

@@ -84,7 +84,7 @@ async def update_invitation(
         try:
             track_roles_mapping = await validate_and_group_track_roles(
                 [
-                    InvitationTrackRole(uid=item["uid"], role=item["role"])
+                    InvitationTrackRole(track=item["track"], role=item["role"])
                     for item in payload["track_roles"]
                 ]
             )

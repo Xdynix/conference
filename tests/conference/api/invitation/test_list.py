@@ -124,7 +124,7 @@ class TestListInvitations:
                     "conference_roles": [],
                     "track_roles": [
                         {
-                            "uid": str(track.uid),
+                            "track": str(track.uid),
                             "role": TrackRole.REVIEWER,
                         },
                     ],
@@ -197,7 +197,7 @@ class TestListInvitations:
         data = response.json()
         assert data["items"][0]["track_roles"] == [
             {
-                "uid": str(active_track.uid),
+                "track": str(active_track.uid),
                 "role": TrackRole.CHAIR,
             }
         ]
@@ -243,15 +243,15 @@ class TestListInvitations:
         )
         assert response.status_code == HTTPStatus.OK
 
-        data = response.json()
-        assert len(data["items"]) == 1
         expected_invitation = {
             Invitation.Status.PENDING: pending_invitation,
             Invitation.Status.ACCEPTED: accepted_invitation,
             Invitation.Status.REJECTED: rejected_invitation,
         }[status]
-        assert data["items"][0]["uid"] == str(expected_invitation.uid)
-        assert data["items"][0]["status"] == status
+        data = response.json()
+        [invitation_data] = data["items"]
+        assert invitation_data["uid"] == str(expected_invitation.uid)
+        assert invitation_data["status"] == status
 
     def test_returns_empty_list_when_no_invitations(
         self,
@@ -317,8 +317,8 @@ class TestListInvitations:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["uid"] == str(visible_invitation.uid)
+        [invitation_data] = data["items"]
+        assert invitation_data["uid"] == str(visible_invitation.uid)
 
         mock_visible.assert_awaited_once_with(conference, track_chair)
 

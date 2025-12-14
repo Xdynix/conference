@@ -963,11 +963,11 @@ class TestGetTrackCodePoolAssignments:
 
         assert response.json() == [
             {
-                "track_uid": str(track_with_pool.uid),
-                "code_pool_uid": str(pool.uid),
+                "track": str(track_with_pool.uid),
+                "code_pool": str(pool.uid),
             },
             {
-                "track_uid": str(track_without_pool.uid),
+                "track": str(track_without_pool.uid),
             },
         ]
 
@@ -1010,7 +1010,7 @@ class TestGetTrackCodePoolAssignments:
 
         data = response.json()
         [track_assignment_data] = data
-        assert track_assignment_data["track_uid"] == str(track.uid)
+        assert track_assignment_data["track"] == str(track.uid)
 
     def test_excludes_inactive_tracks(
         self,
@@ -1035,7 +1035,7 @@ class TestGetTrackCodePoolAssignments:
 
         data = response.json()
         [track_assignment_data] = data
-        assert track_assignment_data["track_uid"] == str(active_track.uid)
+        assert track_assignment_data["track"] == str(active_track.uid)
 
     def test_global_read_all_authorized(
         self,
@@ -1146,15 +1146,15 @@ class TestUpdateTrackCodePoolAssignments:
         response = api_client.put(
             self.path(conference.name),
             data=[
-                {"track_uid": str(track_a.uid), "code_pool_uid": str(pool.uid)},
-                {"track_uid": str(track_b.uid), "code_pool_uid": None},
+                {"track": str(track_a.uid), "code_pool": str(pool.uid)},
+                {"track": str(track_b.uid), "code_pool": None},
             ],
         )
         assert response.status_code == HTTPStatus.OK
 
         assert response.json() == [
-            {"track_uid": str(track_a.uid), "code_pool_uid": str(pool.uid)},
-            {"track_uid": str(track_b.uid)},
+            {"track": str(track_a.uid), "code_pool": str(pool.uid)},
+            {"track": str(track_b.uid)},
         ]
 
         track_a.refresh_from_db()
@@ -1182,7 +1182,7 @@ class TestUpdateTrackCodePoolAssignments:
 
         response = api_client.put(
             self.path(conference.name),
-            data=[{"track_uid": str(track.uid), "code_pool_uid": None}],
+            data=[{"track": str(track.uid), "code_pool": None}],
         )
         assert response.status_code == HTTPStatus.OK
 
@@ -1207,7 +1207,7 @@ class TestUpdateTrackCodePoolAssignments:
 
         response = api_client.put(
             self.path(conference.name),
-            data=[{"track_uid": str(track_b.uid), "code_pool_uid": None}],
+            data=[{"track": str(track_b.uid), "code_pool": None}],
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
@@ -1215,7 +1215,7 @@ class TestUpdateTrackCodePoolAssignments:
         assert "Missing tracks" in data["message"]
         assert "Track A" in data["message"]
 
-    def test_invalid_track_uid_rejected(
+    def test_invalid_track_rejected(
         self,
         api_client: Client,
         global_admin: User,
@@ -1231,17 +1231,17 @@ class TestUpdateTrackCodePoolAssignments:
         response = api_client.put(
             self.path(conference.name),
             data=[
-                {"track_uid": str(track.uid), "code_pool_uid": None},
-                {"track_uid": str(invalid_uid), "code_pool_uid": None},
+                {"track": str(track.uid), "code_pool": None},
+                {"track": str(invalid_uid), "code_pool": None},
             ],
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert "Invalid track UIDs" in data["message"]
+        assert "Invalid tracks" in data["message"]
         assert str(invalid_uid) in data["message"]
 
-    def test_duplicate_track_uids_rejected(
+    def test_duplicate_tracks_rejected(
         self,
         api_client: Client,
         global_admin: User,
@@ -1256,17 +1256,17 @@ class TestUpdateTrackCodePoolAssignments:
         response = api_client.put(
             self.path(conference.name),
             data=[
-                {"track_uid": str(track.uid), "code_pool_uid": None},
-                {"track_uid": str(track.uid), "code_pool_uid": None},
+                {"track": str(track.uid), "code_pool": None},
+                {"track": str(track.uid), "code_pool": None},
             ],
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         data = response.json()
-        assert "Duplicate track UIDs" in data["message"]
+        assert "Duplicate tracks" in data["message"]
         assert str(track.uid) in data["message"]
 
-    def test_invalid_code_pool_uid_rejected(
+    def test_invalid_code_pool_rejected(
         self,
         api_client: Client,
         global_admin: User,
@@ -1281,9 +1281,7 @@ class TestUpdateTrackCodePoolAssignments:
 
         response = api_client.put(
             self.path(conference.name),
-            data=[
-                {"track_uid": str(track.uid), "code_pool_uid": str(invalid_pool_uid)}
-            ],
+            data=[{"track": str(track.uid), "code_pool": str(invalid_pool_uid)}],
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
@@ -1315,7 +1313,7 @@ class TestUpdateTrackCodePoolAssignments:
 
         response = api_client.put(
             self.path(conference.name),
-            data=[{"track_uid": str(track.uid), "code_pool_uid": str(other_pool.uid)}],
+            data=[{"track": str(track.uid), "code_pool": str(other_pool.uid)}],
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
@@ -1341,7 +1339,7 @@ class TestUpdateTrackCodePoolAssignments:
 
         response = api_client.put(
             self.path(conference.name),
-            data=[{"track_uid": str(active_track.uid), "code_pool_uid": None}],
+            data=[{"track": str(active_track.uid), "code_pool": None}],
         )
         assert response.status_code == HTTPStatus.OK
 
@@ -1359,7 +1357,7 @@ class TestUpdateTrackCodePoolAssignments:
 
         response = api_client.put(
             self.path(conference.name),
-            data=[{"track_uid": str(track.uid), "code_pool_uid": None}],
+            data=[{"track": str(track.uid), "code_pool": None}],
         )
         assert response.status_code == HTTPStatus.OK
 

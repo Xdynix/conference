@@ -76,7 +76,7 @@ async def preview_invitation_email(
 
 
 class SendInvitationsRequest(EmailTemplateRequest):
-    invitation_uids: list[ULID] = Field(min_length=1, max_length=100)
+    invitations: list[ULID] = Field(min_length=1, max_length=100)
     force_send_to_rejected: bool = False
     force_send_to_recent: bool = False
 
@@ -118,18 +118,18 @@ async def send_invitations(
     visible_uids = {
         uid
         async for uid in visible_invitations.filter(
-            uid__in=payload.invitation_uids
+            uid__in=payload.invitations
         ).values_list("uid", flat=True)
     }
 
-    requested_uids = set(payload.invitation_uids)
+    requested_uids = set(payload.invitations)
     invisible_uids = requested_uids - visible_uids
     if invisible_uids:
         message = _("Some invitation UIDs do not exist: {uids}").format(
             uids=", ".join(str(uid) for uid in sorted(invisible_uids))
         )
         raise make_validation_error(
-            path="invitation_uids",
+            path="invitations",
             message=message,
         )
 

@@ -43,7 +43,7 @@ class TrackRoleAction(Schema):
         MutateAction.ADD_TRACK_ROLE,
         MutateAction.REMOVE_TRACK_ROLE,
     ]
-    track_uid: ULID
+    track: ULID
     role: TrackRole
 
 
@@ -117,7 +117,7 @@ async def mutate_role_assignment(
                 )
             case MutateAction.ADD_TRACK_ROLE:
                 track = await Track.objects.active().aget(
-                    uid=payload.track_uid,
+                    uid=payload.track,
                     conference=conference,
                 )
                 await sync_to_async(RoleAssignmentService.add_track_role)(
@@ -129,7 +129,7 @@ async def mutate_role_assignment(
                 )
             case MutateAction.REMOVE_TRACK_ROLE:
                 track = await Track.objects.active().aget(
-                    uid=payload.track_uid,
+                    uid=payload.track,
                     conference=conference,
                 )
                 await sync_to_async(RoleAssignmentService.remove_track_role)(
@@ -142,12 +142,12 @@ async def mutate_role_assignment(
             case _ as unreachable:
                 assert_never(unreachable)
     except ValueError as exc:
-        raise make_validation_error(path="track_uid", message=str(exc)) from exc
+        raise make_validation_error(path="track", message=str(exc)) from exc
     except InsufficientRolePermission as exc:
         raise HttpError(HTTPStatus.FORBIDDEN, str(exc)) from exc
     except Track.DoesNotExist as exc:
         raise make_validation_error(
-            path="track_uid",
+            path="track",
             message=_("Invalid track UID."),
         ) from exc
 
@@ -158,7 +158,7 @@ async def mutate_role_assignment(
         target_user_uid=target_user.uid,
         requesting_user_uid=user.uid,
         role=payload.role,
-        track_uid=payload.track_uid if isinstance(payload, TrackRoleAction) else None,
+        track_uid=payload.track if isinstance(payload, TrackRoleAction) else None,
     )
 
     qs = await with_role_assignment_prefetch(

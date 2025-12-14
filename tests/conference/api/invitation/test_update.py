@@ -125,8 +125,8 @@ class TestUpdateInvitation:
                 "interested_keywords": ["AI", "ML"],
                 "conference_roles": [ConferenceRole.CHAIR, ConferenceRole.SECRETARY],
                 "track_roles": [
-                    {"uid": str(track_a.uid), "role": TrackRole.CHAIR},
-                    {"uid": str(track_b.uid), "role": TrackRole.REVIEWER},
+                    {"track": str(track_a.uid), "role": TrackRole.CHAIR},
+                    {"track": str(track_b.uid), "role": TrackRole.REVIEWER},
                 ],
             },
         )
@@ -336,7 +336,7 @@ class TestUpdateInvitation:
         response = api_client.patch(
             self.path(conference.name, invitation.uid),
             data={
-                "track_roles": [{"uid": str(invalid_uid), "role": TrackRole.CHAIR}],
+                "track_roles": [{"track": str(invalid_uid), "role": TrackRole.CHAIR}],
             },
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -375,7 +375,9 @@ class TestUpdateInvitation:
         response = api_client.patch(
             self.path(conference.name, invitation.uid),
             data={
-                "track_roles": [{"uid": str(other_track.uid), "role": TrackRole.CHAIR}],
+                "track_roles": [
+                    {"track": str(other_track.uid), "role": TrackRole.CHAIR},
+                ],
             },
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
@@ -419,7 +421,7 @@ class TestUpdateInvitation:
         assert data["interested_keywords"] == ["AI"]
         assert data["conference_roles"] == [ConferenceRole.REVIEWER]
         assert data["track_roles"] == [
-            {"uid": str(track_a.uid), "role": TrackRole.CHAIR},
+            {"track": str(track_a.uid), "role": TrackRole.CHAIR},
         ]
 
         mock_visible.assert_awaited_once_with(conference, global_admin)

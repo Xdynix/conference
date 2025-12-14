@@ -133,7 +133,7 @@ class TestInvitationE2E:
             data={
                 "subject": "Invitation",
                 "body": "Accept: {{ accept_url }}\nReject: {{ reject_url }}",
-                "invitation_uids": [invitation_uid],
+                "invitations": [invitation_uid],
                 "force_send_to_recent": True,
             },
         )
@@ -214,7 +214,7 @@ class TestInvitationE2E:
             conference_admin,
             invitee_email,
             conference_roles=[ConferenceRole.REVIEWER],
-            track_roles=[{"uid": str(track.uid), "role": TrackRole.REVIEWER}],
+            track_roles=[{"track": str(track.uid), "role": TrackRole.REVIEWER}],
         )
 
         [sent_email] = mailoutbox
@@ -523,9 +523,9 @@ class TestInvitationE2E:
             invitee_email,
             conference_roles=[ConferenceRole.REVIEWER, ConferenceRole.SECRETARY],
             track_roles=[
-                {"uid": str(track.uid), "role": TrackRole.CHAIR},
-                {"uid": str(track.uid), "role": TrackRole.REVIEWER},
-                {"uid": str(second_track.uid), "role": TrackRole.REVIEWER},
+                {"track": str(track.uid), "role": TrackRole.CHAIR},
+                {"track": str(track.uid), "role": TrackRole.REVIEWER},
+                {"track": str(second_track.uid), "role": TrackRole.REVIEWER},
             ],
         )
 

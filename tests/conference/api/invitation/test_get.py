@@ -120,7 +120,7 @@ class TestGetInvitation:
             "conference_roles": [ConferenceRole.REVIEWER],
             "track_roles": [
                 {
-                    "uid": str(track.uid),
+                    "track": str(track.uid),
                     "role": TrackRole.CHAIR,
                 }
             ],
@@ -172,7 +172,7 @@ class TestGetInvitation:
         data = response.json()
         assert data["track_roles"] == [
             {
-                "uid": str(active_track.uid),
+                "track": str(active_track.uid),
                 "role": TrackRole.CHAIR,
             }
         ]

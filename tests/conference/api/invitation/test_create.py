@@ -92,9 +92,9 @@ class TestCreateInvitation:
                 "interested_keywords": ["AI"],
                 "conference_roles": [ConferenceRole.REVIEWER],
                 "track_roles": [
-                    {"uid": str(track_a.uid), "role": TrackRole.CHAIR},
-                    {"uid": str(track_a.uid), "role": TrackRole.REVIEWER},
-                    {"uid": str(track_b.uid), "role": TrackRole.SECRETARY},
+                    {"track": str(track_a.uid), "role": TrackRole.CHAIR},
+                    {"track": str(track_a.uid), "role": TrackRole.REVIEWER},
+                    {"track": str(track_b.uid), "role": TrackRole.SECRETARY},
                 ],
             },
         )
@@ -114,9 +114,9 @@ class TestCreateInvitation:
             "interested_keywords": ["AI"],
             "conference_roles": [ConferenceRole.REVIEWER],
             "track_roles": [
-                {"uid": str(track_a.uid), "role": TrackRole.CHAIR},
-                {"uid": str(track_a.uid), "role": TrackRole.REVIEWER},
-                {"uid": str(track_b.uid), "role": TrackRole.SECRETARY},
+                {"track": str(track_a.uid), "role": TrackRole.CHAIR},
+                {"track": str(track_a.uid), "role": TrackRole.REVIEWER},
+                {"track": str(track_b.uid), "role": TrackRole.SECRETARY},
             ],
             "email_send_count": 0,
             "token": any_str,
@@ -317,7 +317,7 @@ class TestCreateInvitation:
             data={
                 "invitee_email": "test@example.com",
                 "track_roles": [
-                    {"uid": str(ULID()), "role": TrackRole.REVIEWER},
+                    {"track": str(ULID()), "role": TrackRole.REVIEWER},
                 ],
             },
         )
@@ -326,7 +326,7 @@ class TestCreateInvitation:
         data = response.json()
         [error] = data["details"]
         assert error["loc"] == ["body", "payload", "track_roles"]
-        assert "Invalid track UID" in error["msg"]
+        assert "Invalid tracks" in error["msg"]
 
     def test_handle_unknown_keywords(
         self,
@@ -402,7 +402,7 @@ class TestCreateInvitation:
             data={
                 "invitee_email": "test@example.com",
                 "track_roles": [
-                    {"uid": str(other_track.uid), "role": TrackRole.REVIEWER},
+                    {"track": str(other_track.uid), "role": TrackRole.REVIEWER},
                 ],
             },
         )
