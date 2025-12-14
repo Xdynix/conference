@@ -28,8 +28,8 @@ from app.core.models import GlobalRole, GlobalRoleAssignment, User
 
 @pytest.fixture(autouse=True)
 def invitation_page_uris(settings: LazySettings) -> None:
-    settings.INVITATION_ACCEPT_PAGE_URI = "https://example.com/accept"
-    settings.INVITATION_REJECT_PAGE_URI = "https://example.com/reject"
+    settings.INVITATION_ACCEPT_PAGE_URL = "https://example.com/accept"
+    settings.INVITATION_REJECT_PAGE_URL = "https://example.com/reject"
 
 
 @pytest.fixture
@@ -76,7 +76,7 @@ class TestPreviewInvitationEmail:
             self.path(conference.name),
             data={
                 "subject": "Welcome to {{ conference_name }}",
-                "body": "Hello {{ given_name }}, click {{ accept_link }} to join.",
+                "body": "Hello {{ given_name }}, click {{ accept_url }} to join.",
             },
         )
         assert response.status_code == HTTPStatus.OK

@@ -65,8 +65,8 @@ async def preview_invitation_email(
     accept/reject links.
     """
     sample_context = InvitationEmailContext.sample(
-        invitation_accept_page_uri=settings.INVITATION_ACCEPT_PAGE_URI,
-        invitation_reject_page_uri=settings.INVITATION_REJECT_PAGE_URI,
+        invitation_accept_page_url=settings.INVITATION_ACCEPT_PAGE_URL,
+        invitation_reject_page_url=settings.INVITATION_REJECT_PAGE_URL,
     )
 
     try:
@@ -136,8 +136,8 @@ async def send_invitations(
     results = await sync_to_async(InvitationService.send_invitations)(
         list(requested_uids),
         template=payload,
-        invitation_accept_page_uri=settings.INVITATION_ACCEPT_PAGE_URI,
-        invitation_reject_page_uri=settings.INVITATION_REJECT_PAGE_URI,
+        invitation_accept_page_url=settings.INVITATION_ACCEPT_PAGE_URL,
+        invitation_reject_page_url=settings.INVITATION_REJECT_PAGE_URL,
         force_send_to_rejected=payload.force_send_to_rejected,
         force_send_to_recent=payload.force_send_to_recent,
     )

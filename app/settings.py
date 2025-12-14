@@ -335,7 +335,7 @@ PASSWORD_RESET_TOKEN_RETENTION = config(
     cast=days,
 )
 
-PASSWORD_RESET_PAGE_URI = config("PASSWORD_RESET_PAGE_URI", default="")
+PASSWORD_RESET_PAGE_URL = config("PASSWORD_RESET_PAGE_URL", default="")
 
 
 # Conference
@@ -346,15 +346,15 @@ INVITATION_EMAIL_INTERVAL = config(
     cast=seconds,
 )
 
-INVITATION_ACCEPT_PAGE_URI = config(
-    "INVITATION_ACCEPT_PAGE_URI",
+INVITATION_ACCEPT_PAGE_URL = config(
+    "INVITATION_ACCEPT_PAGE_URL",
     default="https://example.com/accept",
-)
+)  # TODO: Remove after implementing frontend page.
 
-INVITATION_REJECT_PAGE_URI = config(
-    "INVITATION_REJECT_PAGE_URI",
+INVITATION_REJECT_PAGE_URL = config(
+    "INVITATION_REJECT_PAGE_URL",
     default="https://example.com/reject",
-)
+)  # TODO: Remove after implementing frontend page.
 
 
 # Monkeypatch

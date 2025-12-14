@@ -24,7 +24,7 @@ from tests.helpers import approx_now, update_object
 def template() -> EmailTemplate:
     return EmailTemplate(
         subject="Invitation to {{ conference_name }}",
-        body="Hello {{ given_name }}, click {{ accept_link }} to accept.",
+        body="Hello {{ given_name }}, click {{ accept_url }} to accept.",
     )
 
 
@@ -39,8 +39,8 @@ class TestInvitationEmailContextSample:
         settings.SITE_NAME = site_name
 
         context = InvitationEmailContext.sample(
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         assert context.site_name == site_name
@@ -49,16 +49,16 @@ class TestInvitationEmailContextSample:
         assert context.given_name == "John"
         assert context.family_name == "Doe"
         assert context.affiliation == "Sample University"
-        assert str(context.accept_link) == "https://example.com/accept#sample-token"
-        assert str(context.reject_link) == "https://example.com/reject#sample-token"
+        assert str(context.accept_url) == "https://example.com/accept#sample-token"
+        assert str(context.reject_url) == "https://example.com/reject#sample-token"
 
     def test_context_can_be_used_for_template_rendering(
         self,
         template: EmailTemplate,
     ) -> None:
         context = InvitationEmailContext.sample(
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         rendered = template.render(context)
@@ -82,8 +82,8 @@ class TestInvitationServiceSendInvitation:
         sent, invitee_email = InvitationService.send_invitation(
             invitation.uid,
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         assert sent is True
@@ -106,15 +106,15 @@ class TestInvitationServiceSendInvitation:
         InvitationService.send_invitation(
             invitation.uid,
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
             force_send_to_recent=True,
         )
         InvitationService.send_invitation(
             invitation.uid,
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
             force_send_to_recent=True,
         )
 
@@ -134,8 +134,8 @@ class TestInvitationServiceSendInvitation:
         sent, invitee_email = InvitationService.send_invitation(
             invitation.uid,
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         assert sent is False
@@ -154,8 +154,8 @@ class TestInvitationServiceSendInvitation:
         sent, _ = InvitationService.send_invitation(
             invitation.uid,
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
             force_send_to_recent=True,
         )
 
@@ -182,8 +182,8 @@ class TestInvitationServiceSendInvitation:
         sent, _ = InvitationService.send_invitation(
             invitation.uid,
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         assert sent is True
@@ -201,8 +201,8 @@ class TestInvitationServiceSendInvitation:
         sent, invitee_email = InvitationService.send_invitation(
             invitation.uid,
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         assert sent is False
@@ -221,8 +221,8 @@ class TestInvitationServiceSendInvitation:
         sent, _ = InvitationService.send_invitation(
             invitation.uid,
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
             force_send_to_rejected=True,
         )
 
@@ -242,8 +242,8 @@ class TestInvitationServiceSendInvitation:
             InvitationService.send_invitation(
                 invitation.uid,
                 template=template,
-                invitation_accept_page_uri="https://example.com/accept",
-                invitation_reject_page_uri="https://example.com/reject",
+                invitation_accept_page_url="https://example.com/accept",
+                invitation_reject_page_url="https://example.com/reject",
             )
 
         mock_send.assert_not_called()
@@ -257,8 +257,8 @@ class TestInvitationServiceSendInvitation:
             InvitationService.send_invitation(
                 ULID(),
                 template=template,
-                invitation_accept_page_uri="https://example.com/accept",
-                invitation_reject_page_uri="https://example.com/reject",
+                invitation_accept_page_url="https://example.com/accept",
+                invitation_reject_page_url="https://example.com/reject",
             )
 
         mock_send.assert_not_called()
@@ -277,8 +277,8 @@ class TestInvitationServiceSendInvitation:
         InvitationService.send_invitation(
             invitation.uid,
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
             cc=["admin@example.com", "manager@example.com"],
         )
 
@@ -301,8 +301,8 @@ class TestInvitationServiceSendInvitation:
             InvitationService.send_invitation(
                 invitation.uid,
                 template=template,
-                invitation_accept_page_uri="https://example.com/accept",
-                invitation_reject_page_uri="https://example.com/reject",
+                invitation_accept_page_url="https://example.com/accept",
+                invitation_reject_page_url="https://example.com/reject",
             )
 
         invitation.refresh_from_db()
@@ -340,8 +340,8 @@ class TestInvitationServiceSendInvitations:
         results = InvitationService.send_invitations(
             [invitation_a.uid, invitation_b.uid],
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         [result_a, result_b] = results
@@ -358,8 +358,8 @@ class TestInvitationServiceSendInvitations:
         results = InvitationService.send_invitations(
             [],
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         assert results == []
@@ -377,8 +377,8 @@ class TestInvitationServiceSendInvitations:
         results = InvitationService.send_invitations(
             [invitation_a.uid, nonexistent_uid],
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         [result_a, result_nonexistent] = results
@@ -402,8 +402,8 @@ class TestInvitationServiceSendInvitations:
         results = InvitationService.send_invitations(
             [invitation_a.uid, invitation_b.uid],
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         [result_a, result_b] = results
@@ -428,8 +428,8 @@ class TestInvitationServiceSendInvitations:
         results = InvitationService.send_invitations(
             [invitation_a.uid, invitation_b.uid],
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         [result_a, result_b] = results
@@ -456,8 +456,8 @@ class TestInvitationServiceSendInvitations:
         results = InvitationService.send_invitations(
             [invitation_a.uid, invitation_b.uid],
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
         )
 
         [result_a, result_b] = results
@@ -480,8 +480,8 @@ class TestInvitationServiceSendInvitations:
         results = InvitationService.send_invitations(
             [invitation_a.uid],
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
             force_send_to_rejected=True,
         )
 
@@ -502,8 +502,8 @@ class TestInvitationServiceSendInvitations:
         results = InvitationService.send_invitations(
             [invitation_a.uid],
             template=template,
-            invitation_accept_page_uri="https://example.com/accept",
-            invitation_reject_page_uri="https://example.com/reject",
+            invitation_accept_page_url="https://example.com/accept",
+            invitation_reject_page_url="https://example.com/reject",
             force_send_to_recent=True,
         )
 

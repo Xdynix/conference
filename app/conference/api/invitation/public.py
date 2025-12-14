@@ -21,7 +21,7 @@ from app.core.auth import is_authenticated
 from app.core.types import AuthedHttpRequest, EmailStr, HttpRequest
 from app.ninja.errors import ErrorResponse
 
-from .core import InvitationLinksMixin, router
+from .core import InvitationUrlsMixin, router
 
 
 class InvitationTokenPayload(Schema):
@@ -33,7 +33,7 @@ class ConferenceSummary(Schema):
     display_name: ConferenceDisplayName
 
 
-class InvitationSummary(InvitationLinksMixin, UserConferenceProfile, Profile):
+class InvitationSummary(InvitationUrlsMixin, UserConferenceProfile, Profile):
     uid: ULID
     status: Invitation.Status
     invitee_email: EmailStr

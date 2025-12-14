@@ -56,8 +56,8 @@ class TestInvitationE2E:
 
     @pytest.fixture(autouse=True)
     def invitation_page_uris(self, settings: LazySettings) -> None:
-        settings.INVITATION_ACCEPT_PAGE_URI = "https://example.com/accept"
-        settings.INVITATION_REJECT_PAGE_URI = "https://example.com/reject"
+        settings.INVITATION_ACCEPT_PAGE_URL = "https://example.com/accept"
+        settings.INVITATION_REJECT_PAGE_URL = "https://example.com/reject"
 
     @pytest.fixture(autouse=True)
     def mock_cf_turnstile(self, mock_cf_turnstile: None) -> None:
@@ -132,7 +132,7 @@ class TestInvitationE2E:
             self.send_invitations_path(conference.name),
             data={
                 "subject": "Invitation",
-                "body": "Accept: {{ accept_link }}\nReject: {{ reject_link }}",
+                "body": "Accept: {{ accept_url }}\nReject: {{ reject_url }}",
                 "invitation_uids": [invitation_uid],
                 "force_send_to_recent": True,
             },

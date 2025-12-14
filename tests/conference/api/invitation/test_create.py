@@ -120,8 +120,8 @@ class TestCreateInvitation:
             ],
             "email_send_count": 0,
             "token": any_str,
-            "accept_link": any_str,
-            "reject_link": any_str,
+            "accept_url": any_str,
+            "reject_url": any_str,
         }
 
         invitation_service_create.assert_called_once_with(

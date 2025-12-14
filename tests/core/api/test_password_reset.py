@@ -55,7 +55,7 @@ class TestCreatePasswordReset:
 
         mock_create_token.assert_called_once_with(
             user,
-            password_reset_page_uri=any_str,
+            password_reset_page_url=any_str,
         )
         mock_cf_turnstile.assert_called_once()
 
@@ -129,7 +129,7 @@ class TestCreatePasswordReset:
 
         mock_create_token.assert_called_once_with(
             user,
-            password_reset_page_uri=any_str,
+            password_reset_page_url=any_str,
         )
         mock_cf_turnstile.assert_called_once()
 
@@ -285,7 +285,7 @@ class TestPasswordResetE2E:
             EmailTemplate(
                 format=EmailFormatName.TEXT,
                 subject="Password Reset",
-                body="Link: {{ reset_link }}",
+                body="Link: {{ reset_url }}",
             ),
         )
 

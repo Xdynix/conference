@@ -126,8 +126,8 @@ class TestGetInvitation:
             ],
             "email_send_count": 0,
             "token": token,
-            "accept_link": f"{settings.INVITATION_ACCEPT_PAGE_URI}#{token}",
-            "reject_link": f"{settings.INVITATION_REJECT_PAGE_URI}#{token}",
+            "accept_url": f"{settings.INVITATION_ACCEPT_PAGE_URL}#{token}",
+            "reject_url": f"{settings.INVITATION_REJECT_PAGE_URL}#{token}",
         }
 
         mock_visible.assert_awaited_once_with(conference, conference_admin)

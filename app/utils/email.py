@@ -16,17 +16,17 @@ Example usage::
     class InvitationEmailContext(EmailContext):
         site_name: str
         conference_name: str
-        accept_link: str
+        accept_url: str
 
     template = EmailTemplate(
         subject="Invitation to {{ conference_name }}",
-        body="Hello, please visit {{ accept_link }} to accept.",
+        body="Hello, please visit {{ accept_url }} to accept.",
     )
 
     context = InvitationEmailContext(
         site_name="ConfSys",
         conference_name="PyCon 2025",
-        accept_link="https://example.com/accept#token",
+        accept_url="https://example.com/accept#token",
     )
 
     rendered = template.render(context)

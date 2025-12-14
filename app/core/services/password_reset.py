@@ -18,8 +18,8 @@ normalize_email = User.objects.normalize_email
 
 class PasswordResetEmailContext(EmailContext):
     site_name: str
-    reset_link: HttpUrl
-    reset_link_expiry_minutes: int
+    reset_url: HttpUrl
+    reset_url_expiry_minutes: int
     username: str
 
 
@@ -40,7 +40,7 @@ class PasswordResetService:
         cls,
         user: User,
         *,
-        password_reset_page_uri: str,
+        password_reset_page_url: str,
     ) -> PasswordResetToken | None:
         """Create a password reset token for a given user.
 
@@ -80,7 +80,7 @@ class PasswordResetService:
                     cls.send_password_reset_email,
                     user,
                     token,
-                    password_reset_page_uri=password_reset_page_uri,
+                    password_reset_page_url=password_reset_page_url,
                 )
             )
             return password_reset_token
@@ -133,13 +133,13 @@ class PasswordResetService:
         user: User,
         token: str,
         *,
-        password_reset_page_uri: str,
+        password_reset_page_url: str,
     ) -> None:
         fragment = f"{user.uid}:{token}"
         context = PasswordResetEmailContext(
             site_name=settings.SITE_NAME,
-            reset_link=HttpUrl(f"{password_reset_page_uri}#{fragment}"),
-            reset_link_expiry_minutes=int(
+            reset_url=HttpUrl(f"{password_reset_page_url}#{fragment}"),
+            reset_url_expiry_minutes=int(
                 settings.PASSWORD_RESET_TOKEN_EXPIRY.total_seconds() // 60
             ),
             username=user.get_username(),

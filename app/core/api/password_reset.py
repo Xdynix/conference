@@ -59,14 +59,14 @@ async def create_password_reset(
     # services (such as OIDC). Currently, this system does not implement such
     # authentication, but is reserved for future expansion.
     if user is not None and user.has_usable_password():
-        password_reset_page_uri = (
-            settings.PASSWORD_RESET_PAGE_URI
+        password_reset_page_url = (
+            settings.PASSWORD_RESET_PAGE_URL
             # Fallback to minimum password reset page.
             or request.build_absolute_uri(reverse("core:password-reset"))
         )
         result = await sync_to_async(PasswordResetService.create_token)(
             user,
-            password_reset_page_uri=password_reset_page_uri,
+            password_reset_page_url=password_reset_page_url,
         )
         if result is None:
             message = _("A password reset token was recently issued for this user.")

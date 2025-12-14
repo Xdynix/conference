@@ -79,7 +79,7 @@ class TestPasswordResetServiceCreateToken:
 
         result = PasswordResetService.create_token(
             user,
-            password_reset_page_uri=faker.uri_page(),
+            password_reset_page_url=faker.url(),
         )
         assert result is not None
 
@@ -91,7 +91,7 @@ class TestPasswordResetServiceCreateToken:
         mock_send_email.assert_called_once_with(
             user,
             token,
-            password_reset_page_uri=mocker.ANY,
+            password_reset_page_url=mocker.ANY,
         )
 
     def test_returns_none_when_rate_limited(
@@ -108,7 +108,7 @@ class TestPasswordResetServiceCreateToken:
 
         result = PasswordResetService.create_token(
             user,
-            password_reset_page_uri=faker.uri_page(),
+            password_reset_page_url=faker.url(),
         )
         assert result is None
 
@@ -129,7 +129,7 @@ class TestPasswordResetServiceCreateToken:
 
         result = PasswordResetService.create_token(
             user,
-            password_reset_page_uri=faker.uri_page(),
+            password_reset_page_url=faker.url(),
         )
         assert result is not None
 
@@ -155,7 +155,7 @@ class TestPasswordResetServiceCreateToken:
         with pytest.raises(Exception, match="Database error"):
             PasswordResetService.create_token(
                 user,
-                password_reset_page_uri=faker.uri_page(),
+                password_reset_page_url=faker.url(),
             )
 
         assert not PasswordResetToken.objects.filter(user=user).exists()
@@ -174,7 +174,7 @@ class TestPasswordResetServiceCreateToken:
         async def create_token_task() -> PasswordResetToken | None:
             return await sync_to_async(PasswordResetService.create_token)(
                 user,
-                password_reset_page_uri=faker.uri_page(),
+                password_reset_page_url=faker.url(),
             )
 
         results = await asyncio.gather(
@@ -408,12 +408,12 @@ class TestPasswordResetServiceTemplate:
 
         context = PasswordResetEmailContext(
             site_name=faker.company(),
-            reset_link=HttpUrl(faker.url()),
-            reset_link_expiry_minutes=60,
+            reset_url=HttpUrl(faker.url()),
+            reset_url_expiry_minutes=60,
             username=faker.user_name(),
         )
         rendered = template.render(context)
 
         assert rendered.format == EmailFormatName.TEXT
-        assert str(context.reset_link) in rendered.body
+        assert str(context.reset_url) in rendered.body
         assert len(rendered.subject) > 0

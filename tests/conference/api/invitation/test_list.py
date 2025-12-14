@@ -130,8 +130,8 @@ class TestListInvitations:
                     ],
                     "email_send_count": 0,
                     "token": token2,
-                    "accept_link": f"{settings.INVITATION_ACCEPT_PAGE_URI}#{token2}",
-                    "reject_link": f"{settings.INVITATION_REJECT_PAGE_URI}#{token2}",
+                    "accept_url": f"{settings.INVITATION_ACCEPT_PAGE_URL}#{token2}",
+                    "reject_url": f"{settings.INVITATION_REJECT_PAGE_URL}#{token2}",
                 },
                 {
                     "uid": str(invitation1.uid),
@@ -149,8 +149,8 @@ class TestListInvitations:
                     "track_roles": [],
                     "email_send_count": 0,
                     "token": token1,
-                    "accept_link": f"{settings.INVITATION_ACCEPT_PAGE_URI}#{token1}",
-                    "reject_link": f"{settings.INVITATION_REJECT_PAGE_URI}#{token1}",
+                    "accept_url": f"{settings.INVITATION_ACCEPT_PAGE_URL}#{token1}",
+                    "reject_url": f"{settings.INVITATION_REJECT_PAGE_URL}#{token1}",
                 },
             ],
         }

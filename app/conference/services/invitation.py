@@ -47,15 +47,15 @@ class InvitationEmailContext(EmailContext):
     given_name: str
     family_name: str
     affiliation: str
-    accept_link: HttpUrl
-    reject_link: HttpUrl
+    accept_url: HttpUrl
+    reject_url: HttpUrl
 
     @classmethod
     def sample(
         cls,
         *,
-        invitation_accept_page_uri: str,
-        invitation_reject_page_uri: str,
+        invitation_accept_page_url: str,
+        invitation_reject_page_url: str,
     ) -> Self:
         return cls(
             site_name=settings.SITE_NAME,
@@ -64,8 +64,8 @@ class InvitationEmailContext(EmailContext):
             given_name="John",
             family_name="Doe",
             affiliation="Sample University",
-            accept_link=HttpUrl(f"{invitation_accept_page_uri}#sample-token"),
-            reject_link=HttpUrl(f"{invitation_reject_page_uri}#sample-token"),
+            accept_url=HttpUrl(f"{invitation_accept_page_url}#sample-token"),
+            reject_url=HttpUrl(f"{invitation_reject_page_url}#sample-token"),
         )
 
 
@@ -360,8 +360,8 @@ class InvitationService:
         cls,
         invitation: Invitation,
         *,
-        invitation_accept_page_uri: str,
-        invitation_reject_page_uri: str,
+        invitation_accept_page_url: str,
+        invitation_reject_page_url: str,
     ) -> InvitationEmailContext:
         """Build email context for an invitation."""
         token = cls.get_invitation_token(invitation)
@@ -372,8 +372,8 @@ class InvitationService:
             given_name=invitation.given_name,
             family_name=invitation.family_name,
             affiliation=invitation.affiliation,
-            accept_link=HttpUrl(f"{invitation_accept_page_uri}#{token}"),
-            reject_link=HttpUrl(f"{invitation_reject_page_uri}#{token}"),
+            accept_url=HttpUrl(f"{invitation_accept_page_url}#{token}"),
+            reject_url=HttpUrl(f"{invitation_reject_page_url}#{token}"),
         )
 
     @classmethod
@@ -382,8 +382,8 @@ class InvitationService:
         invitation_uid: ULID,
         *,
         template: EmailTemplate,
-        invitation_accept_page_uri: str,
-        invitation_reject_page_uri: str,
+        invitation_accept_page_url: str,
+        invitation_reject_page_url: str,
         cc: Sequence[str] = (),
         force_send_to_rejected: bool = False,
         force_send_to_recent: bool = False,
@@ -425,8 +425,8 @@ class InvitationService:
 
             context = cls._build_email_context(
                 invitation,
-                invitation_accept_page_uri=invitation_accept_page_uri,
-                invitation_reject_page_uri=invitation_reject_page_uri,
+                invitation_accept_page_url=invitation_accept_page_url,
+                invitation_reject_page_url=invitation_reject_page_url,
             )
             rendered = template.render(context)
             email_message = rendered.build_message(to=invitation.invitee_email, cc=cc)
@@ -451,8 +451,8 @@ class InvitationService:
         invitation_uids: Sequence[ULID],
         *,
         template: EmailTemplate,
-        invitation_accept_page_uri: str,
-        invitation_reject_page_uri: str,
+        invitation_accept_page_url: str,
+        invitation_reject_page_url: str,
         cc: Sequence[str] = (),
         force_send_to_rejected: bool = False,
         force_send_to_recent: bool = False,
@@ -469,8 +469,8 @@ class InvitationService:
                 sent, invitee_email = cls.send_invitation(
                     uid,
                     template=template,
-                    invitation_accept_page_uri=invitation_accept_page_uri,
-                    invitation_reject_page_uri=invitation_reject_page_uri,
+                    invitation_accept_page_url=invitation_accept_page_url,
+                    invitation_reject_page_url=invitation_reject_page_url,
                     cc=cc,
                     force_send_to_rejected=force_send_to_rejected,
                     force_send_to_recent=force_send_to_recent,

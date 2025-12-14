@@ -65,8 +65,8 @@ class TestLookupInvitation:
                 "display_name": conference.display_name,
             },
             "token": token,
-            "accept_link": f"{settings.INVITATION_ACCEPT_PAGE_URI}#{token}",
-            "reject_link": f"{settings.INVITATION_REJECT_PAGE_URI}#{token}",
+            "accept_url": f"{settings.INVITATION_ACCEPT_PAGE_URL}#{token}",
+            "reject_url": f"{settings.INVITATION_REJECT_PAGE_URL}#{token}",
         }
 
     def test_invalid_token_returns_not_found(self, api_client: Client) -> None:
