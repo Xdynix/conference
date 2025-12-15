@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Self
 
@@ -31,6 +32,14 @@ class Paper(TimeStampedModel, ULIDModel):
             "Accepted (Revision Needed)",
             _("Accepted (Revision Needed)"),
         )
+
+        @classmethod
+        def decided(cls) -> Sequence["Paper.State"]:
+            return [
+                cls.REJECTED,
+                cls.ACCEPTED,
+                cls.ACCEPTED_REVISION_NEEDED,
+            ]
 
     conference = models.ForeignKey(
         Conference,
@@ -143,6 +152,12 @@ class Paper(TimeStampedModel, ULIDModel):
 
     def __str__(self) -> str:
         return f"[{self.track}] {self.code}"
+
+    @property
+    def visible_state(self) -> State:
+        if self.announce_time is None and self.state in self.State.decided():
+            return self.State.UNDER_REVIEW
+        return self.State(self.state)
 
 
 class PaperAuthor(AbstractProfile):

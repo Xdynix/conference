@@ -19,6 +19,7 @@ from app.conference.models.paper import (
     paper_submission_path,
 )
 from app.core.models import User
+from tests.helpers import update_object
 
 
 @pytest.fixture
@@ -92,6 +93,42 @@ class TestPaperQuerySet:
 class TestPaper:
     def test_str(self, paper: Paper) -> None:
         assert str(paper) == f"[{paper.track}] {paper.code}"
+
+    @pytest.mark.parametrize("state", Paper.State.decided())
+    def test_visible_state_decision_hidden_until_announced(
+        self,
+        paper: Paper,
+        state: Paper.State,
+    ) -> None:
+        update_object(paper, state=state, announce_time=None)
+        assert paper.visible_state == Paper.State.UNDER_REVIEW
+
+    @pytest.mark.parametrize("state", Paper.State.decided())
+    def test_visible_state_shows_decision_after_announcement(
+        self,
+        paper: Paper,
+        state: Paper.State,
+    ) -> None:
+        update_object(paper, state=state, announce_time=timezone.now())
+        assert paper.visible_state == state
+
+    @pytest.mark.parametrize(
+        "state",
+        [state for state in Paper.State if state not in Paper.State.decided()],
+    )
+    @pytest.mark.parametrize("announced", [True, False])
+    def test_visible_state_non_decision_states(
+        self,
+        paper: Paper,
+        state: Paper.State,
+        announced: bool,
+    ) -> None:
+        update_object(
+            paper,
+            state=state,
+            announce_time=timezone.now() if announced else None,
+        )
+        assert paper.visible_state == state
 
     def test_unique_code_within_conference(
         self,

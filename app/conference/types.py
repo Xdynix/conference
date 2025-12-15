@@ -6,6 +6,12 @@ __all__ = (
     "InvitationTrackRole",
     "KeywordSetName",
     "KeywordText",
+    "Paper",
+    "PaperAuthor",
+    "PaperAuthorPhone",
+    "PaperCode",
+    "PaperTitle",
+    "PaperTrack",
     "Profile",
     "RoleAssignment",
     "Track",
@@ -17,6 +23,7 @@ __all__ = (
 from enum import StrEnum
 from typing import Annotated, Literal
 
+from django.utils.translation import gettext as _
 from ninja import Field, Schema
 from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 from ulid import ULID
@@ -26,6 +33,8 @@ from app.conference.models import ConferenceRole, TrackRole
 from app.conference.models import Invitation as InvitationModel
 from app.conference.models import Keyword as KeywordModel
 from app.conference.models import KeywordSet as KeywordSetModel
+from app.conference.models import Paper as PaperModel
+from app.conference.models import PaperAuthor as PaperAuthorModel
 from app.conference.models import Profile as ProfileModel
 from app.conference.models import Track as TrackModel
 from app.conference.models import UserConferenceProfile as UserConferenceProfileModel
@@ -194,3 +203,63 @@ class RoleAssignment(User):
     profile: Profile | None
     conference_roles: list[ConferenceRole]
     track_roles: list[RoleAssignmentTrackRole]
+
+
+paper_meta = PaperModel._meta
+paper_code_field = paper_meta.get_field("code")
+paper_title_field = paper_meta.get_field("title")
+paper_author_meta = PaperAuthorModel._meta
+paper_author_phone_field = paper_author_meta.get_field("phone")
+
+PaperCode = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        min_length=1,
+        max_length=paper_code_field.max_length,
+        strip_whitespace=True,
+    ),
+    Field(examples=["PAPER-1001"]),
+]
+PaperTitle = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        min_length=1,
+        max_length=paper_title_field.max_length,
+        strip_whitespace=True,
+    ),
+]
+PaperAuthorPhone = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        max_length=paper_author_phone_field.max_length,
+        strip_whitespace=True,
+    ),
+]  # TODO: Consider use Pydantic's `PhoneNumber` type.
+
+
+# Embeds track data rather than just ULID so the paper remains displayable even if moved
+# to a track the author cannot access. This intentionally reveals minimal track info (
+# UID and name) regardless of track visibility.
+class PaperTrack(Schema):
+    uid: ULID
+    display_name: TrackDisplayName
+
+
+class PaperAuthor(Profile):
+    email: EmailStr | Literal[""] = Field(title=_("Email Address"))
+    phone: PaperAuthorPhone
+    corresponding: bool
+
+
+class Paper(Schema):
+    uid: ULID
+    conference: ConferenceName
+    track: PaperTrack
+    code: PaperCode
+    state: PaperModel.State
+    withdrawn_time: AwareDatetime | None
+    title: PaperTitle
+    authors: list[PaperAuthor]
