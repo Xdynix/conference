@@ -120,7 +120,7 @@ class TestUpdateInvitation:
                 "given_name": "Updated",
                 "family_name": "Person",
                 "affiliation": "MIT",
-                "region_code": Region.US.name,
+                "region_code": "US",
                 "desired_paper_count": 15,
                 "interested_keywords": ["AI", "ML"],
                 "conference_roles": [ConferenceRole.CHAIR, ConferenceRole.SECRETARY],

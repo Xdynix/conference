@@ -11,7 +11,7 @@ class TestInvitationServiceGetInvitationToken:
         token = InvitationService.get_invitation_token(invitation)
 
         assert isinstance(token, str)
-        assert len(token) > 0
+        assert token
         assert ":" in token
 
     def test_token_is_deterministic(self, invitation: Invitation) -> None:

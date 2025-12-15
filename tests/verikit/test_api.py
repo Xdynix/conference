@@ -211,8 +211,7 @@ class TestEmailVerificationE2E:
         data = response.json()
         assert data["email"] == email
 
-        assert len(mailoutbox) == 1
-        sent_email = mailoutbox[0]
+        [sent_email] = mailoutbox
         assert sent_email.to == [email]
 
         email_body = sent_email.body

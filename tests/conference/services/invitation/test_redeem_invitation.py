@@ -143,8 +143,8 @@ class TestInvitationServiceRedeemInvitation:
         invitation: Invitation,
     ) -> None:
         ConferenceRoleAssignment.objects.create(
-            user=invitee,
             conference=conference,
+            user=invitee,
             role=ConferenceRole.CHAIR,
         )
         TrackRoleAssignment.objects.create(

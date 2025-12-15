@@ -68,11 +68,11 @@ class TestCreateConference:
         assert data["display_name"] == "Security Conf"
         assert data["visibility"] == Conference.Visibility.PUBLIC
         assert set(data["keywords"]) == {"AI", "Analysis"}
-        assert len(data["tracks"]) == 2
-        assert data["tracks"][0]["display_name"] == "Research Track"
-        assert data["tracks"][0]["visibility"] == Track.Visibility.PUBLIC
-        assert data["tracks"][1]["display_name"] == "Operations Track"
-        assert data["tracks"][1]["visibility"] == Track.Visibility.ADMIN_ONLY
+        [track_a, track_b] = data["tracks"]
+        assert track_a["display_name"] == "Research Track"
+        assert track_a["visibility"] == Track.Visibility.PUBLIC
+        assert track_b["display_name"] == "Operations Track"
+        assert track_b["visibility"] == Track.Visibility.ADMIN_ONLY
 
         conference_service_create.assert_called_once()
         call_kwargs = conference_service_create.call_args.kwargs
@@ -81,11 +81,12 @@ class TestCreateConference:
         assert call_kwargs["visibility"] == Conference.Visibility.PUBLIC
         assert list(call_kwargs["keywords"]) == [keyword]
         assert list(call_kwargs["keyword_sets"]) == [keyword_set]
+        [call_kwargs_a, call_kwargs_b] = call_kwargs["tracks"]
         assert len(call_kwargs["tracks"]) == 2
-        assert call_kwargs["tracks"][0]["display_name"] == "Research Track"
-        assert call_kwargs["tracks"][0]["visibility"] == Track.Visibility.PUBLIC
-        assert call_kwargs["tracks"][1]["display_name"] == "Operations Track"
-        assert call_kwargs["tracks"][1]["visibility"] == Track.Visibility.ADMIN_ONLY
+        assert call_kwargs_a["display_name"] == "Research Track"
+        assert call_kwargs_a["visibility"] == Track.Visibility.PUBLIC
+        assert call_kwargs_b["display_name"] == "Operations Track"
+        assert call_kwargs_b["visibility"] == Track.Visibility.ADMIN_ONLY
 
     def test_trims_whitespace_fields(
         self,

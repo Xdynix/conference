@@ -73,8 +73,7 @@ class TestLookupRoleAssignmentUser:
         )
         assert response.status_code == HTTPStatus.OK
 
-        data = response.json()
-        assert data == {
+        assert response.json() == {
             "uid": str(user.uid),
             "username": user.username,
             "email": user.email,
@@ -120,8 +119,7 @@ class TestLookupRoleAssignmentUser:
         )
         assert response.status_code == HTTPStatus.OK
 
-        data = response.json()
-        assert data == {
+        assert response.json() == {
             "uid": str(user.uid),
             "username": user.username,
             "email": user.email,

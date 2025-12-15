@@ -103,8 +103,8 @@ class TestInvitationServiceCreateInvitation:
         assert set(invitation.interested_keywords.all()) == {keyword_a, keyword_b}
 
         conference_role_entries = list(invitation.conference_role_entries.all())
-        assert len(conference_role_entries) == 1
-        assert conference_role_entries[0].role == ConferenceRole.REVIEWER
+        [conference_role_entry] = conference_role_entries
+        assert conference_role_entry.role == ConferenceRole.REVIEWER
 
         track_role_entries = list(
             invitation.track_role_entries.select_related("track").all()

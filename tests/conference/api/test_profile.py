@@ -18,7 +18,7 @@ def profile_payload(faker: Faker) -> dict[str, str]:
         "given_name": faker.first_name(),
         "family_name": faker.last_name(),
         "affiliation": faker.company(),
-        "region_code": Region.US.name,
+        "region_code": "US",
     }
 
 
@@ -62,7 +62,7 @@ class TestUpdateCurrentUserProfile:
                 "given_name": "  Ada  ",
                 "family_name": "  Lovelace ",
                 "affiliation": "  Analytical Engines  ",
-                "region_code": Region.GB.name,
+                "region_code": "GB",
             },
         )
         assert response.status_code == HTTPStatus.OK
@@ -71,7 +71,7 @@ class TestUpdateCurrentUserProfile:
             "given_name": "Ada",
             "family_name": "Lovelace",
             "affiliation": "Analytical Engines",
-            "region_code": Region.GB.name,
+            "region_code": "GB",
         }
 
         profile = Profile.objects.get(user=user)

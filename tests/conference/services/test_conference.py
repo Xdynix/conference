@@ -154,16 +154,16 @@ class TestConferenceServiceCreateConference:
         db_tracks = list(
             Conference.objects.get(pk=conference.pk).tracks.order_by("ordering")
         )
-        assert len(db_tracks) == 3
-        assert db_tracks[0].display_name == "Track A"
-        assert db_tracks[0].ordering == 0
-        assert db_tracks[0].visibility == Track.Visibility.PUBLIC
-        assert db_tracks[1].display_name == "Track B"
-        assert db_tracks[1].ordering == 1
-        assert db_tracks[1].visibility == Track.Visibility.ADMIN_ONLY
-        assert db_tracks[2].display_name == "Track C"
-        assert db_tracks[2].ordering == 2
-        assert db_tracks[2].visibility == Track.Visibility.PUBLIC
+        [db_track_a, db_track_b, db_track_c] = db_tracks
+        assert db_track_a.display_name == "Track A"
+        assert db_track_a.ordering == 0
+        assert db_track_a.visibility == Track.Visibility.PUBLIC
+        assert db_track_b.display_name == "Track B"
+        assert db_track_b.ordering == 1
+        assert db_track_b.visibility == Track.Visibility.ADMIN_ONLY
+        assert db_track_c.display_name == "Track C"
+        assert db_track_c.ordering == 2
+        assert db_track_c.visibility == Track.Visibility.PUBLIC
 
     def test_raises_conference_name_conflict_for_duplicate_name(
         self, faker: Faker

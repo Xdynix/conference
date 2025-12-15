@@ -311,8 +311,7 @@ class TestPasswordResetE2E:
         response = api_client.post(self.create_path, data={"email": email})
         assert response.status_code == HTTPStatus.CREATED
 
-        assert len(mailoutbox) == 1
-        sent_email = mailoutbox[0]
+        [sent_email] = mailoutbox
         assert sent_email.to == [email]
 
         email_body = sent_email.body

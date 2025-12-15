@@ -155,7 +155,7 @@ class TestProfileInjectionInUserCreationEndpoints:
             "given_name": faker.first_name(),
             "family_name": faker.last_name(),
             "affiliation": faker.company(),
-            "region_code": Region.US.name,
+            "region_code": "US",
         }
 
     def test_create_registration_with_profile(

@@ -48,8 +48,8 @@ def track(faker: Faker, conference: Conference) -> Track:
 def conference_admin(faker: Faker, conference: Conference) -> User:
     user = User.objects.create_user(username=faker.user_name())
     ConferenceRoleAssignment.objects.create(
-        user=user,
         conference=conference,
+        user=user,
         role=ConferenceRole.CHAIR,
     )
     return user

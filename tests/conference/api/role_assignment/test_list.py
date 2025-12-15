@@ -149,7 +149,7 @@ class TestListRoleAssignments:
                 "given_name": "Alice",
                 "family_name": "Smith",
                 "affiliation": "University of Example",
-                "region_code": Region.US.name,
+                "region_code": "US",
             },
             "conference_roles": [ConferenceRole.CHAIR],
             "track_roles": [],

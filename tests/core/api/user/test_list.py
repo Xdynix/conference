@@ -64,8 +64,8 @@ class TestListUsers:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["username"] == target_user.username
+        [item] = data["items"]
+        assert item["username"] == target_user.username
 
     def test_filter_by_email(
         self,
@@ -80,8 +80,8 @@ class TestListUsers:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["email"] == target_user.email
+        [item] = data["items"]
+        assert item["email"] == target_user.email
 
     def test_filter_by_email_case_insensitive(
         self,
@@ -96,8 +96,8 @@ class TestListUsers:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["email"] == target_user.email
+        [item] = data["items"]
+        assert item["email"] == target_user.email
 
     def test_filter_by_search_username(
         self,
@@ -112,8 +112,8 @@ class TestListUsers:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["username"] == target_user.username
+        [item] = data["items"]
+        assert item["username"] == target_user.username
 
     def test_filter_by_search_email(
         self,
@@ -128,8 +128,8 @@ class TestListUsers:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert len(data["items"]) == 1
-        assert data["items"][0]["email"] == target_user.email
+        [item] = data["items"]
+        assert item["email"] == target_user.email
 
     @pytest.mark.parametrize("managed", [True, False])
     def test_filter_by_managed(
