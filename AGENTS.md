@@ -297,8 +297,8 @@ Tests are reviewed by humans before they run.
 - **Annotations**: Add `# noqa: ARG002` for intentionally unused fixture parameters.
 - **Imports**: Import `MagicMock` from `unittest.mock` for better type hints.
 - **Exemplary tests**: See `tests/conference/api/conference/test_create.py` for API
-  endpoint patterns and `tests/conference/services/test_conference.py` for service
-  layer and async testing patterns.
+  endpoint patterns and `tests/conference/services/conference/` for service layer and
+  async testing patterns.
 
 #### API Test Pattern
 
