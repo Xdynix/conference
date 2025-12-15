@@ -37,6 +37,7 @@ CodePoolPrefix = Annotated[
     str,
     BeforeValidator(sanitize_text),
     StringConstraints(
+        pattern=r"^[-a-zA-Z0-9_]+$",  # django.core.validators.slug_re
         min_length=1,
         max_length=code_pool_prefix_field.max_length,
         strip_whitespace=True,

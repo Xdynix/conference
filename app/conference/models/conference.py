@@ -87,7 +87,7 @@ class CodePool(TimeStampedModel, ULIDModel):
         max_length=255,
         help_text=_("Name of the pool (e.g., 'Main Tracks', 'Workshops')."),
     )
-    prefix = models.CharField(
+    prefix = models.SlugField(
         _("prefix"),
         max_length=32,
         help_text=_("Prefix for the paper codes (e.g., 'CBPK-2', 'CBPK-WS-')."),

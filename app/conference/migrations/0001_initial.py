@@ -1065,7 +1065,7 @@ class Migration(migrations.Migration):
                 ),
                 (
                     "prefix",
-                    models.CharField(
+                    models.SlugField(
                         help_text=(
                             "Prefix for the paper codes (e.g., 'CBPK-2', 'CBPK-WS-')."
                         ),
