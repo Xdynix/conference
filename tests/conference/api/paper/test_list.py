@@ -1,15 +1,29 @@
 from datetime import datetime
 from http import HTTPStatus
+from unittest.mock import AsyncMock
 
 import pytest
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 from faker import Faker
+from pytest_mock import MockerFixture
 
-from app.conference.models import Conference, Paper, PaperAuthor, Track
-from app.core.models import User
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    ConferenceRoleAssignment,
+    Paper,
+    PaperAuthor,
+    Profile,
+    Track,
+    TrackRole,
+    TrackRoleAssignment,
+)
+from app.conference.services import PaperService
+from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from app.utils.enums import Region
+from tests.helpers import any_str, update_object
 
 
 @pytest.fixture
@@ -104,6 +118,7 @@ class TestListMyPapers:
                         "display_name": track.display_name,
                     },
                     "code": paper.code,
+                    "create_time": any_str,
                     "state": Paper.State.DRAFT,
                     "title": paper.title,
                     "authors": [
@@ -331,3 +346,294 @@ class TestListMyPapers:
         data = response.json()
         [paper_data] = data["items"]
         assert paper_data["state"] == expected_state
+
+
+@pytest.fixture
+def mock_visible_papers(mocker: MockerFixture) -> AsyncMock:
+    return mocker.patch.object(PaperService, "visible_papers")
+
+
+@pytest.fixture
+def conference_admin(faker: Faker, conference: Conference) -> User:
+    user = User.objects.create_user(username=faker.user_name())
+    ConferenceRoleAssignment.objects.create(
+        conference=conference,
+        user=user,
+        role=ConferenceRole.CHAIR,
+    )
+    return user
+
+
+@pytest.mark.django_db
+class TestListPapers:
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:list-papers", args=[conference_name])
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_admin: User,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        update_object(conference_admin, email="admin@example.com")
+        Profile.objects.create(
+            user=conference_admin,
+            given_name="Bob",
+            family_name="Doe",
+            affiliation="Organization",
+            region_code=Region.CN.name,
+        )
+        paper = create_paper(
+            conference,
+            track,
+            conference_admin,
+            state=Paper.State.ACCEPTED,
+        )
+        PaperAuthor.objects.create(
+            paper=paper,
+            given_name="Alice",
+            family_name="Smith",
+            affiliation="University",
+            email="alice@example.com",
+            ordering=0,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == {
+            "items": [
+                {
+                    "uid": str(paper.uid),
+                    "conference": conference.name,
+                    "track": {
+                        "uid": str(track.uid),
+                        "display_name": track.display_name,
+                    },
+                    "code": paper.code,
+                    "create_time": any_str,
+                    "state": Paper.State.ACCEPTED,
+                    "visible_state": Paper.State.UNDER_REVIEW,
+                    "owner": {
+                        "uid": str(conference_admin.uid),
+                        "email": "admin@example.com",
+                        "profile": {
+                            "given_name": "Bob",
+                            "family_name": "Doe",
+                            "affiliation": "Organization",
+                            "region_code": "CN",
+                        },
+                    },
+                    "title": paper.title,
+                    "authors": [
+                        {
+                            "given_name": "Alice",
+                            "family_name": "Smith",
+                            "affiliation": "University",
+                            "region_code": "",
+                            "email": "alice@example.com",
+                            "phone": "",
+                            "corresponding": False,
+                        },
+                    ],
+                },
+            ],
+        }
+
+        mock_visible_papers.assert_awaited_once_with(conference, conference_admin)
+
+    def test_returns_empty_list_when_no_papers(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_admin: User,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        mock_visible_papers.return_value = Paper.objects.filter(pk=-1)
+        api_client.force_login(conference_admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == {"items": []}
+
+    def test_conference_not_found(
+        self,
+        api_client: Client,
+        conference_admin: User,
+    ) -> None:
+        api_client.force_login(conference_admin)
+
+        response = api_client.get(self.path("nonexistent-conference"))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_inactive_conference_not_found(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference_admin: User,
+    ) -> None:
+        inactive_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+            active=False,
+        )
+        api_client.force_login(conference_admin)
+
+        response = api_client.get(self.path(inactive_conference.name))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_state_not_masked_for_admin(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_admin: User,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        paper = create_paper(
+            conference,
+            track,
+            conference_admin,
+            state=Paper.State.REJECTED,
+            announce_time=None,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        [paper_data] = data["items"]
+        assert paper_data["state"] == Paper.State.REJECTED
+        assert paper_data["visible_state"] == Paper.State.UNDER_REVIEW
+
+    def test_authorization_unauthenticated(
+        self,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_authorization_user_without_roles(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    @pytest.mark.parametrize("global_role", [GlobalRole.ADMIN, GlobalRole.READ_ALL])
+    def test_authorization_global_role(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        mock_visible_papers: AsyncMock,
+        global_role: GlobalRole,
+    ) -> None:
+        admin = User.objects.create_user(username=faker.user_name())
+        GlobalRoleAssignment.objects.create(user=admin, role=global_role)
+        mock_visible_papers.return_value = Paper.objects.filter(pk=-1)
+        api_client.force_login(admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+    @pytest.mark.parametrize("conference_role", ConferenceRole.admins())
+    def test_authorization_conference_admin(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        mock_visible_papers: AsyncMock,
+        conference_role: ConferenceRole,
+    ) -> None:
+        admin = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=admin,
+            role=conference_role,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(pk=-1)
+        api_client.force_login(admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+    @pytest.mark.parametrize("track_role", TrackRole.admins())
+    def test_authorization_track_admin(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        mock_visible_papers: AsyncMock,
+        track_role: TrackRole,
+    ) -> None:
+        admin = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=admin,
+            role=track_role,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(pk=-1)
+        api_client.force_login(admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+    @pytest.mark.parametrize(
+        "non_admin_role",
+        [role for role in ConferenceRole if role not in ConferenceRole.admins()],
+    )
+    def test_authorization_conference_non_admin_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        non_admin_role: ConferenceRole,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=non_admin_role,
+        )
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    @pytest.mark.parametrize(
+        "non_admin_role",
+        [role for role in TrackRole if role not in TrackRole.admins()],
+    )
+    def test_authorization_track_non_admin_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        non_admin_role: TrackRole,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=non_admin_role,
+        )
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.FORBIDDEN

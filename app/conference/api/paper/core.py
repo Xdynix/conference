@@ -1,8 +1,11 @@
 from django.db.models import QuerySet
 from ninja import Field, Router
+from pydantic import AwareDatetime
 
-from app.conference.models import Paper
+from app.conference.models import Paper, Profile
 from app.conference.types import Paper as PaperSchema
+from app.conference.types import PaperOwner as BasePaperOwner
+from app.core.models import User
 
 router = Router(tags=["Paper"], exclude_none=True)
 
@@ -13,8 +16,22 @@ class BasePaperResponse(PaperSchema):
         return paper.conference.name
 
 
+class PaperOwner(BasePaperOwner):
+    @staticmethod
+    def resolve_profile(user: User) -> Profile | None:
+        return getattr(user, "profile", None)
+
+
 class UserPaperResponse(BasePaperResponse):
     state: Paper.State = Field(validation_alias="visible_state")
+
+
+class PaperResponse(BasePaperResponse):
+    visible_state: Paper.State
+    announce_time: AwareDatetime | None
+    submit_time: AwareDatetime | None
+    decide_time: AwareDatetime | None
+    owner: PaperOwner
 
 
 def with_paper_prefetch(queryset: QuerySet[Paper]) -> QuerySet[Paper]:

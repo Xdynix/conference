@@ -10,6 +10,7 @@ __all__ = (
     "PaperAuthor",
     "PaperAuthorPhone",
     "PaperCode",
+    "PaperOwner",
     "PaperTitle",
     "PaperTrack",
     "Profile",
@@ -248,6 +249,12 @@ class PaperTrack(Schema):
     display_name: TrackDisplayName
 
 
+class PaperOwner(Schema):
+    uid: ULID
+    email: EmailStr | Literal[""] = Field(title=_("Email Address"))
+    profile: Profile | None
+
+
 class PaperAuthor(Profile):
     email: EmailStr | Literal[""] = Field(title=_("Email Address"))
     phone: PaperAuthorPhone
@@ -259,6 +266,7 @@ class Paper(Schema):
     conference: ConferenceName
     track: PaperTrack
     code: PaperCode
+    create_time: AwareDatetime
     state: PaperModel.State
     withdrawn_time: AwareDatetime | None
     title: PaperTitle
