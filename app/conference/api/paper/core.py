@@ -34,7 +34,7 @@ class PaperOwner(BasePaperOwner):
 
 
 class UserPaperResponse(BasePaperResponse):
-    state: Paper.State = Field(validation_alias="visible_state")
+    state: Paper.VisibleState = Field(validation_alias="visible_state")  # type: ignore[assignment]
 
 
 class UserPaperDetailResponse(PaperDetailMixin, UserPaperResponse):
@@ -42,7 +42,7 @@ class UserPaperDetailResponse(PaperDetailMixin, UserPaperResponse):
 
 
 class PaperResponse(BasePaperResponse):
-    visible_state: Paper.State
+    visible_state: Paper.VisibleState
     announce_time: AwareDatetime | None
     submit_time: AwareDatetime | None
     decide_time: AwareDatetime | None

@@ -1,6 +1,6 @@
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from django.contrib.auth import get_user_model
 from django.db import models
@@ -40,6 +40,8 @@ class Paper(TimeStampedModel, ULIDModel):
                 cls.ACCEPTED,
                 cls.ACCEPTED_REVISION_NEEDED,
             ]
+
+    VisibleState = State | Literal["Withdrawn"]
 
     conference = models.ForeignKey(
         Conference,
@@ -154,7 +156,9 @@ class Paper(TimeStampedModel, ULIDModel):
         return f"[{self.track}] {self.code}"
 
     @property
-    def visible_state(self) -> State:
+    def visible_state(self) -> VisibleState:
+        if self.withdrawn_time is not None:
+            return "Withdrawn"
         if self.announce_time is None and self.state in self.State.decided():
             return self.State.UNDER_REVIEW
         return self.State(self.state)

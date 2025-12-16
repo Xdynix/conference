@@ -301,7 +301,7 @@ class TestGetMyPaper:
         data = response.json()
         assert data["authors"] == []
 
-    def test_withdrawn_time_included(
+    def test_withdrawn_paper(
         self,
         api_client: Client,
         user: User,
@@ -315,6 +315,7 @@ class TestGetMyPaper:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
+        assert data["state"] == "Withdrawn"
         assert data["withdrawn_time"] is not None
 
 
@@ -414,6 +415,23 @@ class TestGetPaper:
         }
 
         mock_visible_papers.assert_awaited_once_with(conference, conference_admin)
+
+    def test_withdrawn_paper(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_admin: User,
+        paper: Paper,
+    ) -> None:
+        update_object(paper, withdrawn_time=timezone.now())
+        api_client.force_login(conference_admin)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["visible_state"] == "Withdrawn"
+        assert data["withdrawn_time"] is not None
 
     def test_paper_not_found(
         self,
