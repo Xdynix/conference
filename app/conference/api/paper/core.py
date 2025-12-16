@@ -49,6 +49,10 @@ class PaperResponse(BasePaperResponse):
     owner: PaperOwner
 
 
+class PaperDetailResponse(PaperDetailMixin, PaperResponse):
+    pass
+
+
 def with_paper_prefetch(queryset: QuerySet[Paper]) -> QuerySet[Paper]:
     """Prefetch related data for paper queries."""
     return queryset.select_related(

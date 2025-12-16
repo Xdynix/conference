@@ -8,9 +8,20 @@ from faker import Faker
 from pytest_mock import MockerFixture
 from ulid import ULID
 
-from app.conference.models import CodePool, Conference, Keyword, Paper, Track
+from app.conference.models import (
+    CodePool,
+    Conference,
+    ConferenceRole,
+    ConferenceRoleAssignment,
+    Keyword,
+    Paper,
+    Profile,
+    Track,
+    TrackRole,
+    TrackRoleAssignment,
+)
 from app.conference.services import KeywordService, PaperService
-from app.core.models import User
+from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from app.utils.enums import Region
 from tests.helpers import any_str, approx_now, update_object
 
@@ -50,6 +61,17 @@ def track(faker: Faker, conference: Conference, code_pool: CodePool) -> Track:
 
 
 @pytest.fixture
+def conference_admin(faker: Faker, conference: Conference) -> User:
+    user = User.objects.create_user(username=faker.user_name())
+    ConferenceRoleAssignment.objects.create(
+        conference=conference,
+        user=user,
+        role=ConferenceRole.CHAIR,
+    )
+    return user
+
+
+@pytest.fixture
 def paper_service_create(mocker: MockerFixture) -> MagicMock:
     return mocker.spy(PaperService, "create_paper")
 
@@ -85,7 +107,7 @@ class TestCreateDraft:
                         "given_name": "Alice",
                         "family_name": "Smith",
                         "affiliation": "University",
-                        "region_code": Region.US.name,
+                        "region_code": "US",
                         "email": "alice@example.com",
                         "phone": "+1234567890",
                         "corresponding": True,
@@ -450,5 +472,428 @@ class TestCreateDraft:
             },
         )
         assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+        paper_service_create.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestCreatePaper:
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:create-paper", args=[conference_name])
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_admin: User,
+        paper_service_create: MagicMock,
+    ) -> None:
+        update_object(conference_admin, email="admin@example.com")
+        Profile.objects.create(
+            user=conference_admin,
+            given_name="Admin",
+            family_name="User",
+            affiliation="Organization",
+            region_code=Region.US.name,
+        )
+        kw1 = Keyword.objects.create(text="Machine Learning")
+        api_client.force_login(conference_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Admin Created Paper",
+                "abstract": "Abstract text.",
+                "contribution": "Contribution text.",
+                "keywords": [kw1.text],
+                "authors": [
+                    {
+                        "given_name": "Alice",
+                        "family_name": "Smith",
+                        "affiliation": "University",
+                        "email": "alice@example.com",
+                        "corresponding": True,
+                    },
+                ],
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        assert response.json() == {
+            "uid": any_str,
+            "conference": conference.name,
+            "track": {
+                "uid": str(track.uid),
+                "display_name": track.display_name,
+            },
+            "code": "TEST-001",
+            "title": "Admin Created Paper",
+            "abstract": "Abstract text.",
+            "contribution": "Contribution text.",
+            "state": Paper.State.DRAFT,
+            "visible_state": Paper.State.DRAFT,
+            "owner": {
+                "uid": str(conference_admin.uid),
+                "email": "admin@example.com",
+                "profile": {
+                    "given_name": "Admin",
+                    "family_name": "User",
+                    "affiliation": "Organization",
+                    "region_code": "US",
+                },
+            },
+            "keywords": ["Machine Learning"],
+            "authors": [
+                {
+                    "given_name": "Alice",
+                    "family_name": "Smith",
+                    "affiliation": "University",
+                    "region_code": "",
+                    "email": "alice@example.com",
+                    "phone": "",
+                    "corresponding": True,
+                },
+            ],
+            "create_time": approx_now(),
+        }
+
+        paper_service_create.assert_called_once()
+        call_kwargs = paper_service_create.call_args.kwargs
+        assert call_kwargs["track"] == track
+        assert call_kwargs["owner"] == conference_admin
+
+    def test_conference_admin_bypasses_accepts_submissions(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_admin: User,
+        paper_service_create: MagicMock,
+    ) -> None:
+        update_object(track, accepts_submissions=False)
+        api_client.force_login(conference_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Invited Paper",
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper_service_create.assert_called_once()
+
+    def test_track_admin_bypasses_accepts_submissions_for_own_track(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        paper_service_create: MagicMock,
+    ) -> None:
+        track_admin = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=track_admin,
+            role=TrackRole.CHAIR,
+        )
+        update_object(track, accepts_submissions=False)
+        api_client.force_login(track_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Track Admin Paper",
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper_service_create.assert_called_once()
+
+    def test_track_admin_blocked_for_other_closed_track(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        code_pool: CodePool,
+        track: Track,
+        paper_service_create: MagicMock,
+    ) -> None:
+        other_track = Track.objects.create(
+            conference=conference,
+            code_pool=code_pool,
+            display_name=faker.word(),
+            visibility=Track.Visibility.PUBLIC,
+            accepts_submissions=False,
+        )
+        track_admin = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=track_admin,
+            role=TrackRole.CHAIR,
+        )
+        api_client.force_login(track_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(other_track.uid),
+                "title": "Paper in Other Track",
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        [error] = data["details"]
+        assert error["loc"] == ["body", "payload", "track"]
+        assert "do not have permission" in error["msg"]
+
+        paper_service_create.assert_not_called()
+
+    def test_track_admin_allowed_for_other_open_track(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        code_pool: CodePool,
+        track: Track,
+        paper_service_create: MagicMock,
+    ) -> None:
+        other_track = Track.objects.create(
+            conference=conference,
+            code_pool=code_pool,
+            display_name=faker.word(),
+            visibility=Track.Visibility.PUBLIC,
+            accepts_submissions=True,
+        )
+        track_admin = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=track_admin,
+            role=TrackRole.CHAIR,
+        )
+        api_client.force_login(track_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(other_track.uid),
+                "title": "Paper in Open Track",
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper_service_create.assert_called_once()
+
+    def test_global_admin_bypasses_accepts_submissions(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        paper_service_create: MagicMock,
+    ) -> None:
+        global_admin = User.objects.create_user(username=faker.user_name())
+        GlobalRoleAssignment.objects.create(user=global_admin, role=GlobalRole.ADMIN)
+        update_object(track, accepts_submissions=False)
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Global Admin Paper",
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper_service_create.assert_called_once()
+
+    def test_authorization_unauthenticated(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        paper_service_create: MagicMock,
+    ) -> None:
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Test Paper",
+            },
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+        paper_service_create.assert_not_called()
+
+    def test_authorization_user_without_roles(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        paper_service_create: MagicMock,
+    ) -> None:
+        api_client.force_login(user)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Test Paper",
+            },
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+        paper_service_create.assert_not_called()
+
+    def test_authorization_global_admin(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        paper_service_create: MagicMock,
+    ) -> None:
+        admin = User.objects.create_user(username=faker.user_name())
+        GlobalRoleAssignment.objects.create(user=admin, role=GlobalRole.ADMIN)
+        api_client.force_login(admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Test Paper",
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper_service_create.assert_called_once()
+
+    @pytest.mark.parametrize("conference_role", ConferenceRole.admins())
+    def test_authorization_conference_admin(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        paper_service_create: MagicMock,
+        conference_role: ConferenceRole,
+    ) -> None:
+        admin = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=admin,
+            role=conference_role,
+        )
+        api_client.force_login(admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Test Paper",
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper_service_create.assert_called_once()
+
+    @pytest.mark.parametrize("track_role", TrackRole.admins())
+    def test_authorization_track_admin(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        paper_service_create: MagicMock,
+        track_role: TrackRole,
+    ) -> None:
+        admin = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=admin,
+            role=track_role,
+        )
+        api_client.force_login(admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Test Paper",
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper_service_create.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "non_admin_role",
+        [role for role in ConferenceRole if role not in ConferenceRole.admins()],
+    )
+    def test_authorization_conference_non_admin_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        paper_service_create: MagicMock,
+        non_admin_role: ConferenceRole,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=non_admin_role,
+        )
+        api_client.force_login(user)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Test Paper",
+            },
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+        paper_service_create.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "non_admin_role",
+        [role for role in TrackRole if role not in TrackRole.admins()],
+    )
+    def test_authorization_track_non_admin_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        paper_service_create: MagicMock,
+        non_admin_role: TrackRole,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=user,
+            role=non_admin_role,
+        )
+        api_client.force_login(user)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Test Paper",
+            },
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
 
         paper_service_create.assert_not_called()

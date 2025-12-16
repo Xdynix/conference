@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from typing import Literal
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
@@ -7,7 +8,8 @@ from loguru import logger
 from ninja import Field, Schema
 from ulid import ULID
 
-from app.conference.models import Paper, Track
+from app.conference.auth import has_any_conference_or_track_roles
+from app.conference.models import Conference, ConferenceRole, Paper, Track, TrackRole
 from app.conference.services import ConferenceService, KeywordService, PaperService
 from app.conference.services.paper import AuthorData, NoCodePoolError
 from app.conference.types import (
@@ -17,12 +19,12 @@ from app.conference.types import (
     PaperContribution,
     PaperTitle,
 )
-from app.core.auth import is_authenticated
-from app.core.models import User
+from app.core.auth import has_any_roles, is_authenticated
+from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse, make_validation_error
 
-from .core import UserPaperDetailResponse, prefetch_paper, router
+from .core import PaperDetailResponse, UserPaperDetailResponse, prefetch_paper, router
 
 
 class CreatePaperRequest(Schema):
@@ -34,12 +36,38 @@ class CreatePaperRequest(Schema):
     authors: list[PaperAuthor] = Field(default_factory=list, max_length=100)
 
 
+async def _can_admin_track(user: User, conference: Conference, track: Track) -> bool:
+    """Check if the user has admin permission on the given track."""
+    # TODO: Refactor into service method.
+    if user.is_superuser:  # pragma: no cover
+        return True
+
+    is_global_admin = await user.global_role_assignments.filter(
+        role=GlobalRole.ADMIN,
+    ).aexists()
+    if is_global_admin:
+        return True
+
+    is_conference_admin = await user.conference_role_assignments.filter(
+        conference=conference,
+        role__in=ConferenceRole.admins(),
+    ).aexists()
+    if is_conference_admin:
+        return True
+
+    is_track_admin = await user.track_role_assignments.filter(
+        track=track,
+        role__in=TrackRole.admins(),
+    ).aexists()
+    return is_track_admin
+
+
 async def persist_paper_entry(
     user: User,
     conference_name: str,
     payload: CreatePaperRequest,
     *,
-    strict: bool,
+    flow: Literal["author", "admin"],
 ) -> Paper:
     """Shared implementation for paper creation endpoints.
 
@@ -47,8 +75,9 @@ async def persist_paper_entry(
         user: Authenticated user creating the paper.
         conference_name: Slug of the conference receiving the paper.
         payload: Paper details to persist.
-        strict: If ``True``, enforces that the track accepts submissions (author flow).
-            If ``False``, bypasses this check (admin flow).
+        flow: The creation flow. "author" enforces that the track accepts submissions.
+            "admin" allows submission to open tracks or to closed tracks where the user
+            has admin permission.
     """
     conferences = await ConferenceService.visible_conferences(user)
     conference = await aget_object_or_404(conferences, name=conference_name)
@@ -62,11 +91,23 @@ async def persist_paper_entry(
             message=_("Invalid track UID."),
         ) from exc
 
-    if strict and not track.accepts_submissions:
-        raise make_validation_error(
-            path="track",
-            message=_("This track is not currently accepting submissions."),
-        )
+    if flow == "author":
+        if not track.accepts_submissions:
+            raise make_validation_error(
+                path="track",
+                message=_("This track is not currently accepting submissions."),
+            )
+    else:
+        # Allow if track accepts submissions or user has admin permission on the track.
+        if not track.accepts_submissions:
+            has_permission = await _can_admin_track(user, conference, track)
+            if not has_permission:
+                raise make_validation_error(
+                    path="track",
+                    message=_(
+                        "You do not have permission to create papers in this track."
+                    ),
+                )
 
     try:
         keywords = await KeywordService.validate_keyword_texts(payload.keywords)
@@ -123,10 +164,49 @@ async def create_draft(
     review.
     """
     user = await request.auser()
-    paper = await persist_paper_entry(user, conference_name, payload, strict=True)
+    paper = await persist_paper_entry(user, conference_name, payload, flow="author")
 
     logger.info(
         "Draft created.",
+        paper_code=paper.code,
+        conference_name=conference_name,
+        track_uid=str(paper.track.uid),
+        user_uid=str(user.uid),
+    )
+
+    return HTTPStatus.CREATED, await prefetch_paper(paper)
+
+
+@router.post(
+    "/conferences/{slug:conference_name}/papers",
+    response={
+        HTTPStatus.CREATED: PaperDetailResponse,
+        HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
+    },
+    summary="Create Paper",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_or_track_roles(
+            *ConferenceRole.admins(),
+            *TrackRole.admins(),
+        )
+    ),
+)
+async def create_paper(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    payload: CreatePaperRequest,
+) -> tuple[int, Paper]:
+    """Create a paper as an admin.
+
+    This bypasses the track's submission acceptance check, allowing creation of invited
+    papers or papers for tracks that are not currently open for submissions.
+    """
+    user = await request.auser()
+    paper = await persist_paper_entry(user, conference_name, payload, flow="admin")
+
+    logger.info(
+        "Paper created by admin.",
         paper_code=paper.code,
         conference_name=conference_name,
         track_uid=str(paper.track.uid),
