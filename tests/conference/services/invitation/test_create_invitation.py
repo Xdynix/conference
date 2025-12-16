@@ -88,7 +88,7 @@ class TestInvitationServiceCreateInvitation:
         )
         assert invitation.region_code == db_invitation.region_code == Region.GB.name
         assert invitation.desired_paper_count == db_invitation.desired_paper_count == 10
-        assert invitation.status == Invitation.Status.PENDING
+        assert invitation.state == Invitation.State.PENDING
         assert invitation.create_time == db_invitation.create_time == approx_now()
         assert invitation.update_time == db_invitation.update_time == approx_now()
         assert invitation.accept_time == db_invitation.accept_time is None
@@ -147,7 +147,7 @@ class TestInvitationServiceCreateInvitation:
         assert invitation.affiliation == ""
         assert invitation.region_code == ""
         assert invitation.desired_paper_count == 5
-        assert invitation.status == Invitation.Status.PENDING
+        assert invitation.state == Invitation.State.PENDING
         assert not invitation.interested_keywords.exists()
         assert not invitation.conference_role_entries.exists()
         assert not invitation.track_role_entries.exists()
@@ -304,7 +304,7 @@ class TestInvitationServiceCreateInvitation:
         )
 
         assert second_invitation != first_invitation
-        assert second_invitation.status == Invitation.Status.PENDING
+        assert second_invitation.state == Invitation.State.PENDING
 
         mock_validate_roles.assert_called_once()
 

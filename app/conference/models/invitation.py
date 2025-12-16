@@ -21,7 +21,7 @@ class Invitation(
     TimeStampedModel,
     ULIDModel,
 ):
-    class Status(StrEnum):
+    class State(StrEnum):
         PENDING = "Pending"
         ACCEPTED = "Accepted"
         REJECTED = "Rejected"
@@ -116,24 +116,25 @@ class Invitation(
         )
 
     def __str__(self) -> str:
-        return f"{self.invitee_email} → {self.conference} ({self.status})"
+        return f"{self.invitee_email} → {self.conference} ({self.state})"
 
     @property
-    def status(self) -> Status:
+    def state(self) -> State:
         if self.accept_time is not None:
-            return self.Status.ACCEPTED
+            return self.State.ACCEPTED
         elif self.reject_time is not None:
-            return self.Status.REJECTED
-        return self.Status.PENDING
+            return self.State.REJECTED
+        return self.State.PENDING
 
-    def is_mutable(self) -> bool:
+    @property
+    def mutable(self) -> bool:
         """Returns whether this invitation can be modified.
 
         Accepted invitations are immutable because roles have been assigned and profile
         data has been copied to UserConferenceProfile. Pending and rejected invitations
         remain mutable.
         """
-        return self.status != self.Status.ACCEPTED
+        return self.state != self.State.ACCEPTED
 
 
 class InvitationConferenceRoleEntry(models.Model):

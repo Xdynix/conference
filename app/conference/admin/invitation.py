@@ -42,7 +42,7 @@ class InvitationAdmin(admin.ModelAdmin[Invitation]):
         "__str__",
         "inviter",
         "invitee_user",
-        "status",
+        "state",
         "email_send_count",
         "create_time",
     )
@@ -50,7 +50,7 @@ class InvitationAdmin(admin.ModelAdmin[Invitation]):
     list_select_related = ("conference", "inviter", "invitee_user")
     autocomplete_fields = ("conference", "inviter", "invitee_user")
     readonly_fields = (
-        "status",
+        "state",
         "create_time",
         "update_time",
         "last_email_sent_time",

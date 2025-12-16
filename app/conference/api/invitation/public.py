@@ -35,7 +35,7 @@ class ConferenceSummary(Schema):
 
 class InvitationSummary(InvitationUrlsMixin, UserConferenceProfile, Profile):
     uid: ULID
-    status: Invitation.Status
+    state: Invitation.State
     invitee_email: EmailStr
     conference: ConferenceSummary
 
@@ -132,10 +132,7 @@ async def reject_invitation(
     if invitation is None:
         return HTTPStatus.NO_CONTENT, None
 
-    if (
-        invitation.status != Invitation.Status.ACCEPTED
-        and invitation.reject_time is None
-    ):
+    if invitation.state != Invitation.State.ACCEPTED and invitation.reject_time is None:
         invitation.reject_time = timezone.now()
         await invitation.asave(update_fields=["reject_time", "update_time"])
 

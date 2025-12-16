@@ -107,7 +107,7 @@ class TestGetInvitation:
 
         assert response.json() == {
             "uid": str(invitation.uid),
-            "status": Invitation.Status.PENDING,
+            "state": Invitation.State.PENDING,
             "invitee_email": invitation.invitee_email,
             "create_time": any_str,
             "update_time": any_str,

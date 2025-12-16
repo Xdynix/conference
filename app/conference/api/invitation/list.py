@@ -31,7 +31,7 @@ from .core import InvitationResponse, router, with_invitation_prefetch
 async def list_invitations(
     request: AuthedHttpRequest,
     conference_name: str,
-    status: Invitation.Status | None = None,
+    state: Invitation.State | None = None,
 ) -> QuerySet[Invitation]:
     """Return invitations for the conference visible to the current user.
 
@@ -50,13 +50,13 @@ async def list_invitations(
 
     invitations = await InvitationService.visible_invitations(conference, user)
 
-    if status is not None:
-        match status:
-            case Invitation.Status.PENDING:
+    if state is not None:
+        match state:
+            case Invitation.State.PENDING:
                 invitations = invitations.filter(accept_time=None, reject_time=None)
-            case Invitation.Status.ACCEPTED:
+            case Invitation.State.ACCEPTED:
                 invitations = invitations.filter(accept_time__isnull=False)
-            case Invitation.Status.REJECTED:
+            case Invitation.State.REJECTED:
                 invitations = invitations.filter(
                     accept_time=None,
                     reject_time__isnull=False,

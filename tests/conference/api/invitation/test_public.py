@@ -52,7 +52,7 @@ class TestLookupInvitation:
 
         assert response.json() == {
             "uid": str(invitation.uid),
-            "status": Invitation.Status.PENDING,
+            "state": Invitation.State.PENDING,
             "invitee_email": invitation.invitee_email,
             "given_name": "Alice",
             "family_name": "Smith",
@@ -107,7 +107,7 @@ class TestRedeemInvitation:
         assert response.status_code == HTTPStatus.NO_CONTENT
 
         invitation.refresh_from_db()
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
         assert invitation.accept_time == approx_now()
         assert invitation.invitee_user == user
 
@@ -173,7 +173,7 @@ class TestRejectInvitation:
 
         invitation.refresh_from_db()
         assert invitation.reject_time == approx_now()
-        assert invitation.status == Invitation.Status.REJECTED
+        assert invitation.state == Invitation.State.REJECTED
 
     def test_already_accepted_is_ignored(
         self,
@@ -193,7 +193,7 @@ class TestRejectInvitation:
 
         invitation.refresh_from_db()
         assert invitation.reject_time is None
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
 
     def test_already_rejected_is_ignored(
         self,
@@ -214,7 +214,7 @@ class TestRejectInvitation:
 
         invitation.refresh_from_db()
         assert invitation.reject_time == original_reject_time
-        assert invitation.status == Invitation.Status.REJECTED
+        assert invitation.state == Invitation.State.REJECTED
 
     def test_missing_invitation_returns_no_content(self, api_client: Client) -> None:
         token = InvitationService.token_signer.sign(str(ULID()))

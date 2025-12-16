@@ -31,7 +31,7 @@ class TestInvitationServiceRedeemInvitation:
         invitation.refresh_from_db()
         assert invitation.invitee_user_id == invitee.id
         assert invitation.accept_time == approx_now()
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
 
     def test_returns_false_when_already_accepted(
         self,
@@ -66,7 +66,7 @@ class TestInvitationServiceRedeemInvitation:
         invitation.refresh_from_db()
         assert invitation.invitee_user_id == invitee.id
         assert invitation.accept_time == approx_now()
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
 
     def test_assigns_conference_roles(
         self,

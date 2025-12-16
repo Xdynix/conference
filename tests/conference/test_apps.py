@@ -321,7 +321,7 @@ class TestInvitationRedeemInUserCreationEndpoints:
         invitation.refresh_from_db()
         assert invitation.invitee_user == User.objects.get(username=username)
         assert invitation.accept_time == approx_now()
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
 
     @pytest.mark.parametrize(
         "invitation_token",
@@ -414,7 +414,7 @@ class TestInvitationRedeemInUserCreationEndpoints:
         invitation.refresh_from_db()
         assert invitation.invitee_user == User.objects.get(username=username)
         assert invitation.accept_time == approx_now()
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
 
     @pytest.mark.parametrize(
         "invitation_token",

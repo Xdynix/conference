@@ -203,7 +203,7 @@ class InvitationService:
 
         Raises:
             Invitation.DoesNotExist: If the invitation is not found.
-            ImmutableInvitation: If the invitation is not mutable (status is ACCEPTED).
+            ImmutableInvitation: If the invitation is not mutable (state is ACCEPTED).
             ValueError: If tracks do not belong to the conference.
             InsufficientRolePermission: If the user lacks permission to manage the
                 current or new roles.
@@ -211,7 +211,7 @@ class InvitationService:
         with Mutex.lock_in_transaction(str(invitation_uid), namespace="invitation"):
             invitation = Invitation.objects.get(uid=invitation_uid)
 
-            if not invitation.is_mutable():
+            if not invitation.mutable:
                 raise ImmutableInvitation(_("Cannot update accepted invitation."))
 
             current_conference_roles, current_track_roles = cls.get_invitation_roles(
@@ -393,7 +393,7 @@ class InvitationService:
 
         Returns:
             Tuple of ``(sent, invitee_email)`` where ``sent`` is ``True`` if email was
-            sent, ``False`` if skipped due to rate limiting or rejected status.
+            sent, ``False`` if skipped due to rate limiting or rejected state.
 
         Raises:
             Invitation.DoesNotExist: If invitation not found.
@@ -404,13 +404,13 @@ class InvitationService:
                 uid=invitation_uid
             )
 
-            if invitation.status == Invitation.Status.ACCEPTED:
+            if invitation.state == Invitation.State.ACCEPTED:
                 raise ImmutableInvitation(
                     _("Cannot send invitation that has already been accepted.")
                 )
 
             if (
-                invitation.status == Invitation.Status.REJECTED
+                invitation.state == Invitation.State.REJECTED
                 and not force_send_to_rejected
             ):
                 return False, invitation.invitee_email
@@ -519,9 +519,7 @@ class InvitationService:
                             invitation=uid,
                             status=SendInvitationStatus.SKIPPED,
                             invitee_email=invitee_email,
-                            reason=_(
-                                "Skipped due to rate limiting or rejected status."
-                            ),
+                            reason=_("Skipped due to rate limiting or rejected state."),
                         )
                     )
 
@@ -549,7 +547,7 @@ class InvitationService:
 
         Args:
             invitation: The invitation to redeem. Must be in ``PENDING`` or ``REJECTED``
-                status.
+                state.
             user: The user redeeming the invitation.
 
         Returns:
@@ -562,7 +560,7 @@ class InvitationService:
         ):
             invitation = Invitation.objects.get(pk=invitation.pk)
 
-            if invitation.status == Invitation.Status.ACCEPTED:
+            if invitation.state == Invitation.State.ACCEPTED:
                 return False
 
             invitation.invitee_user = user

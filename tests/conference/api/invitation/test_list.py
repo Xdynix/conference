@@ -111,7 +111,7 @@ class TestListInvitations:
             "items": [
                 {
                     "uid": str(invitation2.uid),
-                    "status": Invitation.Status.PENDING,
+                    "state": Invitation.State.PENDING,
                     "invitee_email": invitation2.invitee_email,
                     "create_time": any_str,
                     "update_time": any_str,
@@ -135,7 +135,7 @@ class TestListInvitations:
                 },
                 {
                     "uid": str(invitation1.uid),
-                    "status": Invitation.Status.PENDING,
+                    "state": Invitation.State.PENDING,
                     "invitee_email": invitation1.invitee_email,
                     "create_time": any_str,
                     "update_time": any_str,
@@ -204,15 +204,15 @@ class TestListInvitations:
 
         mock_visible.assert_awaited_once_with(conference, conference_admin)
 
-    @pytest.mark.parametrize("status", Invitation.Status)
-    def test_filter_by_status(
+    @pytest.mark.parametrize("state", Invitation.State)
+    def test_filter_by_state(
         self,
         faker: Faker,
         api_client: Client,
         conference: Conference,
         conference_admin: User,
         mock_visible: AsyncMock,
-        status: Invitation.Status,
+        state: Invitation.State,
     ) -> None:
         pending_invitation = Invitation.objects.create(
             conference=conference,
@@ -239,19 +239,19 @@ class TestListInvitations:
 
         response = api_client.get(
             self.path(conference.name),
-            {"status": status},
+            {"state": state},
         )
         assert response.status_code == HTTPStatus.OK
 
         expected_invitation = {
-            Invitation.Status.PENDING: pending_invitation,
-            Invitation.Status.ACCEPTED: accepted_invitation,
-            Invitation.Status.REJECTED: rejected_invitation,
-        }[status]
+            Invitation.State.PENDING: pending_invitation,
+            Invitation.State.ACCEPTED: accepted_invitation,
+            Invitation.State.REJECTED: rejected_invitation,
+        }[state]
         data = response.json()
         [invitation_data] = data["items"]
         assert invitation_data["uid"] == str(expected_invitation.uid)
-        assert invitation_data["status"] == status
+        assert invitation_data["state"] == state
 
     def test_returns_empty_list_when_no_invitations(
         self,

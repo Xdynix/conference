@@ -51,36 +51,36 @@ class TestInvitation:
         )
         assert str(invitation) == "alice@example.com → CBPK-2020 (Rejected)"
 
-    def test_status_pending(self) -> None:
+    def test_state_pending(self) -> None:
         invitation = Invitation()
-        assert invitation.status == Invitation.Status.PENDING
+        assert invitation.state == Invitation.State.PENDING
 
-    def test_status_accepted(self) -> None:
+    def test_state_accepted(self) -> None:
         invitation = Invitation(accept_time=timezone.now())
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
 
-    def test_status_rejected(self) -> None:
+    def test_state_rejected(self) -> None:
         invitation = Invitation(reject_time=timezone.now())
-        assert invitation.status == Invitation.Status.REJECTED
+        assert invitation.state == Invitation.State.REJECTED
 
-    def test_status_accepted_takes_precedence(self) -> None:
+    def test_state_accepted_takes_precedence(self) -> None:
         invitation = Invitation(
             accept_time=timezone.now(),
             reject_time=timezone.now(),
         )
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
 
     def test_is_mutable_pending(self) -> None:
         invitation = Invitation()
-        assert invitation.is_mutable() is True
+        assert invitation.mutable is True
 
     def test_is_mutable_rejected(self) -> None:
         invitation = Invitation(reject_time=timezone.now())
-        assert invitation.is_mutable() is True
+        assert invitation.mutable is True
 
     def test_is_mutable_accepted(self) -> None:
         invitation = Invitation(accept_time=timezone.now())
-        assert invitation.is_mutable() is False
+        assert invitation.mutable is False
 
     def test_delete_inviter_will_not_cascade(
         self,

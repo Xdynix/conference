@@ -176,7 +176,7 @@ class TestInvitationE2E:
         assert response.status_code == HTTPStatus.OK
         data = response.json()
         assert data["uid"] == invitation_uid
-        assert data["status"] == Invitation.Status.PENDING
+        assert data["state"] == Invitation.State.PENDING
         assert data["invitee_email"] == invitee_email
         assert data["conference"]["name"] == conference.name
 
@@ -188,7 +188,7 @@ class TestInvitationE2E:
         assert response.status_code == HTTPStatus.NO_CONTENT
 
         invitation = Invitation.objects.get(uid=invitation_uid)
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
         assert invitation.invitee_user == existing_user
 
         assert ConferenceRoleAssignment.objects.filter(
@@ -238,7 +238,7 @@ class TestInvitationE2E:
         new_user_uid = response.json()["user"]["uid"]
 
         invitation = Invitation.objects.get(uid=invitation_uid)
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
         assert invitation.invitee_user is not None
         assert str(invitation.invitee_user.uid) == new_user_uid
 
@@ -282,7 +282,7 @@ class TestInvitationE2E:
         assert response.status_code == HTTPStatus.NO_CONTENT
 
         invitation = Invitation.objects.get(uid=invitation_uid)
-        assert invitation.status == Invitation.Status.REJECTED
+        assert invitation.state == Invitation.State.REJECTED
         assert invitation.reject_time is not None
         assert invitation.accept_time is None
         assert invitation.invitee_user is None
@@ -330,7 +330,7 @@ class TestInvitationE2E:
         assert response.status_code == HTTPStatus.NO_CONTENT
 
         invitation = Invitation.objects.get(uid=invitation_uid)
-        assert invitation.status == Invitation.Status.REJECTED
+        assert invitation.state == Invitation.State.REJECTED
 
         api_client.force_login(existing_user)
         response = api_client.post(
@@ -343,7 +343,7 @@ class TestInvitationE2E:
         # Re-fetch a new instance instead of calling `refresh_from_db()` to avoid that
         # false positive.
         invitation = Invitation.objects.get(pk=invitation.pk)
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
         assert invitation.invitee_user == existing_user
         assert invitation.accept_time is not None
         assert invitation.reject_time is not None
@@ -540,7 +540,7 @@ class TestInvitationE2E:
         assert response.status_code == HTTPStatus.NO_CONTENT
 
         invitation = Invitation.objects.get(uid=invitation_uid)
-        assert invitation.status == Invitation.Status.ACCEPTED
+        assert invitation.state == Invitation.State.ACCEPTED
 
         assert ConferenceRoleAssignment.objects.filter(
             conference=conference,

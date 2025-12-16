@@ -185,7 +185,7 @@ class InvitationTrackRole(Schema):
 
 class Invitation(UserConferenceProfile, Profile):
     uid: ULID
-    status: InvitationModel.Status
+    state: InvitationModel.State
     invitee_email: EmailStr
     create_time: AwareDatetime
     update_time: AwareDatetime
