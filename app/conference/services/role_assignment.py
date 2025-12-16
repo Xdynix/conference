@@ -10,9 +10,11 @@ from app.conference.models import (
     TrackRole,
     TrackRoleAssignment,
 )
-from app.conference.services.conference import ConferenceService
 from app.core.models import GlobalRole, User
 from app.infra.models import Mutex
+
+from .access import ConferenceAccessService
+from .conference import ConferenceService
 
 
 class RoleAssignmentService:
@@ -40,17 +42,13 @@ class RoleAssignmentService:
         - Track admins see only users who have ≥1 role on active tracks they administer.
         - Other users see no users.
         """
-        is_global_privileged = user.is_superuser or (
-            await user.global_role_assignments.filter(
-                role__in=global_readable
-            ).aexists()
-        )
-        is_conference_admin = await conference.role_assignments.filter(
+        ctx = await ConferenceAccessService.context(
+            conference=conference,
             user=user,
-            role__in=ConferenceRole.admins(),
-        ).aexists()
+            global_roles=global_readable,
+        )
 
-        if is_global_privileged or is_conference_admin:
+        if ctx.has_full_conference_scope:
             conference_assignments = ConferenceRoleAssignment.objects.filter(
                 conference=conference,
                 user=OuterRef("pk"),
@@ -72,25 +70,12 @@ class RoleAssignmentService:
                 )
             )
 
-        administered_track_ids = [
-            track_id
-            async for track_id in (
-                conference.tracks.active()
-                .filter(
-                    role_assignment__user=user,
-                    role_assignment__role__in=TrackRole.admins(),
-                )
-                .distinct()
-                .values_list("pk", flat=True)
-            )
-        ]
-
-        if not administered_track_ids:
+        if not ctx.administered_track_ids:
             return User.objects.active().none()
 
         track_assignments = TrackRoleAssignment.objects.filter(
             track__active=True,
-            track_id__in=administered_track_ids,
+            track_id__in=ctx.administered_track_ids,
             user=OuterRef("pk"),
         )
 
@@ -121,19 +106,13 @@ class RoleAssignmentService:
         """
         assignments = conference.role_assignments.all()
 
-        is_global_privileged = user.is_superuser or (
-            await user.global_role_assignments.filter(
-                role__in=global_readable
-            ).aexists()
-        )
-        if is_global_privileged:
-            return assignments
-
-        is_conference_admin = await conference.role_assignments.filter(
+        ctx = await ConferenceAccessService.context(
+            conference=conference,
             user=user,
-            role__in=ConferenceRole.admins(),
-        ).aexists()
-        if is_conference_admin:
+            global_roles=global_readable,
+        )
+
+        if ctx.has_full_conference_scope:
             return assignments
 
         return assignments.none()
@@ -167,38 +146,19 @@ class RoleAssignmentService:
             track__active=True,
         )
 
-        is_global_privileged = user.is_superuser or (
-            await user.global_role_assignments.filter(
-                role__in=global_readable
-            ).aexists()
-        )
-        if is_global_privileged:
-            return assignments
-
-        is_conference_admin = await conference.role_assignments.filter(
+        ctx = await ConferenceAccessService.context(
+            conference=conference,
             user=user,
-            role__in=ConferenceRole.admins(),
-        ).aexists()
-        if is_conference_admin:
+            global_roles=global_readable,
+        )
+
+        if ctx.has_full_conference_scope:
             return assignments
 
-        administered_track_ids = [
-            track_id
-            async for track_id in (
-                conference.tracks.active()
-                .filter(
-                    role_assignment__user=user,
-                    role_assignment__role__in=TrackRole.admins(),
-                )
-                .distinct()
-                .values_list("pk", flat=True)
-            )
-        ]
-
-        if not administered_track_ids:
+        if not ctx.administered_track_ids:
             return assignments.none()
 
-        return assignments.filter(track_id__in=administered_track_ids)
+        return assignments.filter(track_id__in=ctx.administered_track_ids)
 
     @classmethod
     def add_conference_role(

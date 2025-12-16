@@ -4,16 +4,10 @@ from typing import TypedDict
 from django.db import transaction
 from django.db.models import QuerySet
 
-from app.conference.models import (
-    Conference,
-    ConferenceRole,
-    Keyword,
-    Paper,
-    PaperAuthor,
-    Track,
-    TrackRole,
-)
+from app.conference.models import Conference, Keyword, Paper, PaperAuthor, Track
 from app.core.models import GlobalRole, User
+
+from .access import ConferenceAccessService
 
 
 class AuthorData(TypedDict, total=False):
@@ -125,35 +119,16 @@ class PaperService:
         """
         papers = conference.papers.active()
 
-        is_global_privileged = user.is_superuser or (
-            await user.global_role_assignments.filter(
-                role__in=global_readable
-            ).aexists()
-        )
-        if is_global_privileged:
-            return papers
-
-        is_conference_admin = await conference.role_assignments.filter(
+        ctx = await ConferenceAccessService.context(
+            conference=conference,
             user=user,
-            role__in=ConferenceRole.admins(),
-        ).aexists()
-        if is_conference_admin:
+            global_roles=global_readable,
+        )
+
+        if ctx.has_full_conference_scope:
             return papers
 
-        administered_track_ids = [
-            track_id
-            async for track_id in (
-                conference.tracks.active()
-                .filter(
-                    role_assignment__user=user,
-                    role_assignment__role__in=TrackRole.admins(),
-                )
-                .distinct()
-                .values_list("pk", flat=True)
-            )
-        ]
-
-        if not administered_track_ids:
+        if not ctx.administered_track_ids:
             return papers.none()
 
-        return papers.filter(track_id__in=administered_track_ids)
+        return papers.filter(track_id__in=ctx.administered_track_ids)

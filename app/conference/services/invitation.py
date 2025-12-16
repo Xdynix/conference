@@ -29,6 +29,7 @@ from app.core.models import GlobalRole, User
 from app.infra.models import Mutex
 from app.utils.email import EmailContext, EmailTemplate
 
+from .access import ConferenceAccessService
 from .conference import ConferenceService, InsufficientRolePermission
 
 
@@ -633,35 +634,16 @@ class InvitationService:
         """
         invitations = conference.invitations.all()
 
-        is_global_privileged = user.is_superuser or (
-            await user.global_role_assignments.filter(
-                role__in=global_readable
-            ).aexists()
-        )
-        if is_global_privileged:
-            return invitations
-
-        is_conference_admin = await conference.role_assignments.filter(
+        ctx = await ConferenceAccessService.context(
+            conference=conference,
             user=user,
-            role__in=ConferenceRole.admins(),
-        ).aexists()
-        if is_conference_admin:
+            global_roles=global_readable,
+        )
+
+        if ctx.has_full_conference_scope:
             return invitations
 
-        administered_track_ids = [
-            track_id
-            async for track_id in (
-                conference.tracks.active()
-                .filter(
-                    role_assignment__user=user,
-                    role_assignment__role__in=TrackRole.admins(),
-                )
-                .distinct()
-                .values_list("pk", flat=True)
-            )
-        ]
-
-        if not administered_track_ids:
+        if not ctx.administered_track_ids:
             return invitations.none()
 
         conference_roles = InvitationConferenceRoleEntry.objects.filter(
@@ -670,12 +652,12 @@ class InvitationService:
         administered_track_roles = InvitationTrackRoleEntry.objects.filter(
             invitation=OuterRef("pk"),
             track__active=True,
-            track_id__in=administered_track_ids,
+            track_id__in=ctx.administered_track_ids,
         )
         other_track_roles = InvitationTrackRoleEntry.objects.filter(
             invitation=OuterRef("pk"),
             track__active=True,
-        ).exclude(track_id__in=administered_track_ids)
+        ).exclude(track_id__in=ctx.administered_track_ids)
 
         return invitations.annotate(
             has_conference_roles=Exists(conference_roles),

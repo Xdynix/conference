@@ -1,4 +1,5 @@
 __all__ = (
+    "ConferenceAccessService",
     "ConferenceService",
     "InvitationService",
     "KeywordService",
@@ -8,6 +9,7 @@ __all__ = (
     "UserConferenceProfileService",
 )
 
+from .access import ConferenceAccessService
 from .conference import ConferenceService
 from .invitation import InvitationService
 from .keyword import KeywordService

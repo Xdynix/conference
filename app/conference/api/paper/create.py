@@ -9,8 +9,13 @@ from ninja import Field, Schema
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_or_track_roles
-from app.conference.models import Conference, ConferenceRole, Paper, Track, TrackRole
-from app.conference.services import ConferenceService, KeywordService, PaperService
+from app.conference.models import ConferenceRole, Paper, Track, TrackRole
+from app.conference.services import (
+    ConferenceAccessService,
+    ConferenceService,
+    KeywordService,
+    PaperService,
+)
 from app.conference.services.paper import AuthorData, NoCodePoolError
 from app.conference.types import (
     KeywordText,
@@ -34,32 +39,6 @@ class CreatePaperRequest(Schema):
     contribution: PaperContribution = ""
     keywords: list[KeywordText] = Field(default_factory=list, max_length=50)
     authors: list[PaperAuthor] = Field(default_factory=list, max_length=100)
-
-
-async def _can_admin_track(user: User, conference: Conference, track: Track) -> bool:
-    """Check if the user has admin permission on the given track."""
-    # TODO: Refactor into service method.
-    if user.is_superuser:  # pragma: no cover
-        return True
-
-    is_global_admin = await user.global_role_assignments.filter(
-        role=GlobalRole.ADMIN,
-    ).aexists()
-    if is_global_admin:
-        return True
-
-    is_conference_admin = await user.conference_role_assignments.filter(
-        conference=conference,
-        role__in=ConferenceRole.admins(),
-    ).aexists()
-    if is_conference_admin:
-        return True
-
-    is_track_admin = await user.track_role_assignments.filter(
-        track=track,
-        role__in=TrackRole.admins(),
-    ).aexists()
-    return is_track_admin
 
 
 async def persist_paper_entry(
@@ -100,7 +79,12 @@ async def persist_paper_entry(
     else:
         # Allow if track accepts submissions or user has admin permission on the track.
         if not track.accepts_submissions:
-            has_permission = await _can_admin_track(user, conference, track)
+            has_permission = await ConferenceAccessService.can_admin_track(
+                conference=conference,
+                track=track,
+                user=user,
+                global_roles=(GlobalRole.ADMIN,),
+            )
             if not has_permission:
                 raise make_validation_error(
                     path="track",
