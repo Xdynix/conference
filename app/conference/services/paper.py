@@ -70,6 +70,46 @@ class PaperService:
         return paper
 
     @classmethod
+    @transaction.atomic
+    def update_paper(
+        cls,
+        *,
+        paper: Paper,
+        title: str | None = None,
+        abstract: str | None = None,
+        contribution: str | None = None,
+        keywords: Collection[Keyword] | None = None,
+        authors: Collection[AuthorData] | None = None,
+    ) -> Paper:
+        """Update paper metadata, authors, and keywords.
+
+        The caller is responsible for verifying that:
+        - The user has permission to update this paper.
+        - The paper state allows updates (if applicable).
+        """
+        update_fields = []
+        if title is not None:
+            paper.title = title
+            update_fields.append("title")
+        if abstract is not None:
+            paper.abstract = abstract
+            update_fields.append("abstract")
+        if contribution is not None:
+            paper.contribution = contribution
+            update_fields.append("contribution")
+
+        if update_fields:
+            paper.save(update_fields=update_fields)
+
+        if keywords is not None:
+            cls.set_paper_keywords(paper, keywords)
+
+        if authors is not None:
+            cls.set_paper_authors(paper, authors)
+
+        return paper
+
+    @classmethod
     def set_paper_keywords(cls, paper: Paper, keywords: Collection[Keyword]) -> None:
         """Replace all keywords on a paper."""
         paper.keywords.set(keywords)
