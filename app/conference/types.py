@@ -7,9 +7,11 @@ __all__ = (
     "KeywordSetName",
     "KeywordText",
     "Paper",
+    "PaperAbstract",
     "PaperAuthor",
     "PaperAuthorPhone",
     "PaperCode",
+    "PaperContribution",
     "PaperOwner",
     "PaperTitle",
     "PaperTrack",
@@ -41,7 +43,7 @@ from app.conference.models import Track as TrackModel
 from app.conference.models import UserConferenceProfile as UserConferenceProfileModel
 from app.core.types import EmailStr, User
 from app.utils.enums import Region
-from app.utils.sanitization import sanitize_text
+from app.utils.sanitization import sanitize_formatted_text, sanitize_text
 
 KeywordText = Annotated[
     str,
@@ -231,6 +233,16 @@ PaperTitle = Annotated[
         strip_whitespace=True,
     ),
 ]
+PaperAbstract = Annotated[
+    str,
+    BeforeValidator(sanitize_formatted_text),
+    StringConstraints(max_length=10_000),
+]
+PaperContribution = Annotated[
+    str,
+    BeforeValidator(sanitize_formatted_text),
+    StringConstraints(max_length=10_000),
+]
 PaperAuthorPhone = Annotated[
     str,
     BeforeValidator(sanitize_text),
@@ -256,9 +268,9 @@ class PaperOwner(Schema):
 
 
 class PaperAuthor(Profile):
-    email: EmailStr | Literal[""] = Field(title=_("Email Address"))
-    phone: PaperAuthorPhone
-    corresponding: bool
+    email: EmailStr | Literal[""] = Field("", title=_("Email Address"))
+    phone: PaperAuthorPhone = ""
+    corresponding: bool = False
 
 
 class Paper(Schema):

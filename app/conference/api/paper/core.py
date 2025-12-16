@@ -1,8 +1,9 @@
 from django.db.models import QuerySet
-from ninja import Field, Router
+from ninja import Field, Router, Schema
 from pydantic import AwareDatetime
 
 from app.conference.models import Paper, Profile
+from app.conference.types import KeywordText, PaperAbstract, PaperContribution
 from app.conference.types import Paper as PaperSchema
 from app.conference.types import PaperOwner as BasePaperOwner
 from app.core.models import User
@@ -16,6 +17,16 @@ class BasePaperResponse(PaperSchema):
         return paper.conference.name
 
 
+class PaperDetailMixin(Schema):
+    abstract: PaperAbstract
+    contribution: PaperContribution
+    keywords: list[KeywordText]
+
+    @staticmethod
+    def resolve_keywords(paper: Paper) -> list[str]:
+        return [keyword.text for keyword in paper.keywords.all()]
+
+
 class PaperOwner(BasePaperOwner):
     @staticmethod
     def resolve_profile(user: User) -> Profile | None:
@@ -24,6 +35,10 @@ class PaperOwner(BasePaperOwner):
 
 class UserPaperResponse(BasePaperResponse):
     state: Paper.State = Field(validation_alias="visible_state")
+
+
+class UserPaperDetailResponse(PaperDetailMixin, UserPaperResponse):
+    pass
 
 
 class PaperResponse(BasePaperResponse):
@@ -41,3 +56,9 @@ def with_paper_prefetch(queryset: QuerySet[Paper]) -> QuerySet[Paper]:
         "track",
         "owner__profile",
     ).prefetch_related("authors")
+
+
+async def prefetch_paper(paper: Paper) -> Paper:
+    """Refetch a paper with all related data prefetched for serialization."""
+    qs = with_paper_prefetch(Paper.objects.all()).prefetch_related("keywords")
+    return await qs.aget(pk=paper.pk)
