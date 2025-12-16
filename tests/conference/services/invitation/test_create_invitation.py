@@ -94,8 +94,8 @@ class TestInvitationServiceCreateInvitation:
         assert invitation.accept_time == db_invitation.accept_time is None
         assert invitation.reject_time == db_invitation.reject_time is None
         assert (
-            invitation.last_email_sent_time
-            == db_invitation.last_email_sent_time
+            invitation.last_email_send_time
+            == db_invitation.last_email_send_time
             is None
         )
         assert invitation.email_send_count == db_invitation.email_send_count == 0

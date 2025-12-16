@@ -439,12 +439,12 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "last_email_sent_time",
+                    "last_email_send_time",
                     models.DateTimeField(
                         blank=True,
                         default=None,
                         null=True,
-                        verbose_name="last email sent",
+                        verbose_name="last email send time",
                     ),
                 ),
                 (
@@ -956,7 +956,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "accepts_submissions",
+                    "submissions_enabled",
                     models.BooleanField(
                         default=False,
                         help_text=(
@@ -965,7 +965,7 @@ class Migration(migrations.Migration):
                             "papers to this track. Administrators can still submit "
                             "regardless of this setting."
                         ),
-                        verbose_name="accepts submissions",
+                        verbose_name="submissions enabled",
                     ),
                 ),
             ],

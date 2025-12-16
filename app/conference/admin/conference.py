@@ -55,11 +55,11 @@ class TrackAdmin(admin.ModelAdmin[Track]):
     list_display = (
         "__str__",
         "visibility",
-        "accepts_submissions",
+        "submissions_enabled",
         "active",
         "create_time",
     )
-    list_filter = ("active", "visibility", "accepts_submissions", "conference")
+    list_filter = ("active", "visibility", "submissions_enabled", "conference")
     list_select_related = ("conference", "code_pool")
     autocomplete_fields = ("conference", "code_pool")
     readonly_fields = ("uid", "create_time", "update_time")

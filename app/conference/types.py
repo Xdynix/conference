@@ -84,7 +84,7 @@ class Track(Schema):
     uid: ULID
     display_name: TrackDisplayName
     visibility: TrackModel.Visibility
-    accepts_submissions: bool
+    submissions_enabled: bool
 
 
 conference_meta = ConferenceModel._meta
@@ -191,7 +191,7 @@ class Invitation(UserConferenceProfile, Profile):
     update_time: AwareDatetime
     accept_time: AwareDatetime | None
     reject_time: AwareDatetime | None
-    last_email_sent_time: AwareDatetime | None
+    last_email_send_time: AwareDatetime | None
     email_send_count: int = Field(ge=0)
     conference_roles: list[ConferenceRole]
     track_roles: list[InvitationTrackRole]
@@ -280,6 +280,6 @@ class Paper(Schema):
     code: PaperCode
     create_time: AwareDatetime
     state: PaperModel.State
-    withdrawn_time: AwareDatetime | None
+    withdraw_time: AwareDatetime | None
     title: PaperTitle
     authors: list[PaperAuthor]

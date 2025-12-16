@@ -194,8 +194,8 @@ class Track(TimeStampedModel, ULIDModel):
         choices=Visibility,
         default=Visibility.ADMIN_ONLY,
     )
-    accepts_submissions = models.BooleanField(
-        _("accepts submissions"),
+    submissions_enabled = models.BooleanField(
+        _("submissions enabled"),
         default=False,
         help_text=_(
             "Whether this track is currently accepting paper submissions. "

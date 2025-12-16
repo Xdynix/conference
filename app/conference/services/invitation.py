@@ -417,8 +417,8 @@ class InvitationService:
 
             now = timezone.now()
             if (
-                invitation.last_email_sent_time is not None
-                and (now - invitation.last_email_sent_time)
+                invitation.last_email_send_time is not None
+                and (now - invitation.last_email_send_time)
                 <= settings.INVITATION_EMAIL_INTERVAL
                 and not force_send_to_recent
             ):
@@ -432,12 +432,12 @@ class InvitationService:
             rendered = template.render(context)
             email_message = rendered.build_message(to=invitation.invitee_email, cc=cc)
 
-            invitation.last_email_sent_time = now
+            invitation.last_email_send_time = now
             invitation.email_send_count = F("email_send_count") + 1
             invitation.save(
                 update_fields=[
                     "update_time",
-                    "last_email_sent_time",
+                    "last_email_send_time",
                     "email_send_count",
                 ]
             )

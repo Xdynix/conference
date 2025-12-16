@@ -80,7 +80,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "withdrawn_time",
+                    "withdraw_time",
                     models.DateTimeField(
                         blank=True,
                         default=None,
@@ -90,7 +90,7 @@ class Migration(migrations.Migration):
                             "visible in statistics."
                         ),
                         null=True,
-                        verbose_name="withdrawn time",
+                        verbose_name="withdraw time",
                     ),
                 ),
                 (

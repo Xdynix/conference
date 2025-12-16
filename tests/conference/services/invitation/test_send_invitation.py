@@ -76,7 +76,7 @@ class TestInvitationServiceSendInvitation:
         template: EmailTemplate,
         mock_send: MagicMock,
     ) -> None:
-        assert invitation.last_email_sent_time is None
+        assert invitation.last_email_send_time is None
         assert invitation.email_send_count == 0
 
         sent, invitee_email = InvitationService.send_invitation(
@@ -90,7 +90,7 @@ class TestInvitationServiceSendInvitation:
         assert invitee_email == invitation.invitee_email
 
         invitation.refresh_from_db()
-        assert invitation.last_email_sent_time == approx_now()
+        assert invitation.last_email_send_time == approx_now()
         assert invitation.email_send_count == 1
 
         mock_send.assert_called_once()
@@ -129,7 +129,7 @@ class TestInvitationServiceSendInvitation:
         template: EmailTemplate,
         mock_send: MagicMock,
     ) -> None:
-        update_object(invitation, last_email_sent_time=timezone.now())
+        update_object(invitation, last_email_send_time=timezone.now())
 
         sent, invitee_email = InvitationService.send_invitation(
             invitation.uid,
@@ -149,7 +149,7 @@ class TestInvitationServiceSendInvitation:
         template: EmailTemplate,
         mock_send: MagicMock,
     ) -> None:
-        update_object(invitation, last_email_sent_time=timezone.now())
+        update_object(invitation, last_email_send_time=timezone.now())
 
         sent, _ = InvitationService.send_invitation(
             invitation.uid,
@@ -172,7 +172,7 @@ class TestInvitationServiceSendInvitation:
     ) -> None:
         update_object(
             invitation,
-            last_email_sent_time=(
+            last_email_send_time=(
                 timezone.now()
                 - settings.INVITATION_EMAIL_INTERVAL
                 - timedelta(seconds=1)
@@ -306,7 +306,7 @@ class TestInvitationServiceSendInvitation:
             )
 
         invitation.refresh_from_db()
-        assert invitation.last_email_sent_time is None
+        assert invitation.last_email_send_time is None
         assert invitation.email_send_count == 0
 
         mock_send.assert_not_called()
@@ -497,7 +497,7 @@ class TestInvitationServiceSendInvitations:
         template: EmailTemplate,
         mock_send: MagicMock,
     ) -> None:
-        update_object(invitation_a, last_email_sent_time=timezone.now())
+        update_object(invitation_a, last_email_send_time=timezone.now())
 
         results = InvitationService.send_invitations(
             [invitation_a.uid],

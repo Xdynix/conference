@@ -62,7 +62,7 @@ async def create_track(
 class TrackSchema(Schema):
     display_name: TrackDisplayName
     visibility: Track.Visibility
-    accepts_submissions: bool
+    submissions_enabled: bool
 
 
 @router.patch(

@@ -96,6 +96,13 @@ When adding new features, choose the appropriate app based on responsibility:
 
 ## Architecture Principles
 
+### API and Schema Standards
+
+- Align interface design, resource shapes, and model field naming (including timestamps)
+  with Google AIP conventions.
+- Django's built-in user fields keep their framework names (`is_active`,
+  `is_authenticated`, `is_superuser`, etc.) as the sole exception.
+
 ### Async-First Design
 
 - Prefer async views, API endpoints, and background tasks.

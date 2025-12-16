@@ -56,7 +56,7 @@ async def apply_paper_update(
         flow: The update flow. "author" enforces Draft state restriction. "admin" allows
             updates in any state.
     """
-    if paper.withdrawn_time is not None:
+    if paper.withdraw_time is not None:
         raise HttpError(
             HTTPStatus.BAD_REQUEST,
             _("Withdrawn papers cannot be updated."),

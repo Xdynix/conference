@@ -78,7 +78,7 @@ class TestListConferences:
                             "uid": str(alpha_tracks[0].uid),
                             "display_name": alpha_tracks[0].display_name,
                             "visibility": alpha_tracks[0].visibility,
-                            "accepts_submissions": False,
+                            "submissions_enabled": False,
                         }
                     ],
                 },
@@ -91,7 +91,7 @@ class TestListConferences:
                             "uid": str(beta_tracks[0].uid),
                             "display_name": beta_tracks[0].display_name,
                             "visibility": beta_tracks[0].visibility,
-                            "accepts_submissions": False,
+                            "submissions_enabled": False,
                         },
                     ],
                 },

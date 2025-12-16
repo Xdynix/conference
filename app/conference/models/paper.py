@@ -79,8 +79,8 @@ class Paper(TimeStampedModel, ULIDModel):
             "Distinct from withdrawal."
         ),
     )
-    withdrawn_time = models.DateTimeField(
-        _("withdrawn time"),
+    withdraw_time = models.DateTimeField(
+        _("withdraw time"),
         null=True,
         blank=True,
         default=None,
@@ -157,7 +157,7 @@ class Paper(TimeStampedModel, ULIDModel):
 
     @property
     def visible_state(self) -> VisibleState:
-        if self.withdrawn_time is not None:
+        if self.withdraw_time is not None:
             return "Withdrawn"
         if self.announce_time is None and self.state in self.State.decided():
             return self.State.UNDER_REVIEW

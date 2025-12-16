@@ -63,7 +63,7 @@ class PaperAdmin(admin.ModelAdmin[Paper]):
                 "fields": (
                     "state",
                     "announce_time",
-                    "withdrawn_time",
+                    "withdraw_time",
                     "delete_time",
                 )
             },

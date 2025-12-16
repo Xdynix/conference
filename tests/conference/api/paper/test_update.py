@@ -291,7 +291,7 @@ class TestUpdateMyPaper:
         paper_service_update: MagicMock,
         state: Paper.State,
     ) -> None:
-        update_object(paper, state=state, withdrawn_time=timezone.now())
+        update_object(paper, state=state, withdraw_time=timezone.now())
         api_client.force_login(user)
 
         response = api_client.patch(
@@ -567,7 +567,7 @@ class TestUpdatePaper:
         mock_visible_papers: AsyncMock,
         state: Paper.State,
     ) -> None:
-        update_object(paper, state=state, withdrawn_time=timezone.now())
+        update_object(paper, state=state, withdraw_time=timezone.now())
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         api_client.force_login(conference_admin)
 

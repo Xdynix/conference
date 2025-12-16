@@ -72,8 +72,8 @@ class Invitation(
         blank=True,
         default=None,
     )
-    last_email_sent_time = models.DateTimeField(
-        _("last email sent"),
+    last_email_send_time = models.DateTimeField(
+        _("last email send time"),
         null=True,
         blank=True,
         default=None,

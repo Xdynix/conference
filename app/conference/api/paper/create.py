@@ -54,9 +54,9 @@ async def persist_paper_entry(
         user: Authenticated user creating the paper.
         conference_name: Slug of the conference receiving the paper.
         payload: Paper details to persist.
-        flow: The creation flow. "author" enforces that the track accepts submissions.
-            "admin" allows submission to open tracks or to closed tracks where the user
-            has admin permission.
+        flow: The creation flow. "author" enforces that the track has submissions
+            enabled. "admin" allows submission to open tracks or to closed tracks where
+            the user has admin permission.
     """
     conferences = await ConferenceService.visible_conferences(user)
     conference = await aget_object_or_404(conferences, name=conference_name)
@@ -71,14 +71,15 @@ async def persist_paper_entry(
         ) from exc
 
     if flow == "author":
-        if not track.accepts_submissions:
+        if not track.submissions_enabled:
             raise make_validation_error(
                 path="track",
                 message=_("This track is not currently accepting submissions."),
             )
     else:
-        # Allow if track accepts submissions or user has admin permission on the track.
-        if not track.accepts_submissions:
+        # Allow if submissions are enabled or the user has admin permission on the
+        # track.
+        if not track.submissions_enabled:
             has_permission = await ConferenceAccessService.can_admin_track(
                 conference=conference,
                 track=track,
@@ -183,7 +184,7 @@ async def create_paper(
 ) -> tuple[int, Paper]:
     """Create a paper as an admin.
 
-    This bypasses the track's submission acceptance check, allowing creation of invited
+    This bypasses the track's submissions-enabled check, allowing creation of invited
     papers or papers for tracks that are not currently open for submissions.
     """
     user = await request.auser()

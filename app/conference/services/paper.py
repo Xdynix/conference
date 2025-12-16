@@ -42,7 +42,7 @@ class PaperService:
 
         The caller is responsible for verifying that:
         - The user has access to the conference and track.
-        - The track accepts submissions (if applicable).
+        - The track enabled submissions (if applicable).
 
         Raises:
             NoCodePoolError: If the track has no code pool configured.

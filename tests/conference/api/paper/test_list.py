@@ -221,7 +221,7 @@ class TestListMyPapers:
         track: Track,
     ) -> None:
         paper = create_paper(conference, track, user, code="CONF-001")
-        update_object(paper, withdrawn_time=timezone.now())
+        update_object(paper, withdraw_time=timezone.now())
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name))
@@ -230,7 +230,7 @@ class TestListMyPapers:
         data = response.json()
         [paper_data] = data["items"]
         assert paper_data["state"] == "Withdrawn"
-        assert paper_data["withdrawn_time"] is not None
+        assert paper_data["withdraw_time"] is not None
 
     def test_excludes_deleted_papers(
         self,
@@ -475,7 +475,7 @@ class TestListPapers:
         mock_visible_papers: AsyncMock,
     ) -> None:
         paper = create_paper(conference, track, conference_admin, code="CONF-001")
-        update_object(paper, withdrawn_time=timezone.now())
+        update_object(paper, withdraw_time=timezone.now())
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         api_client.force_login(conference_admin)
 
@@ -485,7 +485,7 @@ class TestListPapers:
         data = response.json()
         [paper_data] = data["items"]
         assert paper_data["visible_state"] == "Withdrawn"
-        assert paper_data["withdrawn_time"] is not None
+        assert paper_data["withdraw_time"] is not None
 
     def test_returns_empty_list_when_no_papers(
         self,

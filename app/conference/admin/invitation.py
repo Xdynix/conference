@@ -53,7 +53,7 @@ class InvitationAdmin(admin.ModelAdmin[Invitation]):
         "state",
         "create_time",
         "update_time",
-        "last_email_sent_time",
+        "last_email_send_time",
     )
     search_fields = (
         "conference__name",

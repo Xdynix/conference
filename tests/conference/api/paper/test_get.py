@@ -308,7 +308,7 @@ class TestGetMyPaper:
         conference: Conference,
         paper: Paper,
     ) -> None:
-        update_object(paper, withdrawn_time=timezone.now())
+        update_object(paper, withdraw_time=timezone.now())
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name, paper.code))
@@ -316,7 +316,7 @@ class TestGetMyPaper:
 
         data = response.json()
         assert data["state"] == "Withdrawn"
-        assert data["withdrawn_time"] is not None
+        assert data["withdraw_time"] is not None
 
 
 @pytest.fixture
@@ -423,7 +423,7 @@ class TestGetPaper:
         conference_admin: User,
         paper: Paper,
     ) -> None:
-        update_object(paper, withdrawn_time=timezone.now())
+        update_object(paper, withdraw_time=timezone.now())
         api_client.force_login(conference_admin)
 
         response = api_client.get(self.path(conference.name, paper.code))
@@ -431,7 +431,7 @@ class TestGetPaper:
 
         data = response.json()
         assert data["visible_state"] == "Withdrawn"
-        assert data["withdrawn_time"] is not None
+        assert data["withdraw_time"] is not None
 
     def test_paper_not_found(
         self,

@@ -56,7 +56,7 @@ def track(faker: Faker, conference: Conference, code_pool: CodePool) -> Track:
         code_pool=code_pool,
         display_name=faker.word(),
         visibility=Track.Visibility.PUBLIC,
-        accepts_submissions=True,
+        submissions_enabled=True,
     )
 
 
@@ -259,7 +259,7 @@ class TestCreateDraft:
             code_pool=code_pool,
             display_name=faker.word(),
             visibility=Track.Visibility.ADMIN_ONLY,
-            accepts_submissions=True,
+            submissions_enabled=True,
         )
         api_client.force_login(user)
 
@@ -286,7 +286,7 @@ class TestCreateDraft:
         track: Track,
         paper_service_create: MagicMock,
     ) -> None:
-        update_object(track, accepts_submissions=False)
+        update_object(track, submissions_enabled=False)
         api_client.force_login(user)
 
         response = api_client.post(
@@ -565,7 +565,7 @@ class TestCreatePaper:
         assert call_kwargs["track"] == track
         assert call_kwargs["owner"] == conference_admin
 
-    def test_conference_admin_bypasses_accepts_submissions(
+    def test_conference_admin_bypasses_submissions_enabled(
         self,
         api_client: Client,
         conference: Conference,
@@ -573,7 +573,7 @@ class TestCreatePaper:
         conference_admin: User,
         paper_service_create: MagicMock,
     ) -> None:
-        update_object(track, accepts_submissions=False)
+        update_object(track, submissions_enabled=False)
         api_client.force_login(conference_admin)
 
         response = api_client.post(
@@ -587,7 +587,7 @@ class TestCreatePaper:
 
         paper_service_create.assert_called_once()
 
-    def test_track_admin_bypasses_accepts_submissions_for_own_track(
+    def test_track_admin_bypasses_submissions_enabled_for_own_track(
         self,
         faker: Faker,
         api_client: Client,
@@ -601,7 +601,7 @@ class TestCreatePaper:
             user=track_admin,
             role=TrackRole.CHAIR,
         )
-        update_object(track, accepts_submissions=False)
+        update_object(track, submissions_enabled=False)
         api_client.force_login(track_admin)
 
         response = api_client.post(
@@ -629,7 +629,7 @@ class TestCreatePaper:
             code_pool=code_pool,
             display_name=faker.word(),
             visibility=Track.Visibility.PUBLIC,
-            accepts_submissions=False,
+            submissions_enabled=False,
         )
         track_admin = User.objects.create_user(username=faker.user_name())
         TrackRoleAssignment.objects.create(
@@ -669,7 +669,7 @@ class TestCreatePaper:
             code_pool=code_pool,
             display_name=faker.word(),
             visibility=Track.Visibility.PUBLIC,
-            accepts_submissions=True,
+            submissions_enabled=True,
         )
         track_admin = User.objects.create_user(username=faker.user_name())
         TrackRoleAssignment.objects.create(
@@ -690,7 +690,7 @@ class TestCreatePaper:
 
         paper_service_create.assert_called_once()
 
-    def test_global_admin_bypasses_accepts_submissions(
+    def test_global_admin_bypasses_submissions_enabled(
         self,
         faker: Faker,
         api_client: Client,
@@ -700,7 +700,7 @@ class TestCreatePaper:
     ) -> None:
         global_admin = User.objects.create_user(username=faker.user_name())
         GlobalRoleAssignment.objects.create(user=global_admin, role=GlobalRole.ADMIN)
-        update_object(track, accepts_submissions=False)
+        update_object(track, submissions_enabled=False)
         api_client.force_login(global_admin)
 
         response = api_client.post(
