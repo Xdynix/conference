@@ -3,15 +3,19 @@ from django.utils import timezone
 from faker import Faker
 
 from app.conference.models import (
+    CodePool,
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    Keyword,
     Paper,
+    PaperAuthor,
     Track,
     TrackRole,
     TrackRoleAssignment,
 )
 from app.conference.services import PaperService
+from app.conference.services.paper import AuthorData, NoCodePoolError
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from tests.helpers import a_update_object
 
@@ -30,11 +34,277 @@ def conference(faker: Faker) -> Conference:
 
 
 @pytest.fixture
+def code_pool(conference: Conference) -> CodePool:
+    return CodePool.objects.create(
+        conference=conference,
+        name="Main Pool",
+        prefix="TEST-",
+    )
+
+
+@pytest.fixture
 def track(faker: Faker, conference: Conference) -> Track:
     return Track.objects.create(
         conference=conference,
         display_name=faker.word(),
     )
+
+
+@pytest.fixture
+def track_with_pool(faker: Faker, conference: Conference, code_pool: CodePool) -> Track:
+    return Track.objects.create(
+        conference=conference,
+        code_pool=code_pool,
+        display_name=faker.word(),
+    )
+
+
+@pytest.mark.django_db
+class TestPaperServiceCreatePaper:
+    def test_happy_path(
+        self,
+        user: User,
+        conference: Conference,
+        track_with_pool: Track,
+    ) -> None:
+        paper = PaperService.create_paper(
+            track=track_with_pool,
+            owner=user,
+            title="Test Paper",
+            abstract="Test abstract",
+            contribution="Test contribution",
+        )
+
+        db_paper = Paper.objects.get(pk=paper.pk)
+        assert paper == db_paper
+        assert paper.conference == db_paper.conference == conference
+        assert paper.track == db_paper.track == track_with_pool
+        assert paper.owner == db_paper.owner == user
+        assert paper.title == db_paper.title == "Test Paper"
+        assert paper.abstract == db_paper.abstract == "Test abstract"
+        assert paper.contribution == db_paper.contribution == "Test contribution"
+        assert paper.state == db_paper.state == Paper.State.DRAFT
+        assert paper.code == db_paper.code == "TEST-001"
+
+    def test_generates_sequential_codes(
+        self,
+        user: User,
+        track_with_pool: Track,
+    ) -> None:
+        paper1 = PaperService.create_paper(track=track_with_pool, owner=user)
+        paper2 = PaperService.create_paper(track=track_with_pool, owner=user)
+        paper3 = PaperService.create_paper(track=track_with_pool, owner=user)
+
+        assert paper1.code == "TEST-001"
+        assert paper2.code == "TEST-002"
+        assert paper3.code == "TEST-003"
+
+    def test_defaults_to_empty_strings(
+        self,
+        user: User,
+        track_with_pool: Track,
+    ) -> None:
+        paper = PaperService.create_paper(track=track_with_pool, owner=user)
+
+        assert paper.title == ""
+        assert paper.abstract == ""
+        assert paper.contribution == ""
+
+    def test_raises_when_track_has_no_code_pool(
+        self,
+        user: User,
+        track: Track,
+    ) -> None:
+        with pytest.raises(NoCodePoolError):
+            PaperService.create_paper(track=track, owner=user)
+
+        assert not Paper.objects.exists()
+
+    def test_with_keywords(
+        self,
+        user: User,
+        track_with_pool: Track,
+    ) -> None:
+        kw1 = Keyword.objects.create(text="Keyword 1")
+        kw2 = Keyword.objects.create(text="Keyword 2")
+
+        paper = PaperService.create_paper(
+            track=track_with_pool,
+            owner=user,
+            keywords=[kw1, kw2],
+        )
+
+        assert set(paper.keywords.all()) == {kw1, kw2}
+
+    def test_with_authors(
+        self,
+        user: User,
+        track_with_pool: Track,
+    ) -> None:
+        authors: list[AuthorData] = [
+            {
+                "given_name": "Alice",
+                "family_name": "Smith",
+                "email": "alice@example.com",
+                "corresponding": True,
+            },
+            {
+                "given_name": "Bob",
+                "family_name": "Jones",
+                "affiliation": "University",
+            },
+        ]
+
+        paper = PaperService.create_paper(
+            track=track_with_pool,
+            owner=user,
+            authors=authors,
+        )
+
+        [author0, author1] = list(paper.authors.all())
+
+        assert author0.given_name == "Alice"
+        assert author0.family_name == "Smith"
+        assert author0.email == "alice@example.com"
+        assert author0.corresponding is True
+        assert author0.ordering == 0
+
+        assert author1.given_name == "Bob"
+        assert author1.family_name == "Jones"
+        assert author1.affiliation == "University"
+        assert author1.corresponding is False
+        assert author1.ordering == 1
+
+
+@pytest.mark.django_db
+class TestPaperServiceSetPaperKeywords:
+    @pytest.fixture
+    def paper(self, user: User, conference: Conference, track: Track) -> Paper:
+        return Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="PAPER-001",
+        )
+
+    def test_sets_keywords(self, paper: Paper) -> None:
+        kw1 = Keyword.objects.create(text="Keyword 1")
+        kw2 = Keyword.objects.create(text="Keyword 2")
+
+        PaperService.set_paper_keywords(paper, [kw1, kw2])
+
+        assert set(paper.keywords.all()) == {kw1, kw2}
+
+    def test_replaces_existing_keywords(self, paper: Paper) -> None:
+        old_kw = Keyword.objects.create(text="Old Keyword")
+        new_kw = Keyword.objects.create(text="New Keyword")
+        paper.keywords.add(old_kw)
+
+        PaperService.set_paper_keywords(paper, [new_kw])
+
+        assert list(paper.keywords.all()) == [new_kw]
+
+    def test_clears_keywords_with_empty_collection(self, paper: Paper) -> None:
+        kw = Keyword.objects.create(text="Keyword")
+        paper.keywords.add(kw)
+
+        PaperService.set_paper_keywords(paper, [])
+
+        assert not paper.keywords.exists()
+
+
+@pytest.mark.django_db
+class TestPaperServiceSetPaperAuthors:
+    @pytest.fixture
+    def paper(self, user: User, conference: Conference, track: Track) -> Paper:
+        return Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="PAPER-001",
+        )
+
+    def test_sets_authors_with_ordering(self, paper: Paper) -> None:
+        authors: list[AuthorData] = [
+            {"given_name": "First", "family_name": "Author"},
+            {"given_name": "Second", "family_name": "Author"},
+            {"given_name": "Third", "family_name": "Author"},
+        ]
+
+        PaperService.set_paper_authors(paper, authors)
+
+        db_authors = list(paper.authors.order_by("ordering"))
+        assert len(db_authors) == 3
+        assert db_authors[0].given_name == "First"
+        assert db_authors[0].ordering == 0
+        assert db_authors[1].given_name == "Second"
+        assert db_authors[1].ordering == 1
+        assert db_authors[2].given_name == "Third"
+        assert db_authors[2].ordering == 2
+
+    def test_sets_all_author_fields(self, paper: Paper) -> None:
+        authors: list[AuthorData] = [
+            {
+                "given_name": "Alice",
+                "family_name": "Smith",
+                "affiliation": "MIT",
+                "region_code": "US",
+                "email": "alice@mit.edu",
+                "phone": "+1234567890",
+                "corresponding": True,
+            },
+        ]
+
+        PaperService.set_paper_authors(paper, authors)
+
+        author = paper.authors.get()
+        assert author.given_name == "Alice"
+        assert author.family_name == "Smith"
+        assert author.affiliation == "MIT"
+        assert author.region_code == "US"
+        assert author.email == "alice@mit.edu"
+        assert author.phone == "+1234567890"
+        assert author.corresponding is True
+
+    def test_defaults_missing_fields(self, paper: Paper) -> None:
+        authors: list[AuthorData] = [{"given_name": "Alice"}]
+
+        PaperService.set_paper_authors(paper, authors)
+
+        author = paper.authors.get()
+        assert author.given_name == "Alice"
+        assert author.family_name == ""
+        assert author.affiliation == ""
+        assert author.region_code == ""
+        assert author.email == ""
+        assert author.phone == ""
+        assert author.corresponding is False
+
+    def test_replaces_existing_authors(self, paper: Paper) -> None:
+        PaperAuthor.objects.create(
+            paper=paper,
+            ordering=0,
+            given_name="Old",
+            family_name="Author",
+        )
+        authors: list[AuthorData] = [{"given_name": "New", "family_name": "Author"}]
+
+        PaperService.set_paper_authors(paper, authors)
+
+        assert paper.authors.count() == 1
+        assert paper.authors.get().given_name == "New"
+
+    def test_clears_authors_with_empty_collection(self, paper: Paper) -> None:
+        PaperAuthor.objects.create(
+            paper=paper,
+            ordering=0,
+            given_name="Existing",
+            family_name="Author",
+        )
+
+        PaperService.set_paper_authors(paper, [])
+
+        assert not paper.authors.exists()
 
 
 @pytest.mark.django_db(transaction=True)
