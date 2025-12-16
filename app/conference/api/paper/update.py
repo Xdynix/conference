@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Literal
+from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
@@ -16,7 +16,7 @@ from app.conference.services import (
     KeywordService,
     PaperService,
 )
-from app.conference.services.paper import AuthorData
+from app.conference.services.paper import AuthorData, PaperWithdrawnError
 from app.conference.types import (
     KeywordText,
     PaperAbstract,
@@ -25,7 +25,7 @@ from app.conference.types import (
     PaperTitle,
 )
 from app.core.auth import has_any_roles, is_authenticated
-from app.core.models import GlobalRole, User
+from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse, make_validation_error
 
@@ -40,47 +40,11 @@ class PaperSchema(Schema):
     authors: list[PaperAuthor] = Field(max_length=100)
 
 
-async def apply_paper_update(
-    user: User,
-    paper: Paper,
-    payload: PatchDict[UpdatePaperSchema],
-    *,
-    flow: Literal["author", "admin"],
-) -> Paper:
-    """Shared implementation for paper update endpoints.
+async def apply_paper_update(paper: Paper, payload: dict[str, Any]) -> Paper:
+    """Update paper metadata, authors, and keywords.
 
-    Args:
-        user: Authenticated user updating the paper.
-        paper: The paper to update.
-        payload: Update data with optional fields.
-        flow: The update flow. "author" enforces Draft state restriction. "admin" allows
-            updates in any state.
+    Validates keywords and calls the paper service to apply updates.
     """
-    if paper.withdraw_time is not None:
-        raise HttpError(
-            HTTPStatus.BAD_REQUEST,
-            _("Withdrawn papers cannot be updated."),
-        )
-
-    if flow == "author":
-        if paper.state != Paper.State.DRAFT:
-            raise HttpError(
-                HTTPStatus.BAD_REQUEST,
-                _("Paper must be in Draft state to update."),
-            )
-    else:
-        if paper.state in Paper.State.decided():
-            ctx = await ConferenceAccessService.context(
-                conference=paper.conference,
-                user=user,
-                global_roles=(GlobalRole.ADMIN,),
-            )
-            if not ctx.has_full_conference_scope:
-                raise HttpError(
-                    HTTPStatus.BAD_REQUEST,
-                    _("Only conference admins can update papers after decision."),
-                )
-
     try:
         keywords = await KeywordService.validate_keyword_texts(
             payload.get("keywords")  # type: ignore[func-returns-value]
@@ -90,14 +54,17 @@ async def apply_paper_update(
 
     authors: list[AuthorData] | None = payload.get("authors")
 
-    return await sync_to_async(PaperService.update_paper)(
-        paper=paper,
-        title=payload.get("title"),
-        abstract=payload.get("abstract"),
-        contribution=payload.get("contribution"),
-        keywords=keywords,
-        authors=authors,
-    )
+    try:
+        return await sync_to_async(PaperService.update_paper)(
+            paper=paper,
+            title=payload.get("title"),
+            abstract=payload.get("abstract"),
+            contribution=payload.get("contribution"),
+            keywords=keywords,
+            authors=authors,
+        )
+    except PaperWithdrawnError as exc:
+        raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
 
 @router.patch(
@@ -130,7 +97,13 @@ async def update_my_paper(
     papers = conference.papers.active().filter(owner=user)
     paper = await aget_object_or_404(papers, code=paper_code)
 
-    updated = await apply_paper_update(user, paper, payload, flow="author")
+    if paper.state != Paper.State.DRAFT:
+        raise HttpError(
+            HTTPStatus.BAD_REQUEST,
+            _("Paper must be in Draft state to update."),
+        )
+
+    updated = await apply_paper_update(paper, payload)
 
     logger.info(
         "Paper updated by owner.",
@@ -183,7 +156,19 @@ async def update_paper(
         code=paper_code,
     )
 
-    updated = await apply_paper_update(user, paper, payload, flow="admin")
+    if paper.state in Paper.State.decided():
+        ctx = await ConferenceAccessService.context(
+            conference=conference,
+            user=user,
+            global_roles=(GlobalRole.ADMIN,),
+        )
+        if not ctx.has_full_conference_scope:
+            raise HttpError(
+                HTTPStatus.BAD_REQUEST,
+                _("Only conference admins can update papers after decision."),
+            )
+
+    updated = await apply_paper_update(paper, payload)
 
     logger.info(
         "Paper updated by admin.",

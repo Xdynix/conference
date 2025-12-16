@@ -21,6 +21,7 @@ from app.conference.models import (
     TrackRoleAssignment,
 )
 from app.conference.services import KeywordService, PaperService
+from app.conference.services.paper import PaperWithdrawnError
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from app.utils.enums import Region
 from tests.helpers import any_str, update_object
@@ -281,7 +282,6 @@ class TestUpdateMyPaper:
 
         paper_service_update.assert_not_called()
 
-    @pytest.mark.parametrize("state", Paper.State)
     def test_rejects_withdrawn_paper(
         self,
         api_client: Client,
@@ -289,9 +289,8 @@ class TestUpdateMyPaper:
         conference: Conference,
         paper: Paper,
         paper_service_update: MagicMock,
-        state: Paper.State,
     ) -> None:
-        update_object(paper, state=state, withdraw_time=timezone.now())
+        paper_service_update.side_effect = PaperWithdrawnError("Withdrawn paper")
         api_client.force_login(user)
 
         response = api_client.patch(
@@ -300,9 +299,9 @@ class TestUpdateMyPaper:
         )
         assert response.status_code == HTTPStatus.BAD_REQUEST
 
-        assert response.json()["message"] == "Withdrawn papers cannot be updated."
+        assert response.json()["message"] == "Withdrawn paper"
 
-        paper_service_update.assert_not_called()
+        paper_service_update.assert_called_once()
 
     def test_unknown_keywords(
         self,
@@ -556,7 +555,6 @@ class TestUpdatePaper:
         assert call_kwargs["abstract"] == "  Admin abstract"
         assert call_kwargs["contribution"] == "  Admin contribution"
 
-    @pytest.mark.parametrize("state", Paper.State)
     def test_rejects_withdrawn_paper(
         self,
         api_client: Client,
@@ -565,9 +563,8 @@ class TestUpdatePaper:
         conference_admin: User,
         paper_service_update: MagicMock,
         mock_visible_papers: AsyncMock,
-        state: Paper.State,
     ) -> None:
-        update_object(paper, state=state, withdraw_time=timezone.now())
+        paper_service_update.side_effect = PaperWithdrawnError("Withdrawn paper")
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         api_client.force_login(conference_admin)
 
@@ -577,9 +574,9 @@ class TestUpdatePaper:
         )
         assert response.status_code == HTTPStatus.BAD_REQUEST
 
-        assert response.json()["message"] == "Withdrawn papers cannot be updated."
+        assert response.json()["message"] == "Withdrawn paper"
 
-        paper_service_update.assert_not_called()
+        paper_service_update.assert_called_once()
 
     def test_paper_not_found(
         self,

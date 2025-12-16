@@ -15,9 +15,13 @@ from app.conference.models import (
     TrackRoleAssignment,
 )
 from app.conference.services import PaperService
-from app.conference.services.paper import AuthorData, NoCodePoolError
+from app.conference.services.paper import (
+    AuthorData,
+    NoCodePoolError,
+    PaperWithdrawnError,
+)
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
-from tests.helpers import a_update_object
+from tests.helpers import a_update_object, update_object
 
 
 @pytest.fixture
@@ -309,6 +313,17 @@ class TestPaperServiceUpdatePaper:
         PaperService.update_paper(paper=paper, authors=[])
 
         assert not paper.authors.exists()
+
+    def test_raises_when_paper_is_withdrawn(self, paper: Paper) -> None:
+        update_object(paper, withdraw_time=timezone.now())
+
+        with pytest.raises(PaperWithdrawnError) as exc_info:
+            PaperService.update_paper(paper=paper, title="Should fail")
+
+        assert str(exc_info.value) == "Withdrawn papers cannot be updated."
+
+        paper.refresh_from_db()
+        assert paper.title == "Original Title"
 
 
 @pytest.mark.django_db

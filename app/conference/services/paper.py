@@ -3,6 +3,7 @@ from typing import TypedDict
 
 from django.db import transaction
 from django.db.models import QuerySet
+from django.utils.translation import gettext as _
 
 from app.conference.models import Conference, Keyword, Paper, PaperAuthor, Track
 from app.core.models import GlobalRole, User
@@ -21,6 +22,10 @@ class AuthorData(TypedDict, total=False):
 
 
 class NoCodePoolError(Exception):
+    pass
+
+
+class PaperWithdrawnError(Exception):
     pass
 
 
@@ -86,7 +91,13 @@ class PaperService:
         The caller is responsible for verifying that:
         - The user has permission to update this paper.
         - The paper state allows updates (if applicable).
+
+        Raises:
+            PaperWithdrawnError: If the paper has been withdrawn.
         """
+        if paper.withdraw_time is not None:
+            raise PaperWithdrawnError(_("Withdrawn papers cannot be updated."))
+
         update_fields = []
         if title is not None:
             paper.title = title
