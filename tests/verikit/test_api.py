@@ -123,7 +123,7 @@ class TestVerifyEmailVerification:
 
         response = api_client.post(self.path, data={"email": email, "code": code})
 
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         data = response.json()
         assert data["message"] == "Invalid or expired verification code."
         mock_verify_code.assert_called_once_with(email, code)
@@ -156,7 +156,7 @@ class TestVerifyEmailVerification:
                 self.path,
                 data={"email": email, "code": wrong_code},
             )
-            assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+            assert response.status_code == HTTPStatus.BAD_REQUEST
 
         # 21st attempt should be throttled (429).
         response = api_client.post(self.path, data={"email": email, "code": wrong_code})
@@ -168,7 +168,7 @@ class TestVerifyEmailVerification:
             self.path,
             data={"email": different_email, "code": wrong_code},
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.BAD_REQUEST
 
         mock_cf_turnstile.assert_called()
 
@@ -277,7 +277,7 @@ class TestEmailVerificationE2E:
             self.verify_path,
             data={"email": email, "code": wrong_code},
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         data = response.json()
         assert data["message"] == "Invalid or expired verification code."
 
@@ -301,7 +301,7 @@ class TestEmailVerificationE2E:
             self.verify_path,
             data={"email": email, "code": code},
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         data = response.json()
         assert data["message"] == "Invalid or expired verification code."
 
@@ -350,6 +350,6 @@ class TestEmailVerificationE2E:
             self.verify_path,
             data={"email": email, "code": code},
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         data = response.json()
         assert data["message"] == "Invalid or expired verification code."

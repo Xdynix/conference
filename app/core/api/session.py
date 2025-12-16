@@ -2,6 +2,7 @@ from http import HTTPStatus
 from typing import Literal, Self, cast
 
 from django.contrib.auth import aauthenticate, alogin, alogout
+from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -117,7 +118,7 @@ class AssumeSessionRequest(Schema):
     "/sessions/current:assume",
     response={
         HTTPStatus.OK: Session,
-        HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
     },
     summary="Start Impersonation",
     auth=is_superuser,
@@ -135,21 +136,18 @@ async def assume_session(
     - Only superusers can use this operation.
     - The user being impersonated cannot be a superuser.
     """
-    impersonated: User | None = (
-        await User.objects.active().filter(username=payload.impersonated).afirst()
+    impersonated = await aget_object_or_404(
+        User.objects.active(),
+        username=payload.impersonated,
     )
-    if impersonated is None:
-        raise HttpError(
-            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-            message=_("Impersonated not found."),
-        )
+
     # Prevent superusers from impersonating other superusers. This security policy
     # prevents privilege escalation chains, limits blast radius if a superuser account
     # is compromised, and avoids chained impersonation scenarios. Superusers already
     # have full system access without needing impersonation.
     if impersonated.is_superuser:
         raise HttpError(
-            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
+            status_code=HTTPStatus.BAD_REQUEST,
             message=_("Cannot impersonate a superuser."),
         )
 

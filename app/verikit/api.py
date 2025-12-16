@@ -100,7 +100,7 @@ class PayloadEmailThrottle(SimpleThrottle):
     "/email-verifications:verify",
     response={
         HTTPStatus.OK: VerifyEmailVerificationResponse,
-        HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
     },
     summary="Verify Code",
 )
@@ -113,7 +113,7 @@ async def verify_email_verification(
 ) -> VerifyEmailVerificationResponse:
     """Verify a verification code and return a signed verification token.
 
-    Returns 422 if the code is invalid or expired.
+    Returns 400 if the code is invalid or expired.
     """
     token = await sync_to_async(EmailVerificationService.verify_code)(
         payload.email,
@@ -121,7 +121,7 @@ async def verify_email_verification(
     )
     if token is None:
         raise HttpError(
-            HTTPStatus.UNPROCESSABLE_ENTITY,
+            HTTPStatus.BAD_REQUEST,
             _("Invalid or expired verification code."),
         )
 

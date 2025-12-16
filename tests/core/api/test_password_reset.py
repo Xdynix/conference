@@ -174,7 +174,7 @@ class TestConsumePasswordReset:
         response = api_client.post(
             self.path,
             data={
-                "user_id": str(user.uid),
+                "user": str(user.uid),
                 "token": token,
                 "new_password": new_password,
             },
@@ -194,12 +194,12 @@ class TestConsumePasswordReset:
         response = api_client.post(
             self.path,
             data={
-                "user_id": str(ULID()),
+                "user": str(ULID()),
                 "token": faker.pystr(),
                 "new_password": faker.password(),
             },
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.BAD_REQUEST
 
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
@@ -222,12 +222,12 @@ class TestConsumePasswordReset:
         response = api_client.post(
             self.path,
             data={
-                "user_id": str(user.uid),
+                "user": str(user.uid),
                 "token": token,
                 "new_password": new_password,
             },
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.BAD_REQUEST
 
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
@@ -253,7 +253,7 @@ class TestConsumePasswordReset:
         response = api_client.post(
             self.path,
             data={
-                "user_id": str(user.uid),
+                "user": str(user.uid),
                 "token": token,
                 "new_password": new_password,
             },
@@ -321,7 +321,7 @@ class TestPasswordResetE2E:
         response = api_client.post(
             self.consume_path,
             data={
-                "user_id": user_id_str,
+                "user": user_id_str,
                 "token": token.strip(),
                 "new_password": new_password,
             },
@@ -359,12 +359,12 @@ class TestPasswordResetE2E:
         response = api_client.post(
             self.consume_path,
             data={
-                "user_id": user_id_str,
+                "user": user_id_str,
                 "token": wrong_token,
                 "new_password": new_password,
             },
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
 
@@ -399,12 +399,12 @@ class TestPasswordResetE2E:
         response = api_client.post(
             self.consume_path,
             data={
-                "user_id": user_id_str,
+                "user": user_id_str,
                 "token": token.strip(),
                 "new_password": new_password,
             },
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
 
@@ -461,7 +461,7 @@ class TestPasswordResetE2E:
         response = api_client.post(
             self.consume_path,
             data={
-                "user_id": user_id_str,
+                "user": user_id_str,
                 "token": token.strip(),
                 "new_password": new_password,
             },
@@ -471,12 +471,12 @@ class TestPasswordResetE2E:
         response = api_client.post(
             self.consume_path,
             data={
-                "user_id": user_id_str,
+                "user": user_id_str,
                 "token": token.strip(),
                 "new_password": faker.password(),
             },
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         data = response.json()
         assert data["message"] == "Invalid or expired password reset token."
 

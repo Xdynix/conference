@@ -82,7 +82,7 @@ async def create_password_reset(
 
 
 class ConsumePasswordResetRequest(Schema):
-    user_id: ULID
+    user: ULID
     token: Annotated[
         str,
         StringConstraints(min_length=1, max_length=128),
@@ -94,6 +94,7 @@ class ConsumePasswordResetRequest(Schema):
     "/password-resets:consume",
     response={
         HTTPStatus.NO_CONTENT: None,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
         HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
     },
     summary="Reset Password",
@@ -108,13 +109,16 @@ async def consume_password_reset(
     token must be valid, not expired, and not already used. After successfully resetting
     the password, all other active tokens for the user are invalidated.
 
-    Returns 422 if the token is invalid, expired, or already used.
+    Returns 400 if the token is invalid, expired, or already used.
     """
     error_msg = _("Invalid or expired password reset token.")
 
-    user = await User.objects.active().filter(uid=payload.user_id).afirst()
-    if user is None:
-        raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, error_msg)
+    try:
+        user = await User.objects.active().aget(uid=payload.user)
+    except User.DoesNotExist as exc:
+        # Returns the same response as invalid token path to avoid leaking user
+        # existence.
+        raise HttpError(HTTPStatus.BAD_REQUEST, error_msg) from exc
 
     token = payload.token
     new_password = payload.new_password
@@ -129,6 +133,6 @@ async def consume_password_reset(
         token,
         new_password,
     ):
-        raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, error_msg)
+        raise HttpError(HTTPStatus.BAD_REQUEST, error_msg)
 
     return HTTPStatus.NO_CONTENT, None

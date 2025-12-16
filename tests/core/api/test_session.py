@@ -275,8 +275,7 @@ class TestAssumeSession:
             self.path,
             data={"impersonated": "not-exist"},
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        assert response.json() == {"message": "Impersonated not found."}
+        assert response.status_code == HTTPStatus.NOT_FOUND
 
         assert get_user(api_client) == impersonator
 
@@ -293,8 +292,7 @@ class TestAssumeSession:
             self.path,
             data={"impersonated": impersonated.username},
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        assert response.json() == {"message": "Impersonated not found."}
+        assert response.status_code == HTTPStatus.NOT_FOUND
 
         assert get_user(api_client) == impersonator
 
@@ -311,7 +309,7 @@ class TestAssumeSession:
             self.path,
             data={"impersonated": impersonated.username},
         )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert response.status_code == HTTPStatus.BAD_REQUEST
         assert response.json() == {"message": "Cannot impersonate a superuser."}
 
         assert get_user(api_client) == impersonator
