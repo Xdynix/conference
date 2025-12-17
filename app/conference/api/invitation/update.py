@@ -35,7 +35,7 @@ class InvitationSchema(Profile):
 
 
 @router.patch(
-    "/conferences/{slug:conference_name}/invitations/{ulid:invitation_id}",
+    "/conferences/{slug:conference_name}/invitations/{ulid:invitation_uid}",
     response={
         HTTPStatus.OK: InvitationResponse,
         HTTPStatus.BAD_REQUEST: ErrorResponse,
@@ -54,7 +54,7 @@ class InvitationSchema(Profile):
 async def update_invitation(
     request: AuthedHttpRequest,
     conference_name: str,
-    invitation_id: ULID,
+    invitation_uid: ULID,
     payload: PatchDict[InvitationSchema],
 ) -> Invitation:
     """Update an invitation's profile data and/or roles."""
@@ -65,7 +65,7 @@ async def update_invitation(
     )
 
     invitations = await InvitationService.visible_invitations(conference, user)
-    is_visible = await invitations.filter(uid=invitation_id).aexists()
+    is_visible = await invitations.filter(uid=invitation_uid).aexists()
     if not is_visible:
         raise Http404
 
@@ -93,7 +93,7 @@ async def update_invitation(
 
     try:
         invitation = await sync_to_async(InvitationService.update_invitation)(
-            invitation_uid=invitation_id,
+            invitation_uid=invitation_uid,
             user=user,
             given_name=payload.get("given_name"),
             family_name=payload.get("family_name"),

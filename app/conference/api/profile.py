@@ -47,20 +47,20 @@ async def update_current_user_profile(
 
 
 @router.patch(
-    "/users/{ulid:user_id}/profile",
+    "/users/{ulid:uid}/profile",
     response=UserResponse,
     summary="Update Profile",
     auth=has_any_roles(GlobalRole.ADMIN),
 )
 async def update_profile(
     request: AuthedHttpRequest,
-    user_id: ULID,
+    uid: ULID,
     payload: PatchDict[ProfileSchema],
 ) -> dict[str, Any]:
     """Update a user's profile by admin."""
     user = await aget_object_or_404(
         User.objects.active(),
-        uid=user_id,
+        uid=uid,
     )
 
     await patch_profile(user, payload)

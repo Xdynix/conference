@@ -24,15 +24,15 @@ async def get_current_user(request: AuthedHttpRequest) -> dict[str, Any]:
 
 
 @router.get(
-    "/users/{ulid:user_id}",
+    "/users/{ulid:uid}",
     response=UserResponse,
     summary="Get User",
     auth=has_any_roles(GlobalRole.ADMIN, GlobalRole.READ_ALL),
 )
-async def get_user(request: AuthedHttpRequest, user_id: ULID) -> dict[str, Any]:  # noqa: ARG001
+async def get_user(request: AuthedHttpRequest, uid: ULID) -> dict[str, Any]:  # noqa: ARG001
     """Retrieve a single user."""
     user = await aget_object_or_404(
         User.objects.active(),
-        uid=user_id,
+        uid=uid,
     )
     return await user_response_registry.dump(user)

@@ -66,7 +66,7 @@ class TrackSchema(Schema):
 
 
 @router.patch(
-    "/conferences/{slug:conference_name}/tracks/{ulid:track_id}",
+    "/conferences/{slug:conference_name}/tracks/{ulid:track_uid}",
     response=ConferenceDetailResponse,
     summary="Update Track",
     auth=(
@@ -76,14 +76,14 @@ class TrackSchema(Schema):
 async def update_track(
     request: AuthedHttpRequest,
     conference_name: str,
-    track_id: ULID,
+    track_uid: ULID,
     payload: PatchDict[TrackSchema],
 ) -> Conference:
     """Update a track for a conference."""
     try:
         track = await TrackService.update_track(
             conference_name=conference_name,
-            track_uid=track_id,
+            track_uid=track_uid,
             **payload,
         )
     except Track.DoesNotExist as exc:
@@ -103,7 +103,7 @@ async def update_track(
 
 
 @router.delete(
-    "/conferences/{slug:conference_name}/tracks/{ulid:track_id}",
+    "/conferences/{slug:conference_name}/tracks/{ulid:track_uid}",
     response=ConferenceDetailResponse,
     summary="Delete Track",
     auth=(
@@ -113,13 +113,13 @@ async def update_track(
 async def delete_track(
     request: AuthedHttpRequest,
     conference_name: str,
-    track_id: ULID,
+    track_uid: ULID,
 ) -> Conference:
     """Delete a track for a conference."""
     try:
         track = await sync_to_async(TrackService.deactivate_track)(
             conference_name=conference_name,
-            track_uid=track_id,
+            track_uid=track_uid,
         )
     except Track.DoesNotExist as exc:
         raise Http404 from exc
@@ -142,7 +142,7 @@ class MoveTrackRequest(Schema):
 
 
 @router.post(
-    "/conferences/{slug:conference_name}/tracks/{ulid:track_id}:move",
+    "/conferences/{slug:conference_name}/tracks/{ulid:track_uid}:move",
     response={
         HTTPStatus.OK: ConferenceDetailResponse,
         HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
@@ -155,7 +155,7 @@ class MoveTrackRequest(Schema):
 async def move_track(
     request: AuthedHttpRequest,
     conference_name: str,
-    track_id: ULID,
+    track_uid: ULID,
     payload: MoveTrackRequest,
 ) -> Conference:
     """Reorder a track within the conference.
@@ -166,7 +166,7 @@ async def move_track(
     try:
         track = await sync_to_async(TrackService.move_track)(
             conference_name=conference_name,
-            track_uid=track_id,
+            track_uid=track_uid,
             after_track_uid=payload.after_track,
         )
     except (Conference.DoesNotExist, Track.DoesNotExist) as exc:

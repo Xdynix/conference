@@ -20,7 +20,7 @@ from .core import router
 
 
 @router.delete(
-    "/conferences/{slug:conference_name}/invitations/{ulid:invitation_id}",
+    "/conferences/{slug:conference_name}/invitations/{ulid:invitation_uid}",
     response={
         HTTPStatus.NO_CONTENT: None,
         HTTPStatus.FORBIDDEN: ErrorResponse,
@@ -37,7 +37,7 @@ from .core import router
 async def delete_invitation(
     request: AuthedHttpRequest,
     conference_name: str,
-    invitation_id: ULID,
+    invitation_uid: ULID,
 ) -> tuple[int, None]:
     """Delete a conference invitation."""
     user = await request.auser()
@@ -47,13 +47,13 @@ async def delete_invitation(
     )
 
     invitations = await InvitationService.visible_invitations(conference, user)
-    is_visible = await invitations.filter(uid=invitation_id).aexists()
+    is_visible = await invitations.filter(uid=invitation_uid).aexists()
     if not is_visible:
         raise Http404
 
     try:
         await sync_to_async(InvitationService.delete_invitation)(
-            invitation_uid=invitation_id,
+            invitation_uid=invitation_uid,
             user=user,
         )
     except InsufficientRolePermission as exc:
@@ -62,7 +62,7 @@ async def delete_invitation(
     logger.info(
         "Invitation deleted.",
         conference_name=conference.name,
-        invitation_uid=invitation_id,
+        invitation_uid=invitation_uid,
         user_uid=user.uid,
     )
 

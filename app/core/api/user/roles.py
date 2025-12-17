@@ -20,20 +20,20 @@ class UpdateUserRolesRequest(Schema):
 
 
 @router.put(
-    "/users/{ulid:user_id}/roles",
+    "/users/{ulid:uid}/roles",
     response=UserResponse,
     summary="Update User Roles",
     auth=has_any_roles(GlobalRole.ADMIN),
 )
 async def update_user_roles(
     request: AuthedHttpRequest,
-    user_id: ULID,
+    uid: ULID,
     payload: UpdateUserRolesRequest,
 ) -> dict[str, Any]:
     """Replace a user's global role assignments for any active account."""
     user = await aget_object_or_404(
         User.objects.active(),
-        uid=user_id,
+        uid=uid,
     )
 
     await sync_to_async(UserService.set_roles)(user=user, roles=payload.roles)

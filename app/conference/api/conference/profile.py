@@ -53,12 +53,6 @@ class UserConferenceProfileResponse(BaseUserConferenceProfileSchema):
         ]
 
 
-async def get_visible_conference(user: User, conference_name: str) -> Conference:
-    """Get a conference visible to the user."""
-    conferences = await ConferenceService.visible_conferences(user)
-    return await aget_object_or_404(conferences, name=conference_name)
-
-
 @router.get(
     "/conferences/{slug:conference_name}/users/me/profile",
     response=UserConferenceProfileResponse,
@@ -71,7 +65,10 @@ async def get_current_user_conference_profile(
 ) -> UserConferenceProfile:
     """Return the current user's profile for the given conference."""
     user = await request.auser()
-    conference = await get_visible_conference(user, conference_name)
+    conference = await aget_object_or_404(
+        await ConferenceService.visible_conferences(user),
+        name=conference_name,
+    )
 
     profile = await UserConferenceProfileService.get_or_create_profile(
         user=user,
@@ -81,7 +78,7 @@ async def get_current_user_conference_profile(
 
 
 @router.get(
-    "/conferences/{slug:conference_name}/users/{ulid:user_id}/profile",
+    "/conferences/{slug:conference_name}/users/{ulid:user_uid}/profile",
     response=UserConferenceProfileResponse,
     summary="Get User Conference Profile",
     auth=(
@@ -92,14 +89,17 @@ async def get_current_user_conference_profile(
 async def get_user_conference_profile(
     request: AuthedHttpRequest,
     conference_name: str,
-    user_id: ULID,
+    user_uid: ULID,
 ) -> UserConferenceProfile:
     """Return a user's profile for the given conference."""
     conference = await aget_object_or_404(
         Conference.objects.active(),
         name=conference_name,
     )
-    user = await aget_object_or_404(User.objects.active(), uid=user_id)
+    user = await aget_object_or_404(
+        User.objects.active(),
+        uid=user_uid,
+    )
 
     profile = await UserConferenceProfileService.get_or_create_profile(
         user=user,
@@ -126,7 +126,10 @@ async def update_current_user_conference_profile(
 ) -> UserConferenceProfile:
     """Update the current user's profile for the given conference."""
     user = await request.auser()
-    conference = await get_visible_conference(user, conference_name)
+    conference = await aget_object_or_404(
+        await ConferenceService.visible_conferences(user),
+        name=conference_name,
+    )
 
     profile = await UserConferenceProfileService.get_or_create_profile(
         user=user,
@@ -156,7 +159,7 @@ async def update_current_user_conference_profile(
 
 
 @router.patch(
-    "/conferences/{slug:conference_name}/users/{ulid:user_id}/profile",
+    "/conferences/{slug:conference_name}/users/{ulid:user_uid}/profile",
     response=UserConferenceProfileResponse,
     summary="Update User Conference Profile",
     auth=(
@@ -167,7 +170,7 @@ async def update_current_user_conference_profile(
 async def update_user_conference_profile(
     request: AuthedHttpRequest,
     conference_name: str,
-    user_id: ULID,
+    user_uid: ULID,
     payload: PatchDict[UserConferenceProfileSchema],
 ) -> UserConferenceProfile:
     """Update a user's profile for the given conference."""
@@ -177,7 +180,7 @@ async def update_user_conference_profile(
     )
     user = await aget_object_or_404(
         User.objects.active(),
-        uid=user_id,
+        uid=user_uid,
     )
 
     profile = await UserConferenceProfileService.get_or_create_profile(

@@ -59,8 +59,10 @@ async def delete_my_paper(
         name=conference_name,
     )
 
-    papers = conference.papers.active().filter(owner=user)
-    paper = await aget_object_or_404(papers, code=paper_code)
+    paper = await aget_object_or_404(
+        conference.papers.active().filter(owner=user),
+        code=paper_code,
+    )
 
     if paper.state not in (Paper.State.DRAFT, Paper.State.SUBMITTED):
         raise HttpError(
@@ -115,8 +117,10 @@ async def delete_paper(
         name=conference_name,
     )
 
-    papers = await PaperService.visible_papers(conference, user)
-    paper = await aget_object_or_404(papers, code=paper_code)
+    paper = await aget_object_or_404(
+        await PaperService.visible_papers(conference, user),
+        code=paper_code,
+    )
 
     ctx = await ConferenceAccessService.context(
         conference=conference,

@@ -32,8 +32,10 @@ async def list_my_papers(
     decision is announced.
     """
     user = await request.auser()
-    conferences = await ConferenceService.visible_conferences(user)
-    conference = await aget_object_or_404(conferences, name=conference_name)
+    conference = await aget_object_or_404(
+        await ConferenceService.visible_conferences(user),
+        name=conference_name,
+    )
 
     papers = conference.papers.active().filter(owner=user)
 

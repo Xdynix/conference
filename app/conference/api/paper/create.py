@@ -58,8 +58,10 @@ async def persist_paper_entry(
             enabled. "admin" allows submission to open tracks or to closed tracks where
             the user has admin permission.
     """
-    conferences = await ConferenceService.visible_conferences(user)
-    conference = await aget_object_or_404(conferences, name=conference_name)
+    conference = await aget_object_or_404(
+        await ConferenceService.visible_conferences(user),
+        name=conference_name,
+    )
 
     tracks = await ConferenceService.visible_tracks(user)
     try:

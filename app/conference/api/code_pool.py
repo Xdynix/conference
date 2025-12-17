@@ -134,7 +134,7 @@ class CodePoolSchema(Schema):
 
 
 @router.patch(
-    "/conferences/{slug:conference_name}/code-pools/{ulid:code_pool_id}",
+    "/conferences/{slug:conference_name}/code-pools/{ulid:code_pool_uid}",
     response=CodePoolResponse,
     summary="Update Code Pool",
     auth=(
@@ -144,7 +144,7 @@ class CodePoolSchema(Schema):
 async def update_code_pool(
     request: AuthedHttpRequest,
     conference_name: str,
-    code_pool_id: ULID,
+    code_pool_uid: ULID,
     payload: PatchDict[CodePoolSchema],
 ) -> CodePool:
     """Update a code pool's name or prefix."""
@@ -154,7 +154,7 @@ async def update_code_pool(
     )
     pool = await aget_object_or_404(
         CodePool.objects.filter(conference=conference),
-        uid=code_pool_id,
+        uid=code_pool_uid,
     )
 
     update_fields: list[str] = []
@@ -183,7 +183,7 @@ async def update_code_pool(
 
 
 @router.delete(
-    "/conferences/{slug:conference_name}/code-pools/{ulid:code_pool_id}",
+    "/conferences/{slug:conference_name}/code-pools/{ulid:code_pool_uid}",
     response={HTTPStatus.NO_CONTENT: None},
     summary="Delete Code Pool",
     auth=(
@@ -193,8 +193,8 @@ async def update_code_pool(
 async def delete_code_pool(
     request: AuthedHttpRequest,
     conference_name: str,
-    code_pool_id: ULID,
-) -> tuple[HTTPStatus, None]:
+    code_pool_uid: ULID,
+) -> tuple[int, None]:
     """Delete a code pool.
 
     Fails if any tracks are still referencing this pool.
@@ -205,7 +205,7 @@ async def delete_code_pool(
     )
     pool = await aget_object_or_404(
         CodePool.objects.filter(conference=conference),
-        uid=code_pool_id,
+        uid=code_pool_uid,
     )
 
     try:
@@ -219,7 +219,7 @@ async def delete_code_pool(
     user = await request.auser()
     logger.info(
         "Code pool deleted.",
-        code_pool_uid=code_pool_id,
+        code_pool_uid=code_pool_uid,
         conference_name=conference.name,
         actor_uid=user.uid,
     )

@@ -32,8 +32,10 @@ async def get_my_paper(
         name=conference_name,
     )
 
-    papers = conference.papers.active().filter(owner=user)
-    paper = await aget_object_or_404(papers, code=paper_code)
+    paper = await aget_object_or_404(
+        conference.papers.active().filter(owner=user),
+        code=paper_code,
+    )
 
     return await prefetch_paper(paper)
 
@@ -67,7 +69,9 @@ async def get_paper(
         name=conference_name,
     )
 
-    papers = await PaperService.visible_papers(conference, user)
-    paper = await aget_object_or_404(papers, code=paper_code)
+    paper = await aget_object_or_404(
+        await PaperService.visible_papers(conference, user),
+        code=paper_code,
+    )
 
     return await prefetch_paper(paper)

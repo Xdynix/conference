@@ -12,7 +12,7 @@ from .core import InvitationResponse, router, with_invitation_prefetch
 
 
 @router.get(
-    "/conferences/{slug:conference_name}/invitations/{ulid:invitation_id}",
+    "/conferences/{slug:conference_name}/invitations/{ulid:invitation_uid}",
     response=InvitationResponse,
     summary="Get Invitation",
     auth=(
@@ -26,7 +26,7 @@ from .core import InvitationResponse, router, with_invitation_prefetch
 async def get_invitation(
     request: AuthedHttpRequest,
     conference_name: str,
-    invitation_id: ULID,
+    invitation_uid: ULID,
 ) -> Invitation:
     """Retrieve a single invitation."""
     user = await request.auser()
@@ -39,5 +39,5 @@ async def get_invitation(
 
     return await aget_object_or_404(
         with_invitation_prefetch(invitations),
-        uid=invitation_id,
+        uid=invitation_uid,
     )

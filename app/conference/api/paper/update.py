@@ -94,8 +94,10 @@ async def update_my_paper(
         name=conference_name,
     )
 
-    papers = conference.papers.active().filter(owner=user)
-    paper = await aget_object_or_404(papers, code=paper_code)
+    paper = await aget_object_or_404(
+        conference.papers.active().filter(owner=user),
+        code=paper_code,
+    )
 
     if paper.state != Paper.State.DRAFT:
         raise HttpError(
@@ -150,9 +152,8 @@ async def update_paper(
         name=conference_name,
     )
 
-    papers = await PaperService.visible_papers(conference, user)
     paper = await aget_object_or_404(
-        papers.select_related("conference"),
+        await PaperService.visible_papers(conference, user),
         code=paper_code,
     )
 

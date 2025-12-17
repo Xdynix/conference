@@ -66,8 +66,10 @@ def has_any_conference_roles(
             )
             return False
 
-        conferences = await ConferenceService.visible_conferences(user)
-        conference = await aget_object_or_404(conferences, name=conference_name)
+        conference = await aget_object_or_404(
+            await ConferenceService.visible_conferences(user),
+            name=conference_name,
+        )
         return await conference.role_assignments.filter(
             user=user,
             role__in=roles,
@@ -123,9 +125,8 @@ def has_any_track_roles(
             )
             return False
 
-        conferences = await ConferenceService.visible_conferences(user)
         conference = await aget_object_or_404(
-            conferences,
+            await ConferenceService.visible_conferences(user),
             name=conference_name,
         )
         tracks = await ConferenceService.visible_tracks(user)
@@ -187,8 +188,10 @@ def has_any_conference_or_track_roles(
             )
             return False
 
-        conferences = await ConferenceService.visible_conferences(user)
-        conference = await aget_object_or_404(conferences, name=conference_name)
+        conference = await aget_object_or_404(
+            await ConferenceService.visible_conferences(user),
+            name=conference_name,
+        )
 
         # Split roles by type.
         conference_roles = [r for r in roles if isinstance(r, ConferenceRole)]

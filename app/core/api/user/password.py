@@ -67,14 +67,14 @@ class UpdateUserPasswordRequest(Schema):
 
 
 @router.put(
-    "/users/{ulid:user_id}/password",
+    "/users/{ulid:uid}/password",
     response={HTTPStatus.NO_CONTENT: None},
     summary="Change Password",
     auth=has_any_roles(GlobalRole.ADMIN),
 )
 async def update_user_password(
     request: AuthedHttpRequest,
-    user_id: ULID,
+    uid: ULID,
     payload: UpdateUserPasswordRequest,
 ) -> tuple[int, None]:
     """Change a user's password by admin.
@@ -83,7 +83,7 @@ async def update_user_password(
     """
     user = await aget_object_or_404(
         User.objects.active().non_superuser(),
-        uid=user_id,
+        uid=uid,
     )
 
     try:

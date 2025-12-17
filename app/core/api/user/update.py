@@ -73,7 +73,7 @@ class UpdateUserRequest(Schema):
 
 
 @router.patch(
-    "/users/{ulid:user_id}",
+    "/users/{ulid:uid}",
     response={
         HTTPStatus.OK: UserResponse,
         HTTPStatus.CONFLICT: ErrorResponse,
@@ -83,7 +83,7 @@ class UpdateUserRequest(Schema):
 )
 async def update_user(
     request: AuthedHttpRequest,
-    user_id: ULID,
+    uid: ULID,
     payload: UpdateUserRequest,
 ) -> dict[str, Any]:
     """Update a user's username and/or email by admin.
@@ -95,7 +95,7 @@ async def update_user(
     """
     user = await aget_object_or_404(
         User.objects.active().non_superuser(),
-        uid=user_id,
+        uid=uid,
     )
 
     try:
