@@ -210,7 +210,7 @@ def paper_submission_path(instance: "PaperSubmission", filename: str) -> str:
     return f"{paper.conference.name}/{paper.code}/{filename}"
 
 
-class PaperSubmission(TimeStampedModel):
+class PaperSubmission(TimeStampedModel, ULIDModel):
     paper = models.ForeignKey(
         Paper,
         on_delete=models.CASCADE,
@@ -218,8 +218,18 @@ class PaperSubmission(TimeStampedModel):
         related_query_name="submission",
         verbose_name=_("paper"),
     )
-    revision = models.PositiveIntegerField(_("revision"))
+    revision = models.PositiveIntegerField(_("revision"), default=0)
     file = models.FileField(_("file"), upload_to=paper_submission_path)
+    uploader = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        default=None,
+        related_name="uploaded_submissions",
+        related_query_name="uploaded_submission",
+        verbose_name=_("uploader"),
+    )
 
     class Meta:
         verbose_name = _("paper submission")
@@ -250,7 +260,7 @@ def paper_final_viewable_path(instance: "PaperFinal", filename: str) -> str:
     return f"{paper.conference.name}/{paper.code}/{filename}"
 
 
-class PaperFinal(TimeStampedModel):
+class PaperFinal(TimeStampedModel, ULIDModel):
     paper = models.ForeignKey(
         Paper,
         on_delete=models.CASCADE,
@@ -258,12 +268,22 @@ class PaperFinal(TimeStampedModel):
         related_query_name="final",
         verbose_name=_("paper"),
     )
-    revision = models.PositiveIntegerField(_("revision"))
+    revision = models.PositiveIntegerField(_("revision"), default=0)
     source_file = models.FileField(_("source file"), upload_to=paper_final_source_path)
     viewable_file = models.FileField(
         _("viewable file"),
         upload_to=paper_final_viewable_path,
         blank=True,
+    )
+    uploader = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        default=None,
+        related_name="uploaded_finals",
+        related_query_name="uploaded_final",
+        verbose_name=_("uploader"),
     )
 
     class Meta:
@@ -286,7 +306,7 @@ def paper_document_path(instance: "PaperDocument", filename: str) -> str:
     return f"{paper.conference.name}/{paper.code}/doc-{filename}"
 
 
-class PaperDocument(TimeStampedModel):
+class PaperDocument(TimeStampedModel, ULIDModel):
     class Type(models.TextChoices):
         ACCEPTANCE_LETTER = "acceptance_letter", _("Acceptance Letter")
         OTHER = "other", _("Other")
