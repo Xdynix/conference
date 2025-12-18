@@ -176,6 +176,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Email
 
 EMAIL_BACKEND = "mailer.backend.DbBackend"
+# TODO: Add prod check for the setting.
 
 MAILER_EMAIL_BACKEND: str = config(
     "EMAIL_BACKEND",
@@ -257,6 +258,8 @@ MUTEX_RETENTION = config("MUTEX_RETENTION", default=7, cast=days)
 
 # Cloudflare Turnstile
 
+# TODO: Add prod check for the settings.
+
 CF_TURNSTILE_MODE: CFTurnstileMode = config(
     "CF_TURNSTILE_MODE",
     default=CFTurnstileMode.STRICT,
@@ -336,6 +339,7 @@ PASSWORD_RESET_TOKEN_RETENTION = config(
 )
 
 PASSWORD_RESET_PAGE_URL = config("PASSWORD_RESET_PAGE_URL", default="")
+# TODO: Add prod check for the URL setting.
 
 
 # Conference

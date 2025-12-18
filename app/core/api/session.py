@@ -77,6 +77,7 @@ async def create_session(
     payload: CreateSessionRequest,
 ) -> Session:
     """Log a user in."""
+    # TODO: Support email as login.
     user = await aauthenticate(
         request,
         username=payload.username,
