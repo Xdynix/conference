@@ -15,6 +15,8 @@ from app.conference.models import (
     Keyword,
     Paper,
     PaperAuthor,
+    PaperFinal,
+    PaperSubmission,
     Profile,
     Track,
     TrackRole,
@@ -97,6 +99,17 @@ class TestGetMyPaper:
             corresponding=True,
             ordering=1,
         )
+        submission = PaperSubmission.objects.create(
+            paper=paper,
+            revision=1,
+            file="submission.pdf",
+        )
+        final = PaperFinal.objects.create(
+            paper=paper,
+            revision=1,
+            source_file="final-source.zip",
+            viewable_file="final-viewable.pdf",
+        )
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name, paper.code))
@@ -135,6 +148,15 @@ class TestGetMyPaper:
                     "corresponding": True,
                 },
             ],
+            "submission": {
+                "uid": str(submission.uid),
+                "display_name": f"{paper.code}.pdf",
+            },
+            "final": {
+                "uid": str(final.uid),
+                "display_name": f"{paper.code}.zip",
+                "viewable_display_name": f"{paper.code}-viewable.pdf",
+            },
             "create_time": any_str,
         }
 
@@ -318,6 +340,78 @@ class TestGetMyPaper:
         assert data["state"] == "Withdrawn"
         assert data["withdraw_time"] is not None
 
+    def test_no_submission_or_final(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert "submission" not in data
+        assert "final" not in data
+
+    def test_returns_latest_revision(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        PaperSubmission.objects.create(
+            paper=paper,
+            revision=1,
+            file="old.pdf",
+        )
+        latest_submission = PaperSubmission.objects.create(
+            paper=paper,
+            revision=2,
+            file="latest.pdf",
+        )
+        PaperFinal.objects.create(
+            paper=paper,
+            revision=1,
+            source_file="old.zip",
+        )
+        latest_final = PaperFinal.objects.create(
+            paper=paper,
+            revision=2,
+            source_file="latest.zip",
+        )
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["submission"]["uid"] == str(latest_submission.uid)
+        assert data["final"]["uid"] == str(latest_final.uid)
+
+    def test_final_without_viewable_file(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        PaperFinal.objects.create(
+            paper=paper,
+            revision=1,
+            source_file="source.zip",
+        )
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert "viewable_display_name" not in data["final"]
+
 
 @pytest.fixture
 def mock_visible_papers(mocker: MockerFixture) -> AsyncMock:
@@ -370,6 +464,17 @@ class TestGetPaper:
             email="alice@example.com",
             ordering=0,
         )
+        submission = PaperSubmission.objects.create(
+            paper=paper,
+            revision=1,
+            file="submission.pdf",
+        )
+        final = PaperFinal.objects.create(
+            paper=paper,
+            revision=1,
+            source_file="final-source.zip",
+            viewable_file="final-viewable.pdf",
+        )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         api_client.force_login(conference_admin)
 
@@ -411,6 +516,15 @@ class TestGetPaper:
                     "corresponding": False,
                 },
             ],
+            "submission": {
+                "uid": str(submission.uid),
+                "display_name": f"{paper.code}.pdf",
+            },
+            "final": {
+                "uid": str(final.uid),
+                "display_name": f"{paper.code}.zip",
+                "viewable_display_name": f"{paper.code}-viewable.pdf",
+            },
             "create_time": any_str,
         }
 

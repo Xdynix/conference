@@ -15,6 +15,8 @@ from app.conference.models import (
     ConferenceRoleAssignment,
     Paper,
     PaperAuthor,
+    PaperFinal,
+    PaperSubmission,
     Profile,
     Track,
     TrackRole,
@@ -103,6 +105,17 @@ class TestListMyPapers:
             email="alice@example.com",
             ordering=0,
         )
+        submission = PaperSubmission.objects.create(
+            paper=paper,
+            revision=1,
+            file="submission.pdf",
+        )
+        final = PaperFinal.objects.create(
+            paper=paper,
+            revision=1,
+            source_file="final-source.zip",
+            viewable_file="final-viewable.pdf",
+        )
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name))
@@ -141,6 +154,15 @@ class TestListMyPapers:
                             "corresponding": True,
                         },
                     ],
+                    "submission": {
+                        "uid": str(submission.uid),
+                        "display_name": f"{paper.code}.pdf",
+                    },
+                    "final": {
+                        "uid": str(final.uid),
+                        "display_name": f"{paper.code}.zip",
+                        "viewable_display_name": f"{paper.code}-viewable.pdf",
+                    },
                 },
             ],
         }
@@ -419,6 +441,17 @@ class TestListPapers:
             email="alice@example.com",
             ordering=0,
         )
+        submission = PaperSubmission.objects.create(
+            paper=paper,
+            revision=1,
+            file="submission.pdf",
+        )
+        final = PaperFinal.objects.create(
+            paper=paper,
+            revision=1,
+            source_file="final-source.zip",
+            viewable_file="final-viewable.pdf",
+        )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         api_client.force_login(conference_admin)
 
@@ -460,6 +493,15 @@ class TestListPapers:
                             "corresponding": False,
                         },
                     ],
+                    "submission": {
+                        "uid": str(submission.uid),
+                        "display_name": f"{paper.code}.pdf",
+                    },
+                    "final": {
+                        "uid": str(final.uid),
+                        "display_name": f"{paper.code}.zip",
+                        "viewable_display_name": f"{paper.code}-viewable.pdf",
+                    },
                 },
             ],
         }
