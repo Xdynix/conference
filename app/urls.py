@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import include, path, register_converter
 from ulid_django.converters import ULIDConverter
 
+from app.admin.views import media
 from app.api import api
 from app.misc.views import favicon
 
@@ -13,4 +14,5 @@ urlpatterns = [
     path("api/", api.urls),
     path("core/", include("app.core.urls")),
     path("turnstile/", include("app.turnstile.urls")),
+    path("media/<path:path>", media, name="media"),
 ]

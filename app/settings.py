@@ -152,11 +152,11 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static Files
+# Static Files and File Upload
 
 STATIC_ROOT: str = config("STATIC_ROOT", default=DATA_DIR / "static", cast=str)
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 
 STORAGES = {
     "default": {
@@ -166,6 +166,10 @@ STORAGES = {
         "BACKEND": "servestatic.storage.CompressedManifestStaticFilesStorage",
     },
 }
+
+MEDIA_ROOT: Path = config("MEDIA_ROOT", default=DATA_DIR / "media", cast=Path)
+
+MEDIA_URL = "/media/"
 
 
 # Misc
