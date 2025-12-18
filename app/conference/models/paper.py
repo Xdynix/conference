@@ -245,6 +245,11 @@ class PaperSubmission(TimeStampedModel, ULIDModel):
     def __str__(self) -> str:
         return f"{self.paper} rev{self.revision}"
 
+    @property
+    def display_name(self) -> str:
+        ext = Path(self.file.name).suffix.lower()
+        return f"{self.paper.code}{ext}"
+
 
 def paper_final_source_path(instance: "PaperFinal", filename: str) -> str:
     ext = Path(filename).suffix.lower()[:10]
@@ -300,10 +305,25 @@ class PaperFinal(TimeStampedModel, ULIDModel):
     def __str__(self) -> str:
         return f"{self.paper} final rev{self.revision}"
 
+    @property
+    def display_name(self) -> str:
+        ext = Path(self.source_file.name).suffix.lower()
+        return f"{self.paper.code}{ext}"
+
+    @property
+    def viewable_display_name(self) -> str | None:
+        if not self.viewable_file:
+            return None
+        ext = Path(self.viewable_file.name).suffix.lower()
+        return f"{self.paper.code}-viewable{ext}"
+
+
+PAPER_DOCUMENT_PREFIX = "doc-"
+
 
 def paper_document_path(instance: "PaperDocument", filename: str) -> str:
     paper = instance.paper
-    return f"{paper.conference.name}/{paper.code}/doc-{filename}"
+    return f"{paper.conference.name}/{paper.code}/{PAPER_DOCUMENT_PREFIX}{filename}"
 
 
 class PaperDocument(TimeStampedModel, ULIDModel):
@@ -327,3 +347,11 @@ class PaperDocument(TimeStampedModel, ULIDModel):
 
     def __str__(self) -> str:
         return f"{self.paper} {self.get_type_display()}"
+
+    @property
+    def display_name(self) -> str:
+        filename = Path(self.file.name).name
+        if self.type == self.Type.ACCEPTANCE_LETTER:
+            ext = Path(filename).suffix.lower()
+            return f"{self.paper.code}-acceptance-letter{ext}"
+        return filename.removeprefix(PAPER_DOCUMENT_PREFIX)

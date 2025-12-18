@@ -339,6 +339,18 @@ class TestPaperSubmission:
         submissions = list(PaperSubmission.objects.filter(paper=paper))
         assert submissions == [sub3, sub2, sub1]
 
+    def test_display_name(self, paper: Paper) -> None:
+        submission = PaperSubmission(paper=paper, file="submission-rev1.pdf")
+        assert submission.display_name == f"{paper.code}.pdf"
+
+    def test_display_name_lowercases_extension(self, paper: Paper) -> None:
+        submission = PaperSubmission(paper=paper, file="submission-rev1.PDF")
+        assert submission.display_name == f"{paper.code}.pdf"
+
+    def test_display_name_without_extension(self, paper: Paper) -> None:
+        submission = PaperSubmission(paper=paper, file="submission-rev1")
+        assert submission.display_name == paper.code
+
 
 @pytest.mark.django_db
 class TestPaperSubmissionPath:
@@ -428,6 +440,40 @@ class TestPaperFinal:
         )
         assert not final.viewable_file
 
+    def test_display_name(self, paper: Paper) -> None:
+        final = PaperFinal(
+            paper=paper,
+            source_file="final-rev1-source.zip",
+            viewable_file="final-rev1-viewable.pdf",
+        )
+        assert final.display_name == f"{paper.code}.zip"
+        assert final.viewable_display_name == f"{paper.code}-viewable.pdf"
+
+    def test_display_name_lowercases_extension(self, paper: Paper) -> None:
+        final = PaperFinal(
+            paper=paper,
+            source_file="final-rev1-source.zip",
+            viewable_file="final-rev1-viewable.PDF",
+        )
+        assert final.display_name == f"{paper.code}.zip"
+        assert final.viewable_display_name == f"{paper.code}-viewable.pdf"
+
+    def test_display_name_without_extension(self, paper: Paper) -> None:
+        final = PaperFinal(
+            paper=paper,
+            source_file="final-rev1-source",
+            viewable_file="final-rev1-viewable",
+        )
+        assert final.display_name == paper.code
+        assert final.viewable_display_name == f"{paper.code}-viewable"
+
+    def test_viewable_display_name_returns_none_when_not_set(
+        self,
+        paper: Paper,
+    ) -> None:
+        final = PaperFinal(paper=paper, source_file="final-rev1-source.zip")
+        assert final.viewable_display_name is None
+
 
 @pytest.mark.django_db
 class TestPaperFinalPath:
@@ -475,6 +521,41 @@ class TestPaperDocument:
             file="doc2.pdf",
         )
         assert PaperDocument.objects.filter(paper=paper).count() == 2
+
+    def test_display_name_acceptance_letter(self, paper: Paper) -> None:
+        doc = PaperDocument(
+            paper=paper,
+            type=PaperDocument.Type.ACCEPTANCE_LETTER,
+            file="doc-letter.pdf",
+        )
+        assert doc.display_name == f"{paper.code}-acceptance-letter.pdf"
+
+    def test_display_name_acceptance_letter_lowercases_extension(
+        self,
+        paper: Paper,
+    ) -> None:
+        doc = PaperDocument(
+            paper=paper,
+            type=PaperDocument.Type.ACCEPTANCE_LETTER,
+            file="doc-letter.PDF",
+        )
+        assert doc.display_name == f"{paper.code}-acceptance-letter.pdf"
+
+    def test_display_name_other_strips_prefix(self, paper: Paper) -> None:
+        doc = PaperDocument(
+            paper=paper,
+            type=PaperDocument.Type.OTHER,
+            file="doc-my-document.pdf",
+        )
+        assert doc.display_name == "my-document.pdf"
+
+    def test_display_name_other_without_prefix(self, paper: Paper) -> None:
+        doc = PaperDocument(
+            paper=paper,
+            type=PaperDocument.Type.OTHER,
+            file="my-document.pdf",
+        )
+        assert doc.display_name == "my-document.pdf"
 
 
 @pytest.mark.django_db
