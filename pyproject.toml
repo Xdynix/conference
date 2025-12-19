@@ -14,6 +14,7 @@ dependencies = [
     "ipython>=9.4.0",
     "jinja2>=3.1.6",
     "loguru>=0.7.3",
+    "magika>=1.0.1",
     "orjson>=3.11.0",
     "pydantic[email]>=2.11.7",
     "python-decouple>=3.8",

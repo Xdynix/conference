@@ -1,4 +1,5 @@
 from functools import partial
+from pathlib import Path
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -72,3 +73,8 @@ def mock_cf_turnstile(mocker: MockerFixture) -> MagicMock:
         "app.utils.cf_turnstile.decorators.check_cf_turnstile_response",
         return_value=None,
     )
+
+
+@pytest.fixture
+def test_data_dir() -> Path:
+    return Path(__file__).parent / "data"
