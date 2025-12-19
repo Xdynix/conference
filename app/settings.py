@@ -158,6 +158,8 @@ STATIC_ROOT: str = config("STATIC_ROOT", default=DATA_DIR / "static", cast=str)
 
 STATIC_URL = "/static/"
 
+# NOTE: File handling code assumes local filesystem storage. When switching to cloud
+# storage (S3, GCS, etc.), audit file operations (deletion, validation, etc.).
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
