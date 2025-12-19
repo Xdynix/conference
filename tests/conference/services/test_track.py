@@ -1,20 +1,11 @@
 from itertools import pairwise
 
 import pytest
-from faker import Faker
 from ulid import ULID
 
 from app.conference.models import Conference, Track
 from app.conference.services import TrackService
 from tests.helpers import a_update_object, update_object
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-    )
 
 
 @pytest.fixture

@@ -1,16 +1,8 @@
 import pytest
-from faker import Faker
 from pytest_mock import MockerFixture
 
-from app.conference.models import (
-    Conference,
-    Keyword,
-    UserConferenceProfile,
-)
-from app.conference.services import (
-    KeywordService,
-    UserConferenceProfileService,
-)
+from app.conference.models import Conference, Keyword, UserConferenceProfile
+from app.conference.services import KeywordService, UserConferenceProfileService
 from app.core.models import User
 
 
@@ -23,21 +15,8 @@ async def create_keywords(*texts: str) -> list[Keyword]:
 
 
 @pytest.fixture
-async def user(faker: Faker) -> User:
-    return await User.objects.acreate_user(username=faker.user_name())
-
-
-@pytest.fixture
-async def conference(faker: Faker) -> Conference:
-    return await Conference.objects.acreate(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-    )
-
-
-@pytest.fixture
-async def profile(user: User, conference: Conference) -> UserConferenceProfile:
-    return await UserConferenceProfile.objects.acreate(
+def profile(user: User, conference: Conference) -> UserConferenceProfile:
+    return UserConferenceProfile.objects.create(
         user=user,
         conference=conference,
         desired_paper_count=5,

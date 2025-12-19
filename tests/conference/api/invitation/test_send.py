@@ -27,35 +27,9 @@ from app.core.models import GlobalRole, GlobalRoleAssignment, User
 
 
 @pytest.fixture(autouse=True)
-def invitation_page_uris(settings: LazySettings) -> None:
+def invitation_page_urls(settings: LazySettings) -> None:
     settings.INVITATION_ACCEPT_PAGE_URL = "https://example.com/accept"
     settings.INVITATION_REJECT_PAGE_URL = "https://example.com/reject"
-
-
-@pytest.fixture
-def global_admin(faker: Faker) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-    return user
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
-def invitation(faker: Faker, conference: Conference) -> Invitation:
-    return Invitation.objects.create(
-        conference=conference,
-        invitee_email=faker.email(),
-        given_name=faker.first_name(),
-        family_name=faker.last_name(),
-    )
 
 
 @pytest.mark.django_db

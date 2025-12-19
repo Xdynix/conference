@@ -28,28 +28,6 @@ from app.utils.enums import Region
 from tests.helpers import any_str, update_object
 
 
-@pytest.fixture
-def user(faker: Faker) -> User:
-    return User.objects.create_user(username=faker.user_name())
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
-def track(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-    )
-
-
 def create_paper(
     conference: Conference,
     track: Track,
@@ -394,17 +372,6 @@ def mock_visible_papers(mocker: MockerFixture) -> AsyncMock:
     return mocker.patch.object(PaperService, "visible_papers")
 
 
-@pytest.fixture
-def conference_admin(faker: Faker, conference: Conference) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    ConferenceRoleAssignment.objects.create(
-        conference=conference,
-        user=user,
-        role=ConferenceRole.CHAIR,
-    )
-    return user
-
-
 @pytest.mark.django_db
 class TestListPapers:
     @classmethod
@@ -416,12 +383,12 @@ class TestListPapers:
         api_client: Client,
         conference: Conference,
         track: Track,
-        conference_admin: User,
+        conference_chair: User,
         mock_visible_papers: AsyncMock,
     ) -> None:
-        update_object(conference_admin, email="admin@example.com")
+        update_object(conference_chair, email="admin@example.com")
         Profile.objects.create(
-            user=conference_admin,
+            user=conference_chair,
             given_name="Bob",
             family_name="Doe",
             affiliation="Organization",
@@ -430,7 +397,7 @@ class TestListPapers:
         paper = create_paper(
             conference,
             track,
-            conference_admin,
+            conference_chair,
             state=Paper.State.ACCEPTED,
         )
         PaperAuthor.objects.create(
@@ -453,7 +420,7 @@ class TestListPapers:
             viewable_file="final-viewable.pdf",
         )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.OK
@@ -472,7 +439,7 @@ class TestListPapers:
                     "state": Paper.State.ACCEPTED,
                     "visible_state": Paper.State.UNDER_REVIEW,
                     "owner": {
-                        "uid": str(conference_admin.uid),
+                        "uid": str(conference_chair.uid),
                         "email": "admin@example.com",
                         "profile": {
                             "given_name": "Bob",
@@ -506,20 +473,20 @@ class TestListPapers:
             ],
         }
 
-        mock_visible_papers.assert_awaited_once_with(conference, conference_admin)
+        mock_visible_papers.assert_awaited_once_with(conference, conference_chair)
 
     def test_withdrawn_paper(
         self,
         api_client: Client,
         conference: Conference,
         track: Track,
-        conference_admin: User,
+        conference_chair: User,
         mock_visible_papers: AsyncMock,
     ) -> None:
-        paper = create_paper(conference, track, conference_admin, code="CONF-001")
+        paper = create_paper(conference, track, conference_chair, code="CONF-001")
         update_object(paper, withdraw_time=timezone.now())
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.OK
@@ -533,11 +500,11 @@ class TestListPapers:
         self,
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
         mock_visible_papers: AsyncMock,
     ) -> None:
         mock_visible_papers.return_value = Paper.objects.filter(pk=-1)
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.OK
@@ -547,9 +514,9 @@ class TestListPapers:
     def test_conference_not_found(
         self,
         api_client: Client,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path("nonexistent-conference"))
         assert response.status_code == HTTPStatus.NOT_FOUND
@@ -558,14 +525,14 @@ class TestListPapers:
         self,
         faker: Faker,
         api_client: Client,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
         inactive_conference = Conference.objects.create(
             name=faker.slug(),
             display_name=faker.sentence(),
             active=False,
         )
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(inactive_conference.name))
         assert response.status_code == HTTPStatus.NOT_FOUND
@@ -575,18 +542,18 @@ class TestListPapers:
         api_client: Client,
         conference: Conference,
         track: Track,
-        conference_admin: User,
+        conference_chair: User,
         mock_visible_papers: AsyncMock,
     ) -> None:
         paper = create_paper(
             conference,
             track,
-            conference_admin,
+            conference_chair,
             state=Paper.State.REJECTED,
             announce_time=None,
         )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.OK

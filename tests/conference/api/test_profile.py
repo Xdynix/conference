@@ -7,7 +7,7 @@ from faker import Faker
 from ulid import ULID
 
 from app.conference.models import Profile
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from app.utils.enums import Region
 from tests.helpers import update_object
 
@@ -25,13 +25,6 @@ def profile_payload(faker: Faker) -> dict[str, str]:
 @pytest.mark.django_db
 class TestUpdateCurrentUserProfile:
     path = reverse("api-1.0.0:update-current-user-profile")
-
-    @pytest.fixture
-    def user(self, faker: Faker) -> User:
-        return User.objects.create_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
 
     def test_creates_profile_when_missing(
         self,
@@ -147,27 +140,14 @@ class TestUpdateProfile:
     def path(cls, user_id: ULID) -> str:
         return reverse("api-1.0.0:update-profile", args=[user_id])
 
-    @pytest.fixture
-    def admin_user(self, faker: Faker) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-        return user
-
-    @pytest.fixture
-    def user(self, faker: Faker) -> User:
-        return User.objects.create_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
-
     def test_admin_updates_profile(
         self,
         api_client: Client,
-        admin_user: User,
+        global_admin: User,
         user: User,
         profile_payload: dict[str, str],
     ) -> None:
-        api_client.force_login(admin_user)
+        api_client.force_login(global_admin)
 
         response = api_client.patch(
             self.path(user.uid),
@@ -184,11 +164,11 @@ class TestUpdateProfile:
         self,
         faker: Faker,
         api_client: Client,
-        admin_user: User,
+        global_admin: User,
         user: User,
     ) -> None:
         update_object(user, is_active=False)
-        api_client.force_login(admin_user)
+        api_client.force_login(global_admin)
 
         response = api_client.patch(
             self.path(user.uid),
@@ -216,10 +196,10 @@ class TestUpdateProfile:
     def test_empty_payload_does_not_create_profile(
         self,
         api_client: Client,
-        admin_user: User,
+        global_admin: User,
         user: User,
     ) -> None:
-        api_client.force_login(admin_user)
+        api_client.force_login(global_admin)
 
         response = api_client.patch(self.path(user.uid), data={})
         assert response.status_code == HTTPStatus.OK

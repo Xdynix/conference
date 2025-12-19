@@ -23,20 +23,6 @@ from tests.helpers import approx_now
 @pytest.mark.django_db
 class TestInvitationServiceCreateInvitation:
     @pytest.fixture
-    def track_a(self, faker: Faker, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name=faker.word(),
-        )
-
-    @pytest.fixture
-    def track_b(self, faker: Faker, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name=faker.word(),
-        )
-
-    @pytest.fixture
     def keyword_a(self, faker: Faker) -> Keyword:
         return Keyword.objects.create(text=faker.word())
 

@@ -4,38 +4,11 @@ from unittest.mock import MagicMock
 import pytest
 from django.test import Client
 from django.urls import reverse
-from faker import Faker
 from pytest_mock import MockerFixture
 
-from app.conference.models import Conference, ConferenceRole, ConferenceRoleAssignment
+from app.conference.models import Conference
 from app.conference.services import ConferenceService
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
-
-
-@pytest.fixture
-def global_admin(faker: Faker) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-    return user
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-    )
-
-
-@pytest.fixture
-def conference_chair(faker: Faker, conference: Conference) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    ConferenceRoleAssignment.objects.create(
-        conference=conference,
-        user=user,
-        role=ConferenceRole.CHAIR,
-    )
-    return user
+from app.core.models import User
 
 
 @pytest.fixture

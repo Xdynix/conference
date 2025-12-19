@@ -7,8 +7,10 @@ from pytest_mock import MockerFixture
 
 from app.utils.upload import (
     MAX_MEMORY_DETECTION_SIZE,
+    ExtensionMismatchError,
     FileTooLargeError,
     InvalidFileTypeError,
+    MissingFilenameError,
     get_magika,
     validate_upload,
 )
@@ -20,14 +22,16 @@ SAMPLE_ZIP = "sample.zip"
 SAMPLE_DOC = "sample.doc"
 SAMPLE_DOCX = "sample.docx"
 
-MOCK_RESULT_MIME_TYPE = "application/pdf"
+MOCK_MIME_PDF = "application/pdf"
+MOCK_ALLOWED_TYPES = {MOCK_MIME_PDF: [".pdf"]}
 
 
 @pytest.fixture
 def temp_uploaded_file(tmp_path: Path) -> MagicMock:
-    temp_file_path = tmp_path / "temp_upload"
+    temp_file_path = tmp_path / "temp_upload.pdf"
     temp_file_path.write_bytes(b"fake content")
     file = MagicMock(spec=TemporaryUploadedFile)
+    file.name = "upload.pdf"
     file.temporary_file_path.return_value = str(temp_file_path)
     return file
 
@@ -39,7 +43,7 @@ class TestValidateUpload:
         mocker.patch("app.utils.upload.get_magika", return_value=instance)
 
         result = MagicMock()
-        result.output.mime_type = MOCK_RESULT_MIME_TYPE
+        result.output.mime_type = MOCK_MIME_PDF
         instance.identify_bytes.return_value = result
         instance.identify_path.return_value = result
 
@@ -75,13 +79,24 @@ class TestValidateUpload:
         file.size = None
         validate_upload(file, max_size=1)
 
-    def test_skip_type_check_when_allowed_types_empty(
+    def test_skip_type_check_when_allowed_types_none(
         self,
         mock_magika: MagicMock,
     ) -> None:
         file = SimpleUploadedFile("test.txt", b"content")
 
-        validate_upload(file, allowed_types=())
+        validate_upload(file, allowed_types=None)
+
+        mock_magika.identify_bytes.assert_not_called()
+        mock_magika.identify_path.assert_not_called()
+
+    def test_skip_type_check_when_allowed_types_empty_dict(
+        self,
+        mock_magika: MagicMock,
+    ) -> None:
+        file = SimpleUploadedFile("test.txt", b"content")
+
+        validate_upload(file, allowed_types={})
 
         mock_magika.identify_bytes.assert_not_called()
         mock_magika.identify_path.assert_not_called()
@@ -91,7 +106,7 @@ class TestValidateUpload:
         temp_uploaded_file: MagicMock,
         mock_magika: MagicMock,
     ) -> None:
-        validate_upload(temp_uploaded_file, allowed_types=[MOCK_RESULT_MIME_TYPE])
+        validate_upload(temp_uploaded_file, allowed_types=MOCK_ALLOWED_TYPES)
         mock_magika.identify_path.assert_called_once_with(
             temp_uploaded_file.temporary_file_path()
         )
@@ -104,7 +119,7 @@ class TestValidateUpload:
         content = b"file content"
         file = SimpleUploadedFile("test.pdf", content)
 
-        validate_upload(file, allowed_types=[MOCK_RESULT_MIME_TYPE])
+        validate_upload(file, allowed_types=MOCK_ALLOWED_TYPES)
 
         mock_magika.identify_bytes.assert_called_once_with(content)
         mock_magika.identify_path.assert_not_called()
@@ -113,13 +128,14 @@ class TestValidateUpload:
         file = SimpleUploadedFile("test.pdf", b"content")
 
         file.seek(5)
-        validate_upload(file, allowed_types=[MOCK_RESULT_MIME_TYPE])
+        validate_upload(file, allowed_types=MOCK_ALLOWED_TYPES)
 
         assert file.tell() == 5
 
     def test_type_check_passes_when_mime_type_allowed(self) -> None:
         file = SimpleUploadedFile("test.pdf", b"content")
-        validate_upload(file, allowed_types=[MOCK_RESULT_MIME_TYPE, "other/mime"])
+        allowed = {MOCK_MIME_PDF: [".pdf"], "other/mime": [".other"]}
+        validate_upload(file, allowed_types=allowed)
 
     def test_type_check_fails_when_mime_type_not_allowed_for_in_memory_file(
         self,
@@ -129,7 +145,7 @@ class TestValidateUpload:
             InvalidFileTypeError,
             match="File type not allowed",
         ):
-            validate_upload(file, allowed_types=["disallowed/mime"])
+            validate_upload(file, allowed_types={"disallowed/mime": [".pdf"]})
 
     def test_type_check_fails_when_mime_type_not_allowed_for_temporary_file(
         self,
@@ -139,14 +155,15 @@ class TestValidateUpload:
             InvalidFileTypeError,
             match="File type not allowed",
         ):
-            validate_upload(temp_uploaded_file, allowed_types=["disallowed/mime"])
+            disallowed = {"disallowed/mime": [".pdf"]}
+            validate_upload(temp_uploaded_file, allowed_types=disallowed)
 
     def test_raises_runtime_error_when_in_memory_file_too_large(self) -> None:
         large_content = b"x" * (MAX_MEMORY_DETECTION_SIZE + 1)
         file = SimpleUploadedFile("large.bin", large_content)
 
         with pytest.raises(RuntimeError) as exc_info:
-            validate_upload(file, allowed_types=["application/octet-stream"])
+            validate_upload(file, allowed_types={"application/octet-stream": [".bin"]})
 
         error_msg = str(exc_info.value)
         assert "In-memory file too large" in error_msg
@@ -155,8 +172,8 @@ class TestValidateUpload:
 
     def test_accepts_file_at_memory_limit_boundary(self) -> None:
         boundary_content = b"x" * MAX_MEMORY_DETECTION_SIZE
-        file = SimpleUploadedFile("boundary.bin", boundary_content)
-        validate_upload(file, allowed_types=[MOCK_RESULT_MIME_TYPE])
+        file = SimpleUploadedFile("boundary.pdf", boundary_content)
+        validate_upload(file, allowed_types=MOCK_ALLOWED_TYPES)
 
     def test_size_checked_before_type(
         self,
@@ -165,14 +182,56 @@ class TestValidateUpload:
         file = SimpleUploadedFile("test.pdf", b"x" * 100)
 
         with pytest.raises(FileTooLargeError):
-            validate_upload(file, max_size=50, allowed_types=[MOCK_RESULT_MIME_TYPE])
+            validate_upload(file, max_size=50, allowed_types=MOCK_ALLOWED_TYPES)
 
         mock_magika.identify_bytes.assert_not_called()
         mock_magika.identify_path.assert_not_called()
 
     def test_both_checks_pass(self) -> None:
         file = SimpleUploadedFile("test.pdf", b"content")
-        validate_upload(file, max_size=100, allowed_types=[MOCK_RESULT_MIME_TYPE])
+        validate_upload(file, max_size=100, allowed_types=MOCK_ALLOWED_TYPES)
+
+    def test_missing_filename_raises_error(self) -> None:
+        file = MagicMock()
+        file.name = ""
+        file.size = 100
+        with pytest.raises(
+            MissingFilenameError,
+            match="Filename is required",
+        ):
+            validate_upload(file, allowed_types=MOCK_ALLOWED_TYPES)
+
+    def test_none_filename_raises_error(self) -> None:
+        file = MagicMock()
+        file.name = None
+        file.size = 100
+        with pytest.raises(
+            MissingFilenameError,
+            match="Filename is required",
+        ):
+            validate_upload(file, allowed_types=MOCK_ALLOWED_TYPES)
+
+    def test_missing_filename_not_checked_when_allowed_types_none(self) -> None:
+        file = MagicMock()
+        file.name = ""
+        file.size = 100
+        validate_upload(file, allowed_types=None)
+
+    def test_extension_mismatch_raises_error(self) -> None:
+        file = SimpleUploadedFile("document.txt", b"content")
+        with pytest.raises(
+            ExtensionMismatchError,
+            match="File extension does not match detected type",
+        ):
+            validate_upload(file, allowed_types=MOCK_ALLOWED_TYPES)
+
+    def test_extension_check_is_case_insensitive(self) -> None:
+        file = SimpleUploadedFile("document.PDF", b"content")
+        validate_upload(file, allowed_types=MOCK_ALLOWED_TYPES)
+
+    def test_extension_check_with_uppercase_in_allowed_types(self) -> None:
+        file = SimpleUploadedFile("document.pdf", b"content")
+        validate_upload(file, allowed_types={MOCK_MIME_PDF: [".PDF"]})
 
     def test_get_magika_returns_same_instance_on_multiple_calls(self) -> None:
         get_magika.cache_clear()
@@ -187,18 +246,18 @@ class TestValidateUploadE2E:
         get_magika.cache_clear()
 
     @pytest.mark.parametrize(
-        ("filename", "expected_mime_types"),
+        ("filename", "allowed_types"),
         [
-            (SAMPLE_PNG, ["image/png"]),
-            (SAMPLE_PDF, ["application/pdf"]),
-            (SAMPLE_ZIP, ["application/zip"]),
-            (SAMPLE_DOC, ["application/msword"]),
+            (SAMPLE_PNG, {"image/png": [".png"]}),
+            (SAMPLE_PDF, {"application/pdf": [".pdf"]}),
+            (SAMPLE_ZIP, {"application/zip": [".zip"]}),
+            (SAMPLE_DOC, {"application/msword": [".doc"]}),
             (
                 SAMPLE_DOCX,
-                [
+                {
                     "application/vnd.openxmlformats-officedocument"
-                    ".wordprocessingml.document"
-                ],
+                    ".wordprocessingml.document": [".docx"]
+                },
             ),
         ],
     )
@@ -206,7 +265,7 @@ class TestValidateUploadE2E:
         self,
         test_data_dir: Path,
         filename: str,
-        expected_mime_types: list[str],
+        allowed_types: dict[str, list[str]],
     ) -> None:
         file_path = test_data_dir / filename
         if not file_path.exists():
@@ -215,22 +274,23 @@ class TestValidateUploadE2E:
         content = file_path.read_bytes()
         file = SimpleUploadedFile(filename, content)
 
-        validate_upload(file, allowed_types=expected_mime_types)
+        validate_upload(file, allowed_types=allowed_types)
 
     @pytest.mark.parametrize(
-        ("filename", "disallowed_mime_type"),
+        ("filename", "disallowed_allowed_types"),
         [
-            (SAMPLE_PNG, "application/pdf"),
-            (SAMPLE_PDF, "image/png"),
-            (SAMPLE_ZIP, "text/plain"),
-            (SAMPLE_DOCX, "application/zip"),  # DOCX is ZIP-based but distinct.
+            (SAMPLE_PNG, {"application/pdf": [".png"]}),
+            (SAMPLE_PDF, {"image/png": [".pdf"]}),
+            (SAMPLE_ZIP, {"text/plain": [".zip"]}),
+            # DOCX is ZIP-based but Magika correctly distinguishes it.
+            (SAMPLE_DOCX, {"application/zip": [".docx"]}),
         ],
     )
     def test_magika_rejects_mismatched_types(
         self,
         test_data_dir: Path,
         filename: str,
-        disallowed_mime_type: str,
+        disallowed_allowed_types: dict[str, list[str]],
     ) -> None:
         file_path = test_data_dir / filename
         if not file_path.exists():
@@ -240,7 +300,7 @@ class TestValidateUploadE2E:
         file = SimpleUploadedFile(filename, content)
 
         with pytest.raises(InvalidFileTypeError):
-            validate_upload(file, allowed_types=[disallowed_mime_type])
+            validate_upload(file, allowed_types=disallowed_allowed_types)
 
     def test_magika_with_temporary_uploaded_file(
         self,
@@ -255,10 +315,11 @@ class TestValidateUploadE2E:
         temp_file_path.write_bytes(png_path.read_bytes())
 
         file = MagicMock(spec=TemporaryUploadedFile)
+        file.name = "upload.png"
         file.temporary_file_path.return_value = str(temp_file_path)
         file.size = temp_file_path.stat().st_size
 
-        validate_upload(file, allowed_types=["image/png"])
+        validate_upload(file, allowed_types={"image/png": [".png"]})
 
     def test_combined_size_and_type_validation(self, test_data_dir: Path) -> None:
         png_path = test_data_dir / SAMPLE_PNG
@@ -268,8 +329,16 @@ class TestValidateUploadE2E:
         content = png_path.read_bytes()
         file = SimpleUploadedFile(SAMPLE_PNG, content)
 
-        validate_upload(file, max_size=len(content) + 100, allowed_types=["image/png"])
+        validate_upload(
+            file,
+            max_size=len(content) + 100,
+            allowed_types={"image/png": [".png"]},
+        )
 
         small_file = SimpleUploadedFile(SAMPLE_PNG, content)
         with pytest.raises(FileTooLargeError):
-            validate_upload(small_file, max_size=10, allowed_types=["image/png"])
+            validate_upload(
+                small_file,
+                max_size=10,
+                allowed_types={"image/png": [".png"]},
+            )

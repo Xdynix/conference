@@ -8,19 +8,11 @@ from faker import Faker
 from pytest_mock import MockerFixture
 from ulid import ULID
 
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from app.core.services import UserService
 from app.core.services.user import UserIdentityConflict
 from app.verikit.services import EmailVerificationService
 from tests.helpers import any_str, update_object
-
-
-@pytest.fixture
-def user(faker: Faker) -> User:
-    return User.objects.create_user(
-        username=faker.user_name(),
-        email=faker.email(),
-    )
 
 
 @pytest.fixture
@@ -31,13 +23,6 @@ def user_service_update(mocker: MockerFixture) -> MagicMock:
 @pytest.mark.django_db
 class TestUpdateCurrentUser:
     path = reverse("api-1.0.0:update-current-user")
-
-    @pytest.fixture
-    def user(self, faker: Faker) -> User:
-        return User.objects.create_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
 
     def test_happy_path(
         self,
@@ -130,12 +115,6 @@ class TestUpdateUser:
     @classmethod
     def path(cls, user_id: ULID) -> str:
         return reverse("api-1.0.0:update-user", args=[user_id])
-
-    @pytest.fixture
-    def admin_user(self, faker: Faker) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-        return user
 
     @pytest.mark.parametrize("managed", [True, False])
     def test_happy_path(

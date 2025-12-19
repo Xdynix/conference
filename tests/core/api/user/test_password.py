@@ -9,7 +9,7 @@ from faker import Faker
 from pytest_mock import MockerFixture
 from ulid import ULID
 
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from app.core.services import UserService
 from app.core.services.user import InvalidPassword
 from tests.helpers import update_object
@@ -152,12 +152,6 @@ class TestUpdateUserPassword:
     @classmethod
     def path(cls, user_id: ULID) -> str:
         return reverse("api-1.0.0:update-user-password", args=[user_id])
-
-    @pytest.fixture
-    def admin_user(self, faker: Faker) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-        return user
 
     def test_happy_path(
         self,

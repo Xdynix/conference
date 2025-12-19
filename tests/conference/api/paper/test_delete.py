@@ -20,28 +20,6 @@ from tests.helpers import approx_now, update_object
 
 
 @pytest.fixture
-def user(faker: Faker) -> User:
-    return User.objects.create_user(username=faker.user_name())
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
-def track(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-    )
-
-
-@pytest.fixture
 def paper(conference: Conference, track: Track, user: User) -> Paper:
     return Paper.objects.create(
         conference=conference,
@@ -205,24 +183,6 @@ class TestDeleteMyPaper:
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
 
-@pytest.fixture
-def global_admin(faker: Faker) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-    return user
-
-
-@pytest.fixture
-def conference_admin(faker: Faker, conference: Conference) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    ConferenceRoleAssignment.objects.create(
-        conference=conference,
-        user=user,
-        role=ConferenceRole.CHAIR,
-    )
-    return user
-
-
 @pytest.mark.django_db
 class TestDeletePaper:
     @classmethod
@@ -233,10 +193,10 @@ class TestDeletePaper:
         self,
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
         paper: Paper,
     ) -> None:
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.delete(self.path(conference.name, paper.code))
         assert response.status_code == HTTPStatus.NO_CONTENT
@@ -324,11 +284,11 @@ class TestDeletePaper:
         api_client: Client,
         conference: Conference,
         paper: Paper,
-        conference_admin: User,
+        conference_chair: User,
         state: Paper.State,
     ) -> None:
         update_object(paper, state=state)
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.delete(self.path(conference.name, paper.code))
         assert response.status_code == HTTPStatus.NO_CONTENT
@@ -341,10 +301,10 @@ class TestDeletePaper:
         api_client: Client,
         conference: Conference,
         paper: Paper,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
         update_object(paper, withdraw_time=timezone.now())
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.delete(self.path(conference.name, paper.code))
         assert response.status_code == HTTPStatus.BAD_REQUEST
@@ -358,9 +318,9 @@ class TestDeletePaper:
         self,
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.delete(self.path(conference.name, "NONEXISTENT"))
         assert response.status_code == HTTPStatus.NOT_FOUND
@@ -368,9 +328,9 @@ class TestDeletePaper:
     def test_conference_not_found(
         self,
         api_client: Client,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.delete(self.path("nonexistent-conference", "PAPER-001"))
         assert response.status_code == HTTPStatus.NOT_FOUND
@@ -379,11 +339,11 @@ class TestDeletePaper:
         self,
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
         paper: Paper,
     ) -> None:
         update_object(conference, active=False)
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.delete(self.path(conference.name, paper.code))
         assert response.status_code == HTTPStatus.NOT_FOUND

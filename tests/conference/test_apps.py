@@ -9,7 +9,7 @@ from django.utils import timezone
 from faker import Faker
 from ulid import ULID
 
-from app.conference.models import Conference, Invitation, Profile
+from app.conference.models import Invitation, Profile
 from app.conference.services import InvitationService
 from app.core.models import User
 from app.utils.enums import Region
@@ -277,20 +277,6 @@ class TestProfileInjectionInUserCreationEndpoints:
 class TestInvitationRedeemInUserCreationEndpoints:
     create_registration_path = reverse("api-1.0.0:create-registration")
     create_user_path = reverse("api-1.0.0:create-user")
-
-    @pytest.fixture
-    def conference(self, faker: Faker) -> Conference:
-        return Conference.objects.create(
-            name=faker.slug(),
-            display_name=faker.sentence(),
-        )
-
-    @pytest.fixture
-    def invitation(self, faker: Faker, conference: Conference) -> Invitation:
-        return Invitation.objects.create(
-            conference=conference,
-            invitee_email=faker.email(),
-        )
 
     @classmethod
     def assert_invitation_token_error(cls, error: dict[str, Any], message: str) -> None:

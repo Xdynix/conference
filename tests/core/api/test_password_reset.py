@@ -19,15 +19,6 @@ from app.utils.email import EmailFormatName, EmailTemplate
 from tests.helpers import any_str, update_object
 
 
-@pytest.fixture
-def user(faker: Faker) -> User:
-    return User.objects.create_user(
-        username=faker.user_name(),
-        password=faker.password(),
-        email=faker.email(),
-    )
-
-
 @pytest.mark.django_db
 class TestCreatePasswordReset:
     path = reverse("api-1.0.0:create-password-reset")

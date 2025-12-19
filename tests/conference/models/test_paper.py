@@ -23,30 +23,6 @@ from tests.helpers import update_object
 
 
 @pytest.fixture
-def user(faker: Faker) -> User:
-    return User.objects.create_user(
-        username=faker.user_name(),
-        email=faker.email(),
-    )
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-    )
-
-
-@pytest.fixture
-def track(conference: Conference, faker: Faker) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-    )
-
-
-@pytest.fixture
 def paper(faker: Faker, user: User, conference: Conference, track: Track) -> Paper:
     return Paper.objects.create(
         conference=conference,

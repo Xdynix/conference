@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock
 import pytest
 from django.test import Client
 from django.urls import reverse
-from faker import Faker
 from pytest_mock import MockerFixture
 from ulid import ULID
 
@@ -19,60 +18,8 @@ from app.conference.models import (
     UserConferenceProfile,
 )
 from app.conference.services import UserConferenceProfileService
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from tests.helpers import update_object
-
-
-@pytest.fixture
-def user(faker: Faker) -> User:
-    return User.objects.create_user(username=faker.user_name())
-
-
-@pytest.fixture
-def global_admin(faker: Faker) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-    return user
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
-def track(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-        visibility=Track.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
-def conference_chair(faker: Faker, conference: Conference) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    ConferenceRoleAssignment.objects.create(
-        conference=conference,
-        user=user,
-        role=ConferenceRole.CHAIR,
-    )
-    return user
-
-
-@pytest.fixture
-def conference_reviewer(faker: Faker, conference: Conference) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    ConferenceRoleAssignment.objects.create(
-        conference=conference,
-        user=user,
-        role=ConferenceRole.REVIEWER,
-    )
-    return user
 
 
 @pytest.fixture

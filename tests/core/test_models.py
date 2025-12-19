@@ -4,10 +4,7 @@ from django.utils import timezone
 from faker import Faker
 
 from app.core.models import GlobalRole, GlobalRoleAssignment, PasswordResetToken, User
-from tests.data import (
-    EMAIL_NORMALIZATION_DATA,
-    USERNAME_NORMALIZATION_DATA,
-)
+from tests.data import EMAIL_NORMALIZATION_DATA, USERNAME_NORMALIZATION_DATA
 
 
 @pytest.mark.parametrize(

@@ -22,31 +22,6 @@ from app.core.models import GlobalRole, GlobalRoleAssignment, User
 
 
 @pytest.fixture
-def global_admin(faker: Faker) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-    return user
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
-def active_track(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-        active=True,
-    )
-
-
-@pytest.fixture
 def target_user(faker: Faker) -> User:
     return User.objects.create_user(
         username=faker.user_name(),
@@ -158,7 +133,7 @@ class TestMutateRoleAssignment:
         api_client: Client,
         global_admin: User,
         conference: Conference,
-        active_track: Track,
+        track: Track,
         target_user: User,
     ) -> None:
         add_track_role_spy = mocker.spy(
@@ -171,7 +146,7 @@ class TestMutateRoleAssignment:
             self.path(conference.name, target_user.uid),
             data={
                 "action": "add_track_role",
-                "track": str(active_track.uid),
+                "track": str(track.uid),
                 "role": TrackRole.REVIEWER,
             },
         )
@@ -179,7 +154,7 @@ class TestMutateRoleAssignment:
 
         add_track_role_spy.assert_called_once_with(
             conference=conference,
-            track=active_track,
+            track=track,
             target_user=target_user,
             role=TrackRole.REVIEWER,
             requesting_user=global_admin,
@@ -191,7 +166,7 @@ class TestMutateRoleAssignment:
         api_client: Client,
         global_admin: User,
         conference: Conference,
-        active_track: Track,
+        track: Track,
         target_user: User,
     ) -> None:
         remove_track_role_spy = mocker.spy(
@@ -204,7 +179,7 @@ class TestMutateRoleAssignment:
             self.path(conference.name, target_user.uid),
             data={
                 "action": "remove_track_role",
-                "track": str(active_track.uid),
+                "track": str(track.uid),
                 "role": TrackRole.CHAIR,
             },
         )
@@ -212,7 +187,7 @@ class TestMutateRoleAssignment:
 
         remove_track_role_spy.assert_called_once_with(
             conference=conference,
-            track=active_track,
+            track=track,
             target_user=target_user,
             role=TrackRole.CHAIR,
             requesting_user=global_admin,
@@ -394,7 +369,7 @@ class TestMutateRoleAssignment:
         api_client: Client,
         global_admin: User,
         conference: Conference,
-        active_track: Track,
+        track: Track,
         target_user: User,
     ) -> None:
         mocker.patch.object(
@@ -408,7 +383,7 @@ class TestMutateRoleAssignment:
             self.path(conference.name, target_user.uid),
             data={
                 "action": "add_track_role",
-                "track": str(active_track.uid),
+                "track": str(track.uid),
                 "role": TrackRole.REVIEWER,
             },
         )
@@ -539,13 +514,13 @@ class TestMutateRoleAssignment:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        active_track: Track,
+        track: Track,
         target_user: User,
         track_role: TrackRole,
     ) -> None:
         admin = User.objects.create_user(username=faker.user_name())
         TrackRoleAssignment.objects.create(
-            track=active_track,
+            track=track,
             user=admin,
             role=track_role,
         )
@@ -555,7 +530,7 @@ class TestMutateRoleAssignment:
             self.path(conference.name, target_user.uid),
             data={
                 "action": "add_track_role",
-                "track": str(active_track.uid),
+                "track": str(track.uid),
                 "role": TrackRole.REVIEWER,
             },
         )

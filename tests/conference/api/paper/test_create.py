@@ -27,20 +27,6 @@ from tests.helpers import any_str, approx_now, update_object
 
 
 @pytest.fixture
-def user(faker: Faker) -> User:
-    return User.objects.create_user(username=faker.user_name())
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
 def code_pool(conference: Conference) -> CodePool:
     return CodePool.objects.create(
         conference=conference,
@@ -58,17 +44,6 @@ def track(faker: Faker, conference: Conference, code_pool: CodePool) -> Track:
         visibility=Track.Visibility.PUBLIC,
         submissions_enabled=True,
     )
-
-
-@pytest.fixture
-def conference_admin(faker: Faker, conference: Conference) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    ConferenceRoleAssignment.objects.create(
-        conference=conference,
-        user=user,
-        role=ConferenceRole.CHAIR,
-    )
-    return user
 
 
 @pytest.fixture
@@ -487,19 +462,19 @@ class TestCreatePaper:
         api_client: Client,
         conference: Conference,
         track: Track,
-        conference_admin: User,
+        conference_chair: User,
         paper_service_create: MagicMock,
     ) -> None:
-        update_object(conference_admin, email="admin@example.com")
+        update_object(conference_chair, email="admin@example.com")
         Profile.objects.create(
-            user=conference_admin,
+            user=conference_chair,
             given_name="Admin",
             family_name="User",
             affiliation="Organization",
             region_code=Region.US.name,
         )
         kw1 = Keyword.objects.create(text="Machine Learning")
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.post(
             self.path(conference.name),
@@ -536,7 +511,7 @@ class TestCreatePaper:
             "state": Paper.State.DRAFT,
             "visible_state": Paper.State.DRAFT,
             "owner": {
-                "uid": str(conference_admin.uid),
+                "uid": str(conference_chair.uid),
                 "email": "admin@example.com",
                 "profile": {
                     "given_name": "Admin",
@@ -563,18 +538,18 @@ class TestCreatePaper:
         paper_service_create.assert_called_once()
         call_kwargs = paper_service_create.call_args.kwargs
         assert call_kwargs["track"] == track
-        assert call_kwargs["owner"] == conference_admin
+        assert call_kwargs["owner"] == conference_chair
 
     def test_conference_admin_bypasses_submissions_enabled(
         self,
         api_client: Client,
         conference: Conference,
         track: Track,
-        conference_admin: User,
+        conference_chair: User,
         paper_service_create: MagicMock,
     ) -> None:
         update_object(track, submissions_enabled=False)
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.post(
             self.path(conference.name),

@@ -16,19 +16,13 @@ from app.conference.models import (
 )
 from app.conference.services import ConferenceService, InvitationService
 from app.conference.services.conference import InsufficientRolePermission
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 
 from .conftest import add_invitation_roles
 
 
 @pytest.mark.django_db
 class TestInvitationServiceDeleteInvitation:
-    @pytest.fixture
-    def user(self, faker: Faker) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-        return user
-
     @pytest.fixture
     def invitation_with_roles(
         self,
@@ -53,14 +47,14 @@ class TestInvitationServiceDeleteInvitation:
 
     def test_happy_path(
         self,
-        user: User,
+        global_admin: User,
         track: Track,
         invitation_with_roles: Invitation,
         mock_validate_roles: MagicMock,
     ) -> None:
         InvitationService.delete_invitation(
             invitation_uid=invitation_with_roles.uid,
-            user=user,
+            user=global_admin,
         )
 
         assert not Invitation.objects.filter(pk=invitation_with_roles.pk).exists()
@@ -72,7 +66,7 @@ class TestInvitationServiceDeleteInvitation:
         ).exists()
 
         mock_validate_roles.assert_called_once_with(
-            user=user,
+            user=global_admin,
             conference=invitation_with_roles.conference,
             conference_roles=[ConferenceRole.REVIEWER],
             track_roles={track: [TrackRole.CHAIR]},
@@ -80,7 +74,7 @@ class TestInvitationServiceDeleteInvitation:
 
     def test_insufficient_permission(
         self,
-        user: User,
+        global_admin: User,
         invitation_with_roles: Invitation,
         mock_validate_roles: MagicMock,
     ) -> None:
@@ -94,7 +88,7 @@ class TestInvitationServiceDeleteInvitation:
         ):
             InvitationService.delete_invitation(
                 invitation_uid=invitation_with_roles.uid,
-                user=user,
+                user=global_admin,
             )
 
         assert Invitation.objects.filter(pk=invitation_with_roles.pk).exists()
@@ -107,9 +101,9 @@ class TestInvitationServiceDeleteInvitation:
 
         assert mock_validate_roles.call_count == 1
 
-    def test_raises_does_not_exist_for_invalid_uid(self, user: User) -> None:
+    def test_raises_does_not_exist_for_invalid_uid(self, global_admin: User) -> None:
         with pytest.raises(Invitation.DoesNotExist):
             InvitationService.delete_invitation(
                 invitation_uid=ULID(),
-                user=user,
+                user=global_admin,
             )

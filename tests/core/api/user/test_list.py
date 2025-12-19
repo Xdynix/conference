@@ -5,23 +5,13 @@ from django.test import Client
 from django.urls import reverse
 from faker import Faker
 
-from app.core.models import (
-    GlobalRole,
-    GlobalRoleAssignment,
-    User,
-)
+from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from tests.helpers import update_object
 
 
 @pytest.mark.django_db
 class TestListUsers:
     path = reverse("api-1.0.0:list-users")
-
-    @pytest.fixture
-    def authorized_user(self, faker: Faker) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-        return user
 
     @pytest.fixture
     def users(self) -> list[User]:
@@ -39,10 +29,10 @@ class TestListUsers:
     def test_happy_path(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
         users: list[User],
     ) -> None:
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path)
         assert response.status_code == HTTPStatus.OK
@@ -54,11 +44,11 @@ class TestListUsers:
     def test_filter_by_username(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
         users: list[User],
     ) -> None:
         target_user = users[0]
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path, {"username": target_user.username})
         assert response.status_code == HTTPStatus.OK
@@ -70,11 +60,11 @@ class TestListUsers:
     def test_filter_by_email(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
         users: list[User],
     ) -> None:
         target_user = users[0]
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path, {"email": target_user.email})
         assert response.status_code == HTTPStatus.OK
@@ -86,11 +76,11 @@ class TestListUsers:
     def test_filter_by_email_case_insensitive(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
         users: list[User],
     ) -> None:
         target_user = users[0]
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path, {"email": target_user.email.upper()})
         assert response.status_code == HTTPStatus.OK
@@ -102,11 +92,11 @@ class TestListUsers:
     def test_filter_by_search_username(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
         users: list[User],
     ) -> None:
         target_user = users[0]
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path, {"search": target_user.username})
         assert response.status_code == HTTPStatus.OK
@@ -118,11 +108,11 @@ class TestListUsers:
     def test_filter_by_search_email(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
         users: list[User],
     ) -> None:
         target_user = users[1]
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path, {"search": target_user.email})
         assert response.status_code == HTTPStatus.OK
@@ -135,13 +125,13 @@ class TestListUsers:
     def test_filter_by_managed(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
         users: list[User],
         managed: bool,
     ) -> None:
         managed_user = users[0]
         update_object(managed_user, managed=managed)
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path, {"managed": managed})
         assert response.status_code == HTTPStatus.OK
@@ -156,12 +146,12 @@ class TestListUsers:
     def test_excludes_inactive_users(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
         users: list[User],
     ) -> None:
         inactive_user = users[0]
         update_object(inactive_user, is_active=False)
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path)
         assert response.status_code == HTTPStatus.OK
@@ -191,9 +181,9 @@ class TestListUsers:
     def test_empty_result_with_nonexistent_filter(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
     ) -> None:
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path, {"username": "nonexistent"})
         assert response.status_code == HTTPStatus.OK

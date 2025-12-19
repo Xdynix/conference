@@ -15,13 +15,6 @@ class TestCreateUserRegistry:
     def registry(self) -> CreateUserRegistry:
         return CreateUserRegistry()
 
-    @pytest.fixture
-    def user(self, faker: Faker) -> User:
-        return User.objects.create_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
-
     def test_happy_path(self, registry: CreateUserRegistry, user: User) -> None:
         handler = MagicMock()
 

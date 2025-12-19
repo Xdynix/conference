@@ -28,34 +28,6 @@ from tests.helpers import any_str
 
 
 @pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
-def track(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-    )
-
-
-@pytest.fixture
-def conference_admin(faker: Faker, conference: Conference) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    ConferenceRoleAssignment.objects.create(
-        conference=conference,
-        user=user,
-        role=ConferenceRole.CHAIR,
-    )
-    return user
-
-
-@pytest.fixture
 def mock_visible(mocker: MockerFixture) -> AsyncMock:
     return mocker.patch.object(InvitationService, "visible_invitations")
 
@@ -75,7 +47,7 @@ class TestGetInvitation:
         api_client: Client,
         conference: Conference,
         track: Track,
-        conference_admin: User,
+        conference_chair: User,
         mock_visible: AsyncMock,
     ) -> None:
         invitation = Invitation.objects.create(
@@ -100,7 +72,7 @@ class TestGetInvitation:
         )
         token = InvitationService.get_invitation_token(invitation)
         mock_visible.return_value = Invitation.objects.filter(pk=invitation.pk)
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(conference.name, invitation.uid))
         assert response.status_code == HTTPStatus.OK
@@ -130,14 +102,14 @@ class TestGetInvitation:
             "reject_url": f"{settings.INVITATION_REJECT_PAGE_URL}#{token}",
         }
 
-        mock_visible.assert_awaited_once_with(conference, conference_admin)
+        mock_visible.assert_awaited_once_with(conference, conference_chair)
 
     def test_inactive_track_roles_excluded_from_response(
         self,
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
         mock_visible: AsyncMock,
     ) -> None:
         active_track = Track.objects.create(
@@ -164,7 +136,7 @@ class TestGetInvitation:
             role=TrackRole.SECRETARY,
         )
         mock_visible.return_value = Invitation.objects.filter(pk=invitation.pk)
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(conference.name, invitation.uid))
         assert response.status_code == HTTPStatus.OK
@@ -177,14 +149,14 @@ class TestGetInvitation:
             }
         ]
 
-        mock_visible.assert_awaited_once_with(conference, conference_admin)
+        mock_visible.assert_awaited_once_with(conference, conference_chair)
 
     def test_returns_404_when_invitation_not_visible(
         self,
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
         mock_visible: AsyncMock,
     ) -> None:
         invitation = Invitation.objects.create(
@@ -192,22 +164,22 @@ class TestGetInvitation:
             invitee_email=faker.email(),
         )
         mock_visible.return_value = Invitation.objects.none()
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(conference.name, invitation.uid))
         assert response.status_code == HTTPStatus.NOT_FOUND
 
-        mock_visible.assert_awaited_once_with(conference, conference_admin)
+        mock_visible.assert_awaited_once_with(conference, conference_chair)
 
     def test_returns_404_when_invitation_does_not_exist(
         self,
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
         mock_visible: AsyncMock,
     ) -> None:
         mock_visible.return_value = Invitation.objects.none()
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(conference.name, ULID()))
         assert response.status_code == HTTPStatus.NOT_FOUND
@@ -215,9 +187,9 @@ class TestGetInvitation:
     def test_conference_not_found(
         self,
         api_client: Client,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path("nonexistent-conference", ULID()))
         assert response.status_code == HTTPStatus.NOT_FOUND

@@ -1,7 +1,4 @@
-from app.conference.models import (
-    Keyword,
-    KeywordSet,
-)
+from app.conference.models import Keyword, KeywordSet
 
 
 class TestKeyword:

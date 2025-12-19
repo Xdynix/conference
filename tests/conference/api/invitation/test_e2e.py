@@ -17,7 +17,7 @@ from app.conference.models import (
     TrackRole,
     TrackRoleAssignment,
 )
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from app.verikit.services import EmailVerificationService
 from tests.helpers import update_object
 
@@ -55,44 +55,13 @@ class TestInvitationE2E:
         return reverse("api-1.0.0:send-invitations", args=[conference_name])
 
     @pytest.fixture(autouse=True)
-    def invitation_page_uris(self, settings: LazySettings) -> None:
+    def invitation_page_urls(self, settings: LazySettings) -> None:
         settings.INVITATION_ACCEPT_PAGE_URL = "https://example.com/accept"
         settings.INVITATION_REJECT_PAGE_URL = "https://example.com/reject"
 
     @pytest.fixture(autouse=True)
     def mock_cf_turnstile(self, mock_cf_turnstile: None) -> None:
         pass
-
-    @pytest.fixture
-    def global_admin(self, faker: Faker) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-        return user
-
-    @pytest.fixture
-    def conference(self, faker: Faker) -> Conference:
-        return Conference.objects.create(
-            name=faker.slug(),
-            display_name=faker.sentence(),
-            visibility=Conference.Visibility.PUBLIC,
-        )
-
-    @pytest.fixture
-    def track(self, faker: Faker, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name=faker.word(),
-        )
-
-    @pytest.fixture
-    def conference_admin(self, faker: Faker, conference: Conference) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.CHAIR,
-        )
-        return user
 
     def create_and_send_invitation(
         self,
@@ -148,7 +117,7 @@ class TestInvitationE2E:
         mailoutbox: list[EmailMessage],
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
         invitee_email = faker.email()
         existing_user = User.objects.create_user(
@@ -160,7 +129,7 @@ class TestInvitationE2E:
         invitation_uid = self.create_and_send_invitation(
             api_client,
             conference,
-            conference_admin,
+            conference_chair,
             invitee_email,
             conference_roles=[ConferenceRole.REVIEWER],
         )
@@ -203,7 +172,7 @@ class TestInvitationE2E:
         mailoutbox: list[EmailMessage],
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
         track: Track,
     ) -> None:
         invitee_email = faker.email()
@@ -211,7 +180,7 @@ class TestInvitationE2E:
         invitation_uid = self.create_and_send_invitation(
             api_client,
             conference,
-            conference_admin,
+            conference_chair,
             invitee_email,
             conference_roles=[ConferenceRole.REVIEWER],
             track_roles=[{"track": str(track.uid), "role": TrackRole.REVIEWER}],
@@ -260,14 +229,14 @@ class TestInvitationE2E:
         mailoutbox: list[EmailMessage],
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
         invitee_email = faker.email()
 
         invitation_uid = self.create_and_send_invitation(
             api_client,
             conference,
-            conference_admin,
+            conference_chair,
             invitee_email,
             conference_roles=[ConferenceRole.REVIEWER],
         )
@@ -292,7 +261,7 @@ class TestInvitationE2E:
                 conference=conference,
                 role=ConferenceRole.REVIEWER,
             )
-            .exclude(user=conference_admin)
+            .exclude(user=conference_chair)
             .exists()
         )
 
@@ -302,7 +271,7 @@ class TestInvitationE2E:
         mailoutbox: list[EmailMessage],
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
         invitee_email = faker.email()
         existing_user = User.objects.create_user(
@@ -314,7 +283,7 @@ class TestInvitationE2E:
         invitation_uid = self.create_and_send_invitation(
             api_client,
             conference,
-            conference_admin,
+            conference_chair,
             invitee_email,
             conference_roles=[ConferenceRole.REVIEWER],
         )
@@ -360,7 +329,7 @@ class TestInvitationE2E:
         mailoutbox: list[EmailMessage],
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
         invitee_email = faker.email()
         first_user = User.objects.create_user(
@@ -377,7 +346,7 @@ class TestInvitationE2E:
         self.create_and_send_invitation(
             api_client,
             conference,
-            conference_admin,
+            conference_chair,
             invitee_email,
             conference_roles=[ConferenceRole.REVIEWER],
         )
@@ -406,7 +375,7 @@ class TestInvitationE2E:
         mailoutbox: list[EmailMessage],
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
         invitee_email = faker.email()
         user = User.objects.create_user(
@@ -418,7 +387,7 @@ class TestInvitationE2E:
         self.create_and_send_invitation(
             api_client,
             conference,
-            conference_admin,
+            conference_chair,
             invitee_email,
             conference_roles=[ConferenceRole.REVIEWER],
         )
@@ -468,7 +437,7 @@ class TestInvitationE2E:
         mailoutbox: list[EmailMessage],
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
         invitee_email = faker.email()
         user = User.objects.create_user(
@@ -480,7 +449,7 @@ class TestInvitationE2E:
         self.create_and_send_invitation(
             api_client,
             conference,
-            conference_admin,
+            conference_chair,
             invitee_email,
         )
 

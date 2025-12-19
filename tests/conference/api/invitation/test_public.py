@@ -17,14 +17,6 @@ from app.core.models import User
 from tests.helpers import approx_now
 
 
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-    )
-
-
 @pytest.mark.django_db
 class TestLookupInvitation:
     path = reverse("api-1.0.0:lookup-invitation")

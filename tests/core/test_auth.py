@@ -2,7 +2,6 @@ from typing import Any
 
 import pytest
 from django.test import Client
-from faker import Faker
 from ninja import NinjaAPI
 from pytest_mock import MockerFixture
 
@@ -105,10 +104,6 @@ class AuthTestCase(ResponseAssertionsMixin, URLConfTestCase):
         from django.urls import path
 
         return [path("", api.urls)]
-
-    @pytest.fixture
-    def user(self, faker: Faker) -> User:
-        return User.objects.create_user(username=faker.user_name())
 
 
 class TestIsAuthenticated(AuthTestCase):

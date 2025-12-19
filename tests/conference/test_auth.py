@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock
 
 import pytest
 from django.test import Client
-from faker import Faker
 from ninja import NinjaAPI
 from pytest_mock import MockerFixture
 
@@ -30,24 +29,6 @@ from tests.helpers import update_object
 
 class BaseAuthTestCase(ResponseAssertionsMixin, URLConfTestCase, ABC):
     auth: SessionAuth
-
-    @pytest.fixture
-    def user(self, faker: Faker) -> User:
-        return User.objects.create_user(username=faker.user_name())
-
-    @pytest.fixture
-    def conference(self, faker: Faker) -> Conference:
-        return Conference.objects.create(
-            name=faker.slug(),
-            display_name=faker.sentence(),
-        )
-
-    @pytest.fixture
-    def track(self, faker: Faker, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name=faker.sentence(),
-        )
 
     @pytest.fixture
     def visible_conferences(self, mocker: MockerFixture) -> AsyncMock:
@@ -231,13 +212,6 @@ class TrackAuthTestCase(BaseAuthTestCase):
         from django.urls import path
 
         return [path("", api.urls)]
-
-    @pytest.fixture
-    def track(self, faker: Faker, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name=faker.sentence(),
-        )
 
 
 @pytest.mark.django_db

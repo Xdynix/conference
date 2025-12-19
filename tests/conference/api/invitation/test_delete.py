@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 import pytest
 from django.test import Client
 from django.urls import reverse
-from faker import Faker
 from pytest_mock import MockerFixture
 from ulid import ULID
 
@@ -19,39 +18,7 @@ from app.conference.models import (
 )
 from app.conference.services import InvitationService
 from app.conference.services.conference import InsufficientRolePermission
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
-
-
-@pytest.fixture
-def global_admin(faker: Faker) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-    return user
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
-def track(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-    )
-
-
-@pytest.fixture
-def invitation(faker: Faker, conference: Conference) -> Invitation:
-    return Invitation.objects.create(
-        conference=conference,
-        invitee_email=faker.email(),
-    )
+from app.core.models import User
 
 
 @pytest.fixture

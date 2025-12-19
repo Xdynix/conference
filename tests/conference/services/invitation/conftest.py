@@ -4,7 +4,6 @@ import pytest
 from faker import Faker
 
 from app.conference.models import (
-    Conference,
     ConferenceRole,
     Invitation,
     InvitationConferenceRoleEntry,
@@ -36,37 +35,5 @@ def add_invitation_roles(
 
 
 @pytest.fixture
-def user(faker: Faker) -> User:
-    return User.objects.create_user(username=faker.user_name())
-
-
-@pytest.fixture
 def inviter(faker: Faker) -> User:
     return User.objects.create_user(username=faker.user_name())
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-    )
-
-
-@pytest.fixture
-def track(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-    )
-
-
-@pytest.fixture
-def invitation(
-    faker: Faker,
-    conference: Conference,
-) -> Invitation:
-    return Invitation.objects.create(
-        conference=conference,
-        invitee_email=faker.email(),
-    )

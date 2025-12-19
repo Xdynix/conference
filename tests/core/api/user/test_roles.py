@@ -8,17 +8,9 @@ from faker import Faker
 from pytest_mock import MockerFixture
 from ulid import ULID
 
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import GlobalRole, User
 from app.core.services import UserService
 from tests.helpers import any_str, update_object
-
-
-@pytest.fixture
-def user(faker: Faker) -> User:
-    return User.objects.create_user(
-        username=faker.user_name(),
-        email=faker.email(),
-    )
 
 
 @pytest.fixture
@@ -31,12 +23,6 @@ class TestUpdateUserRoles:
     @classmethod
     def path(cls, user_id: ULID) -> str:
         return reverse("api-1.0.0:update-user-roles", args=[user_id])
-
-    @pytest.fixture
-    def admin_user(self, faker: Faker) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-        return user
 
     def test_happy_path(
         self,

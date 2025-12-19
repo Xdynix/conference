@@ -25,32 +25,11 @@ from tests.helpers import a_update_object, update_object
 
 
 @pytest.fixture
-def user(faker: Faker) -> User:
-    return User.objects.create_user(username=faker.user_name())
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-    )
-
-
-@pytest.fixture
 def code_pool(conference: Conference) -> CodePool:
     return CodePool.objects.create(
         conference=conference,
         name="Main Pool",
         prefix="TEST-",
-    )
-
-
-@pytest.fixture
-def track(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
     )
 
 

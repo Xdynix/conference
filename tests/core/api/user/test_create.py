@@ -8,7 +8,7 @@ from django.urls import reverse
 from faker import Faker
 from pytest_mock import MockerFixture
 
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from app.core.services import UserService
 from app.core.services.user import InvalidPassword, UserIdentityConflict
 from app.verikit.services import EmailVerificationService
@@ -208,12 +208,6 @@ class TestCreateRegistration:
 @pytest.mark.django_db
 class TestCreateUser:
     path = reverse("api-1.0.0:create-user")
-
-    @pytest.fixture
-    def admin_user(self, faker: Faker) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-        return user
 
     @pytest.mark.parametrize("managed", [True, False])
     def test_happy_path(

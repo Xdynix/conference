@@ -6,14 +6,6 @@ from faker import Faker
 from app.conference.models import CodePool, Conference, Track
 
 
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-    )
-
-
 class TestConference:
     def test_str(self) -> None:
         assert str(Conference(name="CBPK-2020")) == "CBPK-2020"
@@ -37,10 +29,7 @@ class TestCodePool:
         )
         assert pool.next_sequence == 1
 
-    def test_unique_prefix_within_conference(
-        self,
-        conference: Conference,
-    ) -> None:
+    def test_unique_prefix_within_conference(self, conference: Conference) -> None:
         CodePool.objects.create(
             conference=conference,
             name="Main Tracks",

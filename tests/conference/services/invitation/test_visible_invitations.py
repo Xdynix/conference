@@ -39,27 +39,6 @@ class TestInvitationServiceVisibleInvitations:
 
         return make_invitation
 
-    @pytest.fixture
-    def track_a(self, faker: Faker, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name=faker.word(),
-        )
-
-    @pytest.fixture
-    def track_b(self, faker: Faker, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name=faker.word(),
-        )
-
-    @pytest.fixture
-    def track_c(self, faker: Faker, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name=faker.word(),
-        )
-
     async def test_superuser_sees_all_invitations(
         self,
         faker: Faker,

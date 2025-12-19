@@ -18,13 +18,6 @@ class TestUserResponseRegistry:
         return UserResponseRegistry()
 
     @pytest.fixture
-    def user(self, faker: Faker) -> User:
-        return User.objects.create_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
-
-    @pytest.fixture
     def users(self, faker: Faker) -> list[User]:
         return [
             User.objects.create_user(

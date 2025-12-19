@@ -17,20 +17,6 @@ from tests.helpers import update_object
 
 @pytest.mark.django_db
 class TestConferenceServiceValidateCanAssignRoles:
-    @pytest.fixture
-    def track_a(self, faker: Faker, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name=faker.word(),
-        )
-
-    @pytest.fixture
-    def track_b(self, faker: Faker, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name=faker.word(),
-        )
-
     def test_superuser_can_assign_any_roles(
         self,
         user: User,

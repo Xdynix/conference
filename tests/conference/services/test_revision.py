@@ -5,7 +5,6 @@ import pytest
 from django.conf import LazySettings
 from django.core.files.base import ContentFile
 from django.db import transaction
-from faker import Faker
 
 from app.conference.models import (
     Conference,
@@ -16,27 +15,6 @@ from app.conference.models import (
 )
 from app.conference.services.revision import RevisionService
 from app.core.models import User
-
-
-@pytest.fixture
-def user(faker: Faker) -> User:
-    return User.objects.create_user(username=faker.user_name())
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-    )
-
-
-@pytest.fixture
-def track(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-    )
 
 
 @pytest.fixture

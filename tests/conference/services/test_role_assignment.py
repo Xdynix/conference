@@ -18,30 +18,6 @@ from app.core.models import GlobalRole, GlobalRoleAssignment, User
 
 
 @pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-    )
-
-
-@pytest.fixture
-def track_a(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-    )
-
-
-@pytest.fixture
-def track_b(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-    )
-
-
-@pytest.fixture
 def mock_validate_can_assign_roles(mocker: MockerFixture) -> MagicMock:
     return mocker.patch.object(ConferenceService, "validate_can_assign_roles")
 

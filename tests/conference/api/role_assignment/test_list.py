@@ -22,35 +22,6 @@ from app.utils.enums import Region
 
 
 @pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
-def active_track(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-        active=True,
-    )
-
-
-@pytest.fixture
-def conference_admin(faker: Faker, conference: Conference) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    ConferenceRoleAssignment.objects.create(
-        conference=conference,
-        user=user,
-        role=ConferenceRole.CHAIR,
-    )
-    return user
-
-
-@pytest.fixture
 def mock_visible_users(mocker: MockerFixture) -> AsyncMock:
     return mocker.patch.object(RoleAssignmentService, "visible_users_with_roles")
 
@@ -79,8 +50,8 @@ class TestListRoleAssignments:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        active_track: Track,
-        conference_admin: User,
+        track: Track,
+        conference_chair: User,
         mock_visible_users: AsyncMock,
         mock_visible_conference_assignments: AsyncMock,
         mock_visible_track_assignments: AsyncMock,
@@ -106,7 +77,7 @@ class TestListRoleAssignments:
             email=faker.email(),
         )
         track_assignment = TrackRoleAssignment.objects.create(
-            track=active_track,
+            track=track,
             user=user_without_profile,
             role=TrackRole.REVIEWER,
         )
@@ -119,7 +90,7 @@ class TestListRoleAssignments:
         mock_visible_track_assignments.return_value = (
             TrackRoleAssignment.objects.filter(pk=track_assignment.pk)
         )
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.OK
@@ -135,7 +106,7 @@ class TestListRoleAssignments:
             "conference_roles": [],
             "track_roles": [
                 {
-                    "track": str(active_track.uid),
+                    "track": str(track.uid),
                     "role": TrackRole.REVIEWER,
                 }
             ],
@@ -155,14 +126,14 @@ class TestListRoleAssignments:
             "track_roles": [],
         }
 
-        mock_visible_users.assert_awaited_once_with(conference, conference_admin)
+        mock_visible_users.assert_awaited_once_with(conference, conference_chair)
         mock_visible_conference_assignments.assert_awaited_once_with(
             conference,
-            conference_admin,
+            conference_chair,
         )
         mock_visible_track_assignments.assert_awaited_once_with(
             conference,
-            conference_admin,
+            conference_chair,
         )
 
     def test_pagination(
@@ -170,7 +141,7 @@ class TestListRoleAssignments:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
         mock_visible_users: AsyncMock,
         mock_visible_conference_assignments: AsyncMock,
         mock_visible_track_assignments: AsyncMock,
@@ -189,7 +160,7 @@ class TestListRoleAssignments:
             ConferenceRoleAssignment.objects.filter(pk=-1)
         )
         mock_visible_track_assignments.return_value = TrackRoleAssignment.objects.none()
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(conference.name), {"page_size": 2})
         assert response.status_code == HTTPStatus.OK
@@ -212,7 +183,7 @@ class TestListRoleAssignments:
         self,
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
         mock_visible_users: AsyncMock,
         mock_visible_conference_assignments: AsyncMock,
         mock_visible_track_assignments: AsyncMock,
@@ -222,7 +193,7 @@ class TestListRoleAssignments:
             ConferenceRoleAssignment.objects.none()
         )
         mock_visible_track_assignments.return_value = TrackRoleAssignment.objects.none()
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.OK
@@ -233,9 +204,9 @@ class TestListRoleAssignments:
     def test_conference_not_found(
         self,
         api_client: Client,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(self.path("nonexistent-conference"))
         assert response.status_code == HTTPStatus.NOT_FOUND
@@ -303,12 +274,12 @@ class TestListRoleAssignments:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        active_track: Track,
+        track: Track,
         track_role: TrackRole,
     ) -> None:
         admin = User.objects.create_user(username=faker.user_name())
         TrackRoleAssignment.objects.create(
-            track=active_track,
+            track=track,
             user=admin,
             role=track_role,
         )
@@ -322,7 +293,7 @@ class TestListRoleAssignments:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        active_track: Track,
+        track: Track,
     ) -> None:
         other_track = Track.objects.create(
             conference=conference,
@@ -331,7 +302,7 @@ class TestListRoleAssignments:
         )
         track_admin = User.objects.create_user(username=faker.user_name())
         TrackRoleAssignment.objects.create(
-            track=active_track,
+            track=track,
             user=track_admin,
             role=TrackRole.CHAIR,
         )
@@ -345,7 +316,7 @@ class TestListRoleAssignments:
             role=ConferenceRole.CHAIR,
         )
         TrackRoleAssignment.objects.create(
-            track=active_track,
+            track=track,
             user=user_on_admin_track,
             role=TrackRole.REVIEWER,
         )
@@ -384,7 +355,7 @@ class TestListRoleAssignments:
             "managed": False,
             "conference_roles": [],
             "track_roles": [
-                {"track": str(active_track.uid), "role": TrackRole.REVIEWER},
+                {"track": str(track.uid), "role": TrackRole.REVIEWER},
             ],
         }
 

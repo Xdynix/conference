@@ -115,13 +115,6 @@ class TestUserServiceCreateUser:
 
 @pytest.mark.django_db(transaction=True)
 class TestUserServiceUpdateUser:
-    @pytest.fixture
-    def user(self, faker: Faker) -> User:
-        return User.objects.create_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
-
     async def test_update_username_only(self, faker: Faker, user: User) -> None:
         new_username = faker.user_name()
         original_email = user.email
@@ -330,13 +323,6 @@ class TestUserServiceChangePassword:
 
 @pytest.mark.django_db
 class TestUserServiceSetRoles:
-    @pytest.fixture
-    def user(self, faker: Faker) -> User:
-        return User.objects.create_user(
-            username=faker.user_name(),
-            email=faker.email(),
-        )
-
     def test_happy_path(self, user: User) -> None:
         roles = [GlobalRole.ADMIN, GlobalRole.READ_ALL]
 

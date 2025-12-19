@@ -5,40 +5,8 @@ from django.test import Client
 from django.urls import reverse
 from faker import Faker
 
-from app.conference.models import (
-    Conference,
-    ConferenceRole,
-    ConferenceRoleAssignment,
-    Profile,
-)
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
-
-
-@pytest.fixture
-def global_admin(faker: Faker) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-    return user
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
-def conference_admin(faker: Faker, conference: Conference) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    ConferenceRoleAssignment.objects.create(
-        conference=conference,
-        user=user,
-        role=ConferenceRole.CHAIR,
-    )
-    return user
+from app.conference.models import Conference, Profile
+from app.core.models import User
 
 
 @pytest.mark.django_db
@@ -52,7 +20,7 @@ class TestLookupRoleAssignmentUser:
         faker: Faker,
         api_client: Client,
         conference: Conference,
-        conference_admin: User,
+        conference_chair: User,
     ) -> None:
         user = User.objects.create_user(
             username=faker.user_name(),
@@ -65,7 +33,7 @@ class TestLookupRoleAssignmentUser:
             affiliation="Example University",
             region_code="US",
         )
-        api_client.force_login(conference_admin)
+        api_client.force_login(conference_chair)
 
         response = api_client.get(
             self.path(conference.name),

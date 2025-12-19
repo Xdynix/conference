@@ -23,40 +23,8 @@ from app.conference.models import (
 from app.conference.services import InvitationService, KeywordService
 from app.conference.services.conference import InsufficientRolePermission
 from app.conference.services.invitation import ImmutableInvitation
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from app.utils.enums import Region
-
-
-@pytest.fixture
-def global_admin(faker: Faker) -> User:
-    user = User.objects.create_user(username=faker.user_name())
-    GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-    return user
-
-
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
-    )
-
-
-@pytest.fixture
-def track_a(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-    )
-
-
-@pytest.fixture
-def track_b(faker: Faker, conference: Conference) -> Track:
-    return Track.objects.create(
-        conference=conference,
-        display_name=faker.word(),
-    )
 
 
 @pytest.fixture

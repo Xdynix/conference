@@ -6,11 +6,7 @@ from django.urls import reverse
 from faker import Faker
 from ulid import ULID
 
-from app.core.models import (
-    GlobalRole,
-    GlobalRoleAssignment,
-    User,
-)
+from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from tests.helpers import update_object
 
 
@@ -59,12 +55,6 @@ class TestGetUser:
         return reverse("api-1.0.0:get-user", args=[user_id])
 
     @pytest.fixture
-    def authorized_user(self, faker: Faker) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.ADMIN)
-        return user
-
-    @pytest.fixture
     def user(self, faker: Faker) -> User:
         user = User.objects.create_user(
             username=faker.user_name(),
@@ -76,10 +66,10 @@ class TestGetUser:
     def test_happy_path(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
         user: User,
     ) -> None:
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path(user_id=user.uid))
         assert response.status_code == HTTPStatus.OK
@@ -94,11 +84,11 @@ class TestGetUser:
     def test_inactive_user_not_found(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
         user: User,
     ) -> None:
         update_object(user, is_active=False)
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path(user_id=user.uid))
         assert response.status_code == HTTPStatus.NOT_FOUND
@@ -106,9 +96,9 @@ class TestGetUser:
     def test_nonexistent_user_not_found(
         self,
         api_client: Client,
-        authorized_user: User,
+        admin_user: User,
     ) -> None:
-        api_client.force_login(authorized_user)
+        api_client.force_login(admin_user)
 
         response = api_client.get(self.path(user_id=ULID()))
         assert response.status_code == HTTPStatus.NOT_FOUND

@@ -15,14 +15,6 @@ from app.conference.models import (
 from app.core.models import User
 
 
-@pytest.fixture
-def conference(faker: Faker) -> Conference:
-    return Conference.objects.create(
-        name=faker.slug(),
-        display_name=faker.sentence(),
-    )
-
-
 @pytest.mark.django_db
 class TestInvitation:
     def test_str_pending(self) -> None:
@@ -173,17 +165,6 @@ class TestInvitation:
 
 @pytest.mark.django_db
 class TestInvitationConferenceRoleEntry:
-    @pytest.fixture
-    def invitation(
-        self,
-        faker: Faker,
-        conference: Conference,
-    ) -> Invitation:
-        return Invitation.objects.create(
-            conference=conference,
-            invitee_email=faker.email(),
-        )
-
     def test_str(self, invitation: Invitation) -> None:
         entry = InvitationConferenceRoleEntry.objects.create(
             invitation=invitation,
@@ -206,24 +187,6 @@ class TestInvitationConferenceRoleEntry:
 
 @pytest.mark.django_db
 class TestInvitationTrackRoleEntry:
-    @pytest.fixture
-    def track(self, faker: Faker, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name=faker.sentence(),
-        )
-
-    @pytest.fixture
-    def invitation(
-        self,
-        faker: Faker,
-        conference: Conference,
-    ) -> Invitation:
-        return Invitation.objects.create(
-            conference=conference,
-            invitee_email=faker.email(),
-        )
-
     def test_str(self, invitation: Invitation, track: Track) -> None:
         entry = InvitationTrackRoleEntry.objects.create(
             invitation=invitation,
