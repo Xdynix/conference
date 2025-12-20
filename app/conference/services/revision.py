@@ -1,11 +1,16 @@
+from collections.abc import Mapping, Sequence
 from functools import partial
 from pathlib import Path
 
+from django.core.files.uploadedfile import UploadedFile
 from django.db import connection, transaction
 from django.db.models import Max
 from loguru import logger
 
 from app.conference.models import Paper, PaperFinal, PaperSubmission
+from app.core.models import User
+from app.infra.models import Mutex
+from app.utils.upload import validate_upload
 
 
 def unlink_safe(path: Path) -> None:
@@ -57,3 +62,80 @@ class RevisionService:
 
         for path in file_paths:
             transaction.on_commit(partial(unlink_safe, path))
+
+    @classmethod
+    def create_submission(
+        cls,
+        *,
+        paper: Paper,
+        file: UploadedFile,
+        uploader: User,
+        skip_cleanup: bool = False,
+        max_size: int = 0,
+        allowed_types: Mapping[str, Sequence[str]] | None = None,
+    ) -> PaperSubmission:
+        """Upload a submission file for a paper.
+
+        Creates a new revision of the paper submission. For author uploads (when
+        ``skip_cleanup`` is False), cleans up the oldest revision by the same uploader
+        if there's more than one, but only when the paper is in Draft or Submitted
+        state.
+
+        Args:
+            paper: The paper to upload the submission for.
+            file: The uploaded file.
+            uploader: The user uploading the file.
+            skip_cleanup: If ``True``, skips cleanup of old revisions (for admin
+                uploads).
+            max_size: Maximum allowed file size in bytes. Skipped if not positive.
+            allowed_types: Mapping of allowed MIME types to their valid extensions.
+
+        Raises:
+            UploadValidationError: If file validation fails.
+        """
+        # Validate before acquiring lock to avoid holding it during validation.
+        validate_upload(file, max_size=max_size, allowed_types=allowed_types)
+
+        new_file_path: Path | None = None
+
+        try:
+            with Mutex.lock_in_transaction(
+                str(paper.pk),
+                namespace="paper_submissions",
+            ):
+                revision = cls.next_revision(PaperSubmission, paper)
+
+                submission = PaperSubmission(
+                    paper=paper,
+                    revision=revision,
+                    uploader=uploader,
+                )
+                submission.file.save(file.name, file, save=False)
+                new_file_path = Path(submission.file.path)
+
+                submission.save()
+
+                # Cleanup: delete single oldest revision by this uploader when in
+                # editable states. Admin uploads (skip_cleanup=True) preserve all.
+                if not skip_cleanup and paper.state in (
+                    Paper.State.DRAFT,
+                    Paper.State.SUBMITTED,
+                ):
+                    oldest = (
+                        PaperSubmission.objects.filter(paper=paper, uploader=uploader)
+                        .exclude(pk=submission.pk)
+                        .order_by("revision")
+                        .first()
+                    )
+                    if oldest:
+                        cls.delete_revision(oldest)
+
+                return submission
+
+        except Exception:
+            if new_file_path:
+                unlink_safe(new_file_path)
+            raise
+
+
+# TODO: Scan and clean up orphan files.
