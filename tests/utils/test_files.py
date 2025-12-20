@@ -2,7 +2,9 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from django.conf import LazySettings
 from django.core.files.uploadedfile import SimpleUploadedFile, TemporaryUploadedFile
+from django.http import FileResponse, HttpResponse
 from pytest_mock import MockerFixture
 
 from app.utils.files import (
@@ -11,6 +13,7 @@ from app.utils.files import (
     FileTooLargeError,
     InvalidFileTypeError,
     MissingFilenameError,
+    build_file_download_response,
     get_magika,
     validate_upload,
 )
@@ -342,3 +345,251 @@ class TestValidateUploadE2E:
                 max_size=10,
                 allowed_types={"image/png": [".png"]},
             )
+
+
+class TestBuildFileDownloadResponse:
+    @pytest.fixture
+    def mock_field_file(self, tmp_path: Path) -> MagicMock:
+        file_path = tmp_path / "test_file.pdf"
+        file_path.write_bytes(b"test content")
+
+        mock = MagicMock()
+        mock.name = "uploads/test_file.pdf"
+        mock.open.side_effect = lambda mode: file_path.open(mode)
+        return mock
+
+    def test_happy_path_django_mode(self, mock_field_file: MagicMock) -> None:
+        response = build_file_download_response(mock_field_file)
+
+        assert isinstance(response, FileResponse)
+        assert response["Content-Disposition"] == 'inline; filename="test_file.pdf"'
+        mock_field_file.open.assert_called_once_with("rb")
+
+    def test_nginx_mode_sets_accel_redirect_header(
+        self,
+        settings: LazySettings,
+        mock_field_file: MagicMock,
+    ) -> None:
+        settings.FILE_DOWNLOAD_MODE = "nginx"
+        settings.FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX = "/internal-media"
+        settings.FILE_DOWNLOAD_NGINX_HEADER = "X-Accel-Redirect"
+
+        response = build_file_download_response(mock_field_file)
+
+        assert isinstance(response, HttpResponse)
+        assert not isinstance(response, FileResponse)
+        assert response["X-Accel-Redirect"] == "/internal-media/uploads/test_file.pdf"
+        assert response["Content-Type"] == "application/octet-stream"
+        mock_field_file.open.assert_not_called()
+
+    def test_nginx_mode_encodes_special_characters_in_path(
+        self,
+        settings: LazySettings,
+    ) -> None:
+        settings.FILE_DOWNLOAD_MODE = "nginx"
+        settings.FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX = "/internal"
+        settings.FILE_DOWNLOAD_NGINX_HEADER = "X-Accel-Redirect"
+
+        mock = MagicMock()
+        mock.name = "uploads/file with spaces.pdf"
+
+        response = build_file_download_response(mock)
+
+        assert (
+            response["X-Accel-Redirect"] == "/internal/uploads/file%20with%20spaces.pdf"
+        )
+
+    def test_nginx_mode_strips_trailing_slash_from_prefix(
+        self,
+        settings: LazySettings,
+        mock_field_file: MagicMock,
+    ) -> None:
+        settings.FILE_DOWNLOAD_MODE = "nginx"
+        settings.FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX = "/internal-media/"
+        settings.FILE_DOWNLOAD_NGINX_HEADER = "X-Accel-Redirect"
+
+        response = build_file_download_response(mock_field_file)
+
+        assert response["X-Accel-Redirect"] == "/internal-media/uploads/test_file.pdf"
+
+    def test_uses_provided_filename(self, mock_field_file: MagicMock) -> None:
+        response = build_file_download_response(mock_field_file, filename="custom.pdf")
+
+        assert response["Content-Disposition"] == 'inline; filename="custom.pdf"'
+
+    def test_falls_back_to_file_basename_when_filename_is_none(
+        self,
+        mock_field_file: MagicMock,
+    ) -> None:
+        response = build_file_download_response(mock_field_file, filename=None)
+
+        assert response["Content-Disposition"] == 'inline; filename="test_file.pdf"'
+
+    def test_falls_back_to_file_basename_when_filename_is_empty(
+        self,
+        mock_field_file: MagicMock,
+    ) -> None:
+        response = build_file_download_response(mock_field_file, filename="")
+
+        assert response["Content-Disposition"] == 'inline; filename="test_file.pdf"'
+
+    def test_strips_path_components_from_provided_filename(
+        self,
+        mock_field_file: MagicMock,
+    ) -> None:
+        response = build_file_download_response(
+            mock_field_file,
+            filename="some/path/custom.pdf",
+        )
+
+        assert response["Content-Disposition"] == 'inline; filename="custom.pdf"'
+
+    def test_inline_disposition_is_default(self, mock_field_file: MagicMock) -> None:
+        response = build_file_download_response(mock_field_file)
+
+        assert response["Content-Disposition"].startswith("inline;")
+
+    def test_attachment_disposition(self, mock_field_file: MagicMock) -> None:
+        response = build_file_download_response(
+            mock_field_file,
+            disposition="attachment",
+        )
+
+        assert response["Content-Disposition"] == 'attachment; filename="test_file.pdf"'
+
+    def test_custom_content_type(self, mock_field_file: MagicMock) -> None:
+        response = build_file_download_response(
+            mock_field_file,
+            content_type="application/pdf",
+        )
+
+        assert response["Content-Type"] == "application/pdf"
+
+    def test_non_ascii_filename_uses_rfc5987_encoding(
+        self,
+        mock_field_file: MagicMock,
+    ) -> None:
+        response = build_file_download_response(mock_field_file, filename="报告.pdf")
+
+        content_disposition = response["Content-Disposition"]
+        assert 'filename="??.pdf"' in content_disposition
+        assert "filename*=UTF-8''" in content_disposition
+        assert "%E6%8A%A5%E5%91%8A.pdf" in content_disposition
+
+    def test_filename_with_control_characters_sanitized(
+        self,
+        mock_field_file: MagicMock,
+    ) -> None:
+        response = build_file_download_response(
+            mock_field_file,
+            filename="test\x00\x1f.pdf",
+        )
+
+        assert response["Content-Disposition"] == 'inline; filename="test__.pdf"'
+
+    def test_filename_with_backslash_sanitized(
+        self,
+        mock_field_file: MagicMock,
+    ) -> None:
+        response = build_file_download_response(
+            mock_field_file,
+            filename="test\\file.pdf",
+        )
+
+        assert response["Content-Disposition"] == 'inline; filename="test_file.pdf"'
+
+    def test_filename_with_quotes_sanitized(
+        self,
+        mock_field_file: MagicMock,
+    ) -> None:
+        response = build_file_download_response(
+            mock_field_file,
+            filename='test"file.pdf',
+        )
+
+        assert response["Content-Disposition"] == 'inline; filename="test_file.pdf"'
+
+    def test_raises_value_error_when_file_has_no_name(self) -> None:
+        mock = MagicMock()
+        mock.name = ""
+
+        with pytest.raises(ValueError, match="File has no name"):
+            build_file_download_response(mock)
+
+    def test_raises_value_error_when_file_name_is_none(self) -> None:
+        mock = MagicMock()
+        mock.name = None
+
+        with pytest.raises(ValueError, match="File has no name"):
+            build_file_download_response(mock)
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "/etc/passwd",  # Absolute path.
+            "uploads\\file.pdf",  # Backslash in path.
+            "uploads/../etc/passwd",  # Parent directory traversal.
+        ],
+    )
+    def test_raises_value_error_when_name_is_invalid(self, name: str) -> None:
+        mock = MagicMock()
+        mock.name = name
+
+        with pytest.raises(ValueError, match="Invalid file path"):
+            build_file_download_response(mock)
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "C:foo/bar.pdf",  # Windows drive relative path.
+            "D:/uploads/file.pdf",  # Windows drive absolute path.
+        ],
+    )
+    def test_rejects_drive_path_on_windows(
+        self,
+        mocker: MockerFixture,
+        name: str,
+    ) -> None:
+        mocker.patch("app.utils.files.sys.platform", "win32")
+        mock = MagicMock()
+        mock.name = name
+
+        with pytest.raises(ValueError, match="Invalid file path"):
+            build_file_download_response(mock)
+
+    def test_allows_colon_in_name_on_posix(self, mocker: MockerFixture) -> None:
+        mocker.patch("app.utils.files.sys.platform", "linux")
+        mock = MagicMock()
+        mock.name = "a:b.pdf"
+        mock.open.return_value = MagicMock()
+
+        response = build_file_download_response(mock)
+
+        assert response is not None
+
+    def test_file_without_extension(self) -> None:
+        mock = MagicMock()
+        mock.name = "uploads/README"
+        mock.open.return_value = MagicMock()
+
+        response = build_file_download_response(mock)
+
+        assert response["Content-Disposition"] == 'inline; filename="README"'
+
+    def test_empty_basename_falls_back_to_disposition_only(self) -> None:
+        mock = MagicMock()
+        mock.name = "."
+        mock.open.return_value = MagicMock()
+
+        response = build_file_download_response(mock)
+
+        assert response["Content-Disposition"] == "inline"
+
+    def test_empty_basename_with_attachment_disposition(self) -> None:
+        mock = MagicMock()
+        mock.name = "."
+        mock.open.return_value = MagicMock()
+
+        response = build_file_download_response(mock, disposition="attachment")
+
+        assert response["Content-Disposition"] == "attachment"

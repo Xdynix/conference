@@ -1,9 +1,10 @@
 import secrets
 import string
 from pathlib import Path
+from typing import Literal, cast
 
 import django_stubs_ext
-from decouple import Csv, config
+from decouple import Choices, Csv, config
 
 from app.logging import configure_logging
 from app.patches import (
@@ -329,6 +330,47 @@ PASSWORD_RESET_TOKEN_RETENTION = config(
 
 PASSWORD_RESET_PAGE_URL = config("PASSWORD_RESET_PAGE_URL", default="")
 # TODO: Add prod check for the URL setting.
+
+
+# File Downloads
+#
+# In "django" mode, files are served directly by Django using `FileResponse`. In "nginx"
+# mode, Django returns an empty response with `X-Accel-Redirect header`, letting nginx
+# serve the file from an internal location.
+#
+# Example nginx configuration for internal file serving:
+#
+#     location /internal-media/ {
+#         internal;
+#         alias /var/www/media/;
+#     }
+#
+# Corresponding Django settings:
+#
+#     FILE_DOWNLOAD_MODE=nginx
+#     FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX=/internal-media
+#     MEDIA_ROOT=/var/www/media
+#
+# The internal location path must match FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX, and the
+# alias must point to MEDIA_ROOT (or wherever the storage backend stores files).
+
+FileDownloadMode = Literal["django", "nginx"]
+
+FILE_DOWNLOAD_MODE: FileDownloadMode = config(
+    "FILE_DOWNLOAD_MODE",
+    default="django",
+    cast=Choices(cast(list[FileDownloadMode], ["django", "nginx"])),
+)  # TODO: Add prod check for the setting.
+
+FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX = config(
+    "FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX",
+    default="",
+)  # TODO: Add prod check for the setting.
+
+FILE_DOWNLOAD_NGINX_HEADER = config(
+    "FILE_DOWNLOAD_NGINX_HEADER",
+    default="X-Accel-Redirect",
+)
 
 
 # Conference

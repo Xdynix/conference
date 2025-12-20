@@ -1,5 +1,6 @@
 from collections.abc import Callable, Iterable
 from typing import (
+    Any,
     ClassVar,
     Generic,
     Protocol,
@@ -7,8 +8,8 @@ from typing import (
     overload,
 )
 
-DT = TypeVar("DT")
-VT = TypeVar("VT")
+DefaultT = TypeVar("DefaultT")
+ValueT = TypeVar("ValueT")
 
 class Undefined: ...
 
@@ -31,40 +32,51 @@ class AutoConfig:
         self,
         option: str,
         default: Undefined = ...,
-        cast: Callable[[str], VT] = ...,
-    ) -> VT: ...
+        cast: Callable[[str], ValueT] = ...,
+    ) -> ValueT: ...
     @overload
     def __call__(
         self,
         option: str,
-        default: DT = ...,
+        default: DefaultT = ...,
         cast: Undefined = ...,
-    ) -> str | DT: ...
+    ) -> str | DefaultT: ...
     @overload
     def __call__(
         self,
         option: str,
-        default: DT = ...,
-        cast: Callable[[str | DT], VT] = ...,
-    ) -> VT: ...
+        default: DefaultT = ...,
+        cast: Callable[[str | DefaultT], ValueT] = ...,
+    ) -> ValueT: ...
 
 config: AutoConfig
 
-IT = TypeVar("IT", contravariant=True, default=str)
-CT = TypeVar("CT", covariant=True, default=list[str])
+CsvValueT = TypeVar("CsvValueT", contravariant=True, default=str)
+CsvResultT = TypeVar("CsvResultT", covariant=True, default=list[str])
 
-class PostProcess(Protocol[IT, CT]):
+class PostProcess(Protocol[CsvValueT, CsvResultT]):
     @overload
-    def __call__(self) -> CT: ...
+    def __call__(self) -> CsvResultT: ...
     @overload
-    def __call__(self, items: Iterable[IT]) -> CT: ...
+    def __call__(self, items: Iterable[CsvValueT]) -> CsvResultT: ...
 
-class Csv(Generic[IT, CT]):
+class Csv(Generic[CsvValueT, CsvResultT]):
     def __init__(
         self,
-        cast: Callable[[str], IT] = ...,
+        cast: Callable[[str], CsvValueT] = ...,
         delimiter: str = ...,
         strip: str = ...,
-        post_process: PostProcess[IT, CT] = ...,
+        post_process: PostProcess[CsvValueT, CsvResultT] = ...,
     ): ...
-    def __call__(self, value: str) -> CT: ...
+    def __call__(self, value: str) -> CsvResultT: ...
+
+ChoicesValueT = TypeVar("ChoicesValueT", covariant=True, default=str)
+
+class Choices(Generic[ChoicesValueT]):
+    def __init__(
+        self,
+        flat: Iterable[ChoicesValueT] | None = None,
+        cast: Callable[[str], ChoicesValueT] = ...,
+        choices: Iterable[tuple[ChoicesValueT, Any]] | None = None,
+    ): ...
+    def __call__(self, value: str) -> ChoicesValueT: ...
