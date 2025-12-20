@@ -1,12 +1,14 @@
 from collections.abc import Collection
-from typing import TypedDict
+from typing import Literal, TypedDict
 
 from django.db import transaction
 from django.db.models import QuerySet
+from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from app.conference.models import Conference, Keyword, Paper, PaperAuthor, Track
 from app.core.models import GlobalRole, User
+from app.infra.models import Mutex
 
 from .access import ConferenceAccessService
 
@@ -25,7 +27,11 @@ class NoCodePoolError(Exception):
     pass
 
 
-class PaperWithdrawnError(Exception):
+class PaperStateError(Exception):
+    pass
+
+
+class PaperWithdrawnError(PaperStateError):
     pass
 
 
@@ -75,11 +81,11 @@ class PaperService:
         return paper
 
     @classmethod
-    @transaction.atomic
     def update_paper(
         cls,
         *,
         paper: Paper,
+        mode: Literal["author", "track_admin", "admin"] = "author",
         title: str | None = None,
         abstract: str | None = None,
         contribution: str | None = None,
@@ -88,37 +94,109 @@ class PaperService:
     ) -> Paper:
         """Update paper metadata, authors, and keywords.
 
-        The caller is responsible for verifying that:
-        - The user has permission to update this paper.
-        - The paper state allows updates (if applicable).
+        The caller is responsible for verifying that the user has permission to update
+        this paper.
+
+        Args:
+            paper: The paper to update.
+            mode: Controls state restrictions. ``"author"`` allows only Draft
+                state. ``"track_admin"`` allows Draft, Submitted, and Under
+                Review. ``"admin"`` allows any state.
+            title: Title of the paper.
+            abstract: Abstract of the paper.
+            contribution: Contribution statement of the paper.
+            keywords: Keywords of the paper.
+            authors: Authors of the paper.
 
         Raises:
+            Paper.DoesNotExist: If the paper, its conference, or its track has
+                been deleted or deactivated.
+            PaperStateError: If the paper state is not allowed for the given mode.
             PaperWithdrawnError: If the paper has been withdrawn.
         """
-        if paper.withdraw_time is not None:
-            raise PaperWithdrawnError(_("Withdrawn papers cannot be updated."))
+        with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
+            paper = Paper.objects.active().get(pk=paper.pk)
 
-        update_fields = []
-        if title is not None:
-            paper.title = title
-            update_fields.append("title")
-        if abstract is not None:
-            paper.abstract = abstract
-            update_fields.append("abstract")
-        if contribution is not None:
-            paper.contribution = contribution
-            update_fields.append("contribution")
+            if paper.withdraw_time is not None:
+                raise PaperWithdrawnError(_("Withdrawn papers cannot be updated."))
 
-        if update_fields:
-            paper.save(update_fields=update_fields)
+            if mode == "author":
+                if paper.state != Paper.State.DRAFT:
+                    raise PaperStateError(_("Paper must be in Draft state to update."))
+            elif mode == "track_admin" and paper.state in Paper.State.decided():
+                raise PaperStateError(
+                    _("Only conference admins can update papers after decision.")
+                )
 
-        if keywords is not None:
-            cls.set_paper_keywords(paper, keywords)
+            update_fields = []
+            if title is not None:
+                paper.title = title
+                update_fields.append("title")
+            if abstract is not None:
+                paper.abstract = abstract
+                update_fields.append("abstract")
+            if contribution is not None:
+                paper.contribution = contribution
+                update_fields.append("contribution")
 
-        if authors is not None:
-            cls.set_paper_authors(paper, authors)
+            if update_fields:
+                paper.save(update_fields=[*update_fields, "update_time"])
 
-        return paper
+            if keywords is not None:
+                cls.set_paper_keywords(paper, keywords)
+
+            if authors is not None:
+                cls.set_paper_authors(paper, authors)
+
+            return paper
+
+    @classmethod
+    def delete_paper(
+        cls,
+        *,
+        paper: Paper,
+        mode: Literal["author", "track_admin", "admin"] = "author",
+    ) -> Paper:
+        """Soft delete a paper by setting ``delete_time``.
+
+        The caller is responsible for verifying that the user has permission to delete
+        this paper.
+
+        Args:
+            paper: The paper to delete.
+            mode: Controls state restrictions. ``"author"`` allows only Draft or
+                Submitted state. ``"track_admin"`` allows Draft, Submitted, and
+                Under Review. ``"admin"`` allows any state.
+
+        Raises:
+            Paper.DoesNotExist: If the paper, its conference, or its track has
+                been deleted or deactivated.
+            PaperStateError: If the paper state is not allowed for the given mode.
+            PaperWithdrawnError: If the paper has been withdrawn.
+        """
+        with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
+            paper = Paper.objects.active().get(pk=paper.pk)
+
+            if paper.withdraw_time is not None:
+                raise PaperWithdrawnError(_("Withdrawn papers cannot be deleted."))
+
+            if mode == "author":
+                if paper.state not in (Paper.State.DRAFT, Paper.State.SUBMITTED):
+                    raise PaperStateError(
+                        _("Paper must be in Draft or Submitted state to delete.")
+                    )
+            elif mode == "track_admin" and paper.state in Paper.State.decided():
+                raise PaperStateError(
+                    _(
+                        "Track admins can only delete papers in Draft, Submitted, "
+                        "or Under Review state."
+                    )
+                )
+
+            paper.delete_time = timezone.now()
+            paper.save(update_fields=["delete_time", "update_time"])
+
+            return paper
 
     @classmethod
     def set_paper_keywords(cls, paper: Paper, keywords: Collection[Keyword]) -> None:

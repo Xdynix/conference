@@ -1,37 +1,25 @@
 from http import HTTPStatus
+from typing import Literal
 
+from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from django.utils import timezone
-from django.utils.translation import gettext as _
 from loguru import logger
 from ninja.errors import HttpError
 
 from app.conference.auth import has_any_conference_or_track_roles
-from app.conference.models import Conference, ConferenceRole, Paper, TrackRole
+from app.conference.models import Conference, ConferenceRole, TrackRole
 from app.conference.services import (
     ConferenceAccessService,
     ConferenceService,
     PaperService,
 )
+from app.conference.services.paper import PaperStateError
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse
 
 from .core import router
-
-
-async def remove_paper(paper: Paper) -> None:
-    """Soft delete a paper by setting ``delete_time``.
-
-    Raises:
-        ValueError: If the paper is withdrawn.
-    """
-    if paper.withdraw_time is not None:
-        raise ValueError(_("Withdrawn papers cannot be deleted."))
-
-    paper.delete_time = timezone.now()
-    await paper.asave(update_fields=["delete_time", "update_time"])
 
 
 @router.delete(
@@ -64,15 +52,9 @@ async def delete_my_paper(
         code=paper_code,
     )
 
-    if paper.state not in (Paper.State.DRAFT, Paper.State.SUBMITTED):
-        raise HttpError(
-            HTTPStatus.BAD_REQUEST,
-            _("Paper must be in Draft or Submitted state to delete."),
-        )
-
     try:
-        await remove_paper(paper)
-    except ValueError as exc:
+        await sync_to_async(PaperService.delete_paper)(paper=paper, mode="author")
+    except PaperStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
     logger.info(
@@ -127,18 +109,13 @@ async def delete_paper(
         user=user,
         global_roles=(GlobalRole.ADMIN,),
     )
-    if not ctx.has_full_conference_scope and paper.state in Paper.State.decided():
-        raise HttpError(
-            HTTPStatus.BAD_REQUEST,
-            _(
-                "Track admins can only delete papers in Draft, Submitted, "
-                "or Under Review state."
-            ),
-        )
+    mode: Literal["admin", "track_admin"] = (
+        "admin" if ctx.has_full_conference_scope else "track_admin"
+    )
 
     try:
-        await remove_paper(paper)
-    except ValueError as exc:
+        await sync_to_async(PaperService.delete_paper)(paper=paper, mode=mode)
+    except PaperStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
     logger.info(

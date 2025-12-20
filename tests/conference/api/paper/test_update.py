@@ -21,7 +21,7 @@ from app.conference.models import (
     TrackRoleAssignment,
 )
 from app.conference.services import KeywordService, PaperService
-from app.conference.services.paper import PaperWithdrawnError
+from app.conference.services.paper import PaperStateError, PaperWithdrawnError
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from app.utils.enums import Region
 from tests.helpers import any_str, update_object
@@ -136,6 +136,7 @@ class TestUpdateMyPaper:
 
         paper_service_update.assert_called_once_with(
             paper=paper,
+            mode="author",
             title="Updated Title",
             abstract="Updated abstract",
             contribution="Updated contribution",
@@ -199,6 +200,7 @@ class TestUpdateMyPaper:
 
         paper_service_update.assert_called_once()
         call_kwargs = paper_service_update.call_args.kwargs
+        assert call_kwargs["mode"] == "author"
         assert call_kwargs["title"] == "Updated Title"
         assert call_kwargs["abstract"] == "  Updated abstract"
         assert call_kwargs["contribution"] == "  Updated contribution"
@@ -228,16 +230,13 @@ class TestUpdateMyPaper:
 
         call_kwargs = paper_service_update.call_args.kwargs
         assert call_kwargs["paper"] == paper
+        assert call_kwargs["mode"] == "author"
         assert call_kwargs["title"] is None
         assert call_kwargs["abstract"] == "Revised abstract"
         assert call_kwargs["contribution"] is None
         assert call_kwargs["keywords"] is None
         assert call_kwargs["authors"] is None
 
-    @pytest.mark.parametrize(
-        "state",
-        [state for state in Paper.State if state != Paper.State.DRAFT],
-    )
     def test_rejects_non_draft_state(
         self,
         api_client: Client,
@@ -245,9 +244,10 @@ class TestUpdateMyPaper:
         conference: Conference,
         paper: Paper,
         paper_service_update: MagicMock,
-        state: Paper.State,
     ) -> None:
-        update_object(paper, state=state)
+        paper_service_update.side_effect = PaperStateError(
+            "Paper must be in Draft state to update."
+        )
         api_client.force_login(user)
 
         response = api_client.patch(
@@ -258,7 +258,7 @@ class TestUpdateMyPaper:
 
         assert response.json()["message"] == "Paper must be in Draft state to update."
 
-        paper_service_update.assert_not_called()
+        paper_service_update.assert_called_once()
 
     def test_rejects_withdrawn_paper(
         self,
@@ -504,6 +504,7 @@ class TestUpdatePaper:
 
         paper_service_update.assert_called_once_with(
             paper=paper,
+            mode="admin",
             title="Admin Updated",
             abstract=None,
             contribution=None,
@@ -544,6 +545,7 @@ class TestUpdatePaper:
 
         paper_service_update.assert_called_once()
         call_kwargs = paper_service_update.call_args.kwargs
+        assert call_kwargs["mode"] == "admin"
         assert call_kwargs["title"] == "Admin Updated"
         assert call_kwargs["abstract"] == "  Admin abstract"
         assert call_kwargs["contribution"] == "  Admin contribution"
@@ -648,6 +650,7 @@ class TestUpdatePaper:
 
         paper_service_update.assert_called_once_with(
             paper=paper,
+            mode="track_admin",
             title=None,
             abstract=None,
             contribution="Track admin edit",
@@ -656,7 +659,6 @@ class TestUpdatePaper:
         )
         mock_visible_papers.assert_awaited_once_with(conference, track_admin)
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
     def test_track_admin_cannot_update_decided_paper(
         self,
         api_client: Client,
@@ -665,7 +667,6 @@ class TestUpdatePaper:
         paper: Paper,
         paper_service_update: MagicMock,
         mock_visible_papers: AsyncMock,
-        state: Paper.State,
     ) -> None:
         track_admin = User.objects.create_user(username="track-admin")
         TrackRoleAssignment.objects.create(
@@ -673,7 +674,9 @@ class TestUpdatePaper:
             user=track_admin,
             role=TrackRole.CHAIR,
         )
-        update_object(paper, state=state)
+        paper_service_update.side_effect = PaperStateError(
+            "Only conference admins can update papers after decision."
+        )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         api_client.force_login(track_admin)
 
@@ -688,10 +691,9 @@ class TestUpdatePaper:
             == "Only conference admins can update papers after decision."
         )
 
-        paper_service_update.assert_not_called()
+        paper_service_update.assert_called_once()
         mock_visible_papers.assert_awaited_once_with(conference, track_admin)
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
     def test_global_admin_can_update_decided(
         self,
         api_client: Client,
@@ -700,9 +702,7 @@ class TestUpdatePaper:
         global_admin: User,
         paper_service_update: MagicMock,
         mock_visible_papers: AsyncMock,
-        state: Paper.State,
     ) -> None:
-        update_object(paper, state=state)
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         api_client.force_login(global_admin)
 
@@ -714,6 +714,7 @@ class TestUpdatePaper:
 
         paper_service_update.assert_called_once_with(
             paper=paper,
+            mode="admin",
             title=None,
             abstract=None,
             contribution="Global update",
@@ -722,7 +723,6 @@ class TestUpdatePaper:
         )
         mock_visible_papers.assert_awaited_once_with(conference, global_admin)
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
     def test_conference_admin_can_update_decided(
         self,
         api_client: Client,
@@ -731,9 +731,7 @@ class TestUpdatePaper:
         conference_chair: User,
         paper_service_update: MagicMock,
         mock_visible_papers: AsyncMock,
-        state: Paper.State,
     ) -> None:
-        update_object(paper, state=state)
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         api_client.force_login(conference_chair)
 
@@ -745,6 +743,7 @@ class TestUpdatePaper:
 
         paper_service_update.assert_called_once_with(
             paper=paper,
+            mode="admin",
             title="Decided update",
             abstract=None,
             contribution=None,
