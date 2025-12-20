@@ -293,6 +293,41 @@ class TestCreateMySubmission:
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
+    def test_conference_inactive(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_pdf: SimpleUploadedFile,
+    ) -> None:
+        update_object(conference, active=False)
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_track_inactive(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        paper: Paper,
+        sample_pdf: SimpleUploadedFile,
+    ) -> None:
+        update_object(track, active=False)
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
     def test_authorization_unauthenticated(
         self,
         client: Client,

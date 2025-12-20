@@ -295,6 +295,34 @@ class TestListMyPapers:
         response = api_client.get(self.path(hidden_conference.name))
         assert response.status_code == HTTPStatus.NOT_FOUND
 
+    def test_conference_inactive(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        update_object(conference, active=False)
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_track_inactive(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        update_object(track, active=False)
+        create_paper(conference, track, user, code="PAPER-001")
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == {"items": []}
+
     def test_authorization_unauthenticated(
         self,
         api_client: Client,

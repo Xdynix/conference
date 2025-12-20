@@ -173,6 +173,33 @@ class TestDeleteMyPaper:
         response = api_client.delete(self.path(conference.name, paper.code))
         assert response.status_code == HTTPStatus.NOT_FOUND
 
+    def test_conference_inactive(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        update_object(conference, active=False)
+        api_client.force_login(user)
+
+        response = api_client.delete(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_track_inactive(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        paper: Paper,
+    ) -> None:
+        update_object(track, active=False)
+        api_client.force_login(user)
+
+        response = api_client.delete(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
     def test_authorization_unauthenticated(
         self,
         api_client: Client,

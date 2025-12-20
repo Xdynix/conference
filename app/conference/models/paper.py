@@ -18,7 +18,11 @@ User = get_user_model()
 
 class PaperQuerySet(models.QuerySet["Paper"]):
     def active(self) -> Self:
-        return self.filter(delete_time__isnull=True)
+        return self.filter(
+            conference__active=True,
+            track__active=True,
+            delete_time__isnull=True,
+        )
 
 
 class Paper(TimeStampedModel, ULIDModel):

@@ -20,7 +20,7 @@ from app.conference.services.paper import (
     NoCodePoolError,
     PaperWithdrawnError,
 )
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from tests.helpers import a_update_object, update_object
 
 
@@ -460,6 +460,7 @@ class TestPaperServiceVisiblePapers:
 
     async def test_global_admin_sees_all_papers(
         self,
+        global_admin: User,
         user: User,
         conference: Conference,
         track: Track,
@@ -471,15 +472,15 @@ class TestPaperServiceVisiblePapers:
             code="PAPER-001",
             title="Test Paper",
         )
-        await GlobalRoleAssignment.objects.acreate(user=user, role=GlobalRole.ADMIN)
 
-        qs = await PaperService.visible_papers(conference, user)
+        qs = await PaperService.visible_papers(conference, global_admin)
         papers = [p async for p in qs]
 
         assert papers == [paper]
 
     async def test_global_read_all_sees_all_papers(
         self,
+        global_read_all: User,
         user: User,
         conference: Conference,
         track: Track,
@@ -491,9 +492,8 @@ class TestPaperServiceVisiblePapers:
             code="PAPER-001",
             title="Test Paper",
         )
-        await GlobalRoleAssignment.objects.acreate(user=user, role=GlobalRole.READ_ALL)
 
-        qs = await PaperService.visible_papers(conference, user)
+        qs = await PaperService.visible_papers(conference, global_read_all)
         papers = [p async for p in qs]
 
         assert papers == [paper]
@@ -718,6 +718,48 @@ class TestPaperServiceVisiblePapers:
         papers = [p async for p in qs]
 
         assert papers == [active_paper]
+
+    async def test_excludes_inactive_conference_papers(
+        self,
+        global_admin: User,
+        user: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        await Paper.objects.acreate(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="PAPER-001",
+            title="Test Paper",
+        )
+        await a_update_object(conference, active=False)
+
+        qs = await PaperService.visible_papers(conference, global_admin)
+        papers = [p async for p in qs]
+
+        assert papers == []
+
+    async def test_excludes_inactive_track_papers(
+        self,
+        global_admin: User,
+        user: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        await Paper.objects.acreate(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="PAPER-001",
+            title="Test Paper",
+        )
+        await a_update_object(track, active=False)
+
+        qs = await PaperService.visible_papers(conference, global_admin)
+        papers = [p async for p in qs]
+
+        assert papers == []
 
     async def test_inactive_track_does_not_grant_visibility(
         self,
