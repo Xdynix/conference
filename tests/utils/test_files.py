@@ -5,7 +5,7 @@ import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile, TemporaryUploadedFile
 from pytest_mock import MockerFixture
 
-from app.utils.upload import (
+from app.utils.files import (
     MAX_MEMORY_DETECTION_SIZE,
     ExtensionMismatchError,
     FileTooLargeError,
@@ -40,7 +40,7 @@ class TestValidateUpload:
     @pytest.fixture(autouse=True)
     def mock_magika(self, mocker: MockerFixture) -> MagicMock:
         instance = MagicMock()
-        mocker.patch("app.utils.upload.get_magika", return_value=instance)
+        mocker.patch("app.utils.files.get_magika", return_value=instance)
 
         result = MagicMock()
         result.output.mime_type = MOCK_MIME_PDF

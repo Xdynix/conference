@@ -10,7 +10,7 @@ from loguru import logger
 from app.conference.models import Paper, PaperFinal, PaperSubmission
 from app.core.models import User
 from app.infra.models import Mutex
-from app.utils.upload import validate_upload
+from app.utils.files import validate_upload
 
 
 def unlink_safe(path: Path) -> None:

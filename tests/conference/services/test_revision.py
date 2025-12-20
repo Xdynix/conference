@@ -18,7 +18,7 @@ from app.conference.models import (
 )
 from app.conference.services.revision import RevisionService
 from app.core.models import User
-from app.utils.upload import FileTooLargeError
+from app.utils.files import FileTooLargeError
 from tests.helpers import update_object
 
 

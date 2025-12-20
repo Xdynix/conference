@@ -24,7 +24,7 @@ from app.conference.models import (
 from app.conference.services import PaperService
 from app.conference.services.revision import RevisionService
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
-from app.utils.upload import FileTooLargeError, InvalidFileTypeError
+from app.utils.files import FileTooLargeError, InvalidFileTypeError
 from tests.helpers import any_str, update_object
 
 

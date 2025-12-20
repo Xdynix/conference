@@ -21,7 +21,7 @@ from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse
-from app.utils.upload import UploadValidationError
+from app.utils.files import UploadValidationError
 
 from .core import PaperDetailResponse, UserPaperDetailResponse, prefetch_paper, router
 
