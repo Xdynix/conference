@@ -21,7 +21,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 DATA_DIR: Path = config("DATA_DIR", default=BASE_DIR / "var", cast=Path)
 
-
 # Security
 
 SECRET_KEY = config(
@@ -32,7 +31,6 @@ SECRET_KEY = config(
 DEBUG = config("DEBUG", default=False, cast=bool)
 
 ALLOWED_HOSTS: list[str] = config("ALLOWED_HOSTS", default="", cast=Csv())
-
 
 # Cookies
 
@@ -53,7 +51,6 @@ SESSION_COOKIE_PATH = COOKIE_PATH
 SESSION_COOKIE_SECURE = True
 
 SESSION_COOKIE_HTTPONLY = True
-
 
 # Application Definition
 
@@ -106,7 +103,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "app.wsgi.application"
 
-
 # Database
 
 DATABASES = {
@@ -118,7 +114,6 @@ DATABASES = {
         },
     }
 }
-
 
 # Authentication
 
@@ -140,7 +135,6 @@ PASSWORD_HASHERS = [
 
 SESSION_SERIALIZER = "app.utils.orjson.ORJSONSerializer"
 
-
 # Internationalization
 
 LANGUAGE_CODE = "en-us"
@@ -150,7 +144,6 @@ TIME_ZONE = "UTC"
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static Files and File Upload
 
@@ -173,11 +166,9 @@ MEDIA_ROOT: Path = config("MEDIA_ROOT", default=DATA_DIR / "media", cast=Path)
 
 MEDIA_URL = "/media/"
 
-
 # Misc
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
 
 # Email
 
@@ -213,7 +204,6 @@ SERVER_EMAIL = config("SERVER_EMAIL", default="no-reply@localhost")
 
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="no-reply@localhost")
 
-
 # Logging
 
 LOGGING_CONFIG = None
@@ -225,11 +215,9 @@ configure_logging(
     debug=DEBUG,
 )
 
-
 # django-stubs
 
 django_stubs_ext.monkeypatch()
-
 
 # django-extensions
 
@@ -244,7 +232,6 @@ RUNSERVER_PLUS_EXCLUDE_PATTERNS = [
     str(BASE_DIR / "var" / "*"),
 ]
 
-
 # django-ipware
 
 # TODO: Configure `IPWARE_META_PRECEDENCE_ORDER`.
@@ -256,11 +243,9 @@ SITE_NAME = config("SITE_NAME", default="Django")
 
 FAVICON_TEXT = config("FAVICON_TEXT", default="💡")
 
-
 # Infra
 
 MUTEX_RETENTION = config("MUTEX_RETENTION", default=7, cast=days)
-
 
 # Cloudflare Turnstile
 
@@ -296,7 +281,6 @@ CF_TURNSTILE_BYPASS_SECRETS: frozenset[str] = frozenset(
     )
 )
 
-
 # Verikit
 
 VERIKIT_EMAIL_CODE_INTERVAL = config(
@@ -322,7 +306,6 @@ VERIKIT_VERIFICATION_RETENTION = config(
     default=7,
     cast=days,
 )
-
 
 # Core
 
@@ -366,6 +349,15 @@ INVITATION_REJECT_PAGE_URL = config(
     default="https://example.com/reject",
 )  # TODO: Remove after implementing frontend page.
 
+MAX_SUBMISSION_SIZE = 20 * 1024 * 1024
+
+ALLOWED_SUBMISSION_TYPES = {
+    "application/pdf": [".pdf"],
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
+        ".docx"
+    ],
+    "application/msword": [".doc"],
+}
 
 # Monkeypatch
 
