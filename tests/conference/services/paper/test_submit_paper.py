@@ -1,0 +1,323 @@
+from typing import Any
+
+import pytest
+from django.utils import timezone
+
+from app.conference.models import (
+    Conference,
+    Keyword,
+    Paper,
+    PaperAuthor,
+    PaperSubmission,
+    Track,
+)
+from app.conference.services import PaperService
+from app.conference.services.paper import (
+    PaperStateError,
+    PaperSubmissionError,
+    PaperWithdrawnError,
+)
+from app.core.models import User
+from tests.helpers import approx_now, update_object
+
+
+@pytest.mark.django_db
+class TestPaperServiceSubmitPaper:
+    @pytest.fixture
+    def paper(self, user: User, conference: Conference, track: Track) -> Paper:
+        return Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="PAPER-001",
+            title="Test Paper Title",
+            abstract="Test abstract",
+            contribution="Test contribution",
+        )
+
+    @classmethod
+    def add_keyword(cls, paper: Paper) -> Keyword:
+        keyword = Keyword.objects.create(text="Machine Learning")
+        paper.keywords.add(keyword)
+        return keyword
+
+    @classmethod
+    def add_author(
+        cls,
+        paper: Paper,
+        ordering: int = 0,
+        *,
+        given_name: str = "Alice",
+        family_name: str = "Smith",
+        affiliation: str = "University",
+        region_code: str = "US",
+        email: str = "alice@example.com",
+        corresponding: bool = False,
+    ) -> PaperAuthor:
+        return PaperAuthor.objects.create(
+            paper=paper,
+            ordering=ordering,
+            given_name=given_name,
+            family_name=family_name,
+            affiliation=affiliation,
+            region_code=region_code,
+            email=email,
+            corresponding=corresponding,
+        )
+
+    @classmethod
+    def add_submission(cls, paper: Paper, user: User) -> None:
+        PaperSubmission.objects.create(
+            paper=paper,
+            revision=1,
+            file="test.pdf",
+            uploader=user,
+        )
+
+    def test_happy_path(self, user: User, paper: Paper) -> None:
+        self.add_keyword(paper)
+        self.add_submission(paper, user)
+        self.add_author(paper, corresponding=True)
+
+        submitted = PaperService.submit_paper(paper)
+
+        db_submitted = Paper.objects.get(pk=submitted.pk)
+        assert submitted.submit_time == db_submitted.submit_time == approx_now()
+
+    def test_non_strict_mode_with_minimal_fields(
+        self,
+        user: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="MINIMAL-001",
+            title="Only Title",
+        )
+
+        submitted = PaperService.submit_paper(paper, strict=False)
+
+        db_submitted = Paper.objects.get(pk=submitted.pk)
+        assert submitted.state == db_submitted.state == Paper.State.SUBMITTED
+        assert submitted.submit_time == db_submitted.submit_time == approx_now()
+
+    def test_non_strict_mode_requires_title(self, paper: Paper) -> None:
+        update_object(paper, title="")
+
+        with pytest.raises(PaperSubmissionError) as exc_info:
+            PaperService.submit_paper(paper, strict=False)
+
+        assert exc_info.value.errors == [{"title": "Title is required."}]
+
+        paper.refresh_from_db()
+        assert paper.state == Paper.State.DRAFT
+        assert paper.submit_time is None
+
+    def test_raises_when_paper_is_withdrawn(self, user: User, paper: Paper) -> None:
+        self.add_keyword(paper)
+        self.add_submission(paper, user)
+        self.add_author(paper, corresponding=True)
+        update_object(paper, withdraw_time=timezone.now())
+
+        with pytest.raises(
+            PaperWithdrawnError,
+            match="Withdrawn papers cannot be submitted",
+        ):
+            PaperService.submit_paper(paper)
+
+        paper.refresh_from_db()
+        assert paper.state == Paper.State.DRAFT
+        assert paper.submit_time is None
+
+    @pytest.mark.parametrize(
+        "state",
+        [state for state in Paper.State if state != Paper.State.DRAFT],
+    )
+    def test_rejects_non_draft_state(
+        self,
+        user: User,
+        paper: Paper,
+        state: Paper.State,
+    ) -> None:
+        self.add_keyword(paper)
+        self.add_submission(paper, user)
+        self.add_author(paper, corresponding=True)
+        update_object(paper, state=state)
+
+        with pytest.raises(
+            PaperStateError,
+            match="Paper must be in Draft state to submit",
+        ):
+            PaperService.submit_paper(paper)
+
+    @pytest.mark.parametrize(
+        "field,value,message",
+        [
+            ("title", "", "Title is required."),
+            ("abstract", "", "Abstract is required."),
+            ("contribution", "", "Contribution statement is required."),
+        ],
+    )
+    def test_validates_field_required(
+        self,
+        user: User,
+        paper: Paper,
+        field: str,
+        value: Any,
+        message: str,
+    ) -> None:
+        update_object(paper, **{field: value})
+        self.add_keyword(paper)
+        self.add_submission(paper, user)
+        self.add_author(paper, corresponding=True)
+
+        with pytest.raises(PaperSubmissionError) as exc_info:
+            PaperService.submit_paper(paper)
+
+        errors = exc_info.value.errors
+        assert {field: message} in errors
+
+    def test_validates_keywords_required(self, user: User, paper: Paper) -> None:
+        self.add_submission(paper, user)
+        self.add_author(paper, corresponding=True)
+
+        with pytest.raises(PaperSubmissionError) as exc_info:
+            PaperService.submit_paper(paper)
+
+        errors = exc_info.value.errors
+        assert {"keywords": "At least one keyword is required."} in errors
+
+    def test_validates_submission_file_required(self, paper: Paper) -> None:
+        self.add_keyword(paper)
+        self.add_author(paper, corresponding=True)
+
+        with pytest.raises(PaperSubmissionError) as exc_info:
+            PaperService.submit_paper(paper)
+
+        errors = exc_info.value.errors
+        assert {"submissions": "A submission file is required."} in errors
+
+    def test_validates_authors_required(self, user: User, paper: Paper) -> None:
+        self.add_keyword(paper)
+        self.add_submission(paper, user)
+
+        with pytest.raises(PaperSubmissionError) as exc_info:
+            PaperService.submit_paper(paper)
+
+        errors = exc_info.value.errors
+        assert {"authors": "At least one author is required."} in errors
+
+    def test_validates_corresponding_author_required(
+        self,
+        user: User,
+        paper: Paper,
+    ) -> None:
+        self.add_keyword(paper)
+        self.add_submission(paper, user)
+        self.add_author(paper, corresponding=False)
+
+        with pytest.raises(PaperSubmissionError) as exc_info:
+            PaperService.submit_paper(paper)
+
+        errors = exc_info.value.errors
+        assert {"authors": "One author must be marked as corresponding."} in errors
+
+    def test_validates_only_one_corresponding_author(
+        self,
+        user: User,
+        paper: Paper,
+    ) -> None:
+        self.add_keyword(paper)
+        self.add_submission(paper, user)
+        self.add_author(
+            paper,
+            ordering=0,
+            email="alice@example.com",
+            corresponding=True,
+        )
+        self.add_author(
+            paper,
+            ordering=1,
+            given_name="Bob",
+            family_name="Jones",
+            email="bob@example.com",
+            corresponding=True,
+        )
+
+        with pytest.raises(PaperSubmissionError) as exc_info:
+            PaperService.submit_paper(paper)
+
+        errors = exc_info.value.errors
+        assert {"authors": "Only one author can be marked as corresponding."} in errors
+
+    @pytest.mark.parametrize(
+        "field,message",
+        [
+            ("given_name", "given name"),
+            ("family_name", "family name"),
+            ("affiliation", "affiliation"),
+            ("region_code", "region"),
+            ("email", "email"),
+        ],
+    )
+    def test_validates_author_field_required(
+        self,
+        user: User,
+        paper: Paper,
+        field: str,
+        message: str,
+    ) -> None:
+        self.add_keyword(paper)
+        self.add_submission(paper, user)
+        self.add_author(paper, **{field: ""}, corresponding=True)  # type: ignore[arg-type]
+
+        with pytest.raises(PaperSubmissionError) as exc_info:
+            PaperService.submit_paper(paper)
+
+        errors = exc_info.value.errors
+        assert any("authors[1]" in error for error in errors)
+        author_error = next(e for e in errors if "authors[1]" in e)
+        assert message in author_error["authors[1]"]
+
+    def test_validates_multiple_author_missing_fields(
+        self,
+        user: User,
+        paper: Paper,
+    ) -> None:
+        self.add_keyword(paper)
+        self.add_submission(paper, user)
+        self.add_author(
+            paper,
+            given_name="",
+            family_name="",
+            email="",
+            corresponding=True,
+        )
+
+        with pytest.raises(PaperSubmissionError) as exc_info:
+            PaperService.submit_paper(paper)
+
+        errors = exc_info.value.errors
+        author_error = next(e for e in errors if "authors[1]" in e)
+        message = author_error["authors[1]"]
+        assert "given name" in message
+        assert "family name" in message
+        assert "email" in message
+
+    def test_collects_all_validation_errors(self, paper: Paper) -> None:
+        update_object(paper, title="", abstract="", contribution="")
+
+        with pytest.raises(PaperSubmissionError) as exc_info:
+            PaperService.submit_paper(paper)
+
+        errors = exc_info.value.errors
+        assert len(errors) >= 6
+        assert {"title": "Title is required."} in errors
+        assert {"abstract": "Abstract is required."} in errors
+        assert {"contribution": "Contribution statement is required."} in errors
+        assert {"keywords": "At least one keyword is required."} in errors
+        assert {"submissions": "A submission file is required."} in errors
+        assert {"authors": "At least one author is required."} in errors

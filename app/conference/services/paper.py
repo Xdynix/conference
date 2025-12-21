@@ -35,6 +35,12 @@ class PaperWithdrawnError(PaperStateError):
     pass
 
 
+class PaperSubmissionError(Exception):
+    def __init__(self, errors: list[dict[str, str]]):
+        self.errors = errors
+        super().__init__(_("Paper submission validation failed."))
+
+
 class PaperService:
     @classmethod
     @transaction.atomic
@@ -195,6 +201,102 @@ class PaperService:
 
             paper.delete_time = timezone.now()
             paper.save(update_fields=["delete_time", "update_time"])
+
+            return paper
+
+    @classmethod
+    def submit_paper(cls, paper: Paper, *, strict: bool = True) -> Paper:
+        """Submit a paper for review.
+
+        Validates required fields and transitions the paper from Draft to
+        Submitted state.
+
+        Args:
+            paper: The paper to submit.
+            strict: If ``True`` (default), validates all required fields including
+                abstract, contribution, keywords, submission file, and authors.
+                If ``False``, only validates title (for admin bypass).
+
+        Raises:
+            Paper.DoesNotExist: If the paper, its conference, or its track has been
+                deleted or deactivated.
+            PaperStateError: If the paper is not in Draft state.
+            PaperWithdrawnError: If the paper has been withdrawn.
+            PaperSubmissionError: If the paper fails field validation. The exception
+                contains a list of error dictionaries.
+        """
+        with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
+            paper = Paper.objects.active().prefetch_related("authors").get(pk=paper.pk)
+
+            if paper.state != Paper.State.DRAFT:
+                raise PaperStateError(_("Paper must be in Draft state to submit."))
+            if paper.withdraw_time is not None:
+                raise PaperWithdrawnError(_("Withdrawn papers cannot be submitted."))
+
+            errors: list[dict[str, str]] = []
+            if not paper.title:
+                errors.append({"title": _("Title is required.")})
+
+            if strict:
+                if not paper.abstract:
+                    errors.append({"abstract": _("Abstract is required.")})
+                if not paper.contribution:
+                    errors.append(
+                        {"contribution": _("Contribution statement is required.")}
+                    )
+
+                if not paper.keywords.exists():
+                    errors.append({"keywords": _("At least one keyword is required.")})
+                if not paper.submissions.exists():
+                    errors.append({"submissions": _("A submission file is required.")})
+
+                authors = list(paper.authors.all())
+                if not authors:
+                    errors.append({"authors": _("At least one author is required.")})
+                else:
+                    corresponding_count = sum(1 for a in authors if a.corresponding)
+                    if corresponding_count == 0:
+                        errors.append(
+                            {
+                                "authors": _(
+                                    "One author must be marked as corresponding."
+                                )
+                            }
+                        )
+                    elif corresponding_count > 1:
+                        errors.append(
+                            {
+                                "authors": _(
+                                    "Only one author can be marked as corresponding."
+                                )
+                            }
+                        )
+
+                    for idx, author in enumerate(authors, start=1):
+                        missing_fields = []
+                        if not author.given_name:
+                            missing_fields.append("given name")
+                        if not author.family_name:
+                            missing_fields.append("family name")
+                        if not author.affiliation:
+                            missing_fields.append("affiliation")
+                        if not author.region_code:
+                            missing_fields.append("region")
+                        if not author.email:
+                            missing_fields.append("email")
+
+                        if missing_fields:
+                            message = _("Missing required fields: {fields}.").format(
+                                fields=", ".join(missing_fields)
+                            )
+                            errors.append({f"authors[{idx}]": message})
+
+            if errors:
+                raise PaperSubmissionError(errors)
+
+            paper.state = Paper.State.SUBMITTED
+            paper.submit_time = timezone.now()
+            paper.save(update_fields=["state", "submit_time", "update_time"])
 
             return paper
 
