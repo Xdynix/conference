@@ -21,13 +21,13 @@ class UpdateCurrentUserPasswordRequest(Schema):
     new_password: Password
 
 
-@router.put(
-    "/users/me/password",
+@router.post(
+    "/users/me:set-password",
     response={HTTPStatus.NO_CONTENT: None},
     summary="Change My Password",
     auth=is_authenticated,
 )
-async def update_current_user_password(
+async def set_current_user_password(
     request: AuthedHttpRequest,
     payload: UpdateCurrentUserPasswordRequest,
 ) -> tuple[int, None]:
@@ -66,13 +66,13 @@ class UpdateUserPasswordRequest(Schema):
     new_password: Password
 
 
-@router.put(
-    "/users/{ulid:uid}/password",
+@router.post(
+    "/users/{ulid:uid}:set-password",
     response={HTTPStatus.NO_CONTENT: None},
     summary="Change Password",
     auth=has_any_roles(GlobalRole.ADMIN),
 )
-async def update_user_password(
+async def set_user_password(
     request: AuthedHttpRequest,
     uid: ULID,
     payload: UpdateUserPasswordRequest,

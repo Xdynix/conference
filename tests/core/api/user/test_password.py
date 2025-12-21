@@ -39,8 +39,8 @@ def user(faker: Faker, old_password: str) -> User:
 
 
 @pytest.mark.django_db
-class TestUpdateCurrentUserPassword:
-    path = reverse("api-1.0.0:update-current-user-password")
+class TestSetCurrentUserPassword:
+    path = reverse("api-1.0.0:set-current-user-password")
 
     def test_happy_path(
         self,
@@ -52,7 +52,7 @@ class TestUpdateCurrentUserPassword:
         new_password = "NewPassword456!"
         api_client.force_login(user)
 
-        response = api_client.put(
+        response = api_client.post(
             self.path,
             data={
                 "old_password": old_password,
@@ -78,7 +78,7 @@ class TestUpdateCurrentUserPassword:
         user_service_change_password.side_effect = ValueError("Invalid old password.")
         api_client.force_login(user)
 
-        response = api_client.put(
+        response = api_client.post(
             self.path,
             data={
                 "old_password": "WrongPassword123!",
@@ -110,7 +110,7 @@ class TestUpdateCurrentUserPassword:
         )
         api_client.force_login(user)
 
-        response = api_client.put(
+        response = api_client.post(
             self.path,
             data={
                 "old_password": old_password,
@@ -135,7 +135,7 @@ class TestUpdateCurrentUserPassword:
         api_client: Client,
         user_service_change_password: MagicMock,
     ) -> None:
-        response = api_client.put(
+        response = api_client.post(
             self.path,
             data={
                 "old_password": "OldPassword123!",
@@ -148,10 +148,10 @@ class TestUpdateCurrentUserPassword:
 
 
 @pytest.mark.django_db
-class TestUpdateUserPassword:
+class TestSetUserPassword:
     @classmethod
     def path(cls, user_id: ULID) -> str:
-        return reverse("api-1.0.0:update-user-password", args=[user_id])
+        return reverse("api-1.0.0:set-user-password", args=[user_id])
 
     def test_happy_path(
         self,
@@ -163,7 +163,7 @@ class TestUpdateUserPassword:
         new_password = "NewPassword456!"
         api_client.force_login(admin_user)
 
-        response = api_client.put(
+        response = api_client.post(
             self.path(user_id=user.uid),
             data={"new_password": new_password},
         )
@@ -184,7 +184,7 @@ class TestUpdateUserPassword:
         update_object(user, is_active=False)
         api_client.force_login(admin_user)
 
-        response = api_client.put(
+        response = api_client.post(
             self.path(user_id=user.uid),
             data={"new_password": "NewPassword456!"},
         )
@@ -202,7 +202,7 @@ class TestUpdateUserPassword:
         update_object(user, is_superuser=True)
         api_client.force_login(admin_user)
 
-        response = api_client.put(
+        response = api_client.post(
             self.path(user_id=user.uid),
             data={"new_password": "NewPassword456!"},
         )
@@ -218,7 +218,7 @@ class TestUpdateUserPassword:
     ) -> None:
         api_client.force_login(admin_user)
 
-        response = api_client.put(
+        response = api_client.post(
             self.path(user_id=ULID()),
             data={"new_password": "NewPassword456!"},
         )
@@ -241,7 +241,7 @@ class TestUpdateUserPassword:
         )
         api_client.force_login(admin_user)
 
-        response = api_client.put(
+        response = api_client.post(
             self.path(user_id=user.uid),
             data={"new_password": "weak"},
         )
@@ -264,7 +264,7 @@ class TestUpdateUserPassword:
         user: User,
         user_service_update_password: MagicMock,
     ) -> None:
-        response = api_client.put(
+        response = api_client.post(
             self.path(user_id=user.uid),
             data={"new_password": "NewPassword456!"},
         )
