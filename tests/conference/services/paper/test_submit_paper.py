@@ -82,6 +82,7 @@ class TestPaperServiceSubmitPaper:
         submitted = PaperService.submit_paper(paper)
 
         db_submitted = Paper.objects.get(pk=submitted.pk)
+        assert submitted.state == db_submitted.state == Paper.State.SUBMITTED
         assert submitted.submit_time == db_submitted.submit_time == approx_now()
 
     def test_non_strict_mode_with_minimal_fields(
@@ -131,6 +132,27 @@ class TestPaperServiceSubmitPaper:
         paper.refresh_from_db()
         assert paper.state == Paper.State.DRAFT
         assert paper.submit_time is None
+
+    def test_withdrawn_paper_reports_withdrawn_even_when_not_draft(
+        self,
+        user: User,
+        paper: Paper,
+    ) -> None:
+        self.add_keyword(paper)
+        self.add_submission(paper, user)
+        self.add_author(paper, corresponding=True)
+        update_object(
+            paper,
+            state=Paper.State.SUBMITTED,
+            submit_time=timezone.now(),
+            withdraw_time=timezone.now(),
+        )
+
+        with pytest.raises(
+            PaperWithdrawnError,
+            match="Withdrawn papers cannot be submitted",
+        ):
+            PaperService.submit_paper(paper)
 
     @pytest.mark.parametrize(
         "state",

@@ -40,6 +40,11 @@ def paper_service_submit(mocker: MockerFixture) -> MagicMock:
     return mocker.spy(PaperService, "submit_paper")
 
 
+@pytest.fixture
+def paper_service_unsubmit(mocker: MockerFixture) -> MagicMock:
+    return mocker.spy(PaperService, "unsubmit_paper")
+
+
 @pytest.mark.django_db
 class TestSubmitMyPaper:
     @classmethod
@@ -126,6 +131,165 @@ class TestSubmitMyPaper:
                 {"authors": "At least one author is required."},
             ],
         }
+
+    def test_paper_not_found(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        client.force_login(user)
+
+        response = client.post(self.path(conference.name, "NONEXISTENT"))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_paper_owned_by_another_user(
+        self,
+        faker: Faker,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        other_user = User.objects.create_user(username=faker.user_name())
+        update_object(paper, owner=other_user)
+        client.force_login(user)
+
+        response = client.post(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_deleted_paper_not_accessible(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        update_object(paper, delete_time=timezone.now())
+        client.force_login(user)
+
+        response = client.post(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_not_found(
+        self,
+        client: Client,
+        user: User,
+        paper: Paper,
+    ) -> None:
+        client.force_login(user)
+
+        response = client.post(self.path("nonexistent-conference", paper.code))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_not_visible_to_user(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        update_object(conference, visibility=Conference.Visibility.MEMBER_ONLY)
+        client.force_login(user)
+
+        response = client.post(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_inactive(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        update_object(conference, active=False)
+        client.force_login(user)
+
+        response = client.post(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_track_inactive(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        paper: Paper,
+    ) -> None:
+        update_object(track, active=False)
+        client.force_login(user)
+
+        response = client.post(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_authorization_unauthenticated(
+        self,
+        client: Client,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        response = client.post(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+
+@pytest.mark.django_db
+class TestUnsubmitMyPaper:
+    @classmethod
+    def path(cls, conference_name: str, paper_code: str) -> str:
+        return reverse(
+            "api-1.0.0:unsubmit-my-paper",
+            args=[conference_name, paper_code],
+        )
+
+    def test_happy_path(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        paper_service_unsubmit: MagicMock,
+    ) -> None:
+        update_object(paper, state=Paper.State.SUBMITTED, submit_time=timezone.now())
+
+        def unsubmit_side_effect(p: Paper) -> Paper:
+            p.state = Paper.State.DRAFT
+            p.submit_time = None
+            p.save(update_fields=["state", "submit_time"])
+            return p
+
+        paper_service_unsubmit.side_effect = unsubmit_side_effect
+        client.force_login(user)
+
+        response = client.post(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["uid"] == str(paper.uid)
+        assert data["code"] == paper.code
+        assert data["state"] == "Draft"
+
+        paper_service_unsubmit.assert_called_once_with(paper)
+
+    def test_handle_paper_state_error(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        paper_service_unsubmit: MagicMock,
+    ) -> None:
+        paper_service_unsubmit.side_effect = PaperStateError(
+            "Paper must be in Submitted state to unsubmit."
+        )
+        client.force_login(user)
+
+        response = client.post(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+
+        assert (
+            "Paper must be in Submitted state to unsubmit."
+            in response.json()["message"]
+        )
 
     def test_paper_not_found(
         self,

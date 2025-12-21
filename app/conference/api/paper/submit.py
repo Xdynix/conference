@@ -69,6 +69,51 @@ async def submit_my_paper(
 
 
 @router.post(
+    "/conferences/{slug:conference_name}/my-papers/{slug:paper_code}:unsubmit",
+    response={
+        HTTPStatus.OK: UserPaperDetailResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
+    },
+    summary="Unsubmit My Paper",
+    auth=is_authenticated,
+)
+async def unsubmit_my_paper(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    paper_code: str,
+) -> Paper:
+    """Unsubmit a paper to allow further editing.
+
+    Transitions the paper from Submitted back to Draft state. Use this when you need to
+    make changes after submission but before review starts.
+    """
+    user = await request.auser()
+    conference = await aget_object_or_404(
+        await ConferenceService.visible_conferences(user),
+        name=conference_name,
+    )
+
+    paper = await aget_object_or_404(
+        conference.papers.active().filter(owner=user),
+        code=paper_code,
+    )
+
+    try:
+        paper = await sync_to_async(PaperService.unsubmit_paper)(paper)
+    except PaperStateError as exc:
+        raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+
+    logger.info(
+        "Paper unsubmitted by owner.",
+        paper_code=paper.code,
+        conference_name=conference.name,
+        user_uid=str(user.uid),
+    )
+
+    return await prefetch_paper(paper)
+
+
+@router.post(
     "/conferences/{slug:conference_name}/papers/{slug:paper_code}:submit",
     response={
         HTTPStatus.OK: PaperDetailResponse,

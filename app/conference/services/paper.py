@@ -228,10 +228,10 @@ class PaperService:
         with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
             paper = Paper.objects.active().prefetch_related("authors").get(pk=paper.pk)
 
-            if paper.state != Paper.State.DRAFT:
-                raise PaperStateError(_("Paper must be in Draft state to submit."))
             if paper.withdraw_time is not None:
                 raise PaperWithdrawnError(_("Withdrawn papers cannot be submitted."))
+            if paper.state != Paper.State.DRAFT:
+                raise PaperStateError(_("Paper must be in Draft state to submit."))
 
             errors: list[dict[str, str]] = []
             if not paper.title:
@@ -296,6 +296,34 @@ class PaperService:
 
             paper.state = Paper.State.SUBMITTED
             paper.submit_time = timezone.now()
+            paper.save(update_fields=["state", "submit_time", "update_time"])
+
+            return paper
+
+    @classmethod
+    def unsubmit_paper(cls, paper: Paper) -> Paper:
+        """Unsubmit a paper to allow further editing.
+
+        Transitions the paper from Submitted back to Draft state.
+
+        Raises:
+            Paper.DoesNotExist: If the paper, its conference, or its track has
+                been deleted or deactivated.
+            PaperStateError: If the paper is not in Submitted state.
+            PaperWithdrawnError: If the paper has been withdrawn.
+        """
+        with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
+            paper = Paper.objects.active().get(pk=paper.pk)
+
+            if paper.withdraw_time is not None:
+                raise PaperWithdrawnError(_("Withdrawn papers cannot be unsubmitted."))
+            if paper.state != Paper.State.SUBMITTED:
+                raise PaperStateError(
+                    _("Paper must be in Submitted state to unsubmit.")
+                )
+
+            paper.state = Paper.State.DRAFT
+            paper.submit_time = None
             paper.save(update_fields=["state", "submit_time", "update_time"])
 
             return paper
