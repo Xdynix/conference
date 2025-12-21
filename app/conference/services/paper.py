@@ -329,6 +329,29 @@ class PaperService:
             return paper
 
     @classmethod
+    def withdraw_paper(cls, paper: Paper) -> Paper:
+        """Withdraw a paper from consideration.
+
+        Marks the paper as withdrawn by setting ``withdraw_time``. Withdrawal can happen
+        from any state and is final.
+
+        Raises:
+            Paper.DoesNotExist: If the paper, its conference, or its track has
+                been deleted or deactivated.
+            PaperWithdrawnError: If the paper has already been withdrawn.
+        """
+        with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
+            paper = Paper.objects.active().get(pk=paper.pk)
+
+            if paper.withdraw_time is not None:
+                raise PaperWithdrawnError(_("Paper has already been withdrawn."))
+
+            paper.withdraw_time = timezone.now()
+            paper.save(update_fields=["withdraw_time", "update_time"])
+
+            return paper
+
+    @classmethod
     def set_paper_keywords(cls, paper: Paper, keywords: Collection[Keyword]) -> None:
         """Replace all keywords on a paper."""
         paper.keywords.set(keywords)
