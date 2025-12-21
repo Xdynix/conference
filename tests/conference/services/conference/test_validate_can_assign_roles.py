@@ -11,7 +11,7 @@ from app.conference.models import (
 )
 from app.conference.services import ConferenceService
 from app.conference.services.conference import InsufficientRolePermission
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from tests.helpers import update_object
 
 
@@ -34,17 +34,12 @@ class TestConferenceServiceValidateCanAssignRoles:
 
     def test_global_admin_can_assign_any_roles(
         self,
-        user: User,
+        global_admin: User,
         conference: Conference,
         track_a: Track,
     ) -> None:
-        GlobalRoleAssignment.objects.create(
-            user=user,
-            role=GlobalRole.ADMIN,
-        )
-
         ConferenceService.validate_can_assign_roles(
-            user=user,
+            user=global_admin,
             conference=conference,
             conference_roles=[*ConferenceRole],
             track_roles={track_a: [*TrackRole]},
@@ -52,36 +47,24 @@ class TestConferenceServiceValidateCanAssignRoles:
 
     def test_conference_chair_can_assign_any_conference_roles(
         self,
-        user: User,
         conference: Conference,
+        conference_chair: User,
     ) -> None:
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.CHAIR,
-        )
-
         ConferenceService.validate_can_assign_roles(
-            user=user,
+            user=conference_chair,
             conference=conference,
             conference_roles=[*ConferenceRole],
         )
 
     def test_conference_chair_can_assign_any_track_roles(
         self,
-        user: User,
         conference: Conference,
+        conference_chair: User,
         track_a: Track,
         track_b: Track,
     ) -> None:
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.CHAIR,
-        )
-
         ConferenceService.validate_can_assign_roles(
-            user=user,
+            user=conference_chair,
             conference=conference,
             track_roles={
                 track_a: [*TrackRole],
@@ -95,18 +78,12 @@ class TestConferenceServiceValidateCanAssignRoles:
     )
     def test_conference_secretary_can_assign_non_admin_conference_role(
         self,
-        user: User,
         conference: Conference,
+        conference_secretary: User,
         assignable_role: ConferenceRole,
     ) -> None:
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.SECRETARY,
-        )
-
         ConferenceService.validate_can_assign_roles(
-            user=user,
+            user=conference_secretary,
             conference=conference,
             conference_roles=[assignable_role],
         )
@@ -114,16 +91,10 @@ class TestConferenceServiceValidateCanAssignRoles:
     @pytest.mark.parametrize("restricted_role", ConferenceRole.admins())
     def test_conference_secretary_cannot_assign_admin_conference_role(
         self,
-        user: User,
         conference: Conference,
+        conference_secretary: User,
         restricted_role: ConferenceRole,
     ) -> None:
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.SECRETARY,
-        )
-
         with pytest.raises(
             InsufficientRolePermission,
             match=(
@@ -131,7 +102,7 @@ class TestConferenceServiceValidateCanAssignRoles:
             ),
         ):
             ConferenceService.validate_can_assign_roles(
-                user=user,
+                user=conference_secretary,
                 conference=conference,
                 conference_roles=[restricted_role],
             )
@@ -142,19 +113,13 @@ class TestConferenceServiceValidateCanAssignRoles:
     )
     def test_conference_secretary_can_assign_non_admin_track_role(
         self,
-        user: User,
         conference: Conference,
+        conference_secretary: User,
         track_a: Track,
         assignable_role: TrackRole,
     ) -> None:
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.SECRETARY,
-        )
-
         ConferenceService.validate_can_assign_roles(
-            user=user,
+            user=conference_secretary,
             conference=conference,
             track_roles={track_a: [assignable_role]},
         )
@@ -162,17 +127,11 @@ class TestConferenceServiceValidateCanAssignRoles:
     @pytest.mark.parametrize("restricted_role", TrackRole.admins())
     def test_conference_secretary_cannot_assign_admin_track_role(
         self,
-        user: User,
         conference: Conference,
+        conference_secretary: User,
         track_a: Track,
         restricted_role: TrackRole,
     ) -> None:
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.SECRETARY,
-        )
-
         with pytest.raises(
             InsufficientRolePermission,
             match=(
@@ -180,25 +139,19 @@ class TestConferenceServiceValidateCanAssignRoles:
             ),
         ):
             ConferenceService.validate_can_assign_roles(
-                user=user,
+                user=conference_secretary,
                 conference=conference,
                 track_roles={track_a: [restricted_role]},
             )
 
     def test_conference_secretary_can_assign_both_conference_and_track_non_admin_roles(
         self,
-        user: User,
         conference: Conference,
+        conference_secretary: User,
         track_a: Track,
     ) -> None:
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.SECRETARY,
-        )
-
         ConferenceService.validate_can_assign_roles(
-            user=user,
+            user=conference_secretary,
             conference=conference,
             conference_roles=[ConferenceRole.REVIEWER, ConferenceRole.MEMBER],
             track_roles={track_a: [TrackRole.REVIEWER, TrackRole.MEMBER]},
@@ -448,18 +401,12 @@ class TestConferenceServiceValidateCanAssignRoles:
 
     def test_conference_chair_can_assign_both_conference_and_track_roles(
         self,
-        user: User,
         conference: Conference,
+        conference_chair: User,
         track_a: Track,
     ) -> None:
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.CHAIR,
-        )
-
         ConferenceService.validate_can_assign_roles(
-            user=user,
+            user=conference_chair,
             conference=conference,
             conference_roles=[ConferenceRole.REVIEWER],
             track_roles={track_a: [TrackRole.REVIEWER]},
@@ -468,8 +415,8 @@ class TestConferenceServiceValidateCanAssignRoles:
     def test_cannot_assign_track_from_different_conference(
         self,
         faker: Faker,
-        user: User,
         conference: Conference,
+        conference_chair: User,
     ) -> None:
         other_conference = Conference.objects.create(
             name=faker.slug(),
@@ -479,18 +426,13 @@ class TestConferenceServiceValidateCanAssignRoles:
             conference=other_conference,
             display_name=faker.word(),
         )
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.CHAIR,
-        )
 
         with pytest.raises(
             ValueError,
             match="The following tracks do not belong to this conference",
         ):
             ConferenceService.validate_can_assign_roles(
-                user=user,
+                user=conference_chair,
                 conference=conference,
                 conference_roles=[],
                 track_roles={other_track: [TrackRole.REVIEWER]},

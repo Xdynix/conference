@@ -667,14 +667,12 @@ class TestCreatePaper:
 
     def test_global_admin_bypasses_submissions_enabled(
         self,
-        faker: Faker,
         api_client: Client,
+        global_admin: User,
         conference: Conference,
         track: Track,
         paper_service_create: MagicMock,
     ) -> None:
-        global_admin = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=global_admin, role=GlobalRole.ADMIN)
         update_object(track, submissions_enabled=False)
         api_client.force_login(global_admin)
 

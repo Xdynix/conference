@@ -23,7 +23,7 @@ from app.conference.models import (
 )
 from app.conference.services import PaperService
 from app.conference.services.revision import RevisionService
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from app.utils.files import FileTooLargeError, InvalidFileTypeError
 from tests.helpers import any_str, update_object
 
@@ -653,16 +653,15 @@ class TestCreateSubmission:
     def test_authorization_global_admin(
         self,
         client: Client,
+        global_admin: User,
         conference: Conference,
         paper: Paper,
         sample_pdf: SimpleUploadedFile,
         revision_service_create_submission: MagicMock,
         mock_visible_papers: AsyncMock,
     ) -> None:
-        admin = User.objects.create_user(username="global-admin")
-        GlobalRoleAssignment.objects.create(user=admin, role=GlobalRole.ADMIN)
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
-        client.force_login(admin)
+        client.force_login(global_admin)
 
         response = client.post(
             self.path(conference.name, paper.code),

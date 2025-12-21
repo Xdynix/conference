@@ -83,13 +83,13 @@ class TestInvitationServiceRedeemInvitation:
         assert result is True
 
         assert ConferenceRoleAssignment.objects.filter(
-            user=invitee,
             conference=conference,
+            user=invitee,
             role=ConferenceRole.CHAIR,
         ).exists()
         assert ConferenceRoleAssignment.objects.filter(
-            user=invitee,
             conference=conference,
+            user=invitee,
             role=ConferenceRole.REVIEWER,
         ).exists()
 
@@ -163,8 +163,8 @@ class TestInvitationServiceRedeemInvitation:
 
         assert (
             ConferenceRoleAssignment.objects.filter(
-                user=invitee,
                 conference=conference,
+                user=invitee,
                 role=ConferenceRole.CHAIR,
             ).count()
             == 1

@@ -227,18 +227,12 @@ class TestCreateInvitation:
 
     def test_conference_reviewer_forbidden(
         self,
-        faker: Faker,
         api_client: Client,
         conference: Conference,
+        conference_reviewer: User,
         invitation_service_create: MagicMock,
     ) -> None:
-        user = User.objects.create_user(username=faker.user_name())
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.REVIEWER,
-        )
-        api_client.force_login(user)
+        api_client.force_login(conference_reviewer)
 
         response = api_client.post(
             self.path(conference.name),

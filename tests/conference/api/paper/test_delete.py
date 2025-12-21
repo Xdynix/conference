@@ -15,7 +15,7 @@ from app.conference.models import (
     TrackRole,
     TrackRoleAssignment,
 )
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from tests.helpers import approx_now, update_object
 
 
@@ -398,12 +398,11 @@ class TestDeletePaper:
     def test_authorization_global_admin(
         self,
         api_client: Client,
+        global_admin: User,
         conference: Conference,
         paper: Paper,
     ) -> None:
-        admin = User.objects.create_user(username="global-admin")
-        GlobalRoleAssignment.objects.create(user=admin, role=GlobalRole.ADMIN)
-        api_client.force_login(admin)
+        api_client.force_login(global_admin)
 
         response = api_client.delete(self.path(conference.name, paper.code))
         assert response.status_code == HTTPStatus.NO_CONTENT

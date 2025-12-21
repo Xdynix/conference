@@ -10,7 +10,7 @@ from app.conference.models import (
     TrackRoleAssignment,
 )
 from app.conference.services import ConferenceService
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from tests.helpers import a_update_object
 
 
@@ -63,15 +63,17 @@ class TestConferenceServiceVisibleConferences:
 
         assert conferences == [private, public]
 
-    async def test_global_admin_role_grants_full_visibility(self, user: User) -> None:
+    async def test_global_admin_role_grants_full_visibility(
+        self,
+        global_admin: User,
+    ) -> None:
         private = await Conference.objects.acreate(
             name="secure-conf",
             display_name="Secure",
             visibility=Conference.Visibility.ADMIN_ONLY,
         )
-        await GlobalRoleAssignment.objects.acreate(user=user, role=GlobalRole.ADMIN)
 
-        qs = await ConferenceService.visible_conferences(user)
+        qs = await ConferenceService.visible_conferences(global_admin)
         conferences = [conf async for conf in qs.order_by("name")]
 
         assert conferences == [private]

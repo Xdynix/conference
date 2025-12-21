@@ -259,19 +259,16 @@ class TestInvitationServiceVisibleInvitations:
 
     async def test_conference_reviewer_sees_no_invitations(
         self,
-        faker: Faker,
         conference: Conference,
+        conference_reviewer: User,
         make_invitation: InvitationFactory,
     ) -> None:
-        reviewer = await User.objects.acreate_user(username=faker.user_name())
-        await ConferenceRoleAssignment.objects.acreate(
-            user=reviewer,
-            conference=conference,
-            role=ConferenceRole.REVIEWER,
-        )
         await make_invitation()
 
-        result = await InvitationService.visible_invitations(conference, reviewer)
+        result = await InvitationService.visible_invitations(
+            conference,
+            conference_reviewer,
+        )
 
         assert await result.acount() == 0
 

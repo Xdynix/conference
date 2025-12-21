@@ -17,7 +17,7 @@ from app.conference.models import (
 from app.conference.services import ConferenceService, InvitationService
 from app.conference.services.conference import InsufficientRolePermission
 from app.conference.services.invitation import ImmutableInvitation
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from app.utils.enums import Region
 
 from .conftest import add_invitation_roles
@@ -36,15 +36,6 @@ class TestInvitationServiceUpdateInvitation:
             region_code=Region.GB.name,
             desired_paper_count=10,
         )
-
-    @pytest.fixture
-    def user(self, faker: Faker) -> User:
-        user = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(
-            user=user,
-            role=GlobalRole.ADMIN,
-        )
-        return user
 
     @pytest.fixture
     def track_a(self, faker: Faker, conference: Conference) -> Track:
@@ -75,7 +66,7 @@ class TestInvitationServiceUpdateInvitation:
     def test_happy_path(
         self,
         mocker: MockerFixture,
-        user: User,
+        global_admin: User,
         pending_invitation: Invitation,
         keyword_a: Keyword,
         keyword_b: Keyword,
@@ -91,7 +82,7 @@ class TestInvitationServiceUpdateInvitation:
 
         updated = InvitationService.update_invitation(
             invitation_uid=pending_invitation.uid,
-            user=user,
+            user=global_admin,
             given_name="Jane",
             family_name="Smith",
             affiliation="MIT",
@@ -133,13 +124,13 @@ class TestInvitationServiceUpdateInvitation:
 
         assert mock_validate_roles.call_args_list == [
             mocker.call(
-                user=user,
+                user=global_admin,
                 conference=pending_invitation.conference,
                 conference_roles=[ConferenceRole.REVIEWER],
                 track_roles={},
             ),
             mocker.call(
-                user=user,
+                user=global_admin,
                 conference=pending_invitation.conference,
                 conference_roles=[ConferenceRole.CHAIR, ConferenceRole.SECRETARY],
                 track_roles={
@@ -151,7 +142,7 @@ class TestInvitationServiceUpdateInvitation:
 
     def test_clear_keywords(
         self,
-        user: User,
+        global_admin: User,
         pending_invitation: Invitation,
         keyword_a: Keyword,
         mock_validate_roles: MagicMock,
@@ -160,7 +151,7 @@ class TestInvitationServiceUpdateInvitation:
 
         updated = InvitationService.update_invitation(
             invitation_uid=pending_invitation.uid,
-            user=user,
+            user=global_admin,
             interested_keywords=[],
         )
 
@@ -170,7 +161,7 @@ class TestInvitationServiceUpdateInvitation:
 
     def test_remove_all_conference_roles(
         self,
-        user: User,
+        global_admin: User,
         pending_invitation: Invitation,
         mock_validate_roles: MagicMock,
     ) -> None:
@@ -181,7 +172,7 @@ class TestInvitationServiceUpdateInvitation:
 
         updated = InvitationService.update_invitation(
             invitation_uid=pending_invitation.uid,
-            user=user,
+            user=global_admin,
             conference_roles=[],
         )
 
@@ -191,7 +182,7 @@ class TestInvitationServiceUpdateInvitation:
 
     def test_remove_all_track_roles(
         self,
-        user: User,
+        global_admin: User,
         pending_invitation: Invitation,
         track_a: Track,
         mock_validate_roles: MagicMock,
@@ -203,7 +194,7 @@ class TestInvitationServiceUpdateInvitation:
 
         updated = InvitationService.update_invitation(
             invitation_uid=pending_invitation.uid,
-            user=user,
+            user=global_admin,
             track_roles={},
         )
 
@@ -213,14 +204,14 @@ class TestInvitationServiceUpdateInvitation:
 
     def test_duplicate_roles_are_deduplicated(
         self,
-        user: User,
+        global_admin: User,
         pending_invitation: Invitation,
         track_a: Track,
         mock_validate_roles: MagicMock,
     ) -> None:
         updated = InvitationService.update_invitation(
             invitation_uid=pending_invitation.uid,
-            user=user,
+            user=global_admin,
             conference_roles=[
                 ConferenceRole.REVIEWER,
                 ConferenceRole.REVIEWER,
@@ -239,7 +230,7 @@ class TestInvitationServiceUpdateInvitation:
     def test_raises_immutable_invitation_for_accepted_invitation(
         self,
         faker: Faker,
-        user: User,
+        global_admin: User,
         conference: Conference,
         mock_validate_roles: MagicMock,  # noqa: ARG002
     ) -> None:
@@ -255,14 +246,14 @@ class TestInvitationServiceUpdateInvitation:
         ):
             InvitationService.update_invitation(
                 invitation_uid=accepted_invitation.uid,
-                user=user,
+                user=global_admin,
                 given_name="New Name",
             )
 
     def test_rejected_invitation_can_be_updated(
         self,
         faker: Faker,
-        user: User,
+        global_admin: User,
         conference: Conference,
         mock_validate_roles: MagicMock,
     ) -> None:
@@ -274,7 +265,7 @@ class TestInvitationServiceUpdateInvitation:
 
         updated = InvitationService.update_invitation(
             invitation_uid=rejected_invitation.uid,
-            user=user,
+            user=global_admin,
             given_name="Alice",
         )
 
@@ -282,16 +273,16 @@ class TestInvitationServiceUpdateInvitation:
 
         assert mock_validate_roles.call_count == 2
 
-    def test_raises_does_not_exist_for_invalid_uid(self, user: User) -> None:
+    def test_raises_does_not_exist_for_invalid_uid(self, global_admin: User) -> None:
         with pytest.raises(Invitation.DoesNotExist):
             InvitationService.update_invitation(
                 invitation_uid=ULID(),
-                user=user,
+                user=global_admin,
             )
 
     def test_insufficient_permission_to_manage_current_roles(
         self,
-        user: User,
+        global_admin: User,
         pending_invitation: Invitation,
         mock_validate_roles: MagicMock,
     ) -> None:
@@ -305,7 +296,7 @@ class TestInvitationServiceUpdateInvitation:
         ):
             InvitationService.update_invitation(
                 invitation_uid=pending_invitation.uid,
-                user=user,
+                user=global_admin,
                 given_name="Alice",
             )
 
@@ -313,7 +304,7 @@ class TestInvitationServiceUpdateInvitation:
 
     def test_insufficient_permission_to_assign_new_roles(
         self,
-        user: User,
+        global_admin: User,
         pending_invitation: Invitation,
         mock_validate_roles: MagicMock,
     ) -> None:
@@ -328,7 +319,7 @@ class TestInvitationServiceUpdateInvitation:
         ):
             InvitationService.update_invitation(
                 invitation_uid=pending_invitation.uid,
-                user=user,
+                user=global_admin,
                 conference_roles=[ConferenceRole.CHAIR],
             )
 
@@ -337,7 +328,7 @@ class TestInvitationServiceUpdateInvitation:
     def test_track_from_other_conference_rejected(
         self,
         faker: Faker,
-        user: User,
+        global_admin: User,
         pending_invitation: Invitation,
         mock_validate_roles: MagicMock,
     ) -> None:
@@ -356,7 +347,7 @@ class TestInvitationServiceUpdateInvitation:
         ):
             InvitationService.update_invitation(
                 invitation_uid=pending_invitation.uid,
-                user=user,
+                user=global_admin,
                 track_roles={external_track: [TrackRole.CHAIR]},
             )
 

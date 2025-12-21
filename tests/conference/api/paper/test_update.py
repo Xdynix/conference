@@ -22,7 +22,7 @@ from app.conference.models import (
 )
 from app.conference.services import KeywordService, PaperService
 from app.conference.services.paper import PaperStateError, PaperWithdrawnError
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from app.utils.enums import Region
 from tests.helpers import any_str, update_object
 
@@ -784,15 +784,14 @@ class TestUpdatePaper:
     def test_authorization_global_admin(
         self,
         api_client: Client,
+        global_admin: User,
         conference: Conference,
         paper: Paper,
         paper_service_update: MagicMock,
         mock_visible_papers: AsyncMock,
     ) -> None:
-        admin = User.objects.create_user(username="global-admin")
-        GlobalRoleAssignment.objects.create(user=admin, role=GlobalRole.ADMIN)
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
-        api_client.force_login(admin)
+        api_client.force_login(global_admin)
 
         response = api_client.patch(
             self.path(conference.name, paper.code),

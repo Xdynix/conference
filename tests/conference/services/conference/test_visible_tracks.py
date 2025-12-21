@@ -10,7 +10,7 @@ from app.conference.models import (
     TrackRoleAssignment,
 )
 from app.conference.services import ConferenceService
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 from tests.helpers import a_update_object
 
 
@@ -62,7 +62,7 @@ class TestConferenceServiceVisibleTracks:
 
     async def test_global_admin_role_sees_all_tracks(
         self,
-        user: User,
+        global_read_all: User,
         conference: Conference,
     ) -> None:
         private_track = await Track.objects.acreate(
@@ -70,17 +70,16 @@ class TestConferenceServiceVisibleTracks:
             display_name="Private Track",
             visibility=Track.Visibility.ADMIN_ONLY,
         )
-        await GlobalRoleAssignment.objects.acreate(user=user, role=GlobalRole.READ_ALL)
 
-        qs = await ConferenceService.visible_tracks(user)
+        qs = await ConferenceService.visible_tracks(global_read_all)
         tracks = [track async for track in qs]
 
         assert tracks == [private_track]
 
     async def test_conference_admin_sees_private_tracks(
         self,
-        user: User,
         conference: Conference,
+        conference_secretary: User,
     ) -> None:
         public_track = await Track.objects.acreate(
             conference=conference,
@@ -94,13 +93,8 @@ class TestConferenceServiceVisibleTracks:
             ordering=2,
             visibility=Track.Visibility.ADMIN_ONLY,
         )
-        await ConferenceRoleAssignment.objects.acreate(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.SECRETARY,
-        )
 
-        qs = await ConferenceService.visible_tracks(user)
+        qs = await ConferenceService.visible_tracks(conference_secretary)
         tracks = [track async for track in qs]
 
         assert tracks == [public_track, private_track]

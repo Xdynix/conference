@@ -23,7 +23,7 @@ from app.conference.services.invitation import (
     SendInvitationResult,
     SendInvitationStatus,
 )
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 
 
 @pytest.fixture(autouse=True)
@@ -162,17 +162,11 @@ class TestPreviewInvitationEmail:
 
     def test_conference_reviewer_forbidden(
         self,
-        faker: Faker,
         api_client: Client,
         conference: Conference,
+        conference_reviewer: User,
     ) -> None:
-        user = User.objects.create_user(username=faker.user_name())
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.REVIEWER,
-        )
-        api_client.force_login(user)
+        api_client.force_login(conference_reviewer)
 
         response = api_client.post(
             self.path(conference.name),
@@ -412,19 +406,13 @@ class TestSendInvitations:
 
     def test_conference_reviewer_forbidden(
         self,
-        faker: Faker,
         api_client: Client,
         conference: Conference,
+        conference_reviewer: User,
         invitation: Invitation,
         mock_send_invitations: MagicMock,
     ) -> None:
-        user = User.objects.create_user(username=faker.user_name())
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=user,
-            role=ConferenceRole.REVIEWER,
-        )
-        api_client.force_login(user)
+        api_client.force_login(conference_reviewer)
 
         response = api_client.post(
             self.path(conference.name),
@@ -469,15 +457,13 @@ class TestSendInvitations:
 
     def test_global_read_all_forbidden(
         self,
-        faker: Faker,
         api_client: Client,
+        global_read_all: User,
         conference: Conference,
         invitation: Invitation,
         mock_send_invitations: MagicMock,
     ) -> None:
-        user = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=user, role=GlobalRole.READ_ALL)
-        api_client.force_login(user)
+        api_client.force_login(global_read_all)
 
         response = api_client.post(
             self.path(conference.name),

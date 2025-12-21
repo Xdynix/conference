@@ -18,7 +18,7 @@ from app.conference.models import (
 )
 from app.conference.services import RoleAssignmentService
 from app.conference.services.conference import InsufficientRolePermission
-from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.core.models import User
 
 
 @pytest.fixture
@@ -464,14 +464,12 @@ class TestMutateRoleAssignment:
 
     def test_authorization_global_admin(
         self,
-        faker: Faker,
         api_client: Client,
+        global_admin: User,
         conference: Conference,
         target_user: User,
     ) -> None:
-        admin = User.objects.create_user(username=faker.user_name())
-        GlobalRoleAssignment.objects.create(user=admin, role=GlobalRole.ADMIN)
-        api_client.force_login(admin)
+        api_client.force_login(global_admin)
 
         response = api_client.post(
             self.path(conference.name, target_user.uid),
