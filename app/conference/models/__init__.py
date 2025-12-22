@@ -1,4 +1,5 @@
 __all__ = (
+    "AdminComment",
     "CodePool",
     "Conference",
     "ConferenceRole",
@@ -14,6 +15,7 @@ __all__ = (
     "PaperFinal",
     "PaperSubmission",
     "Profile",
+    "Review",
     "Track",
     "TrackRole",
     "TrackRoleAssignment",
@@ -30,6 +32,7 @@ from .invitation import (
 from .keyword import Keyword, KeywordSet
 from .paper import Paper, PaperAuthor, PaperDocument, PaperFinal, PaperSubmission
 from .profile import Profile, UserConferenceProfile
+from .review import AdminComment, Review
 from .role import (
     ConferenceRole,
     ConferenceRoleAssignment,
