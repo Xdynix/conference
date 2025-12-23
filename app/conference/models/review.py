@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import Self
 
 from django.contrib.auth import get_user_model
 from django.db import models
@@ -35,6 +36,15 @@ class ReviewState(models.TextChoices):
 class ReviewAssignmentLevel(models.TextChoices):
     CONFERENCE = "Conference", _("Conference")
     TRACK = "Track", _("Track")
+
+
+class ReviewQuerySet(models.QuerySet["Review"]):
+    def active(self) -> Self:
+        return self.filter(
+            paper__conference__active=True,
+            paper__track__active=True,
+            paper__delete_time__isnull=True,
+        )
 
 
 class Review(TimeStampedModel, ULIDModel):
@@ -168,6 +178,8 @@ class Review(TimeStampedModel, ULIDModel):
         default=None,
         help_text=_("When the review was submitted."),
     )
+
+    objects = ReviewQuerySet.as_manager()
 
     class Meta:
         verbose_name = _("review")
