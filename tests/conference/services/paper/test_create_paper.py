@@ -1,4 +1,6 @@
 import pytest
+from django.db import IntegrityError
+from pytest_mock import MockerFixture
 
 from app.conference.models import Conference, Keyword, Paper, Track
 from app.conference.services import PaperService
@@ -121,3 +123,76 @@ class TestPaperServiceCreatePaper:
         assert author1.affiliation == "University"
         assert author1.corresponding is False
         assert author1.ordering == 1
+
+    @pytest.mark.django_db(transaction=True)
+    def test_retries_on_code_collision(
+        self,
+        user: User,
+        track_with_pool: Track,
+    ) -> None:
+        Paper.objects.create(
+            conference=track_with_pool.conference,
+            track=track_with_pool,
+            code="TEST-001",
+            owner=user,
+        )
+
+        paper = PaperService.create_paper(track=track_with_pool, owner=user)
+
+        assert paper.code == "TEST-002"
+        assert Paper.objects.count() == 2
+
+    @pytest.mark.django_db(transaction=True)
+    def test_retries_multiple_collisions(
+        self,
+        user: User,
+        track_with_pool: Track,
+    ) -> None:
+        for i in range(1, 6):
+            Paper.objects.create(
+                conference=track_with_pool.conference,
+                track=track_with_pool,
+                code=f"TEST-{i:03d}",
+                owner=user,
+            )
+
+        paper = PaperService.create_paper(track=track_with_pool, owner=user)
+
+        assert paper.code == "TEST-006"
+        assert Paper.objects.count() == 6
+
+    @pytest.mark.django_db(transaction=True)
+    def test_raises_non_code_collision_integrity_error(
+        self,
+        mocker: MockerFixture,
+        user: User,
+        track_with_pool: Track,
+    ) -> None:
+        mocker.patch.object(
+            Paper.objects,
+            "create",
+            side_effect=IntegrityError("Some other constraint violation"),
+        )
+
+        with pytest.raises(IntegrityError, match="Some other constraint violation"):
+            PaperService.create_paper(track=track_with_pool, owner=user)
+
+    @pytest.mark.django_db(transaction=True)
+    def test_exhausts_retries_on_persistent_collisions(
+        self,
+        mocker: MockerFixture,
+        user: User,
+        track_with_pool: Track,
+    ) -> None:
+        mocker.patch.object(PaperService, "max_code_retries", 3)
+
+        for i in range(1, 5):
+            Paper.objects.create(
+                conference=track_with_pool.conference,
+                track=track_with_pool,
+                code=f"TEST-{i:03d}",
+                owner=user,
+            )
+
+        with pytest.raises(IntegrityError):
+            PaperService.create_paper(track=track_with_pool, owner=user)

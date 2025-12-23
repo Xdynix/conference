@@ -1,10 +1,11 @@
 from collections.abc import Collection
 from typing import Literal, TypedDict
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from loguru import logger
 
 from app.conference.models import Conference, Keyword, Paper, PaperAuthor, Track
 from app.core.models import GlobalRole, User
@@ -42,8 +43,9 @@ class PaperSubmissionError(Exception):
 
 
 class PaperService:
+    max_code_retries = 100
+
     @classmethod
-    @transaction.atomic
     def create_paper(
         cls,
         *,
@@ -61,6 +63,10 @@ class PaperService:
         - The user has access to the conference and track.
         - The track enabled submissions (if applicable).
 
+        If a code collision occurs (e.g., due to manual data entry that left the code
+        pool sequence out of sync), the method automatically retries with the next
+        available code.
+
         Raises:
             NoCodePoolError: If the track has no code pool configured.
         """
@@ -68,23 +74,42 @@ class PaperService:
         if not code_pool:
             raise NoCodePoolError("Track has no code pool configured.")
 
-        code = code_pool.allocate_code()
-        paper = Paper.objects.create(
-            conference_id=track.conference_id,
-            track=track,
-            code=code,
-            owner=owner,
-            title=title,
-            abstract=abstract,
-            contribution=contribution,
-        )
+        for attempt in range(cls.max_code_retries):
+            code = code_pool.allocate_code()
+            try:
+                with transaction.atomic():
+                    paper = Paper.objects.create(
+                        conference_id=track.conference_id,
+                        track=track,
+                        code=code,
+                        owner=owner,
+                        title=title,
+                        abstract=abstract,
+                        contribution=contribution,
+                    )
+                    if keywords:
+                        cls.set_paper_keywords(paper, keywords)
+                    if authors:
+                        cls.set_paper_authors(paper, authors)
+                    return paper
+            except IntegrityError:
+                is_last_attempt = attempt >= cls.max_code_retries - 1
+                is_code_collision = Paper.objects.filter(
+                    conference_id=track.conference_id,
+                    code=code,
+                ).exists()
+                if is_last_attempt or not is_code_collision:
+                    raise
+                logger.warning(
+                    "Paper code collision detected, retrying with next code.",
+                    code=code,
+                    conference_id=track.conference_id,
+                    attempt=attempt + 1,
+                )
 
-        if keywords:
-            cls.set_paper_keywords(paper, keywords)
-        if authors:
-            cls.set_paper_authors(paper, authors)
-
-        return paper
+        raise AssertionError(
+            "Unreachable: loop always returns or raises."
+        )  # pragma: no cover
 
     @classmethod
     def update_paper(

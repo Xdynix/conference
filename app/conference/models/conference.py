@@ -119,8 +119,8 @@ class CodePool(TimeStampedModel, ULIDModel):
     def allocate_code(self) -> str:
         """Allocate the next sequence number and return the generated paper code.
 
-        Uses ``Mutex`` to ensure serialized access across processes. Safe to call within
-        nested transactions.
+        Thread-safe and process-safe; uses ``Mutex`` internally to serialize access.
+        Callers do not need additional locking.
 
         Returns:
             Generated paper code (e.g., "CBPK-2001").
