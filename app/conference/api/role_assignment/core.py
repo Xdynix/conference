@@ -3,7 +3,7 @@ from typing import Any
 from django.db.models import Prefetch, QuerySet
 from ninja import Router
 
-from app.conference.models import Conference, Profile
+from app.conference.models import Conference
 from app.conference.services import RoleAssignmentService
 from app.conference.types import RoleAssignment as RoleAssignmentSchema
 from app.core.models import User
@@ -12,10 +12,6 @@ router = Router(tags=["Role Assignment"], exclude_none=True)
 
 
 class RoleAssignmentResponse(RoleAssignmentSchema):
-    @staticmethod
-    def resolve_profile(user: User) -> Profile | None:
-        return getattr(user, "profile", None)
-
     @staticmethod
     def resolve_conference_roles(user: User) -> list[str]:
         return [

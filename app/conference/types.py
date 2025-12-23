@@ -2,6 +2,7 @@ __all__ = (
     "Conference",
     "ConferenceDisplayName",
     "ConferenceName",
+    "ConferenceUser",
     "Invitation",
     "InvitationTrackRole",
     "KeywordSetName",
@@ -197,13 +198,16 @@ class Invitation(UserConferenceProfile, Profile):
     track_roles: list[InvitationTrackRole]
 
 
+class ConferenceUser(User):
+    profile: Profile | None = None
+
+
 class RoleAssignmentTrackRole(Schema):
     track: ULID
     role: TrackRole
 
 
-class RoleAssignment(User):
-    profile: Profile | None
+class RoleAssignment(ConferenceUser):
     conference_roles: list[ConferenceRole]
     track_roles: list[RoleAssignmentTrackRole]
 

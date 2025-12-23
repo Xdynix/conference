@@ -4,18 +4,13 @@ from django.shortcuts import aget_object_or_404
 
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import ConferenceRole, TrackRole
-from app.conference.types import Profile as ProfileSchema
+from app.conference.types import ConferenceUser
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest, EmailStr
-from app.core.types import User as UserSchema
 from app.ninja.errors import ErrorResponse
 
 from .core import router
-
-
-class LookupRoleAssignmentUserResponse(UserSchema):
-    profile: ProfileSchema | None = None
 
 
 @router.get(
@@ -24,7 +19,7 @@ class LookupRoleAssignmentUserResponse(UserSchema):
     # globally.
     "/conferences/{slug:conference_name}/users",
     response={
-        HTTPStatus.OK: LookupRoleAssignmentUserResponse,
+        HTTPStatus.OK: ConferenceUser,
         HTTPStatus.NOT_FOUND: ErrorResponse,
     },
     summary="Lookup Role Assignment User",
