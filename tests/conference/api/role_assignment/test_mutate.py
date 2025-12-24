@@ -83,7 +83,6 @@ class TestMutateRoleAssignment:
 
         data = response.json()
         assert data["uid"] == str(target_user.uid)
-        assert data["username"] == target_user.username
         assert data["email"] == target_user.email
         assert data["conference_roles"] == []
         assert data["track_roles"] == []

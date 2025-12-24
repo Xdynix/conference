@@ -43,9 +43,7 @@ class TestLookupRoleAssignmentUser:
 
         assert response.json() == {
             "uid": str(user.uid),
-            "username": user.username,
             "email": user.email,
-            "managed": False,
             "profile": {
                 "given_name": "Alice",
                 "family_name": "Smith",
@@ -89,9 +87,7 @@ class TestLookupRoleAssignmentUser:
 
         assert response.json() == {
             "uid": str(user.uid),
-            "username": user.username,
             "email": user.email,
-            "managed": False,
         }
 
     def test_auth_unauthenticated(

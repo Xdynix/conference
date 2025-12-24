@@ -4,39 +4,23 @@ from django.db.models import F, Prefetch, QuerySet, Window
 from django.db.models.functions import RowNumber
 from ninja import Field, Router, Schema
 from pydantic import AwareDatetime
-from ulid import ULID
 
-from app.conference.models import (
-    Conference,
-    Paper,
-    PaperFinal,
-    PaperSubmission,
-    Profile,
-    Review,
-)
+from app.conference.models import Conference, Paper, PaperFinal, PaperSubmission, Review
 from app.conference.services import ReviewService
-from app.conference.types import KeywordText, PaperAbstract, PaperContribution
+from app.conference.types import ConferenceUser
 from app.conference.types import Paper as PaperSchema
-from app.conference.types import PaperOwner as BasePaperOwner
+from app.conference.types import PaperDetailMixin as PaperDetailMixinSchema
+from app.conference.types import PaperFinal as PaperFinalSchema
+from app.conference.types import PaperSubmission as PaperSubmissionSchema
 from app.core.models import User
 
 router = Router(tags=["Paper"], exclude_none=True)
 
 
-class PaperSubmissionSchema(Schema):
-    uid: ULID
-    display_name: str = Field(examples=["PAPER-1001.pdf"])
-
-
-class PaperFinalSchema(Schema):
-    uid: ULID
-    display_name: str = Field(examples=["PAPER-1001.zip"])
-    viewable_display_name: str | None = Field(examples=["PAPER-1001-viewable.pdf"])
-
-
 class BasePaperResponse(PaperSchema):
-    submission: PaperSubmissionSchema | None
-    final: PaperFinalSchema | None
+    @staticmethod
+    def resolve_conference(paper: Paper) -> str:
+        return paper.conference.name
 
     @staticmethod
     def resolve_submission(paper: Paper) -> PaperSubmissionSchema | None:
@@ -59,25 +43,11 @@ class BasePaperResponse(PaperSchema):
             viewable_display_name=latest.viewable_display_name,
         )
 
-    @staticmethod
-    def resolve_conference(paper: Paper) -> str:
-        return paper.conference.name
 
-
-class PaperDetailMixin(Schema):
-    abstract: PaperAbstract
-    contribution: PaperContribution
-    keywords: list[KeywordText]
-
+class PaperDetailMixin(PaperDetailMixinSchema):
     @staticmethod
     def resolve_keywords(paper: Paper) -> list[str]:
         return [keyword.text for keyword in paper.keywords.all()]
-
-
-class PaperOwner(BasePaperOwner):
-    @staticmethod
-    def resolve_profile(user: User) -> Profile | None:
-        return getattr(user, "profile", None)
 
 
 class UserPaperResponse(BasePaperResponse):
@@ -101,7 +71,7 @@ class PaperResponse(BasePaperResponse):
     announce_time: AwareDatetime | None
     submit_time: AwareDatetime | None
     decide_time: AwareDatetime | None
-    owner: PaperOwner
+    owner: ConferenceUser
     review_statistic: ReviewStatistic
 
     @staticmethod

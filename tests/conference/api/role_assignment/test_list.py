@@ -100,9 +100,7 @@ class TestListRoleAssignments:
         items_by_uid = {item["uid"]: item for item in data["items"]}
         assert items_by_uid[str(user_without_profile.uid)] == {
             "uid": str(user_without_profile.uid),
-            "username": user_without_profile.username,
             "email": user_without_profile.email,
-            "managed": False,
             "conference_roles": [],
             "track_roles": [
                 {
@@ -113,9 +111,7 @@ class TestListRoleAssignments:
         }
         assert items_by_uid[str(user_with_profile.uid)] == {
             "uid": str(user_with_profile.uid),
-            "username": user_with_profile.username,
             "email": user_with_profile.email,
-            "managed": False,
             "profile": {
                 "given_name": "Alice",
                 "family_name": "Smith",
@@ -350,9 +346,7 @@ class TestListRoleAssignments:
         assert str(user_on_other_track.uid) not in items_by_uid
         assert items_by_uid[str(user_on_admin_track.uid)] == {
             "uid": str(user_on_admin_track.uid),
-            "username": user_on_admin_track.username,
             "email": user_on_admin_track.email,
-            "managed": False,
             "conference_roles": [],
             "track_roles": [
                 {"track": str(track.uid), "role": TrackRole.REVIEWER},

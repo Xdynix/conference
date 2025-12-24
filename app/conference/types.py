@@ -13,7 +13,9 @@ __all__ = (
     "PaperAuthorPhone",
     "PaperCode",
     "PaperContribution",
-    "PaperOwner",
+    "PaperDetailMixin",
+    "PaperFinal",
+    "PaperSubmission",
     "PaperTitle",
     "PaperTrack",
     "Profile",
@@ -22,7 +24,6 @@ __all__ = (
     "TrackDisplayName",
     "UserConferenceProfile",
 )
-
 
 from enum import StrEnum
 from typing import Annotated, Literal
@@ -42,7 +43,7 @@ from app.conference.models import PaperAuthor as PaperAuthorModel
 from app.conference.models import Profile as ProfileModel
 from app.conference.models import Track as TrackModel
 from app.conference.models import UserConferenceProfile as UserConferenceProfileModel
-from app.core.types import EmailStr, User
+from app.core.types import EmailStr
 from app.utils.enums import Region
 from app.utils.sanitization import sanitize_formatted_text, sanitize_text
 
@@ -198,7 +199,9 @@ class Invitation(UserConferenceProfile, Profile):
     track_roles: list[InvitationTrackRole]
 
 
-class ConferenceUser(User):
+class ConferenceUser(Schema):
+    uid: ULID
+    email: EmailStr | Literal[""] = Field(title=_("Email Address"))
     profile: Profile | None = None
 
 
@@ -265,16 +268,21 @@ class PaperTrack(Schema):
     display_name: TrackDisplayName
 
 
-class PaperOwner(Schema):
-    uid: ULID
-    email: EmailStr | Literal[""] = Field(title=_("Email Address"))
-    profile: Profile | None
-
-
 class PaperAuthor(Profile):
     email: EmailStr | Literal[""] = Field("", title=_("Email Address"))
     phone: PaperAuthorPhone = ""
     corresponding: bool = False
+
+
+class PaperSubmission(Schema):
+    uid: ULID
+    display_name: str = Field(examples=["PAPER-1001.pdf"])
+
+
+class PaperFinal(Schema):
+    uid: ULID
+    display_name: str = Field(examples=["PAPER-1001.zip"])
+    viewable_display_name: str | None = Field(examples=["PAPER-1001-viewable.pdf"])
 
 
 class Paper(Schema):
@@ -287,3 +295,11 @@ class Paper(Schema):
     withdraw_time: AwareDatetime | None
     title: PaperTitle
     authors: list[PaperAuthor]
+    submission: PaperSubmission | None
+    final: PaperFinal | None
+
+
+class PaperDetailMixin(Schema):
+    abstract: PaperAbstract
+    contribution: PaperContribution
+    keywords: list[KeywordText]
