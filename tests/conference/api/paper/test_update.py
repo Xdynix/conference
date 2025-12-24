@@ -500,6 +500,13 @@ class TestUpdatePaper:
             "keywords": ["AI", "ML"],
             "authors": [],
             "create_time": any_str,
+            "review_statistic": {
+                "pending_count": 0,
+                "declined_count": 0,
+                "accepted_count": 0,
+                "submitted_count": 0,
+                "cancelled_count": 0,
+            },
         }
 
         paper_service_update.assert_called_once_with(

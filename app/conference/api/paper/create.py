@@ -9,7 +9,7 @@ from ninja import Field, Schema
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_or_track_roles
-from app.conference.models import ConferenceRole, Paper, Track, TrackRole
+from app.conference.models import Conference, ConferenceRole, Paper, Track, TrackRole
 from app.conference.services import (
     ConferenceAccessService,
     ConferenceService,
@@ -43,7 +43,7 @@ class CreatePaperRequest(Schema):
 
 async def persist_paper_entry(
     user: User,
-    conference_name: str,
+    conference: Conference,
     payload: CreatePaperRequest,
     *,
     flow: Literal["author", "admin"],
@@ -52,17 +52,12 @@ async def persist_paper_entry(
 
     Args:
         user: Authenticated user creating the paper.
-        conference_name: Slug of the conference receiving the paper.
+        conference: The conference receiving the paper.
         payload: Paper details to persist.
         flow: The creation flow. "author" enforces that the track has submissions
             enabled. "admin" allows submission to open tracks or to closed tracks where
             the user has admin permission.
     """
-    conference = await aget_object_or_404(
-        await ConferenceService.visible_conferences(user),
-        name=conference_name,
-    )
-
     tracks = await ConferenceService.visible_tracks(user)
     try:
         track = await tracks.aget(conference=conference, uid=payload.track)
@@ -151,7 +146,12 @@ async def create_draft(
     review.
     """
     user = await request.auser()
-    paper = await persist_paper_entry(user, conference_name, payload, flow="author")
+    conference = await aget_object_or_404(
+        await ConferenceService.visible_conferences(user),
+        name=conference_name,
+    )
+
+    paper = await persist_paper_entry(user, conference, payload, flow="author")
 
     logger.info(
         "Draft created.",
@@ -161,7 +161,7 @@ async def create_draft(
         user_uid=str(user.uid),
     )
 
-    return HTTPStatus.CREATED, await prefetch_paper(paper)
+    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user)
 
 
 @router.post(
@@ -190,7 +190,12 @@ async def create_paper(
     papers or papers for tracks that are not currently open for submissions.
     """
     user = await request.auser()
-    paper = await persist_paper_entry(user, conference_name, payload, flow="admin")
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+
+    paper = await persist_paper_entry(user, conference, payload, flow="admin")
 
     logger.info(
         "Paper created by admin.",
@@ -200,4 +205,4 @@ async def create_paper(
         user_uid=str(user.uid),
     )
 
-    return HTTPStatus.CREATED, await prefetch_paper(paper)
+    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user)

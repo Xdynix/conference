@@ -18,11 +18,12 @@ from app.conference.models import (
     PaperFinal,
     PaperSubmission,
     Profile,
+    Review,
     Track,
     TrackRole,
     TrackRoleAssignment,
 )
-from app.conference.services import PaperService
+from app.conference.services import PaperService, ReviewService
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from app.utils.enums import Region
 from tests.helpers import any_str, update_object
@@ -423,6 +424,13 @@ def mock_visible_papers(mocker: MockerFixture) -> AsyncMock:
     return mocker.patch.object(PaperService, "visible_papers")
 
 
+@pytest.fixture
+def mock_visible_reviews(mocker: MockerFixture) -> AsyncMock:
+    mock = mocker.patch.object(ReviewService, "visible_reviews")
+    mock.return_value = Review.objects.none()
+    return mock
+
+
 @pytest.mark.django_db
 class TestGetPaper:
     @classmethod
@@ -437,6 +445,7 @@ class TestGetPaper:
         conference_chair: User,
         paper: Paper,
         mock_visible_papers: AsyncMock,
+        mock_visible_reviews: AsyncMock,
     ) -> None:
         update_object(conference_chair, email="admin@example.com")
         Profile.objects.create(
@@ -519,10 +528,21 @@ class TestGetPaper:
                 "display_name": f"{paper.code}.zip",
                 "viewable_display_name": f"{paper.code}-viewable.pdf",
             },
+            "review_statistic": {
+                "pending_count": 0,
+                "declined_count": 0,
+                "accepted_count": 0,
+                "submitted_count": 0,
+                "cancelled_count": 0,
+            },
             "create_time": any_str,
         }
 
         mock_visible_papers.assert_awaited_once_with(conference, conference_chair)
+        mock_visible_reviews.assert_awaited_once_with(
+            conference=conference,
+            user=conference_chair,
+        )
 
     def test_withdrawn_paper(
         self,
@@ -722,3 +742,88 @@ class TestGetPaper:
 
         response = api_client.get(self.path(conference.name, "PAPER-001"))
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_review_statistic_counts_visible_reviews(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+        mock_visible_reviews: AsyncMock,
+    ) -> None:
+        Review.objects.create(paper=paper, state=Review.State.PENDING)
+        Review.objects.create(paper=paper, state=Review.State.ACCEPTED)
+        Review.objects.create(paper=paper, state=Review.State.SUBMITTED)
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_reviews.return_value = Review.objects.filter(paper=paper)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["review_statistic"] == {
+            "pending_count": 1,
+            "declined_count": 0,
+            "accepted_count": 1,
+            "submitted_count": 1,
+            "cancelled_count": 0,
+        }
+
+    def test_review_statistic_counts_all_states(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+        mock_visible_reviews: AsyncMock,
+    ) -> None:
+        for state in Review.State:
+            Review.objects.create(paper=paper, state=state)
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_reviews.return_value = Review.objects.filter(paper=paper)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["review_statistic"] == {
+            "pending_count": 1,
+            "declined_count": 1,
+            "accepted_count": 1,
+            "submitted_count": 1,
+            "cancelled_count": 1,
+        }
+
+    def test_review_statistic_only_counts_visible_reviews(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+        mock_visible_reviews: AsyncMock,
+    ) -> None:
+        visible_review = Review.objects.create(
+            paper=paper,
+            state=Review.State.SUBMITTED,
+        )
+        Review.objects.create(paper=paper, state=Review.State.PENDING)
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_reviews.return_value = Review.objects.filter(pk=visible_review.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["review_statistic"] == {
+            "pending_count": 0,
+            "declined_count": 0,
+            "accepted_count": 0,
+            "submitted_count": 1,
+            "cancelled_count": 0,
+        }

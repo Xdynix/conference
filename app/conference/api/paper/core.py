@@ -1,10 +1,20 @@
+from collections import Counter
+
 from django.db.models import F, Prefetch, QuerySet, Window
 from django.db.models.functions import RowNumber
 from ninja import Field, Router, Schema
 from pydantic import AwareDatetime
 from ulid import ULID
 
-from app.conference.models import Paper, PaperFinal, PaperSubmission, Profile
+from app.conference.models import (
+    Conference,
+    Paper,
+    PaperFinal,
+    PaperSubmission,
+    Profile,
+    Review,
+)
+from app.conference.services import ReviewService
 from app.conference.types import KeywordText, PaperAbstract, PaperContribution
 from app.conference.types import Paper as PaperSchema
 from app.conference.types import PaperOwner as BasePaperOwner
@@ -78,19 +88,43 @@ class UserPaperDetailResponse(PaperDetailMixin, UserPaperResponse):
     pass
 
 
+class ReviewStatistic(Schema):
+    pending_count: int = 0
+    declined_count: int = 0
+    accepted_count: int = 0
+    submitted_count: int = 0
+    cancelled_count: int = 0
+
+
 class PaperResponse(BasePaperResponse):
     visible_state: Paper.VisibleState
     announce_time: AwareDatetime | None
     submit_time: AwareDatetime | None
     decide_time: AwareDatetime | None
     owner: PaperOwner
+    review_statistic: ReviewStatistic
+
+    @staticmethod
+    def resolve_review_statistic(paper: Paper) -> ReviewStatistic:
+        counts = Counter(r.state for r in paper.visible_review_states)  # type: ignore[attr-defined]
+        return ReviewStatistic(
+            pending_count=counts[Review.State.PENDING],
+            declined_count=counts[Review.State.DECLINED],
+            accepted_count=counts[Review.State.ACCEPTED],
+            submitted_count=counts[Review.State.SUBMITTED],
+            cancelled_count=counts[Review.State.CANCELLED],
+        )
 
 
 class PaperDetailResponse(PaperDetailMixin, PaperResponse):
     pass
 
 
-def with_paper_prefetch(queryset: QuerySet[Paper]) -> QuerySet[Paper]:
+async def with_paper_prefetch(
+    queryset: QuerySet[Paper],
+    conference: Conference,
+    user: User,
+) -> QuerySet[Paper]:
     """Prefetch related data for paper queries."""
     latest_submission = (
         PaperSubmission.objects.annotate(
@@ -131,10 +165,21 @@ def with_paper_prefetch(queryset: QuerySet[Paper]) -> QuerySet[Paper]:
             queryset=latest_final,
             to_attr="latest_final",
         ),
+        Prefetch(
+            "reviews",
+            queryset=(
+                await ReviewService.visible_reviews(
+                    conference=conference,
+                    user=user,
+                )
+            ).only("state"),
+            to_attr="visible_review_states",
+        ),
     )
 
 
-async def prefetch_paper(paper: Paper) -> Paper:
+async def prefetch_paper(conference: Conference, paper: Paper, user: User) -> Paper:
     """Refetch a paper with all related data prefetched for serialization."""
-    qs = with_paper_prefetch(Paper.objects.all()).prefetch_related("keywords")
+    qs = await with_paper_prefetch(Paper.objects.all(), conference, user)
+    qs = qs.prefetch_related("keywords")
     return await qs.aget(pk=paper.pk)

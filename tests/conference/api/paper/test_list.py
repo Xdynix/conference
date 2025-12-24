@@ -18,11 +18,12 @@ from app.conference.models import (
     PaperFinal,
     PaperSubmission,
     Profile,
+    Review,
     Track,
     TrackRole,
     TrackRoleAssignment,
 )
-from app.conference.services import PaperService
+from app.conference.services import PaperService, ReviewService
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from app.utils.enums import Region
 from tests.helpers import any_str, update_object
@@ -400,6 +401,13 @@ def mock_visible_papers(mocker: MockerFixture) -> AsyncMock:
     return mocker.patch.object(PaperService, "visible_papers")
 
 
+@pytest.fixture
+def mock_visible_reviews(mocker: MockerFixture) -> AsyncMock:
+    mock = mocker.patch.object(ReviewService, "visible_reviews")
+    mock.return_value = Review.objects.none()
+    return mock
+
+
 @pytest.mark.django_db
 class TestListPapers:
     @classmethod
@@ -413,6 +421,7 @@ class TestListPapers:
         track: Track,
         conference_chair: User,
         mock_visible_papers: AsyncMock,
+        mock_visible_reviews: AsyncMock,
     ) -> None:
         update_object(conference_chair, email="admin@example.com")
         Profile.objects.create(
@@ -497,11 +506,22 @@ class TestListPapers:
                         "display_name": f"{paper.code}.zip",
                         "viewable_display_name": f"{paper.code}-viewable.pdf",
                     },
+                    "review_statistic": {
+                        "pending_count": 0,
+                        "declined_count": 0,
+                        "accepted_count": 0,
+                        "submitted_count": 0,
+                        "cancelled_count": 0,
+                    },
                 },
             ],
         }
 
         mock_visible_papers.assert_awaited_once_with(conference, conference_chair)
+        mock_visible_reviews.assert_awaited_once_with(
+            conference=conference,
+            user=conference_chair,
+        )
 
     def test_withdrawn_paper(
         self,

@@ -59,7 +59,7 @@ async def withdraw_my_paper(
         user_uid=str(user.uid),
     )
 
-    return await prefetch_paper(paper)
+    return await prefetch_paper(conference, paper, user)
 
 
 @router.post(
@@ -106,4 +106,4 @@ async def withdraw_paper(
         user_uid=str(user.uid),
     )
 
-    return await prefetch_paper(paper)
+    return await prefetch_paper(conference, paper, user)

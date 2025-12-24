@@ -533,6 +533,13 @@ class TestCreatePaper:
                 },
             ],
             "create_time": approx_now(),
+            "review_statistic": {
+                "pending_count": 0,
+                "declined_count": 0,
+                "accepted_count": 0,
+                "submitted_count": 0,
+                "cancelled_count": 0,
+            },
         }
 
         paper_service_create.assert_called_once()

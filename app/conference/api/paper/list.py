@@ -39,7 +39,7 @@ async def list_my_papers(
 
     papers = conference.papers.active().filter(owner=user)
 
-    return with_paper_prefetch(papers)
+    return await with_paper_prefetch(papers, conference, user)
 
 
 @router.get(
@@ -73,4 +73,4 @@ async def list_papers(
 
     papers = await PaperService.visible_papers(conference, user)
 
-    return with_paper_prefetch(papers)
+    return await with_paper_prefetch(papers, conference, user)

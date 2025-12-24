@@ -65,7 +65,7 @@ async def submit_my_paper(
         user_uid=str(user.uid),
     )
 
-    return HTTPStatus.OK, await prefetch_paper(paper)
+    return HTTPStatus.OK, await prefetch_paper(conference, paper, user)
 
 
 @router.post(
@@ -110,7 +110,7 @@ async def unsubmit_my_paper(
         user_uid=str(user.uid),
     )
 
-    return await prefetch_paper(paper)
+    return await prefetch_paper(conference, paper, user)
 
 
 @router.post(
@@ -167,4 +167,4 @@ async def submit_paper(
         user_uid=str(user.uid),
     )
 
-    return HTTPStatus.OK, await prefetch_paper(paper)
+    return HTTPStatus.OK, await prefetch_paper(conference, paper, user)
