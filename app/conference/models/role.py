@@ -22,6 +22,10 @@ class ConferenceRole(models.TextChoices):
     def admins(cls) -> Sequence["ConferenceRole"]:
         return [cls.CHAIR, cls.SECRETARY]
 
+    @classmethod
+    def reviewers(cls) -> Sequence["ConferenceRole"]:
+        return [cls.CHAIR, cls.SECRETARY, cls.REVIEWER]
+
 
 class ConferenceRoleAssignment(TimeStampedModel):
     conference = models.ForeignKey(
@@ -75,6 +79,10 @@ class TrackRole(models.TextChoices):
     @classmethod
     def admins(cls) -> Sequence["TrackRole"]:
         return [cls.CHAIR, cls.SECRETARY]
+
+    @classmethod
+    def reviewers(cls) -> Sequence["TrackRole"]:
+        return [cls.CHAIR, cls.SECRETARY, cls.REVIEWER]
 
 
 class TrackRoleAssignment(TimeStampedModel):
