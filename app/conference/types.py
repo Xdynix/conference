@@ -19,6 +19,12 @@ __all__ = (
     "PaperTitle",
     "PaperTrack",
     "Profile",
+    "Review",
+    "ReviewComment",
+    "ReviewDetailMixin",
+    "ReviewOfflineReviewerName",
+    "ReviewPaper",
+    "ReviewScore",
     "RoleAssignment",
     "Track",
     "TrackDisplayName",
@@ -41,8 +47,10 @@ from app.conference.models import KeywordSet as KeywordSetModel
 from app.conference.models import Paper as PaperModel
 from app.conference.models import PaperAuthor as PaperAuthorModel
 from app.conference.models import Profile as ProfileModel
+from app.conference.models import Review as ReviewModel
 from app.conference.models import Track as TrackModel
 from app.conference.models import UserConferenceProfile as UserConferenceProfileModel
+from app.conference.models.review import MAX_SCORE, MIN_SCORE, ReviewState
 from app.core.types import EmailStr
 from app.utils.enums import Region
 from app.utils.sanitization import sanitize_formatted_text, sanitize_text
@@ -303,3 +311,54 @@ class PaperDetailMixin(Schema):
     abstract: PaperAbstract
     contribution: PaperContribution
     keywords: list[KeywordText]
+
+
+review_meta = ReviewModel._meta
+review_offline_reviewer_name_field = review_meta.get_field("offline_reviewer_name")
+
+ReviewOfflineReviewerName = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        max_length=review_offline_reviewer_name_field.max_length,
+        strip_whitespace=True,
+    ),
+    Field(description=str(review_offline_reviewer_name_field.help_text)),
+]
+ReviewScore = Annotated[int, Field(ge=MIN_SCORE, le=MAX_SCORE)]
+ReviewComment = Annotated[
+    str,
+    BeforeValidator(sanitize_formatted_text),
+    StringConstraints(max_length=10_000),
+]
+
+
+class ReviewPaper(Schema):
+    uid: ULID
+    conference: ConferenceName
+    track: PaperTrack
+    code: PaperCode
+    title: PaperTitle
+    submission: PaperSubmission | None
+
+
+class Review(Schema):
+    uid: ULID
+    create_time: AwareDatetime
+    paper: ReviewPaper
+    state: ReviewState
+    submit_time: AwareDatetime | None
+
+
+class ReviewDetailMixin(Schema):
+    originality: ReviewScore | None
+    significance: ReviewScore | None
+    technical: ReviewScore | None
+    reference: ReviewScore | None
+    presentation: ReviewScore | None
+    match_topic: ReviewScore | None
+    recommendation: ReviewScore | None
+    contribution: ReviewComment
+    decision_reason: ReviewComment
+    comments: ReviewComment
+    confidential_remarks: ReviewComment

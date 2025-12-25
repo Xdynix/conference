@@ -1,7 +1,6 @@
 from collections import Counter
 
-from django.db.models import F, Prefetch, QuerySet, Window
-from django.db.models.functions import RowNumber
+from django.db.models import Prefetch, QuerySet
 from ninja import Field, Router, Schema
 from pydantic import AwareDatetime
 
@@ -96,45 +95,14 @@ async def with_paper_prefetch(
     user: User,
 ) -> QuerySet[Paper]:
     """Prefetch related data for paper queries."""
-    latest_submission = (
-        PaperSubmission.objects.annotate(
-            row_number=Window(
-                expression=RowNumber(),
-                partition_by=F("paper"),
-                order_by="-revision",
-            )
-        )
-        .filter(row_number=1)
-        .select_related("paper")
-    )
-    latest_final = (
-        PaperFinal.objects.annotate(
-            row_number=Window(
-                expression=RowNumber(),
-                partition_by=F("paper"),
-                order_by="-revision",
-            )
-        )
-        .filter(row_number=1)
-        .select_related("paper")
-    )
-
     return queryset.select_related(
         "conference",
         "track",
         "owner__profile",
     ).prefetch_related(
         "authors",
-        Prefetch(
-            "submissions",
-            queryset=latest_submission,
-            to_attr="latest_submission",
-        ),
-        Prefetch(
-            "finals",
-            queryset=latest_final,
-            to_attr="latest_final",
-        ),
+        PaperSubmission.prefetch_latest(),
+        PaperFinal.prefetch_latest(),
         Prefetch(
             "reviews",
             queryset=(

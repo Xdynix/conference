@@ -4,7 +4,8 @@ from typing import Literal, Self
 
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import F, Q
+from django.db.models import F, Prefetch, Q, Window
+from django.db.models.functions import RowNumber
 from django.utils.translation import gettext_lazy as _
 
 from app.utils.models import TimeStampedModel, ULIDModel
@@ -254,6 +255,31 @@ class PaperSubmission(TimeStampedModel, ULIDModel):
         ext = Path(self.file.name).suffix.lower()
         return f"{self.paper.code}{ext}"
 
+    @classmethod
+    def prefetch_latest(
+        cls,
+        lookup: str = "submissions",
+        to_attr: str = "latest_submission",
+    ) -> Prefetch[str]:
+        """Create a ``Prefetch`` for the latest submission per paper.
+
+        Args:
+            lookup: The relation path to prefetch (e.g., "paper__submissions").
+            to_attr: The attribute name to store the prefetched results.
+        """
+        queryset = cls.objects.annotate(
+            row_number=Window(
+                expression=RowNumber(),
+                partition_by=F("paper"),
+                order_by="-revision",
+            )
+        ).filter(row_number=1)
+        return Prefetch(
+            lookup,
+            queryset=queryset,
+            to_attr=to_attr,
+        )
+
 
 def paper_final_source_path(instance: "PaperFinal", filename: str) -> str:
     ext = Path(filename).suffix.lower()[:10]
@@ -320,6 +346,31 @@ class PaperFinal(TimeStampedModel, ULIDModel):
             return None
         ext = Path(self.viewable_file.name).suffix.lower()
         return f"{self.paper.code}-viewable{ext}"
+
+    @classmethod
+    def prefetch_latest(
+        cls,
+        lookup: str = "finals",
+        to_attr: str = "latest_final",
+    ) -> Prefetch[str]:
+        """Create a ``Prefetch`` for the latest final per paper.
+
+        Args:
+            lookup: The relation path to prefetch (e.g., "paper__finals").
+            to_attr: The attribute name to store the prefetched results.
+        """
+        queryset = cls.objects.annotate(
+            row_number=Window(
+                expression=RowNumber(),
+                partition_by=F("paper"),
+                order_by="-revision",
+            )
+        ).filter(row_number=1)
+        return Prefetch(
+            lookup,
+            queryset=queryset,
+            to_attr=to_attr,
+        )
 
 
 PAPER_DOCUMENT_PREFIX = "doc-"
