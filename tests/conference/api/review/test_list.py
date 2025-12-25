@@ -27,17 +27,6 @@ from app.utils.enums import Region
 from tests.helpers import any_str, update_object
 
 
-@pytest.fixture
-def paper(conference: Conference, track: Track, user: User) -> Paper:
-    return Paper.objects.create(
-        conference=conference,
-        track=track,
-        owner=user,
-        code="PAPER-001",
-        title="Test Paper",
-    )
-
-
 def create_review(
     paper: Paper,
     *,

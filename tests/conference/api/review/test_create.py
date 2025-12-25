@@ -31,17 +31,6 @@ from tests.helpers import any_str
 
 
 @pytest.fixture
-def paper(conference: Conference, track: Track, user: User) -> Paper:
-    return Paper.objects.create(
-        conference=conference,
-        track=track,
-        owner=user,
-        code="PAPER-001",
-        title="Test Paper",
-    )
-
-
-@pytest.fixture
 def reviewer(faker: Faker, conference: Conference) -> User:
     user = User.objects.create_user(username=faker.user_name())
     ConferenceRoleAssignment.objects.create(
