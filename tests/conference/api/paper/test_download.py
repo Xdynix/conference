@@ -13,12 +13,6 @@ from app.core.models import User
 
 
 @pytest.fixture(autouse=True)
-def media_root(tmp_path: Path, settings: LazySettings) -> Path:
-    settings.MEDIA_ROOT = tmp_path
-    return tmp_path
-
-
-@pytest.fixture(autouse=True)
 def file_download_mode(settings: LazySettings) -> None:
     settings.FILE_DOWNLOAD_MODE = "django"
 

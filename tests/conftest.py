@@ -48,6 +48,12 @@ def disable_serve_static(settings: LazySettings) -> None:
     ]
 
 
+@pytest.fixture(autouse=True)
+def media_root(tmp_path: Path, settings: LazySettings) -> Path:
+    settings.MEDIA_ROOT = tmp_path
+    return tmp_path
+
+
 @pytest.fixture
 def api() -> AppNinjaAPI:
     """``AppNinjaAPI`` instance for testing.
