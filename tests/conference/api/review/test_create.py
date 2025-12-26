@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
 
 import pytest
 from django.db import IntegrityError
@@ -22,10 +22,8 @@ from app.conference.models import (
     TrackRoleAssignment,
 )
 from app.conference.services import ReviewService
-from app.conference.services.review import (
-    AssignerNotAuthorizedError,
-    ReviewerNotEligibleError,
-)
+from app.conference.services.paper import PaperStateError
+from app.conference.services.review import ReviewerNotEligibleError
 from app.core.models import User
 from tests.helpers import any_str
 
@@ -42,7 +40,7 @@ def reviewer(faker: Faker, conference: Conference) -> User:
 
 
 @pytest.fixture
-def review_service_assign(mocker: MockerFixture) -> AsyncMock:
+def review_service_assign(mocker: MockerFixture) -> MagicMock:
     return mocker.spy(ReviewService, "assign_reviewer")
 
 
@@ -62,7 +60,7 @@ class TestAssignReview:
         conference_chair: User,
         paper: Paper,
         reviewer: User,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
     ) -> None:
         Profile.objects.create(
             user=reviewer,
@@ -135,10 +133,11 @@ class TestAssignReview:
             "confidential_remarks": "",
         }
 
-        review_service_assign.assert_awaited_once_with(
+        review_service_assign.assert_called_once_with(
             paper=paper,
             reviewer=reviewer,
             assigner=conference_chair,
+            mode="conference",
         )
 
     @pytest.mark.parametrize("conference_role", ConferenceRole.admins())
@@ -149,7 +148,7 @@ class TestAssignReview:
         conference: Conference,
         paper: Paper,
         reviewer: User,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
         conference_role: ConferenceRole,
     ) -> None:
         admin = User.objects.create_user(username=faker.user_name())
@@ -166,7 +165,7 @@ class TestAssignReview:
         )
         assert response.status_code == HTTPStatus.CREATED
 
-        review_service_assign.assert_awaited_once()
+        review_service_assign.assert_called_once()
 
     @pytest.mark.parametrize("track_role", TrackRole.admins())
     def test_track_admin_can_access(
@@ -177,7 +176,7 @@ class TestAssignReview:
         track: Track,
         paper: Paper,
         reviewer: User,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
         track_role: TrackRole,
     ) -> None:
         admin = User.objects.create_user(username=faker.user_name())
@@ -199,7 +198,7 @@ class TestAssignReview:
         )
         assert response.status_code == HTTPStatus.CREATED
 
-        review_service_assign.assert_awaited_once()
+        review_service_assign.assert_called_once()
 
     def test_global_admin_can_access(
         self,
@@ -208,7 +207,7 @@ class TestAssignReview:
         conference: Conference,
         paper: Paper,
         reviewer: User,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
     ) -> None:
         api_client.force_login(global_admin)
 
@@ -218,7 +217,7 @@ class TestAssignReview:
         )
         assert response.status_code == HTTPStatus.CREATED
 
-        review_service_assign.assert_awaited_once()
+        review_service_assign.assert_called_once()
 
     def test_unauthenticated_returns_401(
         self,
@@ -226,7 +225,7 @@ class TestAssignReview:
         conference: Conference,
         paper: Paper,
         reviewer: User,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
     ) -> None:
         response = api_client.post(
             self.path(conference.name, paper.code),
@@ -243,7 +242,7 @@ class TestAssignReview:
         conference: Conference,
         paper: Paper,
         reviewer: User,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
     ) -> None:
         api_client.force_login(user)
 
@@ -260,7 +259,7 @@ class TestAssignReview:
         api_client: Client,
         conference_chair: User,
         reviewer: User,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
     ) -> None:
         api_client.force_login(conference_chair)
 
@@ -278,7 +277,7 @@ class TestAssignReview:
         conference: Conference,
         conference_chair: User,
         reviewer: User,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
     ) -> None:
         api_client.force_login(conference_chair)
 
@@ -296,7 +295,7 @@ class TestAssignReview:
         conference: Conference,
         conference_chair: User,
         paper: Paper,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
     ) -> None:
         api_client.force_login(conference_chair)
 
@@ -320,7 +319,7 @@ class TestAssignReview:
         conference_chair: User,
         paper: Paper,
         reviewer: User,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
     ) -> None:
         review_service_assign.side_effect = ReviewerNotEligibleError(
             "Reviewer has no eligible role in the conference."
@@ -338,27 +337,33 @@ class TestAssignReview:
         assert error["loc"] == ["body", "payload", "reviewer"]
         assert "no eligible role" in error["msg"]
 
-    def test_assigner_not_authorized_returns_403(
+    def test_track_admin_cannot_see_paper_in_other_track_returns_404(
         self,
+        faker: Faker,
         api_client: Client,
         conference: Conference,
-        conference_chair: User,
         paper: Paper,
-        reviewer: User,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
     ) -> None:
-        review_service_assign.side_effect = AssignerNotAuthorizedError(
-            "Assigner has no admin role for this paper."
+        other_track = Track.objects.create(
+            conference=conference,
+            display_name=faker.word(),
         )
-        api_client.force_login(conference_chair)
+        track_admin = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
+            track=other_track,
+            user=track_admin,
+            role=TrackRole.CHAIR,
+        )
+        api_client.force_login(track_admin)
 
         response = api_client.post(
             self.path(conference.name, paper.code),
-            data={"reviewer": str(reviewer.uid)},
+            data={"reviewer": str(ULID())},
         )
-        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert response.status_code == HTTPStatus.NOT_FOUND
 
-        assert "no admin role" in response.json()["message"]
+        review_service_assign.assert_not_called()
 
     def test_duplicate_assignment_returns_409(
         self,
@@ -367,7 +372,7 @@ class TestAssignReview:
         conference_chair: User,
         paper: Paper,
         reviewer: User,
-        review_service_assign: AsyncMock,
+        review_service_assign: MagicMock,
     ) -> None:
         review_service_assign.side_effect = IntegrityError("unique constraint")
         api_client.force_login(conference_chair)
@@ -379,6 +384,28 @@ class TestAssignReview:
         assert response.status_code == HTTPStatus.CONFLICT
 
         assert "already has an active review" in response.json()["message"]
+
+    def test_paper_state_error_returns_400(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        reviewer: User,
+        review_service_assign: MagicMock,
+    ) -> None:
+        review_service_assign.side_effect = PaperStateError(
+            "Cannot assign reviewers to papers in Draft state."
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name, paper.code),
+            data={"reviewer": str(reviewer.uid)},
+        )
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+
+        assert "Draft state" in response.json()["message"]
 
 
 @pytest.mark.django_db

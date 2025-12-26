@@ -102,6 +102,9 @@ class TestReviewE2E:
         assert response.status_code == HTTPStatus.CREATED
         review_uid = response.json()["uid"]
 
+        paper.refresh_from_db()
+        assert paper.state == Paper.State.UNDER_REVIEW
+
         api_client.logout()
         api_client.force_login(conference_reviewer)
 

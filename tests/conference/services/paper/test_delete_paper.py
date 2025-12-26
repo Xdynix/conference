@@ -21,7 +21,7 @@ class TestPaperServiceDeletePaper:
         )
 
     def test_happy_path(self, paper: Paper) -> None:
-        deleted = PaperService.delete_paper(paper=paper)
+        deleted = PaperService.delete_paper(paper=paper, mode="author")
 
         db_deleted = Paper.objects.get(pk=deleted.pk)
         assert deleted.delete_time == db_deleted.delete_time is not None
@@ -33,7 +33,7 @@ class TestPaperServiceDeletePaper:
             PaperWithdrawnError,
             match="Withdrawn papers cannot be deleted",
         ):
-            PaperService.delete_paper(paper=paper)
+            PaperService.delete_paper(paper=paper, mode="author")
 
         paper.refresh_from_db()
         assert paper.delete_time is None

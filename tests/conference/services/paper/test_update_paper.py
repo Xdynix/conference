@@ -41,6 +41,7 @@ class TestPaperServiceUpdatePaper:
             contribution="Updated contribution",
             keywords=[kw1, kw2],
             authors=authors,
+            mode="author",
         )
 
         db_updated = Paper.objects.get(pk=paper.pk)
@@ -52,7 +53,7 @@ class TestPaperServiceUpdatePaper:
         assert updated.authors.count() == 2
 
     def test_update_title_only(self, paper: Paper) -> None:
-        PaperService.update_paper(paper=paper, title="New Title")
+        PaperService.update_paper(paper=paper, title="New Title", mode="author")
 
         paper.refresh_from_db()
         assert paper.title == "New Title"
@@ -60,7 +61,7 @@ class TestPaperServiceUpdatePaper:
         assert paper.contribution == "Original contribution"
 
     def test_update_abstract_only(self, paper: Paper) -> None:
-        PaperService.update_paper(paper=paper, abstract="New abstract")
+        PaperService.update_paper(paper=paper, abstract="New abstract", mode="author")
 
         paper.refresh_from_db()
         assert paper.title == "Original Title"
@@ -68,7 +69,9 @@ class TestPaperServiceUpdatePaper:
         assert paper.contribution == "Original contribution"
 
     def test_update_contribution_only(self, paper: Paper) -> None:
-        PaperService.update_paper(paper=paper, contribution="New contribution")
+        PaperService.update_paper(
+            paper=paper, contribution="New contribution", mode="author"
+        )
 
         paper.refresh_from_db()
         assert paper.title == "Original Title"
@@ -81,6 +84,7 @@ class TestPaperServiceUpdatePaper:
             title="",
             abstract="",
             contribution="",
+            mode="author",
         )
 
         paper.refresh_from_db()
@@ -94,7 +98,11 @@ class TestPaperServiceUpdatePaper:
         new_kw2 = Keyword.objects.create(text="New Keyword 2")
         paper.keywords.add(old_kw)
 
-        PaperService.update_paper(paper=paper, keywords=[new_kw1, new_kw2])
+        PaperService.update_paper(
+            paper=paper,
+            keywords=[new_kw1, new_kw2],
+            mode="author",
+        )
 
         assert set(paper.keywords.all()) == {new_kw1, new_kw2}
 
@@ -102,7 +110,7 @@ class TestPaperServiceUpdatePaper:
         kw = Keyword.objects.create(text="Keyword")
         paper.keywords.add(kw)
 
-        PaperService.update_paper(paper=paper, keywords=[])
+        PaperService.update_paper(paper=paper, keywords=[], mode="author")
 
         assert not paper.keywords.exists()
 
@@ -110,7 +118,7 @@ class TestPaperServiceUpdatePaper:
         kw = Keyword.objects.create(text="Keyword")
         paper.keywords.add(kw)
 
-        PaperService.update_paper(paper=paper, title="New Title")
+        PaperService.update_paper(paper=paper, title="New Title", mode="author")
 
         assert list(paper.keywords.all()) == [kw]
 
@@ -126,7 +134,7 @@ class TestPaperServiceUpdatePaper:
             {"given_name": "Bob", "family_name": "Jones"},
         ]
 
-        PaperService.update_paper(paper=paper, authors=new_authors)
+        PaperService.update_paper(paper=paper, authors=new_authors, mode="author")
 
         [author0, author1] = list(paper.authors.all())
         assert author0.given_name == "Alice"
@@ -142,7 +150,7 @@ class TestPaperServiceUpdatePaper:
             family_name="Author",
         )
 
-        PaperService.update_paper(paper=paper, authors=[])
+        PaperService.update_paper(paper=paper, authors=[], mode="author")
 
         assert not paper.authors.exists()
 
@@ -150,7 +158,7 @@ class TestPaperServiceUpdatePaper:
         update_object(paper, withdraw_time=timezone.now())
 
         with pytest.raises(PaperWithdrawnError) as exc_info:
-            PaperService.update_paper(paper=paper, title="Should fail")
+            PaperService.update_paper(paper=paper, title="Should fail", mode="author")
 
         assert str(exc_info.value) == "Withdrawn papers cannot be updated."
 

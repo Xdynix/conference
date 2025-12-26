@@ -1,4 +1,5 @@
 import pytest
+from django.utils import timezone
 from faker import Faker
 
 from app.conference.models import (
@@ -12,45 +13,38 @@ from app.conference.models import (
     TrackRoleAssignment,
 )
 from app.conference.services import ReviewService
-from app.conference.services.review import (
-    AssignerNotAuthorizedError,
-    ReviewerNotEligibleError,
-)
+from app.conference.services.paper import PaperStateError, PaperWithdrawnError
+from app.conference.services.review import ReviewerNotEligibleError
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from tests.helpers import update_object
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 class TestAssignReviewer:
-    @pytest.mark.parametrize("assigner_role", ConferenceRole.admins())
     @pytest.mark.parametrize("reviewer_role", ConferenceRole.reviewers())
-    async def test_conference_admin_assigns_reviewer_with_conference_role(
+    def test_conference_mode_assigns_reviewer_with_conference_role(
         self,
         faker: Faker,
         conference: Conference,
         paper: Paper,
-        assigner_role: ConferenceRole,
         reviewer_role: ConferenceRole,
     ) -> None:
-        assigner = await User.objects.acreate_user(username=faker.user_name())
-        reviewer = await User.objects.acreate_user(username=faker.user_name())
-        await ConferenceRoleAssignment.objects.acreate(
-            conference=conference,
-            user=assigner,
-            role=assigner_role,
-        )
-        await ConferenceRoleAssignment.objects.acreate(
+        assigner = User.objects.create_user(username=faker.user_name())
+        reviewer = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
             conference=conference,
             user=reviewer,
             role=reviewer_role,
         )
 
-        review = await ReviewService.assign_reviewer(
+        review = ReviewService.assign_reviewer(
             paper=paper,
             reviewer=reviewer,
             assigner=assigner,
+            mode="conference",
         )
 
-        db_review = await Review.objects.aget(pk=review.pk)
+        db_review = Review.objects.get(pk=review.pk)
         assert review.paper_id == db_review.paper_id == paper.id
         assert review.reviewer_id == db_review.reviewer_id == reviewer.id
         assert review.assigner_id == db_review.assigner_id == assigner.id
@@ -61,36 +55,29 @@ class TestAssignReviewer:
             == Review.AssignmentLevel.CONFERENCE
         )
 
-    @pytest.mark.parametrize("assigner_role", ConferenceRole.admins())
-    @pytest.mark.parametrize("reviewer_role", ConferenceRole.reviewers())
-    async def test_conference_admin_assigns_reviewer_with_track_role(
+    @pytest.mark.parametrize("reviewer_role", TrackRole.reviewers())
+    def test_conference_mode_assigns_reviewer_with_track_role(
         self,
         faker: Faker,
-        conference: Conference,
         paper: Paper,
-        assigner_role: ConferenceRole,
         reviewer_role: TrackRole,
     ) -> None:
-        assigner = await User.objects.acreate_user(username=faker.user_name())
-        reviewer = await User.objects.acreate_user(username=faker.user_name())
-        await ConferenceRoleAssignment.objects.acreate(
-            conference=conference,
-            user=assigner,
-            role=assigner_role,
-        )
-        await TrackRoleAssignment.objects.acreate(
+        assigner = User.objects.create_user(username=faker.user_name())
+        reviewer = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
             track=paper.track,
             user=reviewer,
             role=reviewer_role,
         )
 
-        review = await ReviewService.assign_reviewer(
+        review = ReviewService.assign_reviewer(
             paper=paper,
             reviewer=reviewer,
             assigner=assigner,
+            mode="conference",
         )
 
-        db_review = await Review.objects.aget(pk=review.pk)
+        db_review = Review.objects.get(pk=review.pk)
         assert review.reviewer_id == db_review.reviewer_id == reviewer.id
         assert (
             review.assignment_level
@@ -98,255 +85,163 @@ class TestAssignReviewer:
             == Review.AssignmentLevel.CONFERENCE
         )
 
-    @pytest.mark.parametrize("assigner_role", TrackRole.admins())
     @pytest.mark.parametrize("reviewer_role", TrackRole.reviewers())
-    async def test_track_admin_assigns_reviewer_with_track_role(
+    def test_track_mode_assigns_reviewer_with_track_role(
         self,
         faker: Faker,
         paper: Paper,
-        assigner_role: TrackRole,
         reviewer_role: TrackRole,
     ) -> None:
-        assigner = await User.objects.acreate_user(username=faker.user_name())
-        reviewer = await User.objects.acreate_user(username=faker.user_name())
-        await TrackRoleAssignment.objects.acreate(
-            track=paper.track,
-            user=assigner,
-            role=assigner_role,
-        )
-        await TrackRoleAssignment.objects.acreate(
+        assigner = User.objects.create_user(username=faker.user_name())
+        reviewer = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
             track=paper.track,
             user=reviewer,
             role=reviewer_role,
         )
 
-        review = await ReviewService.assign_reviewer(
+        review = ReviewService.assign_reviewer(
             paper=paper,
             reviewer=reviewer,
             assigner=assigner,
+            mode="track",
         )
 
         assert review.reviewer == reviewer
         assert review.assignment_level == Review.AssignmentLevel.TRACK
 
-    async def test_conference_admin_can_assign_superuser(
+    def test_conference_mode_can_assign_superuser(
         self,
         faker: Faker,
-        conference_chair: User,
         paper: Paper,
     ) -> None:
-        reviewer = await User.objects.acreate_superuser(username=faker.user_name())
+        assigner = User.objects.create_user(username=faker.user_name())
+        reviewer = User.objects.create_superuser(username=faker.user_name())
 
-        review = await ReviewService.assign_reviewer(
+        review = ReviewService.assign_reviewer(
             paper=paper,
             reviewer=reviewer,
-            assigner=conference_chair,
+            assigner=assigner,
+            mode="conference",
         )
 
         assert review.reviewer == reviewer
 
-    async def test_conference_admin_can_assign_global_admin(
+    def test_conference_mode_can_assign_global_admin(
         self,
         faker: Faker,
-        conference_chair: User,
         paper: Paper,
     ) -> None:
-        reviewer = await User.objects.acreate_user(username=faker.user_name())
-        await GlobalRoleAssignment.objects.acreate(
+        assigner = User.objects.create_user(username=faker.user_name())
+        reviewer = User.objects.create_user(username=faker.user_name())
+        GlobalRoleAssignment.objects.create(
             user=reviewer,
             role=GlobalRole.ADMIN,
         )
 
-        review = await ReviewService.assign_reviewer(
+        review = ReviewService.assign_reviewer(
             paper=paper,
             reviewer=reviewer,
-            assigner=conference_chair,
+            assigner=assigner,
+            mode="conference",
         )
 
         assert review.reviewer == reviewer
 
-    async def test_superuser_can_assign(
+    def test_reviewer_without_conference_role_raises_error(
         self,
         faker: Faker,
-        conference_reviewer: User,
         paper: Paper,
     ) -> None:
-        assigner = await User.objects.acreate_superuser(username=faker.user_name())
-
-        review = await ReviewService.assign_reviewer(
-            paper=paper,
-            reviewer=conference_reviewer,
-            assigner=assigner,
-        )
-
-        assert review.assignment_level == Review.AssignmentLevel.CONFERENCE
-
-    async def test_global_admin_can_assign(
-        self,
-        global_admin: User,
-        conference_reviewer: User,
-        paper: Paper,
-    ) -> None:
-        review = await ReviewService.assign_reviewer(
-            paper=paper,
-            reviewer=conference_reviewer,
-            assigner=global_admin,
-        )
-
-        assert review.assignment_level == Review.AssignmentLevel.CONFERENCE
-
-    async def test_assigner_without_admin_role_raises_error(
-        self,
-        user: User,
-        conference_reviewer: User,
-        paper: Paper,
-    ) -> None:
-        with pytest.raises(AssignerNotAuthorizedError):
-            await ReviewService.assign_reviewer(
-                paper=paper,
-                reviewer=conference_reviewer,
-                assigner=user,
-            )
-
-    async def test_reviewer_without_conference_role_raises_error(
-        self,
-        faker: Faker,
-        conference_chair: User,
-        paper: Paper,
-    ) -> None:
-        reviewer = await User.objects.acreate_user(username=faker.user_name())
+        assigner = User.objects.create_user(username=faker.user_name())
+        reviewer = User.objects.create_user(username=faker.user_name())
 
         with pytest.raises(
             ReviewerNotEligibleError,
             match="Reviewer has no eligible role in the conference",
         ):
-            await ReviewService.assign_reviewer(
+            ReviewService.assign_reviewer(
                 paper=paper,
                 reviewer=reviewer,
-                assigner=conference_chair,
+                assigner=assigner,
+                mode="conference",
             )
 
-    async def test_reviewer_without_track_role_raises_error(
+    def test_reviewer_without_track_role_raises_error(
         self,
         faker: Faker,
-        track: Track,
         paper: Paper,
     ) -> None:
-        assigner = await User.objects.acreate_user(username=faker.user_name())
-        reviewer = await User.objects.acreate_user(username=faker.user_name())
-        await TrackRoleAssignment.objects.acreate(
-            track=track,
-            user=assigner,
-            role=TrackRole.CHAIR,
-        )
+        assigner = User.objects.create_user(username=faker.user_name())
+        reviewer = User.objects.create_user(username=faker.user_name())
 
         with pytest.raises(
             ReviewerNotEligibleError,
             match="Reviewer has no eligible role in this track",
         ):
-            await ReviewService.assign_reviewer(
+            ReviewService.assign_reviewer(
                 paper=paper,
                 reviewer=reviewer,
                 assigner=assigner,
+                mode="track",
             )
 
-    async def test_reviewer_with_member_role_raises_error(
+    def test_reviewer_with_member_role_raises_error(
         self,
         faker: Faker,
         conference: Conference,
-        conference_chair: User,
         paper: Paper,
     ) -> None:
-        reviewer = await User.objects.acreate_user(username=faker.user_name())
-        await ConferenceRoleAssignment.objects.acreate(
+        assigner = User.objects.create_user(username=faker.user_name())
+        reviewer = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
             conference=conference,
             user=reviewer,
             role=ConferenceRole.MEMBER,
         )
 
         with pytest.raises(ReviewerNotEligibleError):
-            await ReviewService.assign_reviewer(
+            ReviewService.assign_reviewer(
                 paper=paper,
                 reviewer=reviewer,
-                assigner=conference_chair,
+                assigner=assigner,
+                mode="conference",
             )
 
-    async def test_track_admin_cannot_assign_reviewer_from_other_track(
+    def test_track_mode_reviewer_from_other_track_raises_error(
         self,
         faker: Faker,
         conference: Conference,
-        track: Track,
         paper: Paper,
     ) -> None:
-        other_track = await Track.objects.acreate(
+        other_track = Track.objects.create(
             conference=conference,
             display_name=faker.word(),
         )
-        assigner = await User.objects.acreate_user(username=faker.user_name())
-        reviewer = await User.objects.acreate_user(username=faker.user_name())
-        await TrackRoleAssignment.objects.acreate(
-            track=track,
-            user=assigner,
-            role=TrackRole.CHAIR,
-        )
-        await TrackRoleAssignment.objects.acreate(
+        assigner = User.objects.create_user(username=faker.user_name())
+        reviewer = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
             track=other_track,
             user=reviewer,
             role=TrackRole.REVIEWER,
         )
 
         with pytest.raises(ReviewerNotEligibleError):
-            await ReviewService.assign_reviewer(
+            ReviewService.assign_reviewer(
                 paper=paper,
                 reviewer=reviewer,
                 assigner=assigner,
+                mode="track",
             )
 
-    async def test_track_admin_cannot_assign_to_paper_in_other_track(
+    def test_paper_owner_cannot_be_assigned_as_reviewer(
         self,
         faker: Faker,
-        user: User,
         conference: Conference,
-        track: Track,
-    ) -> None:
-        other_track = await Track.objects.acreate(
-            conference=conference,
-            display_name=faker.word(),
-        )
-        other_paper = await Paper.objects.acreate(
-            conference=conference,
-            track=other_track,
-            owner=user,
-            code="OTHER-001",
-            title="Other Paper",
-        )
-        assigner = await User.objects.acreate_user(username=faker.user_name())
-        reviewer = await User.objects.acreate_user(username=faker.user_name())
-        await TrackRoleAssignment.objects.acreate(
-            track=track,
-            user=assigner,
-            role=TrackRole.CHAIR,
-        )
-        await TrackRoleAssignment.objects.acreate(
-            track=other_track,
-            user=reviewer,
-            role=TrackRole.REVIEWER,
-        )
-
-        with pytest.raises(AssignerNotAuthorizedError):
-            await ReviewService.assign_reviewer(
-                paper=other_paper,
-                reviewer=reviewer,
-                assigner=assigner,
-            )
-
-    async def test_paper_owner_cannot_be_assigned_as_reviewer(
-        self,
-        conference: Conference,
-        conference_chair: User,
         paper: Paper,
     ) -> None:
-        await ConferenceRoleAssignment.objects.acreate(
+        assigner = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
             conference=conference,
             user=paper.owner,
             role=ConferenceRole.REVIEWER,
@@ -356,8 +251,150 @@ class TestAssignReviewer:
             ReviewerNotEligibleError,
             match="Paper owner cannot be assigned as reviewer",
         ):
-            await ReviewService.assign_reviewer(
+            ReviewService.assign_reviewer(
                 paper=paper,
                 reviewer=paper.owner,
-                assigner=conference_chair,
+                assigner=assigner,
+                mode="conference",
             )
+
+    def test_transitions_submitted_paper_to_under_review(
+        self,
+        faker: Faker,
+        conference_reviewer: User,
+        paper: Paper,
+    ) -> None:
+        assigner = User.objects.create_user(username=faker.user_name())
+        assert paper.state == Paper.State.SUBMITTED
+
+        ReviewService.assign_reviewer(
+            paper=paper,
+            reviewer=conference_reviewer,
+            assigner=assigner,
+            mode="conference",
+        )
+
+        paper.refresh_from_db()
+        assert paper.state == Paper.State.UNDER_REVIEW
+
+    def test_does_not_transition_under_review_paper(
+        self,
+        faker: Faker,
+        conference_reviewer: User,
+        paper: Paper,
+    ) -> None:
+        assigner = User.objects.create_user(username=faker.user_name())
+        paper.state = Paper.State.UNDER_REVIEW
+        paper.save()
+
+        ReviewService.assign_reviewer(
+            paper=paper,
+            reviewer=conference_reviewer,
+            assigner=assigner,
+            mode="conference",
+        )
+
+        paper.refresh_from_db()
+        assert paper.state == Paper.State.UNDER_REVIEW
+
+    def test_draft_paper_raises_error(
+        self,
+        faker: Faker,
+        conference_reviewer: User,
+        paper: Paper,
+    ) -> None:
+        assigner = User.objects.create_user(username=faker.user_name())
+        update_object(paper, state=Paper.State.DRAFT)
+
+        with pytest.raises(
+            PaperStateError,
+            match="Cannot assign reviewers to papers in Draft state",
+        ):
+            ReviewService.assign_reviewer(
+                paper=paper,
+                reviewer=conference_reviewer,
+                assigner=assigner,
+                mode="conference",
+            )
+
+    def test_withdrawn_paper_raises_error(
+        self,
+        faker: Faker,
+        conference_reviewer: User,
+        paper: Paper,
+    ) -> None:
+        assigner = User.objects.create_user(username=faker.user_name())
+        update_object(paper, withdraw_time=timezone.now())
+
+        with pytest.raises(
+            PaperWithdrawnError,
+            match="Cannot assign reviewers to withdrawn papers",
+        ):
+            ReviewService.assign_reviewer(
+                paper=paper,
+                reviewer=conference_reviewer,
+                assigner=assigner,
+                mode="conference",
+            )
+
+    @pytest.mark.parametrize("state", Paper.State.decided())
+    def test_announced_decided_paper_raises_error(
+        self,
+        faker: Faker,
+        conference_reviewer: User,
+        paper: Paper,
+        state: Paper.State,
+    ) -> None:
+        assigner = User.objects.create_user(username=faker.user_name())
+        update_object(paper, state=state, announce_time=timezone.now())
+
+        with pytest.raises(
+            PaperStateError,
+            match="Cannot assign reviewers to papers after decision announcement",
+        ):
+            ReviewService.assign_reviewer(
+                paper=paper,
+                reviewer=conference_reviewer,
+                assigner=assigner,
+                mode="conference",
+            )
+
+    @pytest.mark.parametrize("state", Paper.State.decided())
+    def test_unannounced_decided_paper_allows_assignment(
+        self,
+        faker: Faker,
+        conference_reviewer: User,
+        paper: Paper,
+        state: Paper.State,
+    ) -> None:
+        assigner = User.objects.create_user(username=faker.user_name())
+        update_object(paper, state=state, announce_time=None)
+
+        review = ReviewService.assign_reviewer(
+            paper=paper,
+            reviewer=conference_reviewer,
+            assigner=assigner,
+            mode="conference",
+        )
+
+        assert review.reviewer == conference_reviewer
+        paper.refresh_from_db()
+        assert paper.state == state
+
+    def test_under_review_paper_allows_assignment(
+        self,
+        faker: Faker,
+        conference_reviewer: User,
+        paper: Paper,
+    ) -> None:
+        assigner = User.objects.create_user(username=faker.user_name())
+        update_object(paper, state=Paper.State.UNDER_REVIEW)
+
+        review = ReviewService.assign_reviewer(
+            paper=paper,
+            reviewer=conference_reviewer,
+            assigner=assigner,
+            mode="conference",
+        )
+
+        assert review.reviewer == conference_reviewer

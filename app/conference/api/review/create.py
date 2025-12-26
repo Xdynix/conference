@@ -1,5 +1,7 @@
 from http import HTTPStatus
+from typing import Literal
 
+from asgiref.sync import sync_to_async
 from django.db import IntegrityError
 from django.shortcuts import aget_object_or_404
 from django.utils import timezone
@@ -11,11 +13,9 @@ from ulid import ULID
 
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import Conference, ConferenceRole, Review, TrackRole
-from app.conference.services import PaperService, ReviewService
-from app.conference.services.review import (
-    AssignerNotAuthorizedError,
-    ReviewerNotEligibleError,
-)
+from app.conference.services import ConferenceAccessService, PaperService, ReviewService
+from app.conference.services.paper import PaperStateError
+from app.conference.services.review import ReviewerNotEligibleError
 from app.conference.types import ReviewComment, ReviewOfflineReviewerName, ReviewScore
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole, User
@@ -33,6 +33,7 @@ class AssignReviewRequest(Schema):
     "/conferences/{slug:conference_name}/papers/{slug:paper_code}/reviews:assign",
     response={
         HTTPStatus.CREATED: ReviewDetailResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
         HTTPStatus.FORBIDDEN: ErrorResponse,
         HTTPStatus.CONFLICT: ErrorResponse,
         HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
@@ -55,7 +56,8 @@ async def assign_review(
     """Assign a reviewer to a paper.
 
     Creates a review assignment in PENDING state. The reviewer must accept the
-    assignment before they can access the paper and submit their review.
+    assignment before they can access the paper and submit their review. Transitions
+    the paper from Submitted to Under Review on first assignment.
     """
     user = await request.auser()
     conference = await aget_object_or_404(
@@ -76,14 +78,30 @@ async def assign_review(
             message=_("User not found."),
         ) from exc
 
+    ctx = await ConferenceAccessService.context(
+        conference=conference,
+        user=user,
+        global_roles=(GlobalRole.ADMIN,),
+    )
+    mode: Literal["conference", "track"]
+    if ctx.has_full_conference_scope:
+        mode = "conference"
+    elif paper.track_id in ctx.administered_track_ids:  # pragma: no branch
+        mode = "track"
+    else:
+        raise AssertionError(
+            "Unreachable: auth passed but no access scope."
+        )  # pragma: no cover
+
     try:
-        review = await ReviewService.assign_reviewer(
+        review = await sync_to_async(ReviewService.assign_reviewer)(
             paper=paper,
             reviewer=reviewer,
             assigner=user,
+            mode=mode,
         )
-    except AssignerNotAuthorizedError as exc:
-        raise HttpError(HTTPStatus.FORBIDDEN, str(exc)) from exc
+    except PaperStateError as exc:
+        raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
     except ReviewerNotEligibleError as exc:
         raise make_validation_error(path="reviewer", message=str(exc)) from exc
     except IntegrityError as exc:

@@ -19,10 +19,7 @@ from app.core.models import GlobalRole, User
 from app.infra.models import Mutex
 
 from .access import ConferenceAccessService
-
-
-class AssignerNotAuthorizedError(Exception):
-    pass
+from .paper import PaperStateError, PaperWithdrawnError
 
 
 class ReviewerNotEligibleError(Exception):
@@ -81,87 +78,107 @@ class ReviewService:
         )
 
     @classmethod
-    async def assign_reviewer(
+    def assign_reviewer(
         cls,
         *,
         paper: Paper,
         reviewer: User,
         assigner: User,
+        mode: Literal["conference", "track"],
     ) -> Review:
         """Assign a reviewer to a paper.
 
-        The assignment level is derived from the assigner's role. Conference admins
-        create conference-level assignments; track admins create track-level
-        assignments.
+        Validates that the paper is in a valid state for review assignment, transitions
+        the paper from Submitted to Under Review if needed, and creates a review
+        assignment.
+
+        Args:
+            paper: The paper to assign a reviewer to.
+            reviewer: The user to assign as reviewer.
+            assigner: The user performing the assignment.
+            mode: Assignment mode. ``"conference"`` creates conference-level assignments
+                and allows reviewers with any conference or track role. ``"track"``
+                creates track-level assignments and only allows reviewers with a role
+                in the paper's track.
 
         Raises:
-            AssignerNotAuthorizedError: If assigner has no admin role.
+            Paper.DoesNotExist: If the paper, its conference, or its track has been
+                deleted or deactivated.
+            PaperWithdrawnError: If the paper has been withdrawn.
+            PaperStateError: If the paper is in Draft state or has been decided and
+                announced.
             ReviewerNotEligibleError: If reviewer has no eligible role or is the
                 paper owner.
         """
-        if reviewer.pk == paper.owner_id:
-            raise ReviewerNotEligibleError(
-                _("Paper owner cannot be assigned as reviewer.")
-            )
+        with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
+            paper = Paper.objects.active().get(pk=paper.pk)
 
-        conference = paper.conference
-        ctx = await ConferenceAccessService.context(
-            conference=conference,
-            user=assigner,
-            global_roles=(GlobalRole.ADMIN,),
-        )
-
-        if ctx.has_full_conference_scope:
-            assignment_level = Review.AssignmentLevel.CONFERENCE
-        elif paper.track_id in ctx.administered_track_ids:
-            assignment_level = Review.AssignmentLevel.TRACK
-        else:
-            raise AssignerNotAuthorizedError(
-                _("Assigner has no admin role for this paper.")
-            )
-
-        if assignment_level == Review.AssignmentLevel.CONFERENCE:
-            is_privileged = reviewer.is_superuser or (
-                await reviewer.global_role_assignments.filter(
-                    role=GlobalRole.ADMIN,
-                ).aexists()
-            )
-            if not is_privileged:
-                has_conference_role = await ConferenceRoleAssignment.objects.filter(
-                    conference=conference,
-                    user=reviewer,
-                    role__in=ConferenceRole.reviewers(),
-                ).aexists()
-
-                has_track_role = await TrackRoleAssignment.objects.filter(
-                    track__conference=conference,
-                    user=reviewer,
-                    role__in=TrackRole.reviewers(),
-                ).aexists()
-
-                if not has_conference_role and not has_track_role:
-                    raise ReviewerNotEligibleError(
-                        _("Reviewer has no eligible role in the conference.")
-                    )
-        else:
-            has_track_role = await TrackRoleAssignment.objects.filter(
-                track_id=paper.track_id,
-                user=reviewer,
-                role__in=TrackRole.reviewers(),
-            ).aexists()
-
-            if not has_track_role:
-                raise ReviewerNotEligibleError(
-                    _("Reviewer has no eligible role in this track.")
+            if paper.withdraw_time is not None:
+                raise PaperWithdrawnError(
+                    _("Cannot assign reviewers to withdrawn papers.")
+                )
+            if paper.state == Paper.State.DRAFT:
+                raise PaperStateError(
+                    _("Cannot assign reviewers to papers in Draft state.")
+                )
+            if paper.announce_time is not None and paper.state in Paper.State.decided():
+                raise PaperStateError(
+                    _("Cannot assign reviewers to papers after decision announcement.")
                 )
 
-        return await Review.objects.acreate(
-            paper=paper,
-            reviewer=reviewer,
-            state=Review.State.PENDING,
-            assigner=assigner,
-            assignment_level=assignment_level,
-        )
+            if reviewer.pk == paper.owner_id:
+                raise ReviewerNotEligibleError(
+                    _("Paper owner cannot be assigned as reviewer.")
+                )
+
+            if mode == "conference":
+                assignment_level = Review.AssignmentLevel.CONFERENCE
+                is_privileged = reviewer.is_superuser or (
+                    reviewer.global_role_assignments.filter(
+                        role=GlobalRole.ADMIN,
+                    ).exists()
+                )
+                if not is_privileged:
+                    has_conference_role = ConferenceRoleAssignment.objects.filter(
+                        conference_id=paper.conference_id,
+                        user=reviewer,
+                        role__in=ConferenceRole.reviewers(),
+                    ).exists()
+
+                    has_track_role = TrackRoleAssignment.objects.filter(
+                        track__conference_id=paper.conference_id,
+                        user=reviewer,
+                        role__in=TrackRole.reviewers(),
+                    ).exists()
+
+                    if not has_conference_role and not has_track_role:
+                        raise ReviewerNotEligibleError(
+                            _("Reviewer has no eligible role in the conference.")
+                        )
+            else:
+                assignment_level = Review.AssignmentLevel.TRACK
+                has_track_role = TrackRoleAssignment.objects.filter(
+                    track_id=paper.track_id,
+                    user=reviewer,
+                    role__in=TrackRole.reviewers(),
+                ).exists()
+
+                if not has_track_role:
+                    raise ReviewerNotEligibleError(
+                        _("Reviewer has no eligible role in this track.")
+                    )
+
+            if paper.state == Paper.State.SUBMITTED:
+                paper.state = Paper.State.UNDER_REVIEW
+                paper.save(update_fields=["state", "update_time"])
+
+            return Review.objects.create(
+                paper=paper,
+                reviewer=reviewer,
+                state=Review.State.PENDING,
+                assigner=assigner,
+                assignment_level=assignment_level,
+            )
 
     @classmethod
     def respond_to_assignment(
@@ -328,7 +345,7 @@ class ReviewService:
         cls,
         review: Review,
         *,
-        mode: Literal["admin", "reviewer"] = "reviewer",
+        mode: Literal["admin", "reviewer"],
         originality: int | None = None,
         significance: int | None = None,
         technical: int | None = None,

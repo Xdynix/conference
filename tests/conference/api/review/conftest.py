@@ -12,4 +12,5 @@ def paper(conference: Conference, track: Track, user: User) -> Paper:
         owner=user,
         code="PAPER-001",
         title="Test Paper",
+        state=Paper.State.SUBMITTED,
     )

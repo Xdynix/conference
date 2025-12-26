@@ -46,7 +46,7 @@ async def apply_paper_update(
     paper: Paper,
     payload: dict[str, Any],
     *,
-    mode: Literal["author", "track_admin", "admin"] = "author",
+    mode: Literal["author", "track_admin", "admin"],
 ) -> Paper:
     """Update paper metadata, authors, and keywords.
 
@@ -107,7 +107,7 @@ async def update_my_paper(
         code=paper_code,
     )
 
-    updated = await apply_paper_update(paper, payload)
+    updated = await apply_paper_update(paper, payload, mode="author")
 
     logger.info(
         "Paper updated by owner.",

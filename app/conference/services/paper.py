@@ -116,7 +116,7 @@ class PaperService:
         cls,
         *,
         paper: Paper,
-        mode: Literal["author", "track_admin", "admin"] = "author",
+        mode: Literal["author", "track_admin", "admin"],
         title: str | None = None,
         abstract: str | None = None,
         contribution: str | None = None,
@@ -186,7 +186,7 @@ class PaperService:
         cls,
         *,
         paper: Paper,
-        mode: Literal["author", "track_admin", "admin"] = "author",
+        mode: Literal["author", "track_admin", "admin"],
     ) -> Paper:
         """Soft delete a paper by setting ``delete_time``.
 
