@@ -1,4 +1,5 @@
 from collections.abc import Collection
+from typing import Literal
 
 from django.db.models import QuerySet
 from django.utils.translation import gettext as _
@@ -12,7 +13,9 @@ from app.conference.models import (
     TrackRole,
     TrackRoleAssignment,
 )
+from app.conference.models.review import ReviewState
 from app.core.models import GlobalRole, User
+from app.infra.models import Mutex
 
 from .access import ConferenceAccessService
 
@@ -22,6 +25,10 @@ class AssignerNotAuthorizedError(Exception):
 
 
 class ReviewerNotEligibleError(Exception):
+    pass
+
+
+class InvalidReviewStateError(Exception):
     pass
 
 
@@ -148,3 +155,38 @@ class ReviewService:
             assigner=assigner,
             assignment_level=assignment_level,
         )
+
+    @classmethod
+    def respond_to_assignment(
+        cls,
+        *,
+        review: Review,
+        response: Literal[ReviewState.ACCEPTED, ReviewState.DECLINED],
+    ) -> Review:
+        """Respond to a review assignment, transitioning from Pending to the response.
+
+        Args:
+            review: The review to respond to.
+            response: Target state, either ACCEPTED or DECLINED.
+
+        Raises:
+            ValueError: If response is not ACCEPTED or DECLINED.
+            Review.DoesNotExist: If the review's paper, conference, or track has been
+                deleted or deactivated.
+            InvalidReviewStateError: If the review is not in Pending state.
+        """
+        if response not in (ReviewState.ACCEPTED, ReviewState.DECLINED):
+            raise ValueError(f"Invalid response: {response}.")
+
+        with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
+            review = Review.objects.active().get(pk=review.pk)
+
+            if review.state != Review.State.PENDING:
+                raise InvalidReviewStateError(
+                    _("Review must be in pending state to respond.")
+                )
+
+            review.state = response
+            review.save(update_fields=["state", "update_time"])
+
+            return review
