@@ -10,10 +10,10 @@ from app.core.models import User
 
 
 @pytest.mark.django_db
-class TestLookupRoleAssignmentUser:
+class TestLookupConferenceUser:
     @classmethod
     def path(cls, conference_name: str) -> str:
-        return reverse("api-1.0.0:lookup-role-assignment-user", args=[conference_name])
+        return reverse("api-1.0.0:lookup-conference-user", args=[conference_name])
 
     def test_happy_path_with_profile(
         self,

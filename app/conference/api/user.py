@@ -1,6 +1,7 @@
 from http import HTTPStatus
 
 from django.shortcuts import aget_object_or_404
+from ninja import Router
 
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import ConferenceRole, TrackRole
@@ -10,7 +11,7 @@ from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest, EmailStr
 from app.ninja.errors import ErrorResponse
 
-from .core import router
+router = Router(tags=["Conference User"], exclude_none=True)
 
 
 @router.get(
@@ -22,7 +23,7 @@ from .core import router
         HTTPStatus.OK: ConferenceUser,
         HTTPStatus.NOT_FOUND: ErrorResponse,
     },
-    summary="Lookup Role Assignment User",
+    summary="Lookup Conference User",
     auth=(
         has_any_roles(GlobalRole.ADMIN, GlobalRole.READ_ALL)
         | has_any_conference_or_track_roles(
@@ -31,12 +32,12 @@ from .core import router
         )
     ),
 )
-async def lookup_role_assignment_user(
+async def lookup_conference_user(
     request: AuthedHttpRequest,  # noqa: ARG001
     conference_name: str,  # noqa: ARG001
     email: EmailStr,
 ) -> User:
-    """Lookup a user by email for the role-assignment workflow."""
+    """Lookup a user by email."""
     return await aget_object_or_404(
         User.objects.active().select_related("profile"),
         email__iexact=email,

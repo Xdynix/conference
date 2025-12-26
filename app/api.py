@@ -7,6 +7,7 @@ from app.conference.api.paper import router as paper_router
 from app.conference.api.profile import router as profile_router
 from app.conference.api.review import router as review_router
 from app.conference.api.role_assignment import router as role_assignment_router
+from app.conference.api.user import router as conference_user_router
 from app.core.api.password_reset import router as password_reset_router
 from app.core.api.session import router as session_router
 from app.core.api.user import router as user_router
@@ -21,6 +22,7 @@ for router in (
     admin_comment_router,
     code_pool_router,
     conference_router,
+    conference_user_router,
     invitation_router,
     keyword_set_router,
     misc_router,
