@@ -6,14 +6,21 @@ from loguru import logger
 from ninja.errors import HttpError
 from ulid import ULID
 
-from app.conference.models import Review
+from app.conference.auth import has_any_conference_or_track_roles
+from app.conference.models import Conference, ConferenceRole, Review, TrackRole
 from app.conference.services import ConferenceService, ReviewService
 from app.conference.services.review import InvalidReviewStateError
-from app.core.auth import is_authenticated
+from app.core.auth import has_any_roles, is_authenticated
+from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse
 
-from .core import UserReviewDetailResponse, prefetch_review, router
+from .core import (
+    ReviewDetailResponse,
+    UserReviewDetailResponse,
+    prefetch_review,
+    router,
+)
 
 
 @router.post(
@@ -105,6 +112,57 @@ async def decline_review(
         conference_name=conference.name,
         review_uid=review.uid,
         reviewer_uid=user.uid,
+    )
+
+    return await prefetch_review(review)
+
+
+@router.post(
+    "/conferences/{slug:conference_name}/reviews/{ulid:review_uid}:cancel",
+    response={
+        HTTPStatus.OK: ReviewDetailResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
+    },
+    summary="Cancel Review",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_or_track_roles(
+            *ConferenceRole.admins(),
+            *TrackRole.admins(),
+        )
+    ),
+)
+async def cancel_review(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    review_uid: ULID,
+) -> Review:
+    """Cancel a review assignment.
+
+    Transitions a review to Cancelled state. The review remains visible in admin queries
+    and counts, but is hidden from the reviewer's own views. Can be used for reviews in
+    Pending, Accepted, or Submitted states.
+    """
+    user = await request.auser()
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+
+    reviews = await ReviewService.visible_reviews(conference=conference, user=user)
+
+    review = await aget_object_or_404(reviews, uid=review_uid)
+
+    try:
+        review = await sync_to_async(ReviewService.cancel_review)(review)
+    except InvalidReviewStateError as exc:
+        raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+
+    logger.info(
+        "Review cancelled by admin.",
+        review_uid=str(review.uid),
+        conference_name=conference.name,
+        admin_uid=str(user.uid),
     )
 
     return await prefetch_review(review)

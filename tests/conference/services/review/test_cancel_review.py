@@ -1,0 +1,78 @@
+import pytest
+from django.utils import timezone
+
+from app.conference.models import Conference, Paper, Review, Track
+from app.conference.models.review import ReviewState
+from app.conference.services import ReviewService
+from app.conference.services.review import InvalidReviewStateError
+from app.core.models import User
+from tests.helpers import update_object
+
+
+@pytest.mark.django_db
+class TestCancelReview:
+    @pytest.fixture
+    def review(self, paper: Paper, user: User) -> Review:
+        return Review.objects.create(
+            paper=paper,
+            reviewer=user,
+            state=Review.State.PENDING,
+        )
+
+    @pytest.mark.parametrize(
+        "initial_state",
+        [Review.State.PENDING, Review.State.ACCEPTED, Review.State.SUBMITTED],
+    )
+    def test_happy_path(
+        self,
+        review: Review,
+        initial_state: ReviewState,
+    ) -> None:
+        update_object(review, state=initial_state)
+
+        result = ReviewService.cancel_review(review)
+
+        db_result = Review.objects.get(pk=result.pk)
+        assert result.state == db_result.state == Review.State.CANCELLED
+
+    @pytest.mark.parametrize(
+        "state",
+        [Review.State.DECLINED, Review.State.CANCELLED],
+    )
+    def test_rejects_non_cancellable_state(
+        self,
+        review: Review,
+        state: ReviewState,
+    ) -> None:
+        update_object(review, state=state)
+
+        with pytest.raises(
+            InvalidReviewStateError,
+            match="Review must be in pending, accepted, or submitted state to cancel",
+        ):
+            ReviewService.cancel_review(review)
+
+        review.refresh_from_db()
+        assert review.state == state
+
+    def test_inactive_conference_raises_error(
+        self,
+        conference: Conference,
+        review: Review,
+    ) -> None:
+        update_object(conference, active=False)
+
+        with pytest.raises(Review.DoesNotExist):
+            ReviewService.cancel_review(review)
+
+    def test_inactive_track_raises_error(self, track: Track, review: Review) -> None:
+        update_object(track, active=False)
+
+        with pytest.raises(Review.DoesNotExist):
+            ReviewService.cancel_review(review)
+
+    def test_deleted_paper_raises_error(self, paper: Paper, review: Review) -> None:
+        update_object(paper, delete_time=timezone.now())
+
+        with pytest.raises(Review.DoesNotExist):
+            ReviewService.cancel_review(review)

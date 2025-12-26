@@ -288,3 +288,37 @@ class ReviewService:
             review.save(update_fields=["state", "submit_time", "update_time"])
 
             return review
+
+    @classmethod
+    def cancel_review(cls, review: Review) -> Review:
+        """Cancel a review assignment.
+
+        Transitions a review to Cancelled state. Can be used for reviews in Pending,
+        Accepted, or Submitted states.
+
+        Raises:
+            Review.DoesNotExist: If the review's paper, conference, or track has been
+                deleted or deactivated.
+            InvalidReviewStateError: If the review is not in a cancellable state.
+        """
+        cancellable_states = {
+            Review.State.PENDING,
+            Review.State.ACCEPTED,
+            Review.State.SUBMITTED,
+        }
+
+        with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
+            review = Review.objects.active().get(pk=review.pk)
+
+            if review.state not in cancellable_states:
+                raise InvalidReviewStateError(
+                    _(
+                        "Review must be in pending, accepted, "
+                        "or submitted state to cancel."
+                    )
+                )
+
+            review.state = Review.State.CANCELLED
+            review.save(update_fields=["state", "update_time"])
+
+            return review
