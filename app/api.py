@@ -1,3 +1,4 @@
+from app.conference.api.admin_comment import router as admin_comment_router
 from app.conference.api.code_pool import router as code_pool_router
 from app.conference.api.conference import router as conference_router
 from app.conference.api.invitation import router as invitation_router
@@ -15,16 +16,21 @@ from app.verikit.api import router as verikit_router
 
 api = AppNinjaAPI.build()
 
-api.add_router("", code_pool_router)
-api.add_router("", conference_router)
-api.add_router("", invitation_router)
-api.add_router("", keyword_set_router)
-api.add_router("", misc_router)
-api.add_router("", paper_router)
-api.add_router("", password_reset_router)
-api.add_router("", profile_router)
-api.add_router("", review_router)
-api.add_router("", role_assignment_router)
-api.add_router("", session_router)
-api.add_router("", user_router)
-api.add_router("", verikit_router)
+
+for router in (
+    admin_comment_router,
+    code_pool_router,
+    conference_router,
+    invitation_router,
+    keyword_set_router,
+    misc_router,
+    paper_router,
+    password_reset_router,
+    profile_router,
+    review_router,
+    role_assignment_router,
+    session_router,
+    user_router,
+    verikit_router,
+):
+    api.add_router("", router)
