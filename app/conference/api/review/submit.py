@@ -7,9 +7,10 @@ from ninja.errors import HttpError
 from ulid import ULID
 
 from app.conference.auth import (
+    has_any_conference_or_track_roles,
     has_any_conference_roles,
 )
-from app.conference.models import Conference, ConferenceRole, Review
+from app.conference.models import Conference, ConferenceRole, Review, TrackRole
 from app.conference.services import ConferenceService, ReviewService
 from app.conference.services.review import (
     InvalidReviewStateError,
@@ -116,6 +117,56 @@ async def submit_review(
 
     logger.info(
         "Review submitted by admin.",
+        review_uid=str(review.uid),
+        conference_name=conference.name,
+        admin_uid=str(user.uid),
+    )
+
+    return await prefetch_review(review)
+
+
+@router.post(
+    "/conferences/{slug:conference_name}/reviews/{ulid:review_uid}:unsubmit",
+    response={
+        HTTPStatus.OK: ReviewDetailResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
+    },
+    summary="Unsubmit Review",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_or_track_roles(
+            *ConferenceRole.admins(),
+            *TrackRole.admins(),
+        )
+    ),
+)
+async def unsubmit_review(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    review_uid: ULID,
+) -> Review:
+    """Unsubmit a review, returning it to Accepted state for revision.
+
+    Allows admins to send a submitted review back to the reviewer for corrections.
+    Not applicable to offline reviews.
+    """
+    user = await request.auser()
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+
+    reviews = await ReviewService.visible_reviews(conference=conference, user=user)
+
+    review = await aget_object_or_404(reviews, uid=review_uid)
+
+    try:
+        review = await sync_to_async(ReviewService.unsubmit_review)(review)
+    except InvalidReviewStateError as exc:
+        raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+
+    logger.info(
+        "Review unsubmitted by admin.",
         review_uid=str(review.uid),
         conference_name=conference.name,
         admin_uid=str(user.uid),

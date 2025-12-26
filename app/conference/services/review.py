@@ -255,3 +255,36 @@ class ReviewService:
             review.save(update_fields=["state", "submit_time", "update_time"])
 
             return review
+
+    @classmethod
+    def unsubmit_review(cls, review: Review) -> Review:
+        """Unsubmit a review, returning it to Accepted state for revision.
+
+        Transitions a submitted review back to Accepted state and clears the
+        ``submit_time``. This allows the reviewer to make corrections before
+        resubmitting.
+
+        Raises:
+            Review.DoesNotExist: If the review's paper, conference, or track has been
+                deleted or deactivated.
+            InvalidReviewStateError: If the review is not in Submitted state or is an
+                offline review.
+        """
+        with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
+            review = Review.objects.active().get(pk=review.pk)
+
+            if review.reviewer_id is None:
+                raise InvalidReviewStateError(
+                    _("Offline reviews cannot be unsubmitted.")
+                )
+
+            if review.state != Review.State.SUBMITTED:
+                raise InvalidReviewStateError(
+                    _("Review must be in submitted state to unsubmit.")
+                )
+
+            review.state = Review.State.ACCEPTED
+            review.submit_time = None
+            review.save(update_fields=["state", "submit_time", "update_time"])
+
+            return review
