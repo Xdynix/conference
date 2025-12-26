@@ -322,3 +322,98 @@ class ReviewService:
             review.save(update_fields=["state", "update_time"])
 
             return review
+
+    @classmethod
+    def update_review(
+        cls,
+        review: Review,
+        *,
+        mode: Literal["admin", "reviewer"] = "reviewer",
+        originality: int | None = None,
+        significance: int | None = None,
+        technical: int | None = None,
+        reference: int | None = None,
+        presentation: int | None = None,
+        match_topic: int | None = None,
+        recommendation: int | None = None,
+        contribution: str | None = None,
+        decision_reason: str | None = None,
+        comments: str | None = None,
+        confidential_remarks: str | None = None,
+    ) -> Review:
+        """Update review scores and text fields.
+
+        Updates a review with the provided field values. Only fields that are
+        explicitly passed (not ``None``) are modified.
+
+        Args:
+            review: The review to update.
+            mode: Controls state restrictions. ``"admin"`` allows updates to review
+                in Accepted or Submitted state. ``"reviewer"`` allows updates only
+                to reviews in Accepted state.
+            originality: The originality score.
+            significance: The significance score.
+            technical: The technical score.
+            reference: The reference score.
+            presentation: The presentation score.
+            match_topic: The match-topic score.
+            recommendation: The recommendation score.
+            contribution: The contribution content.
+            decision_reason: The decision reason content.
+            comments: The comments content.
+            confidential_remarks: The confidential remarks content.
+
+        Raises:
+            Review.DoesNotExist: If the review's paper, conference, or track has been
+                deleted or deactivated.
+            InvalidReviewStateError: If the review is not in a valid state for the
+                given mode.
+        """
+        if mode == "admin":
+            allowed_states = {Review.State.ACCEPTED, Review.State.SUBMITTED}
+        else:
+            allowed_states = {Review.State.ACCEPTED}
+
+        with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
+            review = Review.objects.active().get(pk=review.pk)
+
+            if review.state not in allowed_states:
+                if mode == "admin":
+                    raise InvalidReviewStateError(
+                        _("Review must be in accepted or submitted state to edit.")
+                    )
+                raise InvalidReviewStateError(
+                    _("Review must be in accepted state to save draft.")
+                )
+
+            update_fields: list[str] = []
+
+            score_updates = {
+                "originality": originality,
+                "significance": significance,
+                "technical": technical,
+                "reference": reference,
+                "presentation": presentation,
+                "match_topic": match_topic,
+                "recommendation": recommendation,
+            }
+            for field, value in score_updates.items():
+                if value is not None:
+                    setattr(review, field, value)
+                    update_fields.append(field)
+
+            text_updates = {
+                "contribution": contribution,
+                "decision_reason": decision_reason,
+                "comments": comments,
+                "confidential_remarks": confidential_remarks,
+            }
+            for field, content in text_updates.items():
+                if content is not None:
+                    setattr(review, field, content)
+                    update_fields.append(field)
+
+            if update_fields:
+                review.save(update_fields=[*update_fields, "update_time"])
+
+            return review
