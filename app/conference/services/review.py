@@ -2,6 +2,7 @@ from collections.abc import Collection
 from typing import Literal
 
 from django.db.models import QuerySet
+from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from app.conference.models import (
@@ -30,6 +31,12 @@ class ReviewerNotEligibleError(Exception):
 
 class InvalidReviewStateError(Exception):
     pass
+
+
+class ReviewSubmissionError(Exception):
+    def __init__(self, errors: list[dict[str, str]]):
+        self.errors = errors
+        super().__init__(_("Review submission validation failed."))
 
 
 class ReviewService:
@@ -188,5 +195,63 @@ class ReviewService:
 
             review.state = response
             review.save(update_fields=["state", "update_time"])
+
+            return review
+
+    @classmethod
+    def submit_review(cls, review: Review, *, strict: bool = True) -> Review:
+        """Submit a review.
+
+        Validates required fields and transitions the review from Accepted to Submitted
+        state.
+
+        Args:
+            review: The review to submit.
+            strict: If ``True`` (default), validates all required fields including
+                scores, contribution, and decision reason. If ``False``, skips
+                validation (for admin bypass).
+
+        Raises:
+            Review.DoesNotExist: If the review's paper, conference, or track has been
+                deleted or deactivated.
+            InvalidReviewStateError: If the review is not in Accepted state.
+            ReviewSubmissionError: If the review fails field validation. The exception
+                contains a list of error dictionaries.
+        """
+        with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
+            review = Review.objects.active().get(pk=review.pk)
+
+            if review.state != Review.State.ACCEPTED:
+                raise InvalidReviewStateError(
+                    _("Review must be in accepted state to submit.")
+                )
+
+            if strict:
+                errors: list[dict[str, str]] = []
+
+                score_fields = (
+                    "originality",
+                    "significance",
+                    "technical",
+                    "reference",
+                    "presentation",
+                    "match_topic",
+                    "recommendation",
+                )
+                for field in score_fields:
+                    if getattr(review, field) is None:
+                        errors.append({field: _("This field is required.")})
+
+                text_fields = ("contribution", "decision_reason")
+                for field in text_fields:
+                    if not getattr(review, field):
+                        errors.append({field: _("This field is required.")})
+
+                if errors:
+                    raise ReviewSubmissionError(errors)
+
+            review.state = Review.State.SUBMITTED
+            review.submit_time = timezone.now()
+            review.save(update_fields=["state", "submit_time", "update_time"])
 
             return review
