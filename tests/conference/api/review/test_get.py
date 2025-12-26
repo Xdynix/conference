@@ -228,6 +228,46 @@ class TestGetMyReview:
         response = api_client.get(self.path(conference.name, ULID()))
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
+    def test_reviewer_can_access_review_without_track_role(
+        self,
+        faker: Faker,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        other_track = Track.objects.create(
+            conference=conference,
+            display_name=faker.word(),
+        )
+        TrackRoleAssignment.objects.create(
+            track=other_track,
+            user=user,
+            role=TrackRole.REVIEWER,
+        )
+        review = Review.objects.create(paper=paper, reviewer=user)
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name, review.uid))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["uid"] == str(review.uid)
+
+    def test_reviewer_can_access_review_without_any_role(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        review = Review.objects.create(paper=paper, reviewer=user)
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name, review.uid))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["uid"] == str(review.uid)
+
 
 @pytest.fixture
 def mock_visible_reviews(mocker: MockerFixture) -> AsyncMock:
