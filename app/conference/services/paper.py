@@ -7,7 +7,14 @@ from django.utils import timezone
 from django.utils.translation import gettext as _
 from loguru import logger
 
-from app.conference.models import Conference, Keyword, Paper, PaperAuthor, Track
+from app.conference.models import (
+    Conference,
+    Keyword,
+    Paper,
+    PaperAuthor,
+    PaperDecision,
+    Track,
+)
 from app.core.models import GlobalRole, User
 from app.infra.models import Mutex
 
@@ -373,6 +380,49 @@ class PaperService:
 
             paper.withdraw_time = timezone.now()
             paper.save(update_fields=["withdraw_time", "update_time"])
+
+            return paper
+
+    @classmethod
+    def decide_paper(
+        cls,
+        *,
+        paper: Paper,
+        decider: User,
+        state: Paper.State,
+        note: str = "",
+    ) -> Paper:
+        """Make a decision on a paper.
+
+        Updates the paper state and creates an audit record. Papers in any state except
+        Draft can be decided.
+
+        Raises:
+            Paper.DoesNotExist: If the paper has been deleted or deactivated.
+            PaperStateError: If the paper is in Draft state.
+            PaperWithdrawnError: If the paper has been withdrawn.
+            ValueError: If the state is not a valid decision state.
+        """
+        if state not in Paper.State.decided():
+            raise ValueError(f"Invalid decision state: {state}.")
+
+        with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
+            paper = Paper.objects.active().get(pk=paper.pk)
+
+            if paper.withdraw_time is not None:
+                raise PaperWithdrawnError(_("Withdrawn papers cannot be decided."))
+            if paper.state == Paper.State.DRAFT:
+                raise PaperStateError(_("Draft papers cannot be decided."))
+
+            paper.state = state
+            paper.save(update_fields=["state", "update_time"])
+
+            PaperDecision.objects.create(
+                paper=paper,
+                decider=decider,
+                state=PaperDecision.State(state),
+                note=note,
+            )
 
             return paper
 

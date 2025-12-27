@@ -90,7 +90,7 @@ async def withdraw_paper(
     )
 
     paper = await aget_object_or_404(
-        await PaperService.visible_papers(conference, user),
+        conference.papers.active(),
         code=paper_code,
     )
 

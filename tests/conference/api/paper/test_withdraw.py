@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 from django.test import Client
@@ -192,11 +192,6 @@ class TestWithdrawMyPaper:
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
 
-@pytest.fixture
-def mock_visible_papers(mocker: MockerFixture) -> AsyncMock:
-    return mocker.patch.object(PaperService, "visible_papers")
-
-
 @pytest.mark.django_db
 class TestWithdrawPaper:
     @classmethod
@@ -214,7 +209,6 @@ class TestWithdrawPaper:
         user: User,
         paper: Paper,
         paper_service_withdraw: MagicMock,
-        mock_visible_papers: AsyncMock,
     ) -> None:
         def withdraw_side_effect(p: Paper) -> Paper:
             p.withdraw_time = timezone.now()
@@ -222,7 +216,6 @@ class TestWithdrawPaper:
             return p
 
         paper_service_withdraw.side_effect = withdraw_side_effect
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         client.force_login(conference_chair)
 
         response = client.post(self.path(conference.name, paper.code))
@@ -235,7 +228,6 @@ class TestWithdrawPaper:
         assert data["owner"]["uid"] == str(user.uid)
 
         paper_service_withdraw.assert_called_once_with(paper)
-        mock_visible_papers.assert_awaited_once_with(conference, conference_chair)
 
     def test_handle_already_withdrawn_error(
         self,
@@ -243,10 +235,8 @@ class TestWithdrawPaper:
         conference: Conference,
         conference_chair: User,
         paper: Paper,
-        mock_visible_papers: AsyncMock,
         paper_service_withdraw: MagicMock,
     ) -> None:
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         paper_service_withdraw.side_effect = PaperWithdrawnError(
             "Paper has already been withdrawn."
         )
@@ -262,9 +252,7 @@ class TestWithdrawPaper:
         client: Client,
         conference: Conference,
         conference_chair: User,
-        mock_visible_papers: AsyncMock,
     ) -> None:
-        mock_visible_papers.return_value = Paper.objects.none()
         client.force_login(conference_chair)
 
         response = client.post(self.path(conference.name, "NONEXISTENT"))
@@ -324,10 +312,8 @@ class TestWithdrawPaper:
         global_admin: User,
         paper: Paper,
         paper_service_withdraw: MagicMock,
-        mock_visible_papers: AsyncMock,
     ) -> None:
         paper_service_withdraw.return_value = paper
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         client.force_login(global_admin)
 
         response = client.post(self.path(conference.name, paper.code))
@@ -342,10 +328,8 @@ class TestWithdrawPaper:
         conference_chair: User,
         paper: Paper,
         paper_service_withdraw: MagicMock,
-        mock_visible_papers: AsyncMock,
     ) -> None:
         paper_service_withdraw.return_value = paper
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         client.force_login(conference_chair)
 
         response = client.post(self.path(conference.name, paper.code))
