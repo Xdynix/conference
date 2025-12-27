@@ -3,6 +3,7 @@ __all__ = ("router",)
 
 from . import (  # noqa: F401
     create,
+    decide,
     delete,
     download,
     get,
