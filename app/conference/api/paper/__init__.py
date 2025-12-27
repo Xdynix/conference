@@ -7,6 +7,7 @@ from . import (  # noqa: F401
     delete,
     download,
     get,
+    labels,
     list,
     submit,
     update,

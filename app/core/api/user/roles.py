@@ -1,9 +1,9 @@
-from typing import Any
+from typing import Annotated, Any
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from loguru import logger
-from ninja import Field, Schema
+from ninja import Body, Field
 from ulid import ULID
 
 from app.core.auth import has_any_roles
@@ -14,9 +14,10 @@ from app.core.types import AuthedHttpRequest
 
 from .core import UserResponse, router
 
-
-class UpdateUserRolesRequest(Schema):
-    roles: list[GlobalRole] = Field(max_length=len(GlobalRole))
+UpdateUserRolesRequest = Annotated[
+    list[GlobalRole],
+    Field(max_length=len(GlobalRole)),
+]
 
 
 @router.put(
@@ -28,7 +29,7 @@ class UpdateUserRolesRequest(Schema):
 async def update_user_roles(
     request: AuthedHttpRequest,
     uid: ULID,
-    payload: UpdateUserRolesRequest,
+    payload: Body[UpdateUserRolesRequest],
 ) -> dict[str, Any]:
     """Replace a user's global role assignments for any active account."""
     user = await aget_object_or_404(
@@ -36,14 +37,14 @@ async def update_user_roles(
         uid=uid,
     )
 
-    await sync_to_async(UserService.set_roles)(user=user, roles=payload.roles)
+    await sync_to_async(UserService.set_roles)(user=user, roles=payload)
 
     actor = await request.auser()
     logger.info(
         "Admin updated user roles.",
         user_uid=user.uid,
         actor_uid=actor.uid,
-        roles=payload.roles,
+        roles=payload,
     )
 
     return await user_response_registry.dump(user)

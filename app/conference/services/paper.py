@@ -13,6 +13,7 @@ from app.conference.models import (
     Paper,
     PaperAuthor,
     PaperDecision,
+    PaperLabel,
     Track,
 )
 from app.core.models import GlobalRole, User
@@ -95,9 +96,9 @@ class PaperService:
                         contribution=contribution,
                     )
                     if keywords:
-                        cls.set_paper_keywords(paper, keywords)
+                        cls._set_paper_keywords(paper, keywords)
                     if authors:
-                        cls.set_paper_authors(paper, authors)
+                        cls._set_paper_authors(paper, authors)
                     return paper
             except IntegrityError:
                 is_last_attempt = attempt >= cls.max_code_retries - 1
@@ -181,10 +182,10 @@ class PaperService:
                 paper.save(update_fields=[*update_fields, "update_time"])
 
             if keywords is not None:
-                cls.set_paper_keywords(paper, keywords)
+                cls._set_paper_keywords(paper, keywords)
 
             if authors is not None:
-                cls.set_paper_authors(paper, authors)
+                cls._set_paper_authors(paper, authors)
 
             return paper
 
@@ -427,33 +428,16 @@ class PaperService:
             return paper
 
     @classmethod
-    def set_paper_keywords(cls, paper: Paper, keywords: Collection[Keyword]) -> None:
-        """Replace all keywords on a paper."""
-        paper.keywords.set(keywords)
-
-    @classmethod
-    def set_paper_authors(cls, paper: Paper, authors: Collection[AuthorData]) -> None:
-        """Replace all authors on a paper.
-
-        Authors are assigned ordering based on their position in the collection.
-        """
-        paper.authors.all().delete()
-        author_objects = [
-            PaperAuthor(
-                paper=paper,
-                ordering=idx,
-                given_name=author.get("given_name", ""),
-                family_name=author.get("family_name", ""),
-                affiliation=author.get("affiliation", ""),
-                region_code=author.get("region_code", ""),
-                email=author.get("email", ""),
-                phone=author.get("phone", ""),
-                corresponding=author.get("corresponding", False),
-            )
-            for idx, author in enumerate(authors)
-        ]
-        if author_objects:
-            PaperAuthor.objects.bulk_create(author_objects)
+    def set_paper_labels(cls, paper: Paper, **labels: str) -> None:
+        """Replace all labels on a paper."""
+        with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
+            paper.labels.all().delete()
+            label_objects = [
+                PaperLabel(paper=paper, key=key, value=value)
+                for key, value in labels.items()
+            ]
+            if label_objects:
+                PaperLabel.objects.bulk_create(label_objects)
 
     @classmethod
     async def visible_papers(
@@ -489,3 +473,32 @@ class PaperService:
             return papers.none()
 
         return papers.filter(track_id__in=ctx.administered_track_ids)
+
+    @classmethod
+    def _set_paper_keywords(cls, paper: Paper, keywords: Collection[Keyword]) -> None:
+        """Replace all keywords on a paper."""
+        paper.keywords.set(keywords)
+
+    @classmethod
+    def _set_paper_authors(cls, paper: Paper, authors: Collection[AuthorData]) -> None:
+        """Replace all authors on a paper.
+
+        Authors are assigned ordering based on their position in the collection.
+        """
+        paper.authors.all().delete()
+        author_objects = [
+            PaperAuthor(
+                paper=paper,
+                ordering=idx,
+                given_name=author.get("given_name", ""),
+                family_name=author.get("family_name", ""),
+                affiliation=author.get("affiliation", ""),
+                region_code=author.get("region_code", ""),
+                email=author.get("email", ""),
+                phone=author.get("phone", ""),
+                corresponding=author.get("corresponding", False),
+            )
+            for idx, author in enumerate(authors)
+        ]
+        if author_objects:
+            PaperAuthor.objects.bulk_create(author_objects)

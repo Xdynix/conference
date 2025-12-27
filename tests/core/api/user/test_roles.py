@@ -36,7 +36,7 @@ class TestUpdateUserRoles:
 
         response = api_client.put(
             self.path(user_id=user.uid),
-            data={"roles": roles},
+            data=roles,
         )
         assert response.status_code == HTTPStatus.OK
 
@@ -60,7 +60,7 @@ class TestUpdateUserRoles:
 
         response = api_client.put(
             self.path(user_id=user.uid),
-            data={"roles": []},
+            data=[],
         )
         assert response.status_code == HTTPStatus.OK
 
@@ -78,7 +78,7 @@ class TestUpdateUserRoles:
 
         response = api_client.put(
             self.path(user_id=user.uid),
-            data={"roles": [GlobalRole.ADMIN]},
+            data=[GlobalRole.ADMIN],
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
@@ -94,7 +94,7 @@ class TestUpdateUserRoles:
 
         response = api_client.put(
             self.path(user_id=ULID()),
-            data={"roles": [GlobalRole.ADMIN]},
+            data=[GlobalRole.ADMIN],
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
@@ -112,7 +112,7 @@ class TestUpdateUserRoles:
 
         response = api_client.put(
             self.path(user_id=user.uid),
-            data={"roles": [GlobalRole.ADMIN]},
+            data=[GlobalRole.ADMIN],
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
 
@@ -126,7 +126,7 @@ class TestUpdateUserRoles:
     ) -> None:
         response = api_client.put(
             self.path(user_id=user.uid),
-            data={"roles": [GlobalRole.ADMIN]},
+            data=[GlobalRole.ADMIN],
         )
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
