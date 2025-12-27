@@ -507,6 +507,7 @@ class TestUpdatePaper:
                 "submitted_count": 0,
                 "cancelled_count": 0,
             },
+            "recommendation_summary": {},
         }
 
         paper_service_update.assert_called_once_with(

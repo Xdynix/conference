@@ -513,6 +513,7 @@ class TestListPapers:
                         "submitted_count": 0,
                         "cancelled_count": 0,
                     },
+                    "recommendation_summary": {},
                 },
             ],
         }

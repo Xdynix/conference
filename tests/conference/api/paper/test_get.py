@@ -535,6 +535,7 @@ class TestGetPaper:
                 "submitted_count": 0,
                 "cancelled_count": 0,
             },
+            "recommendation_summary": {},
             "create_time": any_str,
         }
 
@@ -826,4 +827,151 @@ class TestGetPaper:
             "accepted_count": 0,
             "submitted_count": 1,
             "cancelled_count": 0,
+        }
+
+    def test_recommendation_summary_no_reviews(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["recommendation_summary"] == {}
+
+    def test_recommendation_summary_submitted_reviews(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        Review.objects.create(
+            paper=paper,
+            state=Review.State.SUBMITTED,
+            recommendation=4,
+        )
+        Review.objects.create(
+            paper=paper,
+            state=Review.State.SUBMITTED,
+            recommendation=5,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["recommendation_summary"] == {
+            "submitted_average": 4.5,
+            "submitted_and_draft_average": 4.5,
+        }
+
+    def test_recommendation_summary_includes_draft_reviews(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        Review.objects.create(
+            paper=paper,
+            state=Review.State.SUBMITTED,
+            recommendation=4,
+        )
+        Review.objects.create(
+            paper=paper,
+            state=Review.State.ACCEPTED,
+            recommendation=2,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["recommendation_summary"] == {
+            "submitted_average": 4.0,
+            "submitted_and_draft_average": 3.0,
+        }
+
+    def test_recommendation_summary_excludes_null_recommendations(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        Review.objects.create(
+            paper=paper,
+            state=Review.State.SUBMITTED,
+            recommendation=4,
+        )
+        Review.objects.create(
+            paper=paper,
+            state=Review.State.SUBMITTED,
+            recommendation=None,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["recommendation_summary"] == {
+            "submitted_average": 4.0,
+            "submitted_and_draft_average": 4.0,
+        }
+
+    def test_recommendation_summary_excludes_other_states(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        Review.objects.create(
+            paper=paper,
+            state=Review.State.SUBMITTED,
+            recommendation=5,
+        )
+        Review.objects.create(
+            paper=paper,
+            state=Review.State.PENDING,
+            recommendation=1,
+        )
+        Review.objects.create(
+            paper=paper,
+            state=Review.State.DECLINED,
+            recommendation=1,
+        )
+        Review.objects.create(
+            paper=paper,
+            state=Review.State.CANCELLED,
+            recommendation=1,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["recommendation_summary"] == {
+            "submitted_average": 5.0,
+            "submitted_and_draft_average": 5.0,
         }

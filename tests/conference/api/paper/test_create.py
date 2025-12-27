@@ -540,6 +540,7 @@ class TestCreatePaper:
                 "submitted_count": 0,
                 "cancelled_count": 0,
             },
+            "recommendation_summary": {},
         }
 
         paper_service_create.assert_called_once()
