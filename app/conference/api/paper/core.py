@@ -84,6 +84,7 @@ class PaperResponse(BasePaperResponse):
     owner: ConferenceUser
     review_stat: ReviewStat
     recommendation_summary: RecommendationSummary
+    labels: dict[str, str]
 
     @staticmethod
     def resolve_review_stat(paper: Paper) -> ReviewStat:
@@ -102,6 +103,10 @@ class PaperResponse(BasePaperResponse):
             submitted_average=paper.submitted_average,  # type: ignore[attr-defined]
             submitted_and_draft_average=paper.submitted_and_draft_average,  # type: ignore[attr-defined]
         )
+
+    @staticmethod
+    def resolve_labels(paper: Paper) -> dict[str, str]:
+        return {label.key: label.value for label in paper.labels.all()}
 
 
 class PaperDetailResponse(PaperDetailMixin, PaperResponse):
@@ -134,6 +139,7 @@ async def with_paper_prefetch(
         )
         .prefetch_related(
             "authors",
+            "labels",
             PaperSubmission.prefetch_latest(),
             PaperFinal.prefetch_latest(),
             Prefetch(

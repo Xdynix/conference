@@ -505,6 +505,7 @@ class TestCreatePaper:
                 "display_name": track.display_name,
             },
             "code": "TEST-001",
+            "create_time": approx_now(),
             "title": "Admin Created Paper",
             "abstract": "Abstract text.",
             "contribution": "Contribution text.",
@@ -532,7 +533,6 @@ class TestCreatePaper:
                     "corresponding": True,
                 },
             ],
-            "create_time": approx_now(),
             "review_stat": {
                 "pending_count": 0,
                 "declined_count": 0,
@@ -541,6 +541,7 @@ class TestCreatePaper:
                 "cancelled_count": 0,
             },
             "recommendation_summary": {},
+            "labels": {},
         }
 
         paper_service_create.assert_called_once()

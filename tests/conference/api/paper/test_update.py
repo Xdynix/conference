@@ -482,6 +482,7 @@ class TestUpdatePaper:
                 "display_name": track.display_name,
             },
             "code": paper.code,
+            "create_time": any_str,
             "state": Paper.State.DRAFT,
             "visible_state": Paper.State.DRAFT,
             "owner": {
@@ -499,7 +500,6 @@ class TestUpdatePaper:
             "contribution": "Original contribution",
             "keywords": ["AI", "ML"],
             "authors": [],
-            "create_time": any_str,
             "review_stat": {
                 "pending_count": 0,
                 "declined_count": 0,
@@ -508,6 +508,7 @@ class TestUpdatePaper:
                 "cancelled_count": 0,
             },
             "recommendation_summary": {},
+            "labels": {},
         }
 
         paper_service_update.assert_called_once_with(

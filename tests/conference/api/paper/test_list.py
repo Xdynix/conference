@@ -514,6 +514,7 @@ class TestListPapers:
                         "cancelled_count": 0,
                     },
                     "recommendation_summary": {},
+                    "labels": {},
                 },
             ],
         }

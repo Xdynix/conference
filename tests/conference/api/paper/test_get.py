@@ -16,6 +16,7 @@ from app.conference.models import (
     Paper,
     PaperAuthor,
     PaperFinal,
+    PaperLabel,
     PaperSubmission,
     Profile,
     Review,
@@ -492,6 +493,7 @@ class TestGetPaper:
                 "display_name": track.display_name,
             },
             "code": paper.code,
+            "create_time": any_str,
             "state": Paper.State.DRAFT,
             "visible_state": Paper.State.DRAFT,
             "owner": {
@@ -536,7 +538,7 @@ class TestGetPaper:
                 "cancelled_count": 0,
             },
             "recommendation_summary": {},
-            "create_time": any_str,
+            "labels": {},
         }
 
         mock_visible_papers.assert_awaited_once_with(conference, conference_chair)
@@ -975,3 +977,39 @@ class TestGetPaper:
             "submitted_average": 5.0,
             "submitted_and_draft_average": 5.0,
         }
+
+    def test_labels_serialized(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        PaperLabel.objects.create(paper=paper, key="env", value="prod")
+        PaperLabel.objects.create(paper=paper, key="tier", value="frontend")
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["labels"] == {"env": "prod", "tier": "frontend"}
+
+    def test_labels_empty_when_no_labels(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["labels"] == {}
