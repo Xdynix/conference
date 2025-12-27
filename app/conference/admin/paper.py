@@ -7,6 +7,7 @@ from app.conference.models import (
     PaperDecision,
     PaperDocument,
     PaperFinal,
+    PaperLabel,
     PaperSubmission,
 )
 
@@ -40,6 +41,11 @@ class PaperDocumentInline(admin.TabularInline[PaperDocument, Paper]):
     model = PaperDocument
     extra = 0
     readonly_fields = ("create_time", "update_time")
+
+
+class PaperLabelInline(admin.TabularInline[PaperLabel, Paper]):
+    model = PaperLabel
+    extra = 0
 
 
 class PaperDecisionInline(admin.TabularInline[PaperDecision, Paper]):
@@ -106,6 +112,7 @@ class PaperAdmin(admin.ModelAdmin[Paper]):
         PaperSubmissionInline,
         PaperFinalInline,
         PaperDocumentInline,
+        PaperLabelInline,
         PaperDecisionInline,
     )
     list_display = (

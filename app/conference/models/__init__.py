@@ -14,6 +14,7 @@ __all__ = (
     "PaperDecision",
     "PaperDocument",
     "PaperFinal",
+    "PaperLabel",
     "PaperSubmission",
     "Profile",
     "Review",
@@ -37,6 +38,7 @@ from .paper import (
     PaperDecision,
     PaperDocument,
     PaperFinal,
+    PaperLabel,
     PaperSubmission,
 )
 from .profile import Profile, UserConferenceProfile

@@ -1,4 +1,5 @@
 import pytest
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.utils import timezone
 from faker import Faker
@@ -10,7 +11,9 @@ from app.conference.models import (
     PaperDecision,
     PaperDocument,
     PaperFinal,
+    PaperLabel,
     PaperSubmission,
+    Review,
     Track,
 )
 from app.conference.models.paper import (
@@ -20,6 +23,7 @@ from app.conference.models.paper import (
     paper_submission_path,
 )
 from app.core.models import User
+from app.utils.label_selector import LabelSelector
 from tests.helpers import update_object
 
 
@@ -552,3 +556,192 @@ class TestPaperDecision:
             state=PaperDecision.State.ACCEPTED,
         )
         assert str(decision) == f"{paper} - Accepted"
+
+
+@pytest.mark.django_db
+class TestPaperLabel:
+    def test_str(self, paper: Paper) -> None:
+        label = PaperLabel(paper=paper, key="env", value="prod")
+        assert str(label) == "env=prod"
+
+    def test_str_empty_value(self, paper: Paper) -> None:
+        label = PaperLabel(paper=paper, key="enabled", value="")
+        assert str(label) == "enabled="
+
+    def test_unique_key_per_paper(self, paper: Paper) -> None:
+        PaperLabel.objects.create(paper=paper, key="env", value="prod")
+
+        with pytest.raises(IntegrityError):
+            PaperLabel.objects.create(paper=paper, key="env", value="staging")
+
+    def test_same_key_different_paper(
+        self,
+        conference: Conference,
+        track: Track,
+        user: User,
+        faker: Faker,
+    ) -> None:
+        paper1 = Paper.objects.create(
+            conference=conference,
+            track=track,
+            code="PAPER-001",
+            owner=user,
+            title=faker.sentence(),
+        )
+        paper2 = Paper.objects.create(
+            conference=conference,
+            track=track,
+            code="PAPER-002",
+            owner=user,
+            title=faker.sentence(),
+        )
+
+        PaperLabel.objects.create(paper=paper1, key="env", value="prod")
+        PaperLabel.objects.create(paper=paper2, key="env", value="prod")
+
+    def test_empty_value_allowed(self, paper: Paper) -> None:
+        label = PaperLabel.objects.create(paper=paper, key="enabled")
+        assert label.value == ""
+
+    def test_multiple_labels_per_paper(self, paper: Paper) -> None:
+        PaperLabel.objects.create(paper=paper, key="env", value="prod")
+        PaperLabel.objects.create(paper=paper, key="tier", value="frontend")
+
+        assert PaperLabel.objects.filter(paper=paper).count() == 2
+
+    def test_valid_key_and_value(self, paper: Paper) -> None:
+        label = PaperLabel(paper=paper, key="example.com/env", value="prod")
+        label.full_clean()
+
+    def test_invalid_key(self, paper: Paper) -> None:
+        label = PaperLabel(paper=paper, key="invalid key!", value="prod")
+        with pytest.raises(ValidationError):
+            label.full_clean()
+
+    def test_invalid_value(self, paper: Paper) -> None:
+        label = PaperLabel(paper=paper, key="env", value="invalid value!")
+        with pytest.raises(ValidationError):
+            label.full_clean()
+
+
+@pytest.mark.django_db
+class TestPaperLabelSelectorQ:
+    @pytest.fixture
+    def papers(
+        self,
+        conference: Conference,
+        track: Track,
+        user: User,
+    ) -> dict[str, Paper]:
+        papers: dict[str, Paper] = {}
+        for name in ("prod_frontend", "prod_backend", "staging", "no_labels"):
+            papers[name] = Paper.objects.create(
+                conference=conference,
+                track=track,
+                code=f"PAPER-{name.upper()}",
+                owner=user,
+                title=f"Paper {name}",
+            )
+
+        prod_frontend = papers["prod_frontend"]
+        prod_frontend.labels.create(key="env", value="prod")
+        prod_frontend.labels.create(key="tier", value="frontend")
+        prod_backend = papers["prod_backend"]
+        prod_backend.labels.create(key="env", value="prod")
+        prod_backend.labels.create(key="tier", value="backend")
+        staging = papers["staging"]
+        staging.labels.create(key="env", value="staging")
+
+        return papers
+
+    def test_equals(self, papers: dict[str, Paper]) -> None:
+        selector = LabelSelector.from_str("env=prod")
+        q = PaperLabel.selector_q(selector)
+
+        result = set(Paper.objects.filter(q))
+
+        assert result == {papers["prod_frontend"], papers["prod_backend"]}
+
+    def test_double_equals(self, papers: dict[str, Paper]) -> None:
+        selector = LabelSelector.from_str("env==prod")
+        q = PaperLabel.selector_q(selector)
+        result = set(Paper.objects.filter(q))
+
+        assert result == {papers["prod_frontend"], papers["prod_backend"]}
+
+    def test_not_equals(self, papers: dict[str, Paper]) -> None:
+        selector = LabelSelector.from_str("env!=prod")
+        q = PaperLabel.selector_q(selector)
+        result = set(Paper.objects.filter(q))
+
+        assert result == {papers["staging"], papers["no_labels"]}
+
+    def test_in(self, papers: dict[str, Paper]) -> None:
+        selector = LabelSelector.from_str("tier in (frontend, backend)")
+        q = PaperLabel.selector_q(selector)
+        result = set(Paper.objects.filter(q))
+
+        assert result == {papers["prod_frontend"], papers["prod_backend"]}
+
+    def test_not_in(self, papers: dict[str, Paper]) -> None:
+        selector = LabelSelector.from_str("tier notin (frontend)")
+        q = PaperLabel.selector_q(selector)
+        result = set(Paper.objects.filter(q))
+
+        assert result == {
+            papers["prod_backend"],
+            papers["staging"],
+            papers["no_labels"],
+        }
+
+    def test_exists(self, papers: dict[str, Paper]) -> None:
+        selector = LabelSelector.from_str("tier")
+        q = PaperLabel.selector_q(selector)
+        result = set(Paper.objects.filter(q))
+
+        assert result == {papers["prod_frontend"], papers["prod_backend"]}
+
+    def test_does_not_exist(self, papers: dict[str, Paper]) -> None:
+        selector = LabelSelector.from_str("!tier")
+        q = PaperLabel.selector_q(selector)
+
+        result = set(Paper.objects.filter(q))
+
+        assert result == {papers["staging"], papers["no_labels"]}
+
+    def test_combined_requirements(self, papers: dict[str, Paper]) -> None:
+        selector = LabelSelector.from_str("env=prod, tier=frontend")
+        q = PaperLabel.selector_q(selector)
+        result = set(Paper.objects.filter(q))
+
+        assert result == {papers["prod_frontend"]}
+
+    def test_empty_selector_matches_all(
+        self,
+        papers: dict[str, Paper],
+    ) -> None:
+        selector = LabelSelector.from_str("")
+        q = PaperLabel.selector_q(selector)
+        result = set(Paper.objects.filter(q))
+
+        assert result == set(papers.values())
+
+    def test_nested_relationship(
+        self,
+        papers: dict[str, Paper],
+        user: User,
+    ) -> None:
+        review_prod = Review.objects.create(
+            paper=papers["prod_frontend"],
+            reviewer=user,
+        )
+        Review.objects.create(
+            paper=papers["staging"],
+            reviewer=user,
+        )
+
+        selector = LabelSelector.from_str("env=prod")
+        q = PaperLabel.selector_q(selector, outer_ref="paper")
+        result = set(Review.objects.filter(q))
+
+        assert result == {review_prod}

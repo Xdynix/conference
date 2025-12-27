@@ -8,7 +8,8 @@ from django.db.models import F, Prefetch, Q, Window
 from django.db.models.functions import RowNumber
 from django.utils.translation import gettext_lazy as _
 
-from app.utils.models import TimeStampedModel, ULIDModel
+from app.utils.label_selector import LabelSelector
+from app.utils.models import LabelModel, TimeStampedModel, ULIDModel
 
 from .conference import Conference, Track
 from .keyword import Keyword
@@ -445,3 +446,40 @@ class PaperDecision(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.paper} - {self.get_state_display()}"
+
+
+class PaperLabel(LabelModel):
+    paper = models.ForeignKey(
+        Paper,
+        on_delete=models.CASCADE,
+        related_name="labels",
+        related_query_name="label",
+        verbose_name=_("paper"),
+    )
+
+    class Meta:
+        verbose_name = _("paper label")
+        verbose_name_plural = _("paper labels")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("paper", "key"),
+                name="unique_paper_label_key",
+                violation_error_code="unique",
+                violation_error_message=_("A label with this key already exists."),
+            ),
+        )
+        indexes = (models.Index(fields=("key", "value")),)
+
+    @classmethod
+    def selector_q(
+        cls,
+        selector: LabelSelector,
+        *,
+        parent_field: str = "paper",
+        outer_ref: str = "pk",
+    ) -> Q:
+        return super().selector_q(
+            selector,
+            parent_field=parent_field,
+            outer_ref=outer_ref,
+        )

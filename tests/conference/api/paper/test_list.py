@@ -735,3 +735,39 @@ class TestListPapers:
 
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_label_selector_filter(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        paper_prod = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-PROD",
+        )
+        paper_prod.labels.create(key="env", value="prod")
+        paper_staging = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-STAGING",
+        )
+        paper_staging.labels.create(key="env", value="staging")
+        mock_visible_papers.return_value = Paper.objects.filter(
+            pk__in=[paper_prod.pk, paper_staging.pk]
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(
+            self.path(conference.name),
+            {"label_selector": "env=prod"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()["items"]
+        assert data["code"] == "PAPER-PROD"
