@@ -11,6 +11,7 @@ __all__ = (
     "KeywordSet",
     "Paper",
     "PaperAuthor",
+    "PaperDecision",
     "PaperDocument",
     "PaperFinal",
     "PaperSubmission",
@@ -30,7 +31,14 @@ from .invitation import (
     InvitationTrackRoleEntry,
 )
 from .keyword import Keyword, KeywordSet
-from .paper import Paper, PaperAuthor, PaperDocument, PaperFinal, PaperSubmission
+from .paper import (
+    Paper,
+    PaperAuthor,
+    PaperDecision,
+    PaperDocument,
+    PaperFinal,
+    PaperSubmission,
+)
 from .profile import Profile, UserConferenceProfile
 from .review import AdminComment, Review
 from .role import (

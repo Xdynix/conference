@@ -69,7 +69,6 @@ class PaperResponse(BasePaperResponse):
     visible_state: Paper.VisibleState
     announce_time: AwareDatetime | None
     submit_time: AwareDatetime | None
-    decide_time: AwareDatetime | None
     owner: ConferenceUser
     review_statistic: ReviewStatistic
 

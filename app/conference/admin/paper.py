@@ -4,6 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from app.conference.models import (
     Paper,
     PaperAuthor,
+    PaperDecision,
     PaperDocument,
     PaperFinal,
     PaperSubmission,
@@ -39,6 +40,15 @@ class PaperDocumentInline(admin.TabularInline[PaperDocument, Paper]):
     model = PaperDocument
     extra = 0
     readonly_fields = ("create_time", "update_time")
+
+
+class PaperDecisionInline(admin.TabularInline[PaperDecision, Paper]):
+    model = PaperDecision
+    extra = 0
+    max_num = 0
+    fields = ("decider", "state", "note", "create_time")
+    readonly_fields = ("decider", "state", "note", "create_time")
+    can_delete = False
 
 
 @admin.register(Paper)
@@ -86,7 +96,6 @@ class PaperAdmin(admin.ModelAdmin[Paper]):
                     "create_time",
                     "update_time",
                     "submit_time",
-                    "decide_time",
                 )
             },
         ),
@@ -97,6 +106,7 @@ class PaperAdmin(admin.ModelAdmin[Paper]):
         PaperSubmissionInline,
         PaperFinalInline,
         PaperDocumentInline,
+        PaperDecisionInline,
     )
     list_display = (
         "__str__",
@@ -114,6 +124,5 @@ class PaperAdmin(admin.ModelAdmin[Paper]):
         "create_time",
         "update_time",
         "submit_time",
-        "decide_time",
     )
     search_fields = ("uid", "code", "title", "owner__email", "author__email")

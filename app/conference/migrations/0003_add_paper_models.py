@@ -116,16 +116,6 @@ class Migration(migrations.Migration):
                         verbose_name="submit time",
                     ),
                 ),
-                (
-                    "decide_time",
-                    models.DateTimeField(
-                        blank=True,
-                        default=None,
-                        help_text="When the review decision was made.",
-                        null=True,
-                        verbose_name="decide time",
-                    ),
-                ),
                 ("title", models.CharField(max_length=512, verbose_name="title")),
                 (
                     "abstract",

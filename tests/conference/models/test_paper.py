@@ -7,6 +7,7 @@ from app.conference.models import (
     Conference,
     Paper,
     PaperAuthor,
+    PaperDecision,
     PaperDocument,
     PaperFinal,
     PaperSubmission,
@@ -540,3 +541,14 @@ class TestPaperDocumentPath:
         doc = PaperDocument(paper=paper, type=PaperDocument.Type.ACCEPTANCE_LETTER)
         path = paper_document_path(doc, "acceptance-letter.pdf")
         assert path == f"{paper.conference.name}/{paper.code}/doc-acceptance-letter.pdf"
+
+
+@pytest.mark.django_db
+class TestPaperDecision:
+    def test_str(self, paper: Paper, user: User) -> None:
+        decision = PaperDecision(
+            paper=paper,
+            decider=user,
+            state=PaperDecision.State.ACCEPTED,
+        )
+        assert str(decision) == f"{paper} - Accepted"

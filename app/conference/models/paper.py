@@ -112,13 +112,6 @@ class Paper(TimeStampedModel, ULIDModel):
         default=None,
         help_text=_("When the paper was submitted for review."),
     )
-    decide_time = models.DateTimeField(
-        _("decide time"),
-        null=True,
-        blank=True,
-        default=None,
-        help_text=_("When the review decision was made."),
-    )
     owner = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
@@ -410,3 +403,45 @@ class PaperDocument(TimeStampedModel, ULIDModel):
             ext = Path(filename).suffix.lower()
             return f"{self.paper.code}-acceptance-letter{ext}"
         return filename.removeprefix(PAPER_DOCUMENT_PREFIX)
+
+
+class PaperDecision(TimeStampedModel):
+    class State(models.TextChoices):
+        REJECTED = "Rejected", _("Rejected")
+        ACCEPTED = "Accepted", _("Accepted")
+        ACCEPTED_REVISION_NEEDED = (
+            "Accepted (Revision Needed)",
+            _("Accepted (Revision Needed)"),
+        )
+
+    paper = models.ForeignKey(
+        Paper,
+        on_delete=models.CASCADE,
+        related_name="decisions",
+        related_query_name="decision",
+        verbose_name=_("paper"),
+    )
+    decider = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="paper_decisions",
+        related_query_name="paper_decision",
+        verbose_name=_("decider"),
+    )
+    state = models.CharField(_("state"), max_length=128, choices=State)
+    note = models.TextField(
+        _("note"),
+        blank=True,
+        default="",
+        help_text=_(
+            "Internal note for recording decision rationale. Not shown to authors."
+        ),
+    )
+
+    class Meta:
+        verbose_name = _("paper decision")
+        verbose_name_plural = _("paper decisions")
+        ordering = ("-create_time",)
+
+    def __str__(self) -> str:
+        return f"{self.paper} - {self.get_state_display()}"
