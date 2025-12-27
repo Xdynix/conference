@@ -57,7 +57,7 @@ class UserPaperDetailResponse(PaperDetailMixin, UserPaperResponse):
     pass
 
 
-class ReviewStatistic(Schema):
+class ReviewStat(Schema):
     pending_count: int = 0
     declined_count: int = 0
     accepted_count: int = 0
@@ -70,12 +70,12 @@ class PaperResponse(BasePaperResponse):
     announce_time: AwareDatetime | None
     submit_time: AwareDatetime | None
     owner: ConferenceUser
-    review_statistic: ReviewStatistic
+    review_stat: ReviewStat
 
     @staticmethod
-    def resolve_review_statistic(paper: Paper) -> ReviewStatistic:
+    def resolve_review_stat(paper: Paper) -> ReviewStat:
         counts = Counter(r.state for r in paper.visible_review_states)  # type: ignore[attr-defined]
-        return ReviewStatistic(
+        return ReviewStat(
             pending_count=counts[Review.State.PENDING],
             declined_count=counts[Review.State.DECLINED],
             accepted_count=counts[Review.State.ACCEPTED],

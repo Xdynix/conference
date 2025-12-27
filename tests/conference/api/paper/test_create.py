@@ -533,7 +533,7 @@ class TestCreatePaper:
                 },
             ],
             "create_time": approx_now(),
-            "review_statistic": {
+            "review_stat": {
                 "pending_count": 0,
                 "declined_count": 0,
                 "accepted_count": 0,

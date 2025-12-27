@@ -528,7 +528,7 @@ class TestGetPaper:
                 "display_name": f"{paper.code}.zip",
                 "viewable_display_name": f"{paper.code}-viewable.pdf",
             },
-            "review_statistic": {
+            "review_stat": {
                 "pending_count": 0,
                 "declined_count": 0,
                 "accepted_count": 0,
@@ -743,7 +743,7 @@ class TestGetPaper:
         response = api_client.get(self.path(conference.name, "PAPER-001"))
         assert response.status_code == HTTPStatus.FORBIDDEN
 
-    def test_review_statistic_counts_visible_reviews(
+    def test_review_stat_counts_visible_reviews(
         self,
         api_client: Client,
         conference: Conference,
@@ -763,7 +763,7 @@ class TestGetPaper:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert data["review_statistic"] == {
+        assert data["review_stat"] == {
             "pending_count": 1,
             "declined_count": 0,
             "accepted_count": 1,
@@ -771,7 +771,7 @@ class TestGetPaper:
             "cancelled_count": 0,
         }
 
-    def test_review_statistic_counts_all_states(
+    def test_review_stat_counts_all_states(
         self,
         api_client: Client,
         conference: Conference,
@@ -790,7 +790,7 @@ class TestGetPaper:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert data["review_statistic"] == {
+        assert data["review_stat"] == {
             "pending_count": 1,
             "declined_count": 1,
             "accepted_count": 1,
@@ -798,7 +798,7 @@ class TestGetPaper:
             "cancelled_count": 1,
         }
 
-    def test_review_statistic_only_counts_visible_reviews(
+    def test_review_stat_only_counts_visible_reviews(
         self,
         api_client: Client,
         conference: Conference,
@@ -820,7 +820,7 @@ class TestGetPaper:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert data["review_statistic"] == {
+        assert data["review_stat"] == {
             "pending_count": 0,
             "declined_count": 0,
             "accepted_count": 0,

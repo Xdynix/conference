@@ -500,7 +500,7 @@ class TestUpdatePaper:
             "keywords": ["AI", "ML"],
             "authors": [],
             "create_time": any_str,
-            "review_statistic": {
+            "review_stat": {
                 "pending_count": 0,
                 "declined_count": 0,
                 "accepted_count": 0,

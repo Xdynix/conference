@@ -506,7 +506,7 @@ class TestListPapers:
                         "display_name": f"{paper.code}.zip",
                         "viewable_display_name": f"{paper.code}-viewable.pdf",
                     },
-                    "review_statistic": {
+                    "review_stat": {
                         "pending_count": 0,
                         "declined_count": 0,
                         "accepted_count": 0,
