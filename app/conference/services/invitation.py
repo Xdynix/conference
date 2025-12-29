@@ -357,25 +357,14 @@ class InvitationService:
         return cls.token_signer.sign(str(invitation.uid))
 
     @classmethod
-    def _build_email_context(
-        cls,
-        invitation: Invitation,
-        *,
-        invitation_accept_page_url: str,
-        invitation_reject_page_url: str,
-    ) -> InvitationEmailContext:
-        """Build email context for an invitation."""
+    def get_accept_url(cls, invitation: Invitation, base_url: str) -> str:
         token = cls.get_invitation_token(invitation)
-        return InvitationEmailContext(
-            site_name=settings.SITE_NAME,
-            conference_name=invitation.conference.name,
-            conference_display_name=invitation.conference.display_name,
-            given_name=invitation.given_name,
-            family_name=invitation.family_name,
-            affiliation=invitation.affiliation,
-            accept_url=HttpUrl(f"{invitation_accept_page_url}#{token}"),
-            reject_url=HttpUrl(f"{invitation_reject_page_url}#{token}"),
-        )
+        return f"{base_url}#{token}"
+
+    @classmethod
+    def get_reject_url(cls, invitation: Invitation, base_url: str) -> str:
+        token = cls.get_invitation_token(invitation)
+        return f"{base_url}#{token}"
 
     @classmethod
     def send_invitation(
@@ -424,10 +413,19 @@ class InvitationService:
             ):
                 return False, invitation.invitee_email
 
-            context = cls._build_email_context(
-                invitation,
-                invitation_accept_page_url=invitation_accept_page_url,
-                invitation_reject_page_url=invitation_reject_page_url,
+            context = InvitationEmailContext(
+                site_name=settings.SITE_NAME,
+                conference_name=invitation.conference.name,
+                conference_display_name=invitation.conference.display_name,
+                given_name=invitation.given_name,
+                family_name=invitation.family_name,
+                affiliation=invitation.affiliation,
+                accept_url=HttpUrl(
+                    cls.get_accept_url(invitation, invitation_accept_page_url)
+                ),
+                reject_url=HttpUrl(
+                    cls.get_reject_url(invitation, invitation_reject_page_url)
+                ),
             )
             rendered = template.render(context)
             email_message = rendered.build_message(to=invitation.invitee_email, cc=cc)

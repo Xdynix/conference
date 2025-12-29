@@ -3,7 +3,8 @@ from collections.abc import Collection
 from typing import Any, Protocol
 
 from django.conf import settings
-from django.db.models import Prefetch, QuerySet
+from django.db.models import CharField, Prefetch, QuerySet, Value
+from django.http import HttpRequest
 from django.utils.translation import gettext as _
 from ninja import Router, Schema
 from pydantic import HttpUrl
@@ -27,13 +28,21 @@ class InvitationUrlsMixin(Schema):
 
     @staticmethod
     def resolve_accept_url(invitation: Invitation) -> HttpUrl:
-        token = InvitationService.get_invitation_token(invitation)
-        return HttpUrl(f"{settings.INVITATION_ACCEPT_PAGE_URL}#{token}")
+        return HttpUrl(
+            InvitationService.get_accept_url(
+                invitation,
+                invitation.invitation_accept_page_url,  # type: ignore[attr-defined]
+            )
+        )
 
     @staticmethod
     def resolve_reject_url(invitation: Invitation) -> HttpUrl:
-        token = InvitationService.get_invitation_token(invitation)
-        return HttpUrl(f"{settings.INVITATION_REJECT_PAGE_URL}#{token}")
+        return HttpUrl(
+            InvitationService.get_reject_url(
+                invitation,
+                invitation.invitation_reject_page_url,  # type: ignore[attr-defined]
+            )
+        )
 
 
 class InvitationResponse(InvitationUrlsMixin, InvitationSchema):
@@ -97,23 +106,46 @@ async def validate_and_group_track_roles(
     return dict(track_roles_mapping)
 
 
-def with_invitation_prefetch(queryset: QuerySet[Invitation]) -> QuerySet[Invitation]:
+def with_invitation_prefetch(
+    queryset: QuerySet[Invitation],
+    request: HttpRequest,  # noqa: ARG001
+) -> QuerySet[Invitation]:
     """Apply prefetch_related for invitation serialization to a queryset."""
-    return queryset.prefetch_related(
-        "interested_keywords",
-        "conference_role_entries",
-    ).prefetch_related(
-        Prefetch(
-            "track_role_entries",
-            queryset=InvitationTrackRoleEntry.objects.filter(
-                track__active=True
-            ).select_related("track"),
-            to_attr="active_track_role_entries",
+
+    # TODO: Replace with `reverse()` after implementing frontend page.
+    invitation_accept_page_url = settings.INVITATION_ACCEPT_PAGE_URL
+    invitation_reject_page_url = settings.INVITATION_REJECT_PAGE_URL
+
+    return (
+        queryset.select_related("conference")
+        .annotate(
+            invitation_accept_page_url=Value(
+                invitation_accept_page_url,
+                output_field=CharField(),
+            ),
+            invitation_reject_page_url=Value(
+                invitation_reject_page_url,
+                output_field=CharField(),
+            ),
+        )
+        .prefetch_related(
+            "interested_keywords",
+            "conference_role_entries",
+            Prefetch(
+                "track_role_entries",
+                queryset=InvitationTrackRoleEntry.objects.filter(
+                    track__active=True
+                ).select_related("track"),
+                to_attr="active_track_role_entries",
+            ),
         )
     )
 
 
-async def prefetch_invitation(invitation: Invitation) -> Invitation:
+async def prefetch_invitation(
+    invitation: Invitation,
+    request: HttpRequest,
+) -> Invitation:
     """Refetch an invitation with all related data prefetched for serialization."""
-    qs = with_invitation_prefetch(Invitation.objects.all())
+    qs = with_invitation_prefetch(Invitation.objects.all(), request)
     return await qs.aget(pk=invitation.pk)

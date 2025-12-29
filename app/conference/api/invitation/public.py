@@ -21,7 +21,7 @@ from app.core.auth import is_authenticated
 from app.core.types import AuthedHttpRequest, EmailStr, HttpRequest
 from app.ninja.errors import ErrorResponse
 
-from .core import InvitationUrlsMixin, router
+from .core import InvitationUrlsMixin, prefetch_invitation, router
 
 
 class InvitationTokenPayload(Schema):
@@ -50,7 +50,7 @@ class InvitationSummary(InvitationUrlsMixin, UserConferenceProfile, Profile):
     summary="Lookup Invitation",
 )
 async def lookup_invitation(
-    request: HttpRequest,  # noqa: ARG001
+    request: HttpRequest,
     payload: InvitationTokenPayload,
 ) -> Invitation:
     """Retrieve an invitation by token."""
@@ -64,11 +64,7 @@ async def lookup_invitation(
 
     # This intentionally reveals conference name/display to anyone holding the token,
     # even when the conference is not public.
-    return (
-        await Invitation.objects.select_related("conference")
-        .prefetch_related("interested_keywords")
-        .aget(pk=invitation.pk)
-    )
+    return await prefetch_invitation(invitation, request)
 
 
 @router.post(

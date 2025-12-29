@@ -38,6 +38,6 @@ async def get_invitation(
     invitations = await InvitationService.visible_invitations(conference, user)
 
     return await aget_object_or_404(
-        with_invitation_prefetch(invitations),
+        with_invitation_prefetch(invitations, request),
         uid=invitation_uid,
     )

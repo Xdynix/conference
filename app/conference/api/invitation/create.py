@@ -109,4 +109,4 @@ async def create_invitation(
         inviter_uid=user.uid,
     )
 
-    return HTTPStatus.CREATED, await prefetch_invitation(invitation)
+    return HTTPStatus.CREATED, await prefetch_invitation(invitation, request)

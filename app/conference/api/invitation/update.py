@@ -118,4 +118,4 @@ async def update_invitation(
         user_uid=user.uid,
     )
 
-    return await prefetch_invitation(invitation)
+    return await prefetch_invitation(invitation, request)

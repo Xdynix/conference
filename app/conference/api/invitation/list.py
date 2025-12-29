@@ -64,4 +64,4 @@ async def list_invitations(
             case _ as unreachable:
                 assert_never(unreachable)
 
-    return with_invitation_prefetch(invitations)
+    return with_invitation_prefetch(invitations, request)
