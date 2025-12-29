@@ -367,45 +367,6 @@ class PaperFinal(TimeStampedModel, ULIDModel):
         )
 
 
-PAPER_DOCUMENT_PREFIX = "doc-"
-
-
-def paper_document_path(instance: "PaperDocument", filename: str) -> str:
-    paper = instance.paper
-    return f"{paper.conference.name}/{paper.code}/{PAPER_DOCUMENT_PREFIX}{filename}"
-
-
-class PaperDocument(TimeStampedModel, ULIDModel):
-    class Type(models.TextChoices):
-        ACCEPTANCE_LETTER = "acceptance_letter", _("Acceptance Letter")
-        OTHER = "other", _("Other")
-
-    paper = models.ForeignKey(
-        Paper,
-        on_delete=models.CASCADE,
-        related_name="documents",
-        related_query_name="document",
-        verbose_name=_("paper"),
-    )
-    type = models.CharField(_("type"), max_length=128, choices=Type)
-    file = models.FileField(_("file"), upload_to=paper_document_path)
-
-    class Meta:
-        verbose_name = _("paper document")
-        verbose_name_plural = _("paper documents")
-
-    def __str__(self) -> str:
-        return f"{self.paper} {self.get_type_display()}"
-
-    @property
-    def display_name(self) -> str:
-        filename = Path(self.file.name).name
-        if self.type == self.Type.ACCEPTANCE_LETTER:
-            ext = Path(filename).suffix.lower()
-            return f"{self.paper.code}-acceptance-letter{ext}"
-        return filename.removeprefix(PAPER_DOCUMENT_PREFIX)
-
-
 class PaperDecision(TimeStampedModel):
     class State(models.TextChoices):
         REJECTED = "Rejected", _("Rejected")

@@ -9,7 +9,6 @@ from app.conference.models import (
     Paper,
     PaperAuthor,
     PaperDecision,
-    PaperDocument,
     PaperFinal,
     PaperLabel,
     PaperSubmission,
@@ -17,7 +16,6 @@ from app.conference.models import (
     Track,
 )
 from app.conference.models.paper import (
-    paper_document_path,
     paper_final_source_path,
     paper_final_viewable_path,
     paper_submission_path,
@@ -474,77 +472,6 @@ class TestPaperFinalPath:
         viewable_path = paper_final_viewable_path(final, "paper.PDF")
         assert source_path.endswith(".zip")
         assert viewable_path.endswith(".pdf")
-
-
-@pytest.mark.django_db
-class TestPaperDocument:
-    def test_str_acceptance_letter(self, paper: Paper) -> None:
-        doc = PaperDocument(
-            paper=paper,
-            type=PaperDocument.Type.ACCEPTANCE_LETTER,
-            file="letter.pdf",
-        )
-        assert str(doc) == f"{paper} Acceptance Letter"
-
-    def test_str_other(self, paper: Paper) -> None:
-        doc = PaperDocument(paper=paper, type=PaperDocument.Type.OTHER, file="doc.pdf")
-        assert str(doc) == f"{paper} Other"
-
-    def test_multiple_documents_same_type(self, paper: Paper) -> None:
-        PaperDocument.objects.create(
-            paper=paper,
-            type=PaperDocument.Type.OTHER,
-            file="doc1.pdf",
-        )
-        PaperDocument.objects.create(
-            paper=paper,
-            type=PaperDocument.Type.OTHER,
-            file="doc2.pdf",
-        )
-        assert PaperDocument.objects.filter(paper=paper).count() == 2
-
-    def test_display_name_acceptance_letter(self, paper: Paper) -> None:
-        doc = PaperDocument(
-            paper=paper,
-            type=PaperDocument.Type.ACCEPTANCE_LETTER,
-            file="doc-letter.pdf",
-        )
-        assert doc.display_name == f"{paper.code}-acceptance-letter.pdf"
-
-    def test_display_name_acceptance_letter_lowercases_extension(
-        self,
-        paper: Paper,
-    ) -> None:
-        doc = PaperDocument(
-            paper=paper,
-            type=PaperDocument.Type.ACCEPTANCE_LETTER,
-            file="doc-letter.PDF",
-        )
-        assert doc.display_name == f"{paper.code}-acceptance-letter.pdf"
-
-    def test_display_name_other_strips_prefix(self, paper: Paper) -> None:
-        doc = PaperDocument(
-            paper=paper,
-            type=PaperDocument.Type.OTHER,
-            file="doc-my-document.pdf",
-        )
-        assert doc.display_name == "my-document.pdf"
-
-    def test_display_name_other_without_prefix(self, paper: Paper) -> None:
-        doc = PaperDocument(
-            paper=paper,
-            type=PaperDocument.Type.OTHER,
-            file="my-document.pdf",
-        )
-        assert doc.display_name == "my-document.pdf"
-
-
-@pytest.mark.django_db
-class TestPaperDocumentPath:
-    def test_generates_path(self, paper: Paper) -> None:
-        doc = PaperDocument(paper=paper, type=PaperDocument.Type.ACCEPTANCE_LETTER)
-        path = paper_document_path(doc, "acceptance-letter.pdf")
-        assert path == f"{paper.conference.name}/{paper.code}/doc-acceptance-letter.pdf"
 
 
 @pytest.mark.django_db

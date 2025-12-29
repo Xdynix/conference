@@ -537,69 +537,6 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name="PaperDocument",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                (
-                    "uid",
-                    ulid_django.models.ULIDField(
-                        default=ulid.ULID,
-                        editable=False,
-                        unique=True,
-                        verbose_name="UID",
-                    ),
-                ),
-                (
-                    "create_time",
-                    models.DateTimeField(auto_now_add=True, verbose_name="create time"),
-                ),
-                (
-                    "update_time",
-                    models.DateTimeField(auto_now=True, verbose_name="update time"),
-                ),
-                (
-                    "type",
-                    models.CharField(
-                        choices=[
-                            ("acceptance_letter", "Acceptance Letter"),
-                            ("other", "Other"),
-                        ],
-                        max_length=128,
-                        verbose_name="type",
-                    ),
-                ),
-                (
-                    "file",
-                    models.FileField(
-                        upload_to=app.conference.models.paper.paper_document_path,
-                        verbose_name="file",
-                    ),
-                ),
-                (
-                    "paper",
-                    models.ForeignKey(
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="documents",
-                        related_query_name="document",
-                        to="conference.paper",
-                        verbose_name="paper",
-                    ),
-                ),
-            ],
-            options={
-                "verbose_name": "paper document",
-                "verbose_name_plural": "paper documents",
-            },
-        ),
-        migrations.CreateModel(
             name="PaperFinal",
             fields=[
                 (
