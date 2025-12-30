@@ -1,4 +1,5 @@
 __all__ = (
+    "AcceptanceLetter",
     "AdminComment",
     "CodePool",
     "Conference",
@@ -25,6 +26,7 @@ __all__ = (
 
 
 from .conference import CodePool, Conference, Track
+from .document import AcceptanceLetter
 from .invitation import (
     Invitation,
     InvitationConferenceRoleEntry,

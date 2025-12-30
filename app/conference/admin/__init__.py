@@ -1,1 +1,9 @@
-from . import conference, invitation, keyword, paper, profile, review  # noqa: F401
+from . import (  # noqa: F401
+    conference,
+    document,
+    invitation,
+    keyword,
+    paper,
+    profile,
+    review,
+)
