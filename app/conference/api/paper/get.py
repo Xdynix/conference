@@ -37,7 +37,7 @@ async def get_my_paper(
         code=paper_code,
     )
 
-    return await prefetch_paper(conference, paper, user)
+    return await prefetch_paper(conference, paper, user, request)
 
 
 @router.get(
@@ -74,4 +74,4 @@ async def get_paper(
         code=paper_code,
     )
 
-    return await prefetch_paper(conference, paper, user)
+    return await prefetch_paper(conference, paper, user, request)

@@ -116,7 +116,7 @@ async def update_my_paper(
         user_uid=str(user.uid),
     )
 
-    return await prefetch_paper(conference, updated, user)
+    return await prefetch_paper(conference, updated, user, request)
 
 
 @router.patch(
@@ -177,4 +177,4 @@ async def update_paper(
         user_uid=str(user.uid),
     )
 
-    return await prefetch_paper(conference, updated, user)
+    return await prefetch_paper(conference, updated, user, request)

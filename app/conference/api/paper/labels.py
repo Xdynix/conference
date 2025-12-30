@@ -49,4 +49,4 @@ async def update_paper_labels(
         user_uid=str(user.uid),
     )
 
-    return await prefetch_paper(conference, paper, user)
+    return await prefetch_paper(conference, paper, user, request)

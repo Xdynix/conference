@@ -1,10 +1,29 @@
 from collections import Counter
+from urllib.parse import urljoin
 
-from django.db.models import Avg, Prefetch, Q, QuerySet
+from django.db.models import (
+    Avg,
+    CharField,
+    Exists,
+    OuterRef,
+    Prefetch,
+    Q,
+    QuerySet,
+    Value,
+)
+from django.http import HttpRequest
+from django.urls import reverse
 from ninja import Field, Router, Schema
-from pydantic import AwareDatetime
+from pydantic import AwareDatetime, HttpUrl
 
-from app.conference.models import Conference, Paper, PaperFinal, PaperSubmission, Review
+from app.conference.models import (
+    AcceptanceLetter,
+    Conference,
+    Paper,
+    PaperFinal,
+    PaperSubmission,
+    Review,
+)
 from app.conference.models.review import ReviewState
 from app.conference.services import ReviewService
 from app.conference.types import ConferenceUser
@@ -85,6 +104,15 @@ class PaperResponse(BasePaperResponse):
     review_stat: ReviewStat
     recommendation_summary: RecommendationSummary
     labels: dict[str, str]
+    acceptance_letter_url: HttpUrl | None
+
+    @staticmethod
+    def resolve_acceptance_letter_url(paper: Paper) -> HttpUrl | None:
+        if not paper.has_acceptance_letter:  # type: ignore[attr-defined]
+            return None
+        base_url: str = paper.api_base_url  # type: ignore[attr-defined]
+        path = reverse("api-1.0.0:get-acceptance-letter", args=[paper.uid])
+        return HttpUrl(urljoin(base_url, path))
 
     @staticmethod
     def resolve_review_stat(paper: Paper) -> ReviewStat:
@@ -117,6 +145,7 @@ async def with_paper_prefetch(
     queryset: QuerySet[Paper],
     conference: Conference,
     user: User,
+    request: HttpRequest,
 ) -> QuerySet[Paper]:
     """Prefetch related data for paper queries."""
     return (
@@ -135,6 +164,13 @@ async def with_paper_prefetch(
                 filter=Q(
                     review__state__in=[ReviewState.ACCEPTED, ReviewState.SUBMITTED]
                 ),
+            ),
+            has_acceptance_letter=Exists(
+                AcceptanceLetter.objects.filter(paper=OuterRef("pk"))
+            ),
+            api_base_url=Value(
+                request.build_absolute_uri("/"),
+                output_field=CharField(),
             ),
         )
         .prefetch_related(
@@ -156,8 +192,13 @@ async def with_paper_prefetch(
     )
 
 
-async def prefetch_paper(conference: Conference, paper: Paper, user: User) -> Paper:
+async def prefetch_paper(
+    conference: Conference,
+    paper: Paper,
+    user: User,
+    request: HttpRequest,
+) -> Paper:
     """Refetch a paper with all related data prefetched for serialization."""
-    qs = await with_paper_prefetch(Paper.objects.all(), conference, user)
+    qs = await with_paper_prefetch(Paper.objects.all(), conference, user, request)
     qs = qs.prefetch_related("keywords")
     return await qs.aget(pk=paper.pk)

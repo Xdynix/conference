@@ -91,7 +91,7 @@ async def create_my_submission(
         user_uid=str(user.uid),
     )
 
-    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user)
+    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
 
 
 @router.post(
@@ -171,4 +171,4 @@ async def create_submission(
         user_uid=str(user.uid),
     )
 
-    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user)
+    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)

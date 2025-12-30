@@ -120,4 +120,4 @@ async def decide_paper(
     except PaperStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    return await prefetch_paper(conference, paper, user)
+    return await prefetch_paper(conference, paper, user, request)

@@ -50,7 +50,7 @@ async def list_my_papers(
 
     papers = conference.papers.active().filter(owner=user)
 
-    return await with_paper_prefetch(papers, conference, user)
+    return await with_paper_prefetch(papers, conference, user, request)
 
 
 LabelSelectorStr = Annotated[
@@ -115,4 +115,4 @@ async def list_papers(
     papers = await PaperService.visible_papers(conference, user)
     papers = filters.filter(papers)
 
-    return await with_paper_prefetch(papers, conference, user)
+    return await with_paper_prefetch(papers, conference, user, request)

@@ -97,7 +97,7 @@ async def generate_acceptance_letter(
         defaults={"rendered_html": rendered_html},
     )
 
-    return await prefetch_paper(conference, paper, user)
+    return await prefetch_paper(conference, paper, user, request)
 
 
 GET_ACCEPTANCE_LETTER_OPENAPI_EXTRA = {
