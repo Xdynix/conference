@@ -737,6 +737,184 @@ class TestListPapers:
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.FORBIDDEN
 
+    def test_state_filter(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        paper_draft = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-DRAFT",
+            state=Paper.State.DRAFT,
+        )
+        paper_submitted = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-SUBMITTED",
+            state=Paper.State.SUBMITTED,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(
+            pk__in=[paper_draft.pk, paper_submitted.pk]
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(
+            self.path(conference.name),
+            {"state": Paper.State.SUBMITTED},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()["items"]
+        assert data["code"] == "PAPER-SUBMITTED"
+
+    def test_announced_filter_true(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        paper_announced = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-ANNOUNCED",
+            announce_time=timezone.now(),
+        )
+        paper_not_announced = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-NOT-ANNOUNCED",
+            announce_time=None,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(
+            pk__in=[paper_announced.pk, paper_not_announced.pk]
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(
+            self.path(conference.name),
+            {"announced": "true"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()["items"]
+        assert data["code"] == "PAPER-ANNOUNCED"
+
+    def test_announced_filter_false(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        paper_announced = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-ANNOUNCED",
+            announce_time=timezone.now(),
+        )
+        paper_not_announced = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-NOT-ANNOUNCED",
+            announce_time=None,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(
+            pk__in=[paper_announced.pk, paper_not_announced.pk]
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(
+            self.path(conference.name),
+            {"announced": "false"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()["items"]
+        assert data["code"] == "PAPER-NOT-ANNOUNCED"
+
+    def test_withdrawn_filter_true(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        paper_withdrawn = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-WITHDRAWN",
+        )
+        update_object(paper_withdrawn, withdraw_time=timezone.now())
+        paper_active = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-ACTIVE",
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(
+            pk__in=[paper_withdrawn.pk, paper_active.pk]
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(
+            self.path(conference.name),
+            {"withdrawn": "true"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()["items"]
+        assert data["code"] == "PAPER-WITHDRAWN"
+
+    def test_withdrawn_filter_false(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        paper_withdrawn = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-WITHDRAWN",
+        )
+        update_object(paper_withdrawn, withdraw_time=timezone.now())
+        paper_active = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-ACTIVE",
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(
+            pk__in=[paper_withdrawn.pk, paper_active.pk]
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(
+            self.path(conference.name),
+            {"withdrawn": "false"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()["items"]
+        assert data["code"] == "PAPER-ACTIVE"
+
     def test_label_selector_filter(
         self,
         api_client: Client,
@@ -772,3 +950,61 @@ class TestListPapers:
 
         [data] = response.json()["items"]
         assert data["code"] == "PAPER-PROD"
+
+    @pytest.mark.parametrize(
+        ("search_term", "expected_code"),
+        [
+            ("Machine Learning", "PAPER-ML"),
+            ("PAPER-ML", "PAPER-ML"),
+            ("owner@example.com", "PAPER-ML"),
+            ("author@example.com", "PAPER-ML"),
+        ],
+    )
+    def test_search_filter(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+        mock_visible_papers: AsyncMock,
+        search_term: str,
+        expected_code: str,
+    ) -> None:
+        update_object(conference_chair, email="owner@example.com")
+        paper_ml = create_paper(
+            conference,
+            track,
+            conference_chair,
+            code="PAPER-ML",
+            title="Machine Learning Advances",
+        )
+        PaperAuthor.objects.create(
+            paper=paper_ml,
+            given_name="Alice",
+            family_name="Smith",
+            affiliation="University",
+            email="author@example.com",
+            ordering=0,
+        )
+        other_user = User.objects.create_user(username=faker.user_name())
+        paper_other = create_paper(
+            conference,
+            track,
+            other_user,
+            code="PAPER-OTHER",
+            title="Unrelated Topic",
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(
+            pk__in=[paper_ml.pk, paper_other.pk]
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(
+            self.path(conference.name),
+            {"search": search_term},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()["items"]
+        assert data["code"] == expected_code

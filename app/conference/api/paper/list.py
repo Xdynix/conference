@@ -2,7 +2,7 @@ from typing import Annotated
 
 from django.db.models import Q, QuerySet
 from django.shortcuts import aget_object_or_404
-from ninja import Field, FilterSchema, Query
+from ninja import Field, FilterLookup, FilterSchema, Query
 from ninja.pagination import paginate
 from pydantic import AfterValidator, StringConstraints
 from ulid import ULID
@@ -23,8 +23,6 @@ from app.ninja.pagination import cursor_pagination
 from app.utils.label_selector import LabelSelector
 
 from .core import PaperResponse, UserPaperResponse, router, with_paper_prefetch
-
-# TODO: Filtering and searching.
 
 
 @router.get(
@@ -62,6 +60,9 @@ LabelSelectorStr = Annotated[
 
 
 class ListPapersFilters(FilterSchema):
+    state: Paper.State | None = None
+    announced: bool | None = None
+    withdrawn: bool | None = None
     label_selector: LabelSelectorStr | None = Field(
         None,
         description=(
@@ -75,6 +76,29 @@ class ListPapersFilters(FilterSchema):
             "env=prod, !experimental",
         ],
     )
+    search: Annotated[
+        str | None,
+        FilterLookup(
+            q=[
+                "code__icontains",
+                "title__icontains",
+                "owner__email__icontains",
+                "author__email__icontains",
+            ],
+        ),
+    ] = None
+
+    @classmethod
+    def filter_withdrawn(cls, value: bool | None) -> Q:
+        if value is None:
+            return Q()
+        return ~Q(withdraw_time__isnull=value)
+
+    @classmethod
+    def filter_announced(cls, value: bool | None) -> Q:
+        if value is None:
+            return Q()
+        return ~Q(announce_time__isnull=value)
 
     @classmethod
     def filter_label_selector(cls, value: LabelSelector | None) -> Q:
