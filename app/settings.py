@@ -11,6 +11,7 @@ from app.patches import (
     monkeypatch_django_async_auth,
     monkeypatch_django_aupdate_session_auth_hash,
     monkeypatch_django_ninja_openapi_csrf,
+    monkeypatch_django_ninja_openapi_examples,
     monkeypatch_django_ninja_patch_dict,
 )
 from app.utils.cf_turnstile.types import CFTurnstileMode
@@ -406,4 +407,5 @@ ALLOWED_SUBMISSION_TYPES = {
 monkeypatch_django_async_auth()
 monkeypatch_django_aupdate_session_auth_hash()
 monkeypatch_django_ninja_openapi_csrf()
+monkeypatch_django_ninja_openapi_examples()
 monkeypatch_django_ninja_patch_dict()
