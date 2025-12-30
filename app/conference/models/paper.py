@@ -144,6 +144,12 @@ class Paper(TimeStampedModel, ULIDModel):
                 violation_error_code="unique",
                 violation_error_message=_("A paper with this code already exists."),
             ),
+            models.CheckConstraint(
+                name="announce_time_requires_decided_state",
+                condition=(
+                    Q(announce_time__isnull=True) | Q(state__in=PaperState.decided())
+                ),
+            ),
         )
         indexes = (
             models.Index(

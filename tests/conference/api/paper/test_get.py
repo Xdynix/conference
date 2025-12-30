@@ -253,7 +253,7 @@ class TestGetMyPaper:
         response = api_client.get(self.path(conference.name, "PAPER-001"))
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
-    @pytest.mark.parametrize("state", PaperState)
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_visible_state_when_announced(
         self,
         api_client: Client,

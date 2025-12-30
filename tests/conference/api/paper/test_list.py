@@ -333,7 +333,7 @@ class TestListMyPapers:
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
-    @pytest.mark.parametrize("state", PaperState)
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_visible_state_when_announced(
         self,
         api_client: Client,
@@ -787,6 +787,7 @@ class TestListPapers:
             track,
             conference_chair,
             code="PAPER-ANNOUNCED",
+            state=PaperState.ACCEPTED,
             announce_time=timezone.now(),
         )
         paper_not_announced = create_paper(
@@ -823,6 +824,7 @@ class TestListPapers:
             track,
             conference_chair,
             code="PAPER-ANNOUNCED",
+            state=PaperState.ACCEPTED,
             announce_time=timezone.now(),
         )
         paper_not_announced = create_paper(

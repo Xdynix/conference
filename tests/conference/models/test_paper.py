@@ -93,23 +93,50 @@ class TestPaper:
         update_object(paper, state=state, announce_time=timezone.now())
         assert paper.visible_state == state
 
+    @pytest.mark.parametrize("state", PaperState.decided())
+    def test_announce_time_allowed_for_decided_states(
+        self,
+        paper: Paper,
+        state: PaperState,
+    ) -> None:
+        update_object(paper, state=state, announce_time=timezone.now())
+
     @pytest.mark.parametrize(
         "state",
         [state for state in PaperState if state not in PaperState.decided()],
     )
-    @pytest.mark.parametrize("announced", [True, False])
-    def test_visible_state_non_decision_states(
+    def test_announce_time_rejected_for_non_decided_states(
         self,
         paper: Paper,
         state: PaperState,
-        announced: bool,
+    ) -> None:
+        with pytest.raises(IntegrityError):
+            update_object(paper, state=state, announce_time=timezone.now())
+
+    def test_clearing_announce_time_allowed(self, paper: Paper) -> None:
+        update_object(
+            paper,
+            state=PaperState.ACCEPTED,
+            announce_time=timezone.now(),
+        )
+        update_object(paper, announce_time=None)
+
+    @pytest.mark.parametrize(
+        "state",
+        [state for state in PaperState if state not in PaperState.decided()],
+    )
+    def test_state_change_not_decided_blocked_when_announced(
+        self,
+        paper: Paper,
+        state: PaperState,
     ) -> None:
         update_object(
             paper,
-            state=state,
-            announce_time=timezone.now() if announced else None,
+            state=PaperState.ACCEPTED,
+            announce_time=timezone.now(),
         )
-        assert paper.visible_state == state
+        with pytest.raises(IntegrityError):
+            update_object(paper, state=state)
 
     def test_unique_code_within_conference(
         self,
