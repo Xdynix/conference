@@ -5,6 +5,7 @@ import pytest
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
+from ulid import ULID
 
 from app.conference.models import (
     AcceptanceLetter,
@@ -449,3 +450,60 @@ class TestGenerateAcceptanceLetter:
             data={"template": "test"},
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestGetAcceptanceLetter:
+    @classmethod
+    def path(cls, uid: ULID) -> str:
+        return reverse("api-1.0.0:get-acceptance-letter", args=[uid])
+
+    def test_happy_path(
+        self,
+        client: Client,
+        paper: Paper,
+    ) -> None:
+        AcceptanceLetter.objects.create(
+            paper=paper,
+            rendered_html="<html><body><h1>Congratulations!</h1></body></html>",
+        )
+
+        response = client.get(self.path(paper.uid))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response["Content-Type"] == "text/html"
+        assert (
+            response.content == b"<html><body><h1>Congratulations!</h1></body></html>"
+        )
+
+    def test_returns_full_rendered_content(
+        self,
+        client: Client,
+        paper: Paper,
+    ) -> None:
+        html_content = dedent(
+            """<!DOCTYPE html>
+            <html>
+            <head><title>Acceptance Letter</title></head>
+            <body>
+            <h1>Dear Authors,</h1>
+            <p>Your paper has been accepted.</p>
+            <script>console.log('loaded');</script>
+            </body>
+            </html>
+            """
+        )
+        AcceptanceLetter.objects.create(paper=paper, rendered_html=html_content)
+
+        response = client.get(self.path(paper.uid))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.content.decode() == html_content
+
+    def test_letter_not_found(self, client: Client, paper: Paper) -> None:
+        response = client.get(self.path(paper.uid))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_paper_not_found(self, client: Client) -> None:
+        response = client.get(self.path(ULID()))
+        assert response.status_code == HTTPStatus.NOT_FOUND

@@ -1,11 +1,13 @@
 from http import HTTPStatus
 
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from jinja2 import StrictUndefined, TemplateSyntaxError, UndefinedError
 from jinja2.sandbox import SandboxedEnvironment
 from ninja import Field, Schema
 from ninja.errors import HttpError
+from ulid import ULID
 
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import AcceptanceLetter, Conference, ConferenceRole, Paper
@@ -96,3 +98,27 @@ async def generate_acceptance_letter(
     )
 
     return await prefetch_paper(conference, paper, user)
+
+
+GET_ACCEPTANCE_LETTER_OPENAPI_EXTRA = {
+    "responses": {
+        200: {
+            "content": {"text/html": {"schema": {"type": "string"}}},
+        }
+    }
+}
+
+
+@router.get(
+    "/conferences/-/papers/{ulid:uid}/acceptance-letter",
+    openapi_extra=GET_ACCEPTANCE_LETTER_OPENAPI_EXTRA,
+    summary="Get Acceptance Letter",
+    auth=None,
+)
+async def get_acceptance_letter(
+    request: HttpRequest,  # noqa: ARG001
+    uid: ULID,
+) -> HttpResponse:
+    """Retrieve the rendered acceptance letter for a paper."""
+    letter = await aget_object_or_404(AcceptanceLetter, paper__uid=uid)
+    return HttpResponse(letter.rendered_html, content_type="text/html")
