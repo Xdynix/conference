@@ -1,7 +1,7 @@
 import pytest
 from django.utils import timezone
 
-from app.conference.models import Conference, Paper, Track
+from app.conference.models import Conference, Paper, PaperState, Track
 from app.conference.services import PaperService
 from app.conference.services.paper import PaperStateError, PaperWithdrawnError
 from app.core.models import User
@@ -18,7 +18,7 @@ class TestPaperServiceUnsubmitPaper:
             owner=user,
             code="PAPER-001",
             title="Test Paper Title",
-            state=Paper.State.SUBMITTED,
+            state=PaperState.SUBMITTED,
             submit_time=timezone.now(),
         )
 
@@ -26,7 +26,7 @@ class TestPaperServiceUnsubmitPaper:
         unsubmitted = PaperService.unsubmit_paper(paper)
 
         db_unsubmitted = Paper.objects.get(pk=unsubmitted.pk)
-        assert unsubmitted.state == db_unsubmitted.state == Paper.State.DRAFT
+        assert unsubmitted.state == db_unsubmitted.state == PaperState.DRAFT
         assert unsubmitted.submit_time == db_unsubmitted.submit_time is None
 
     def test_raises_when_paper_is_withdrawn(self, paper: Paper) -> None:
@@ -39,14 +39,14 @@ class TestPaperServiceUnsubmitPaper:
             PaperService.unsubmit_paper(paper)
 
         paper.refresh_from_db()
-        assert paper.state == Paper.State.SUBMITTED
+        assert paper.state == PaperState.SUBMITTED
         assert paper.submit_time is not None
 
     def test_withdrawn_paper_reports_withdrawn_even_when_not_submitted(
         self,
         paper: Paper,
     ) -> None:
-        update_object(paper, state=Paper.State.DRAFT, withdraw_time=timezone.now())
+        update_object(paper, state=PaperState.DRAFT, withdraw_time=timezone.now())
 
         with pytest.raises(
             PaperWithdrawnError,
@@ -56,12 +56,12 @@ class TestPaperServiceUnsubmitPaper:
 
     @pytest.mark.parametrize(
         "state",
-        [state for state in Paper.State if state != Paper.State.SUBMITTED],
+        [state for state in PaperState if state != PaperState.SUBMITTED],
     )
     def test_rejects_non_submitted_state(
         self,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
 

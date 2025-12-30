@@ -16,12 +16,12 @@ class TestCancelReview:
         return Review.objects.create(
             paper=paper,
             reviewer=user,
-            state=Review.State.PENDING,
+            state=ReviewState.PENDING,
         )
 
     @pytest.mark.parametrize(
         "initial_state",
-        [Review.State.PENDING, Review.State.ACCEPTED, Review.State.SUBMITTED],
+        [ReviewState.PENDING, ReviewState.ACCEPTED, ReviewState.SUBMITTED],
     )
     def test_happy_path(
         self,
@@ -33,11 +33,11 @@ class TestCancelReview:
         result = ReviewService.cancel_review(review)
 
         db_result = Review.objects.get(pk=result.pk)
-        assert result.state == db_result.state == Review.State.CANCELLED
+        assert result.state == db_result.state == ReviewState.CANCELLED
 
     @pytest.mark.parametrize(
         "state",
-        [Review.State.DECLINED, Review.State.CANCELLED],
+        [ReviewState.DECLINED, ReviewState.CANCELLED],
     )
     def test_rejects_non_cancellable_state(
         self,

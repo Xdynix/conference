@@ -8,7 +8,15 @@ from django.utils import timezone
 from faker import Faker
 from pytest_mock import MockerFixture
 
-from app.conference.models import Conference, Paper, PaperDecision, Profile, Track
+from app.conference.models import (
+    Conference,
+    Paper,
+    PaperDecision,
+    PaperDecisionState,
+    PaperState,
+    Profile,
+    Track,
+)
 from app.conference.services import PaperService
 from app.conference.services.paper import PaperStateError
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
@@ -23,14 +31,14 @@ def paper(conference: Conference, track: Track, user: User) -> Paper:
         owner=user,
         code="PAPER-001",
         title="Test Paper",
-        state=Paper.State.ACCEPTED,
+        state=PaperState.ACCEPTED,
     )
 
 
 def create_decision(
     paper: Paper,
     decider: User,
-    state: PaperDecision.State = PaperDecision.State.ACCEPTED,
+    state: PaperDecisionState = PaperDecisionState.ACCEPTED,
     note: str = "",
 ) -> PaperDecision:
     return PaperDecision.objects.create(
@@ -66,7 +74,7 @@ class TestListPaperDecisions:
         decision = create_decision(
             paper,
             conference_chair,
-            state=PaperDecision.State.ACCEPTED,
+            state=PaperDecisionState.ACCEPTED,
             note="Strong accept based on reviews.",
         )
         api_client.force_login(conference_chair)
@@ -102,13 +110,13 @@ class TestListPaperDecisions:
         decision1 = create_decision(
             paper,
             conference_chair,
-            state=PaperDecision.State.REJECTED,
+            state=PaperDecisionState.REJECTED,
             note="Initial rejection",
         )
         decision2 = create_decision(
             paper,
             conference_chair,
-            state=PaperDecision.State.ACCEPTED,
+            state=PaperDecisionState.ACCEPTED,
             note="Reconsidered and accepted",
         )
         api_client.force_login(conference_chair)
@@ -251,7 +259,7 @@ class TestDecidePaper:
         paper: Paper,
         paper_service_decide: MagicMock,
     ) -> None:
-        update_object(paper, state=Paper.State.SUBMITTED)
+        update_object(paper, state=PaperState.SUBMITTED)
         api_client.force_login(conference_chair)
 
         response = api_client.post(
@@ -271,7 +279,7 @@ class TestDecidePaper:
         paper_service_decide.assert_called_once_with(
             paper=paper,
             decider=conference_chair,
-            state=Paper.State.ACCEPTED,
+            state=PaperState.ACCEPTED,
             note="Strong contribution to the field.",
         )
 
@@ -283,7 +291,7 @@ class TestDecidePaper:
         paper: Paper,
         paper_service_decide: MagicMock,
     ) -> None:
-        update_object(paper, state=Paper.State.SUBMITTED)
+        update_object(paper, state=PaperState.SUBMITTED)
         api_client.force_login(conference_chair)
 
         response = api_client.post(

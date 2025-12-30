@@ -10,7 +10,13 @@ from ninja.errors import HttpError
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_roles
-from app.conference.models import AcceptanceLetter, Conference, ConferenceRole, Paper
+from app.conference.models import (
+    AcceptanceLetter,
+    Conference,
+    ConferenceRole,
+    Paper,
+    PaperState,
+)
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
@@ -73,7 +79,7 @@ async def generate_acceptance_letter(
             _("Cannot generate acceptance letter for withdrawn paper."),
         )
 
-    accepted_states = {Paper.State.ACCEPTED, Paper.State.ACCEPTED_REVISION_NEEDED}
+    accepted_states = {PaperState.ACCEPTED, PaperState.ACCEPTED_REVISION_NEEDED}
     if paper.state not in accepted_states:
         raise HttpError(
             HTTPStatus.BAD_REQUEST,

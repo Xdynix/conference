@@ -10,7 +10,13 @@ from ninja.errors import HttpError
 from ninja.files import UploadedFile
 
 from app.conference.auth import has_any_conference_or_track_roles
-from app.conference.models import Conference, ConferenceRole, Paper, TrackRole
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    Paper,
+    PaperState,
+    TrackRole,
+)
 from app.conference.services import (
     ConferenceAccessService,
     ConferenceService,
@@ -63,7 +69,7 @@ async def create_my_submission(
     if paper.withdraw_time is not None:
         raise HttpError(HTTPStatus.BAD_REQUEST, _("Withdrawn papers cannot be edited."))
 
-    if paper.state not in (Paper.State.DRAFT, Paper.State.SUBMITTED):
+    if paper.state not in (PaperState.DRAFT, PaperState.SUBMITTED):
         raise HttpError(
             HTTPStatus.BAD_REQUEST,
             _(
@@ -136,7 +142,7 @@ async def create_submission(
     if paper.withdraw_time is not None:
         raise HttpError(HTTPStatus.BAD_REQUEST, _("Withdrawn papers cannot be edited."))
 
-    if paper.state in Paper.State.decided():
+    if paper.state in PaperState.decided():
         ctx = await ConferenceAccessService.context(
             conference=conference,
             user=user,

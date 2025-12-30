@@ -13,7 +13,9 @@ from app.conference.models import (
     Paper,
     PaperAuthor,
     PaperDecision,
+    PaperDecisionState,
     PaperLabel,
+    PaperState,
     Track,
 )
 from app.core.models import GlobalRole, User
@@ -160,9 +162,9 @@ class PaperService:
                 raise PaperWithdrawnError(_("Withdrawn papers cannot be updated."))
 
             if mode == "author":
-                if paper.state != Paper.State.DRAFT:
+                if paper.state != PaperState.DRAFT:
                     raise PaperStateError(_("Paper must be in Draft state to update."))
-            elif mode == "track_admin" and paper.state in Paper.State.decided():
+            elif mode == "track_admin" and paper.state in PaperState.decided():
                 raise PaperStateError(
                     _("Only conference admins can update papers after decision.")
                 )
@@ -220,11 +222,11 @@ class PaperService:
                 raise PaperWithdrawnError(_("Withdrawn papers cannot be deleted."))
 
             if mode == "author":
-                if paper.state not in (Paper.State.DRAFT, Paper.State.SUBMITTED):
+                if paper.state not in (PaperState.DRAFT, PaperState.SUBMITTED):
                     raise PaperStateError(
                         _("Paper must be in Draft or Submitted state to delete.")
                     )
-            elif mode == "track_admin" and paper.state in Paper.State.decided():
+            elif mode == "track_admin" and paper.state in PaperState.decided():
                 raise PaperStateError(
                     _(
                         "Track admins can only delete papers in Draft, Submitted, "
@@ -263,7 +265,7 @@ class PaperService:
 
             if paper.withdraw_time is not None:
                 raise PaperWithdrawnError(_("Withdrawn papers cannot be submitted."))
-            if paper.state != Paper.State.DRAFT:
+            if paper.state != PaperState.DRAFT:
                 raise PaperStateError(_("Paper must be in Draft state to submit."))
 
             errors: list[dict[str, str]] = []
@@ -327,7 +329,7 @@ class PaperService:
             if errors:
                 raise PaperSubmissionError(errors)
 
-            paper.state = Paper.State.SUBMITTED
+            paper.state = PaperState.SUBMITTED
             paper.submit_time = timezone.now()
             paper.save(update_fields=["state", "submit_time", "update_time"])
 
@@ -350,12 +352,12 @@ class PaperService:
 
             if paper.withdraw_time is not None:
                 raise PaperWithdrawnError(_("Withdrawn papers cannot be unsubmitted."))
-            if paper.state != Paper.State.SUBMITTED:
+            if paper.state != PaperState.SUBMITTED:
                 raise PaperStateError(
                     _("Paper must be in Submitted state to unsubmit.")
                 )
 
-            paper.state = Paper.State.DRAFT
+            paper.state = PaperState.DRAFT
             paper.submit_time = None
             paper.save(update_fields=["state", "submit_time", "update_time"])
 
@@ -390,7 +392,7 @@ class PaperService:
         *,
         paper: Paper,
         decider: User,
-        state: Paper.State,
+        state: PaperState,
         note: str = "",
     ) -> Paper:
         """Make a decision on a paper.
@@ -404,7 +406,7 @@ class PaperService:
             PaperWithdrawnError: If the paper has been withdrawn.
             ValueError: If the state is not a valid decision state.
         """
-        if state not in Paper.State.decided():
+        if state not in PaperState.decided():
             raise ValueError(f"Invalid decision state: {state}.")
 
         with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
@@ -412,7 +414,7 @@ class PaperService:
 
             if paper.withdraw_time is not None:
                 raise PaperWithdrawnError(_("Withdrawn papers cannot be decided."))
-            if paper.state == Paper.State.DRAFT:
+            if paper.state == PaperState.DRAFT:
                 raise PaperStateError(_("Draft papers cannot be decided."))
 
             paper.state = state
@@ -421,7 +423,7 @@ class PaperService:
             PaperDecision.objects.create(
                 paper=paper,
                 decider=decider,
-                state=PaperDecision.State(state),
+                state=PaperDecisionState(state),
                 note=note,
             )
 

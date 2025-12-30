@@ -64,7 +64,7 @@ class TestListMyReviews:
             revision=1,
             file="submission.pdf",
         )
-        review = create_review(paper, reviewer=user, state=Review.State.ACCEPTED)
+        review = create_review(paper, reviewer=user, state=ReviewState.ACCEPTED)
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name))
@@ -88,7 +88,7 @@ class TestListMyReviews:
                         "display_name": f"{paper.code}.pdf",
                     },
                 },
-                "state": Review.State.ACCEPTED,
+                "state": ReviewState.ACCEPTED,
             },
         ]
 
@@ -168,7 +168,7 @@ class TestListMyReviews:
         conference: Conference,
         paper: Paper,
     ) -> None:
-        create_review(paper, reviewer=user, state=Review.State.CANCELLED)
+        create_review(paper, reviewer=user, state=ReviewState.CANCELLED)
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name))
@@ -312,9 +312,9 @@ class TestListReviews:
         review = create_review(
             paper,
             reviewer=reviewer,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             assigner=conference_chair,
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
         )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         mock_visible_reviews.return_value = Review.objects.filter(pk=review.pk)
@@ -341,7 +341,7 @@ class TestListReviews:
                         "display_name": f"{paper.code}.pdf",
                     },
                 },
-                "state": Review.State.SUBMITTED,
+                "state": ReviewState.SUBMITTED,
                 "reviewer": {
                     "uid": str(reviewer.uid),
                     "email": reviewer.email,
@@ -363,7 +363,7 @@ class TestListReviews:
                         "region_code": "",
                     },
                 },
-                "assignment_level": Review.AssignmentLevel.CONFERENCE,
+                "assignment_level": ReviewAssignmentLevel.CONFERENCE,
             },
         ]
 
@@ -386,7 +386,7 @@ class TestListReviews:
             paper,
             reviewer=None,
             offline_reviewer_name="External Reviewer",
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
         )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         mock_visible_reviews.return_value = Review.objects.filter(pk=review.pk)

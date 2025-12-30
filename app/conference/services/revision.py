@@ -7,7 +7,7 @@ from django.db import connection, transaction
 from django.db.models import Max
 from loguru import logger
 
-from app.conference.models import Paper, PaperFinal, PaperSubmission
+from app.conference.models import Paper, PaperFinal, PaperState, PaperSubmission
 from app.core.models import User
 from app.infra.models import Mutex
 from app.utils.files import validate_upload
@@ -118,8 +118,8 @@ class RevisionService:
                 # Cleanup: delete single oldest revision by this uploader when in
                 # editable states. Admin uploads (skip_cleanup=True) preserve all.
                 if not skip_cleanup and paper.state in (
-                    Paper.State.DRAFT,
-                    Paper.State.SUBMITTED,
+                    PaperState.DRAFT,
+                    PaperState.SUBMITTED,
                 ):
                     oldest = (
                         PaperSubmission.objects.filter(paper=paper, uploader=uploader)

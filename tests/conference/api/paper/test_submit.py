@@ -14,6 +14,7 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     Paper,
+    PaperState,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -63,7 +64,7 @@ class TestSubmitMyPaper:
         paper_service_submit: MagicMock,
     ) -> None:
         def submit_side_effect(p: Paper, *_: Any, **__: Any) -> Paper:
-            p.state = Paper.State.SUBMITTED
+            p.state = PaperState.SUBMITTED
             p.save(update_fields=["state"])
             return p
 
@@ -249,10 +250,10 @@ class TestUnsubmitMyPaper:
         paper: Paper,
         paper_service_unsubmit: MagicMock,
     ) -> None:
-        update_object(paper, state=Paper.State.SUBMITTED, submit_time=timezone.now())
+        update_object(paper, state=PaperState.SUBMITTED, submit_time=timezone.now())
 
         def unsubmit_side_effect(p: Paper) -> Paper:
-            p.state = Paper.State.DRAFT
+            p.state = PaperState.DRAFT
             p.submit_time = None
             p.save(update_fields=["state", "submit_time"])
             return p
@@ -416,7 +417,7 @@ class TestSubmitPaper:
         mock_visible_papers: AsyncMock,
     ) -> None:
         def submit_side_effect(p: Paper, *_: Any, **__: Any) -> Paper:
-            p.state = Paper.State.SUBMITTED
+            p.state = PaperState.SUBMITTED
             p.save(update_fields=["state"])
             return p
 

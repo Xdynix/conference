@@ -1,7 +1,7 @@
 import pytest
 from django.utils import timezone
 
-from app.conference.models import Conference, Paper, Track
+from app.conference.models import Conference, Paper, PaperState, Track
 from app.conference.services import PaperService
 from app.conference.services.paper import PaperWithdrawnError
 from app.core.models import User
@@ -41,11 +41,11 @@ class TestPaperServiceWithdrawPaper:
         with pytest.raises(Paper.DoesNotExist):
             PaperService.withdraw_paper(paper)
 
-    @pytest.mark.parametrize("state", Paper.State)
+    @pytest.mark.parametrize("state", PaperState)
     def test_can_withdraw_from_any_state(
         self,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
 

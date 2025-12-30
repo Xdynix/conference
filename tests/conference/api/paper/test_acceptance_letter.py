@@ -12,6 +12,7 @@ from app.conference.models import (
     Conference,
     Paper,
     PaperAuthor,
+    PaperState,
     Track,
 )
 from app.core.models import User
@@ -26,7 +27,7 @@ def paper(conference: Conference, track: Track, user: User) -> Paper:
         owner=user,
         code="PAPER-001",
         title="A Novel Approach to Machine Learning",
-        state=Paper.State.ACCEPTED,
+        state=PaperState.ACCEPTED,
     )
     PaperAuthor.objects.create(
         paper=paper,
@@ -198,10 +199,10 @@ class TestGenerateAcceptanceLetter:
     @pytest.mark.parametrize(
         "state",
         [
-            Paper.State.DRAFT,
-            Paper.State.SUBMITTED,
-            Paper.State.UNDER_REVIEW,
-            Paper.State.REJECTED,
+            PaperState.DRAFT,
+            PaperState.SUBMITTED,
+            PaperState.UNDER_REVIEW,
+            PaperState.REJECTED,
         ],
     )
     def test_rejects_non_accepted_paper_state(
@@ -210,7 +211,7 @@ class TestGenerateAcceptanceLetter:
         conference: Conference,
         conference_chair: User,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
         api_client.force_login(conference_chair)
@@ -224,7 +225,7 @@ class TestGenerateAcceptanceLetter:
 
     @pytest.mark.parametrize(
         "state",
-        [Paper.State.ACCEPTED, Paper.State.ACCEPTED_REVISION_NEEDED],
+        [PaperState.ACCEPTED, PaperState.ACCEPTED_REVISION_NEEDED],
     )
     def test_allows_accepted_paper_states(
         self,
@@ -232,7 +233,7 @@ class TestGenerateAcceptanceLetter:
         conference: Conference,
         conference_chair: User,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
         api_client.force_login(conference_chair)

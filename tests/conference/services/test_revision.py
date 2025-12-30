@@ -13,6 +13,7 @@ from app.conference.models import (
     Conference,
     Paper,
     PaperFinal,
+    PaperState,
     PaperSubmission,
     Track,
 )
@@ -391,12 +392,12 @@ class TestRevisionServiceCreateSubmission:
         pdf_files = list(media_root.rglob("*.pdf"))
         assert len(pdf_files) == 0
 
-    @pytest.mark.parametrize("state", [Paper.State.DRAFT, Paper.State.SUBMITTED])
+    @pytest.mark.parametrize("state", [PaperState.DRAFT, PaperState.SUBMITTED])
     def test_deletes_oldest_revision_in_editable_state(
         self,
         paper: Paper,
         user: User,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
 
@@ -414,17 +415,17 @@ class TestRevisionServiceCreateSubmission:
     @pytest.mark.parametrize(
         "state",
         [
-            Paper.State.UNDER_REVIEW,
-            Paper.State.REJECTED,
-            Paper.State.ACCEPTED,
-            Paper.State.ACCEPTED_REVISION_NEEDED,
+            PaperState.UNDER_REVIEW,
+            PaperState.REJECTED,
+            PaperState.ACCEPTED,
+            PaperState.ACCEPTED_REVISION_NEEDED,
         ],
     )
     def test_does_not_delete_revisions_in_non_editable_state(
         self,
         paper: Paper,
         user: User,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
 
@@ -442,7 +443,7 @@ class TestRevisionServiceCreateSubmission:
         paper: Paper,
         user: User,
     ) -> None:
-        update_object(paper, state=Paper.State.DRAFT)
+        update_object(paper, state=PaperState.DRAFT)
 
         other_user = User.objects.create_user(username=faker.user_name())
         other_submission = PaperSubmission(paper=paper, revision=1, uploader=other_user)
@@ -459,7 +460,7 @@ class TestRevisionServiceCreateSubmission:
         paper: Paper,
         user: User,
     ) -> None:
-        update_object(paper, state=Paper.State.DRAFT)
+        update_object(paper, state=PaperState.DRAFT)
 
         old = PaperSubmission(paper=paper, revision=1, uploader=user)
         old.file.save("old.pdf", ContentFile(b"old"))
@@ -479,7 +480,7 @@ class TestRevisionServiceCreateSubmission:
         paper: Paper,
         user: User,
     ) -> None:
-        update_object(paper, state=Paper.State.DRAFT)
+        update_object(paper, state=PaperState.DRAFT)
 
         rev1 = PaperSubmission(paper=paper, revision=1, uploader=user)
         rev1.file.save("rev1.pdf", ContentFile(b"rev1"))
@@ -498,7 +499,7 @@ class TestRevisionServiceCreateSubmission:
         paper: Paper,
         user: User,
     ) -> None:
-        update_object(paper, state=Paper.State.DRAFT)
+        update_object(paper, state=PaperState.DRAFT)
 
         file = SimpleUploadedFile("new.pdf", b"new content")
         submission = RevisionService.create_submission(

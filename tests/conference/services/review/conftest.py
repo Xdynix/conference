@@ -1,6 +1,6 @@
 import pytest
 
-from app.conference.models import Conference, Paper, Track
+from app.conference.models import Conference, Paper, PaperState, Track
 from app.core.models import User
 
 
@@ -12,5 +12,5 @@ def paper(user: User, conference: Conference, track: Track) -> Paper:
         owner=user,
         code="PAPER-001",
         title="Test Paper",
-        state=Paper.State.SUBMITTED,
+        state=PaperState.SUBMITTED,
     )

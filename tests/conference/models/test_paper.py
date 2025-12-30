@@ -16,6 +16,8 @@ from app.conference.models import (
     Track,
 )
 from app.conference.models.paper import (
+    PaperDecisionState,
+    PaperState,
     paper_final_source_path,
     paper_final_viewable_path,
     paper_submission_path,
@@ -73,33 +75,33 @@ class TestPaper:
     def test_str(self, paper: Paper) -> None:
         assert str(paper) == f"[{paper.track}] {paper.code}"
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_visible_state_decision_hidden_until_announced(
         self,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state, announce_time=None)
-        assert paper.visible_state == Paper.State.UNDER_REVIEW
+        assert paper.visible_state == PaperState.UNDER_REVIEW
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_visible_state_shows_decision_after_announcement(
         self,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state, announce_time=timezone.now())
         assert paper.visible_state == state
 
     @pytest.mark.parametrize(
         "state",
-        [state for state in Paper.State if state not in Paper.State.decided()],
+        [state for state in PaperState if state not in PaperState.decided()],
     )
     @pytest.mark.parametrize("announced", [True, False])
     def test_visible_state_non_decision_states(
         self,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
         announced: bool,
     ) -> None:
         update_object(
@@ -480,7 +482,7 @@ class TestPaperDecision:
         decision = PaperDecision(
             paper=paper,
             decider=user,
-            state=PaperDecision.State.ACCEPTED,
+            state=PaperDecisionState.ACCEPTED,
         )
         assert str(decision) == f"{paper} - Accepted"
 

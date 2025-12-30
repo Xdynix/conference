@@ -17,6 +17,8 @@ from app.conference.models import (
     PaperSubmission,
     Profile,
     Review,
+    ReviewAssignmentLevel,
+    ReviewState,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -104,7 +106,7 @@ class TestAssignReview:
                     "display_name": any_str,
                 },
             },
-            "state": Review.State.PENDING,
+            "state": ReviewState.PENDING,
             "reviewer": {
                 "uid": str(reviewer.uid),
                 "email": reviewer.email,
@@ -126,7 +128,7 @@ class TestAssignReview:
                     "region_code": "",
                 },
             },
-            "assignment_level": Review.AssignmentLevel.CONFERENCE,
+            "assignment_level": ReviewAssignmentLevel.CONFERENCE,
             "contribution": "",
             "decision_reason": "",
             "comments": "",
@@ -475,7 +477,7 @@ class TestImportReview:
                     "display_name": any_str,
                 },
             },
-            "state": Review.State.SUBMITTED,
+            "state": ReviewState.SUBMITTED,
             "offline_reviewer_name": "External Reviewer",
             "assigner": {
                 "uid": str(conference_chair.uid),
@@ -487,7 +489,7 @@ class TestImportReview:
                     "region_code": "",
                 },
             },
-            "assignment_level": Review.AssignmentLevel.CONFERENCE,
+            "assignment_level": ReviewAssignmentLevel.CONFERENCE,
             "originality": 4,
             "significance": 5,
             "technical": 3,
@@ -503,7 +505,7 @@ class TestImportReview:
 
         review = Review.objects.get(uid=data["uid"])
         assert review.reviewer is None
-        assert review.state == Review.State.SUBMITTED
+        assert review.state == ReviewState.SUBMITTED
         assert review.submit_time is not None
 
     def test_empty_payload_uses_defaults(
@@ -691,7 +693,7 @@ class TestImportReview:
             paper=paper,
             reviewer=None,
             offline_reviewer_name="External Reviewer",
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             originality=3,
         )
         api_client.force_login(conference_chair)
@@ -722,7 +724,7 @@ class TestImportReview:
             paper=paper,
             reviewer=None,
             offline_reviewer_name="External Reviewer",
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             originality=1,
             significance=1,
             contribution="Old contribution",
@@ -756,7 +758,7 @@ class TestImportReview:
             paper=paper,
             reviewer=None,
             offline_reviewer_name="",
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
         )
         api_client.force_login(conference_chair)
 

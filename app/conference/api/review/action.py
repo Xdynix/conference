@@ -7,7 +7,13 @@ from ninja.errors import HttpError
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_or_track_roles
-from app.conference.models import Conference, ConferenceRole, Review, TrackRole
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    Review,
+    ReviewState,
+    TrackRole,
+)
 from app.conference.services import ConferenceService, ReviewService
 from app.conference.services.review import InvalidReviewStateError
 from app.core.auth import has_any_roles, is_authenticated
@@ -47,7 +53,7 @@ async def accept_review(
     reviews = (
         Review.objects.active()
         .filter(paper__conference=conference, reviewer=user)
-        .exclude(state=Review.State.CANCELLED)
+        .exclude(state=ReviewState.CANCELLED)
     )
 
     review = await aget_object_or_404(reviews, uid=review_uid)
@@ -55,7 +61,7 @@ async def accept_review(
     try:
         review = await sync_to_async(ReviewService.respond_to_assignment)(
             review=review,
-            response=Review.State.ACCEPTED,
+            response=ReviewState.ACCEPTED,
         )
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
@@ -94,7 +100,7 @@ async def decline_review(
     reviews = (
         Review.objects.active()
         .filter(paper__conference=conference, reviewer=user)
-        .exclude(state=Review.State.CANCELLED)
+        .exclude(state=ReviewState.CANCELLED)
     )
 
     review = await aget_object_or_404(reviews, uid=review_uid)
@@ -102,7 +108,7 @@ async def decline_review(
     try:
         review = await sync_to_async(ReviewService.respond_to_assignment)(
             review=review,
-            response=Review.State.DECLINED,
+            response=ReviewState.DECLINED,
         )
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc

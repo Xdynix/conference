@@ -14,7 +14,7 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     Keyword,
-    Paper,
+    PaperState,
     Profile,
     Track,
     TrackRole,
@@ -108,7 +108,7 @@ class TestCreateDraft:
             "title": "Test Paper Title",
             "abstract": "This is the abstract.",
             "contribution": "This is the contribution.",
-            "state": Paper.State.DRAFT,
+            "state": PaperState.DRAFT,
             "keywords": ["Machine Learning", "Neural Networks"],
             "authors": [
                 {
@@ -509,8 +509,8 @@ class TestCreatePaper:
             "title": "Admin Created Paper",
             "abstract": "Abstract text.",
             "contribution": "Contribution text.",
-            "state": Paper.State.DRAFT,
-            "visible_state": Paper.State.DRAFT,
+            "state": PaperState.DRAFT,
+            "visible_state": PaperState.DRAFT,
             "owner": {
                 "uid": str(conference_chair.uid),
                 "email": "admin@example.com",

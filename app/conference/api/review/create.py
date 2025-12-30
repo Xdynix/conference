@@ -12,7 +12,14 @@ from ninja.errors import HttpError
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_or_track_roles
-from app.conference.models import Conference, ConferenceRole, Review, TrackRole
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    Review,
+    ReviewAssignmentLevel,
+    ReviewState,
+    TrackRole,
+)
 from app.conference.services import ConferenceAccessService, PaperService, ReviewService
 from app.conference.services.paper import PaperStateError
 from app.conference.services.review import ReviewerNotEligibleError
@@ -172,9 +179,9 @@ async def import_review(
     )
 
     defaults = {
-        "state": Review.State.SUBMITTED,
+        "state": ReviewState.SUBMITTED,
         "assigner": user,
-        "assignment_level": Review.AssignmentLevel.CONFERENCE,
+        "assignment_level": ReviewAssignmentLevel.CONFERENCE,
         "submit_time": timezone.now(),
         "originality": payload.originality,
         "significance": payload.significance,

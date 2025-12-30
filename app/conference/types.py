@@ -40,7 +40,7 @@ from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 from ulid import ULID
 
 from app.conference.models import Conference as ConferenceModel
-from app.conference.models import ConferenceRole, TrackRole
+from app.conference.models import ConferenceRole, PaperState, TrackRole
 from app.conference.models import Invitation as InvitationModel
 from app.conference.models import Keyword as KeywordModel
 from app.conference.models import KeywordSet as KeywordSetModel
@@ -299,7 +299,7 @@ class Paper(Schema):
     track: PaperTrack
     code: PaperCode
     create_time: AwareDatetime
-    state: PaperModel.State
+    state: PaperState
     withdraw_time: AwareDatetime | None
     title: PaperTitle
     authors: list[PaperAuthor]

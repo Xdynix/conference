@@ -14,6 +14,7 @@ from app.conference.models import (
     ConferenceRoleAssignment,
     Paper,
     Review,
+    ReviewState,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -29,7 +30,7 @@ def review(paper: Paper, user: User) -> Review:
     return Review.objects.create(
         paper=paper,
         reviewer=user,
-        state=Review.State.PENDING,
+        state=ReviewState.PENDING,
     )
 
 
@@ -62,11 +63,11 @@ class TestAcceptReview:
 
         data = response.json()
         assert data["uid"] == str(review.uid)
-        assert data["state"] == Review.State.ACCEPTED
+        assert data["state"] == ReviewState.ACCEPTED
 
         review_service_respond.assert_called_once_with(
             review=review,
-            response=Review.State.ACCEPTED,
+            response=ReviewState.ACCEPTED,
         )
 
     def test_invalid_state_returns_bad_request(
@@ -137,7 +138,7 @@ class TestAcceptReview:
         conference: Conference,
         review: Review,
     ) -> None:
-        update_object(review, state=Review.State.CANCELLED)
+        update_object(review, state=ReviewState.CANCELLED)
         api_client.force_login(user)
 
         response = api_client.post(self.path(conference.name, review.uid))
@@ -182,11 +183,11 @@ class TestDeclineReview:
 
         data = response.json()
         assert data["uid"] == str(review.uid)
-        assert data["state"] == Review.State.DECLINED
+        assert data["state"] == ReviewState.DECLINED
 
         review_service_respond.assert_called_once_with(
             review=review,
-            response=Review.State.DECLINED,
+            response=ReviewState.DECLINED,
         )
 
     def test_invalid_state_returns_bad_request(
@@ -257,7 +258,7 @@ class TestDeclineReview:
         conference: Conference,
         review: Review,
     ) -> None:
-        update_object(review, state=Review.State.CANCELLED)
+        update_object(review, state=ReviewState.CANCELLED)
         api_client.force_login(user)
 
         response = api_client.post(self.path(conference.name, review.uid))
@@ -307,7 +308,7 @@ class TestCancelReview:
         mock_visible_reviews: AsyncMock,
     ) -> None:
         def cancel_side_effect(r: Review) -> Review:
-            r.state = Review.State.CANCELLED
+            r.state = ReviewState.CANCELLED
             r.save(update_fields=["state"])
             return r
 
@@ -320,7 +321,7 @@ class TestCancelReview:
 
         data = response.json()
         assert data["uid"] == str(review.uid)
-        assert data["state"] == Review.State.CANCELLED
+        assert data["state"] == ReviewState.CANCELLED
         assert "assignment_level" in data
 
         review_service_cancel.assert_called_once_with(review)

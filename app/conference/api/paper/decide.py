@@ -8,7 +8,14 @@ from ninja.errors import HttpError
 from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 
 from app.conference.auth import has_any_conference_roles
-from app.conference.models import Conference, ConferenceRole, Paper, PaperDecision
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    Paper,
+    PaperDecision,
+    PaperDecisionState,
+    PaperState,
+)
 from app.conference.services import PaperService
 from app.conference.services.paper import PaperStateError
 from app.conference.types import ConferenceUser
@@ -31,9 +38,9 @@ class PaperDecisionResponse(Schema):
     create_time: AwareDatetime
     decider: ConferenceUser
     state: Literal[
-        PaperDecision.State.REJECTED,
-        PaperDecision.State.ACCEPTED,
-        PaperDecision.State.ACCEPTED_REVISION_NEEDED,
+        PaperDecisionState.REJECTED,
+        PaperDecisionState.ACCEPTED,
+        PaperDecisionState.ACCEPTED_REVISION_NEEDED,
     ]
     note: DecisionNote
 
@@ -69,9 +76,9 @@ async def list_paper_decisions(
 
 class DecidePaperRequest(Schema):
     state: Literal[
-        Paper.State.REJECTED,
-        Paper.State.ACCEPTED,
-        Paper.State.ACCEPTED_REVISION_NEEDED,
+        PaperState.REJECTED,
+        PaperState.ACCEPTED,
+        PaperState.ACCEPTED_REVISION_NEEDED,
     ]
     note: DecisionNote = ""
 
@@ -114,7 +121,7 @@ async def decide_paper(
         paper = await sync_to_async(PaperService.decide_paper)(
             paper=paper,
             decider=user,
-            state=Paper.State(payload.state),
+            state=PaperState(payload.state),
             note=payload.note,
         )
     except PaperStateError as exc:

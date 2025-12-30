@@ -19,7 +19,7 @@ class TestSubmitReview:
         return Review.objects.create(
             paper=paper,
             reviewer=user,
-            state=Review.State.ACCEPTED,
+            state=ReviewState.ACCEPTED,
             originality=5,
             significance=4,
             technical=5,
@@ -35,7 +35,7 @@ class TestSubmitReview:
         result = ReviewService.submit_review(review)
 
         db_result = Review.objects.get(pk=result.pk)
-        assert result.state == db_result.state == Review.State.SUBMITTED
+        assert result.state == db_result.state == ReviewState.SUBMITTED
         assert result.submit_time == db_result.submit_time == approx_now()
 
     def test_non_strict_mode_bypasses_validation(
@@ -46,13 +46,13 @@ class TestSubmitReview:
         review = Review.objects.create(
             paper=paper,
             reviewer=user,
-            state=Review.State.ACCEPTED,
+            state=ReviewState.ACCEPTED,
         )
 
         result = ReviewService.submit_review(review, strict=False)
 
         db_result = Review.objects.get(pk=result.pk)
-        assert result.state == db_result.state == Review.State.SUBMITTED
+        assert result.state == db_result.state == ReviewState.SUBMITTED
         assert result.submit_time == db_result.submit_time == approx_now()
 
     @pytest.mark.parametrize(
@@ -99,7 +99,7 @@ class TestSubmitReview:
         assert {field: "This field is required."} in exc_info.value.errors
 
         review.refresh_from_db()
-        assert review.state == Review.State.ACCEPTED
+        assert review.state == ReviewState.ACCEPTED
         assert review.submit_time is None
 
     @pytest.mark.parametrize(
@@ -115,7 +115,7 @@ class TestSubmitReview:
         assert {field: "This field is required."} in exc_info.value.errors
 
         review.refresh_from_db()
-        assert review.state == Review.State.ACCEPTED
+        assert review.state == ReviewState.ACCEPTED
         assert review.submit_time is None
 
     @pytest.mark.parametrize(
@@ -127,13 +127,13 @@ class TestSubmitReview:
 
         result = ReviewService.submit_review(review)
 
-        assert result.state == Review.State.SUBMITTED
+        assert result.state == ReviewState.SUBMITTED
 
     def test_collects_all_validation_errors(self, paper: Paper, user: User) -> None:
         review = Review.objects.create(
             paper=paper,
             reviewer=user,
-            state=Review.State.ACCEPTED,
+            state=ReviewState.ACCEPTED,
         )
 
         with pytest.raises(ReviewSubmissionError) as exc_info:

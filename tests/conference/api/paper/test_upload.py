@@ -16,6 +16,7 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     Paper,
+    PaperState,
     PaperSubmission,
     Track,
     TrackRole,
@@ -92,7 +93,7 @@ class TestCreateMySubmission:
 
         assert PaperSubmission.objects.filter(paper=paper).count() == 1
 
-    @pytest.mark.parametrize("state", [Paper.State.DRAFT, Paper.State.SUBMITTED])
+    @pytest.mark.parametrize("state", [PaperState.DRAFT, PaperState.SUBMITTED])
     def test_allows_draft_and_submitted_states(
         self,
         client: Client,
@@ -101,7 +102,7 @@ class TestCreateMySubmission:
         paper: Paper,
         sample_pdf: SimpleUploadedFile,
         revision_service_create_submission: MagicMock,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
         client.force_login(user)
@@ -117,10 +118,10 @@ class TestCreateMySubmission:
     @pytest.mark.parametrize(
         "state",
         [
-            Paper.State.UNDER_REVIEW,
-            Paper.State.REJECTED,
-            Paper.State.ACCEPTED,
-            Paper.State.ACCEPTED_REVISION_NEEDED,
+            PaperState.UNDER_REVIEW,
+            PaperState.REJECTED,
+            PaperState.ACCEPTED,
+            PaperState.ACCEPTED_REVISION_NEEDED,
         ],
     )
     def test_rejects_non_editable_states(
@@ -131,7 +132,7 @@ class TestCreateMySubmission:
         paper: Paper,
         sample_pdf: SimpleUploadedFile,
         revision_service_create_submission: MagicMock,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
         client.force_login(user)
@@ -404,7 +405,7 @@ class TestCreateSubmission:
 
     @pytest.mark.parametrize(
         "state",
-        [Paper.State.DRAFT, Paper.State.SUBMITTED, Paper.State.UNDER_REVIEW],
+        [PaperState.DRAFT, PaperState.SUBMITTED, PaperState.UNDER_REVIEW],
     )
     def test_allows_non_decided_states(
         self,
@@ -415,7 +416,7 @@ class TestCreateSubmission:
         sample_pdf: SimpleUploadedFile,
         revision_service_create_submission: MagicMock,
         mock_visible_papers: AsyncMock,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         track_admin = User.objects.create_user(username="track-admin")
         TrackRoleAssignment.objects.create(
@@ -435,7 +436,7 @@ class TestCreateSubmission:
 
         revision_service_create_submission.assert_called_once()
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_track_admin_cannot_upload_to_decided_paper(
         self,
         client: Client,
@@ -445,7 +446,7 @@ class TestCreateSubmission:
         sample_pdf: SimpleUploadedFile,
         revision_service_create_submission: MagicMock,
         mock_visible_papers: AsyncMock,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         track_admin = User.objects.create_user(username="track-admin")
         TrackRoleAssignment.objects.create(
@@ -467,7 +468,7 @@ class TestCreateSubmission:
 
         revision_service_create_submission.assert_not_called()
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_global_admin_can_upload_to_decided_paper(
         self,
         client: Client,
@@ -477,7 +478,7 @@ class TestCreateSubmission:
         sample_pdf: SimpleUploadedFile,
         revision_service_create_submission: MagicMock,
         mock_visible_papers: AsyncMock,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
@@ -491,7 +492,7 @@ class TestCreateSubmission:
 
         revision_service_create_submission.assert_called_once()
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_conference_admin_can_upload_to_decided_paper(
         self,
         client: Client,
@@ -501,7 +502,7 @@ class TestCreateSubmission:
         sample_pdf: SimpleUploadedFile,
         revision_service_create_submission: MagicMock,
         mock_visible_papers: AsyncMock,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)

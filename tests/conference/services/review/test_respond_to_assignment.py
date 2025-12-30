@@ -18,7 +18,7 @@ class TestRespondToAssignment:
         return Review.objects.create(
             paper=paper,
             reviewer=user,
-            state=Review.State.PENDING,
+            state=ReviewState.PENDING,
         )
 
     @pytest.mark.parametrize("response", [ReviewState.ACCEPTED, ReviewState.DECLINED])
@@ -55,12 +55,12 @@ class TestRespondToAssignment:
             )
 
         review.refresh_from_db()
-        assert review.state == Review.State.PENDING
+        assert review.state == ReviewState.PENDING
 
     @pytest.mark.parametrize("response", [ReviewState.ACCEPTED, ReviewState.DECLINED])
     @pytest.mark.parametrize(
         "state",
-        [state for state in Review.State if state != Review.State.PENDING],
+        [state for state in ReviewState if state != ReviewState.PENDING],
     )
     def test_non_pending_state_raises_error(
         self,
@@ -89,7 +89,7 @@ class TestRespondToAssignment:
         with pytest.raises(Review.DoesNotExist):
             ReviewService.respond_to_assignment(
                 review=review,
-                response=Review.State.ACCEPTED,
+                response=ReviewState.ACCEPTED,
             )
 
     def test_inactive_track_raises_error(self, track: Track, review: Review) -> None:
@@ -98,7 +98,7 @@ class TestRespondToAssignment:
         with pytest.raises(Review.DoesNotExist):
             ReviewService.respond_to_assignment(
                 review=review,
-                response=Review.State.ACCEPTED,
+                response=ReviewState.ACCEPTED,
             )
 
     def test_deleted_paper_raises_error(self, paper: Paper, review: Review) -> None:
@@ -107,5 +107,5 @@ class TestRespondToAssignment:
         with pytest.raises(Review.DoesNotExist):
             ReviewService.respond_to_assignment(
                 review=review,
-                response=Review.State.ACCEPTED,
+                response=ReviewState.ACCEPTED,
             )

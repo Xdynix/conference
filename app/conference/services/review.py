@@ -10,11 +10,12 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     Paper,
+    PaperState,
     Review,
     TrackRole,
     TrackRoleAssignment,
 )
-from app.conference.models.review import ReviewState
+from app.conference.models.review import ReviewAssignmentLevel, ReviewState
 from app.core.models import GlobalRole, User
 from app.infra.models import Mutex
 
@@ -74,7 +75,7 @@ class ReviewService:
 
         return reviews.filter(
             paper__track_id__in=ctx.administered_track_ids,
-            assignment_level=Review.AssignmentLevel.TRACK,
+            assignment_level=ReviewAssignmentLevel.TRACK,
         )
 
     @classmethod
@@ -117,11 +118,11 @@ class ReviewService:
                 raise PaperWithdrawnError(
                     _("Cannot assign reviewers to withdrawn papers.")
                 )
-            if paper.state == Paper.State.DRAFT:
+            if paper.state == PaperState.DRAFT:
                 raise PaperStateError(
                     _("Cannot assign reviewers to papers in Draft state.")
                 )
-            if paper.announce_time is not None and paper.state in Paper.State.decided():
+            if paper.announce_time is not None and paper.state in PaperState.decided():
                 raise PaperStateError(
                     _("Cannot assign reviewers to papers after decision announcement.")
                 )
@@ -132,7 +133,7 @@ class ReviewService:
                 )
 
             if mode == "conference":
-                assignment_level = Review.AssignmentLevel.CONFERENCE
+                assignment_level = ReviewAssignmentLevel.CONFERENCE
                 is_privileged = reviewer.is_superuser or (
                     reviewer.global_role_assignments.filter(
                         role=GlobalRole.ADMIN,
@@ -156,7 +157,7 @@ class ReviewService:
                             _("Reviewer has no eligible role in the conference.")
                         )
             else:
-                assignment_level = Review.AssignmentLevel.TRACK
+                assignment_level = ReviewAssignmentLevel.TRACK
                 has_track_role = TrackRoleAssignment.objects.filter(
                     track_id=paper.track_id,
                     user=reviewer,
@@ -168,14 +169,14 @@ class ReviewService:
                         _("Reviewer has no eligible role in this track.")
                     )
 
-            if paper.state == Paper.State.SUBMITTED:
-                paper.state = Paper.State.UNDER_REVIEW
+            if paper.state == PaperState.SUBMITTED:
+                paper.state = PaperState.UNDER_REVIEW
                 paper.save(update_fields=["state", "update_time"])
 
             return Review.objects.create(
                 paper=paper,
                 reviewer=reviewer,
-                state=Review.State.PENDING,
+                state=ReviewState.PENDING,
                 assigner=assigner,
                 assignment_level=assignment_level,
             )
@@ -205,7 +206,7 @@ class ReviewService:
         with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
             review = Review.objects.active().get(pk=review.pk)
 
-            if review.state != Review.State.PENDING:
+            if review.state != ReviewState.PENDING:
                 raise InvalidReviewStateError(
                     _("Review must be in pending state to respond.")
                 )
@@ -238,7 +239,7 @@ class ReviewService:
         with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
             review = Review.objects.active().get(pk=review.pk)
 
-            if review.state != Review.State.ACCEPTED:
+            if review.state != ReviewState.ACCEPTED:
                 raise InvalidReviewStateError(
                     _("Review must be in accepted state to submit.")
                 )
@@ -267,7 +268,7 @@ class ReviewService:
                 if errors:
                     raise ReviewSubmissionError(errors)
 
-            review.state = Review.State.SUBMITTED
+            review.state = ReviewState.SUBMITTED
             review.submit_time = timezone.now()
             review.save(update_fields=["state", "submit_time", "update_time"])
 
@@ -295,12 +296,12 @@ class ReviewService:
                     _("Offline reviews cannot be unsubmitted.")
                 )
 
-            if review.state != Review.State.SUBMITTED:
+            if review.state != ReviewState.SUBMITTED:
                 raise InvalidReviewStateError(
                     _("Review must be in submitted state to unsubmit.")
                 )
 
-            review.state = Review.State.ACCEPTED
+            review.state = ReviewState.ACCEPTED
             review.submit_time = None
             review.save(update_fields=["state", "submit_time", "update_time"])
 
@@ -319,9 +320,9 @@ class ReviewService:
             InvalidReviewStateError: If the review is not in a cancellable state.
         """
         cancellable_states = {
-            Review.State.PENDING,
-            Review.State.ACCEPTED,
-            Review.State.SUBMITTED,
+            ReviewState.PENDING,
+            ReviewState.ACCEPTED,
+            ReviewState.SUBMITTED,
         }
 
         with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
@@ -335,7 +336,7 @@ class ReviewService:
                     )
                 )
 
-            review.state = Review.State.CANCELLED
+            review.state = ReviewState.CANCELLED
             review.save(update_fields=["state", "update_time"])
 
             return review
@@ -387,9 +388,9 @@ class ReviewService:
                 given mode.
         """
         if mode == "admin":
-            allowed_states = {Review.State.ACCEPTED, Review.State.SUBMITTED}
+            allowed_states = {ReviewState.ACCEPTED, ReviewState.SUBMITTED}
         else:
-            allowed_states = {Review.State.ACCEPTED}
+            allowed_states = {ReviewState.ACCEPTED}
 
         with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
             review = Review.objects.active().get(pk=review.pk)

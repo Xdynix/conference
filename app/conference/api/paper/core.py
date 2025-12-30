@@ -22,7 +22,7 @@ from app.conference.models import (
     Paper,
     PaperFinal,
     PaperSubmission,
-    Review,
+    PaperVisibleState,
 )
 from app.conference.models.review import ReviewState
 from app.conference.services import ReviewService
@@ -70,7 +70,7 @@ class PaperDetailMixin(PaperDetailMixinSchema):
 
 
 class UserPaperResponse(BasePaperResponse):
-    state: Paper.VisibleState = Field(validation_alias="visible_state")  # type: ignore[assignment]
+    state: PaperVisibleState = Field(validation_alias="visible_state")  # type: ignore[assignment]
 
 
 class UserPaperDetailResponse(PaperDetailMixin, UserPaperResponse):
@@ -97,7 +97,7 @@ class RecommendationSummary(Schema):
 
 
 class PaperResponse(BasePaperResponse):
-    visible_state: Paper.VisibleState
+    visible_state: PaperVisibleState
     announce_time: AwareDatetime | None
     submit_time: AwareDatetime | None
     owner: ConferenceUser
@@ -118,11 +118,11 @@ class PaperResponse(BasePaperResponse):
     def resolve_review_stat(paper: Paper) -> ReviewStat:
         counts = Counter(r.state for r in paper.visible_review_states)  # type: ignore[attr-defined]
         return ReviewStat(
-            pending_count=counts[Review.State.PENDING],
-            declined_count=counts[Review.State.DECLINED],
-            accepted_count=counts[Review.State.ACCEPTED],
-            submitted_count=counts[Review.State.SUBMITTED],
-            cancelled_count=counts[Review.State.CANCELLED],
+            pending_count=counts[ReviewState.PENDING],
+            declined_count=counts[ReviewState.DECLINED],
+            accepted_count=counts[ReviewState.ACCEPTED],
+            submitted_count=counts[ReviewState.SUBMITTED],
+            cancelled_count=counts[ReviewState.CANCELLED],
         )
 
     @staticmethod

@@ -13,6 +13,7 @@ from app.conference.models import (
     ConferenceRole,
     Paper,
     PaperLabel,
+    PaperState,
     TrackRole,
 )
 from app.conference.services import ConferenceService, PaperService
@@ -60,7 +61,7 @@ LabelSelectorStr = Annotated[
 
 
 class ListPapersFilters(FilterSchema):
-    state: Paper.State | None = None
+    state: PaperState | None = None
     announced: bool | None = None
     withdrawn: bool | None = None
     label_selector: LabelSelectorStr | None = Field(

@@ -8,6 +8,7 @@ from app.conference.models import (
     ConferenceRoleAssignment,
     Paper,
     Review,
+    ReviewAssignmentLevel,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -28,7 +29,7 @@ class TestReviewServiceVisibleReviews:
         review = await Review.objects.acreate(
             paper=paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
         )
         await a_update_object(user, is_superuser=True)
 
@@ -47,7 +48,7 @@ class TestReviewServiceVisibleReviews:
         review = await Review.objects.acreate(
             paper=paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
         )
 
         qs = await ReviewService.visible_reviews(
@@ -67,7 +68,7 @@ class TestReviewServiceVisibleReviews:
         review = await Review.objects.acreate(
             paper=paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
         )
 
         qs = await ReviewService.visible_reviews(
@@ -88,12 +89,12 @@ class TestReviewServiceVisibleReviews:
         conference_review = await Review.objects.acreate(
             paper=paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
         )
         track_review = await Review.objects.acreate(
             paper=paper,
             offline_reviewer_name="Offline Reviewer",
-            assignment_level=Review.AssignmentLevel.TRACK,
+            assignment_level=ReviewAssignmentLevel.TRACK,
         )
         await ConferenceRoleAssignment.objects.acreate(
             conference=conference,
@@ -136,19 +137,19 @@ class TestReviewServiceVisibleReviews:
         track_review = await Review.objects.acreate(
             paper=paper_in_track,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.TRACK,
+            assignment_level=ReviewAssignmentLevel.TRACK,
         )
         # Conference-level review in same track - should NOT be visible
         await Review.objects.acreate(
             paper=paper_in_track,
             offline_reviewer_name="Conference Reviewer",
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
         )
         # Track-level review in other track - should NOT be visible
         await Review.objects.acreate(
             paper=paper_in_other_track,
             offline_reviewer_name="Other Track Reviewer",
-            assignment_level=Review.AssignmentLevel.TRACK,
+            assignment_level=ReviewAssignmentLevel.TRACK,
         )
         await TrackRoleAssignment.objects.acreate(
             track=track,
@@ -171,7 +172,7 @@ class TestReviewServiceVisibleReviews:
         await Review.objects.acreate(
             paper=paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
         )
         await TrackRoleAssignment.objects.acreate(
             track=track,
@@ -216,18 +217,18 @@ class TestReviewServiceVisibleReviews:
         review_a = await Review.objects.acreate(
             paper=paper_a,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.TRACK,
+            assignment_level=ReviewAssignmentLevel.TRACK,
         )
         review_b = await Review.objects.acreate(
             paper=paper_b,
             offline_reviewer_name="Reviewer B",
-            assignment_level=Review.AssignmentLevel.TRACK,
+            assignment_level=ReviewAssignmentLevel.TRACK,
         )
         # Review in track_c - not administered
         await Review.objects.acreate(
             paper=paper_c,
             offline_reviewer_name="Reviewer C",
-            assignment_level=Review.AssignmentLevel.TRACK,
+            assignment_level=ReviewAssignmentLevel.TRACK,
         )
         await TrackRoleAssignment.objects.acreate(
             track=track_a,
@@ -260,7 +261,7 @@ class TestReviewServiceVisibleReviews:
         await Review.objects.acreate(
             paper=paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.TRACK,
+            assignment_level=ReviewAssignmentLevel.TRACK,
         )
         await TrackRoleAssignment.objects.acreate(
             track=track,
@@ -287,7 +288,7 @@ class TestReviewServiceVisibleReviews:
         await Review.objects.acreate(
             paper=paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.TRACK,
+            assignment_level=ReviewAssignmentLevel.TRACK,
         )
         await ConferenceRoleAssignment.objects.acreate(
             conference=conference,
@@ -309,7 +310,7 @@ class TestReviewServiceVisibleReviews:
         await Review.objects.acreate(
             paper=paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.TRACK,
+            assignment_level=ReviewAssignmentLevel.TRACK,
         )
 
         qs = await ReviewService.visible_reviews(conference=conference, user=user)
@@ -341,12 +342,12 @@ class TestReviewServiceVisibleReviews:
         active_review = await Review.objects.acreate(
             paper=active_paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
         )
         await Review.objects.acreate(
             paper=deleted_paper,
             offline_reviewer_name="Deleted Paper Reviewer",
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
         )
         await a_update_object(user, is_superuser=True)
 
@@ -365,7 +366,7 @@ class TestReviewServiceVisibleReviews:
         await Review.objects.acreate(
             paper=paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
         )
         await a_update_object(conference, active=False)
 
@@ -387,7 +388,7 @@ class TestReviewServiceVisibleReviews:
         await Review.objects.acreate(
             paper=paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
         )
         await a_update_object(track, active=False)
 
@@ -408,7 +409,7 @@ class TestReviewServiceVisibleReviews:
         await Review.objects.acreate(
             paper=paper,
             reviewer=user,
-            assignment_level=Review.AssignmentLevel.TRACK,
+            assignment_level=ReviewAssignmentLevel.TRACK,
         )
         await a_update_object(track, active=False)
         await TrackRoleAssignment.objects.acreate(

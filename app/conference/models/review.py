@@ -48,9 +48,6 @@ class ReviewQuerySet(models.QuerySet["Review"]):
 
 
 class Review(TimeStampedModel, ULIDModel):
-    State = ReviewState
-    AssignmentLevel = ReviewAssignmentLevel
-
     paper = models.ForeignKey(
         Paper,
         on_delete=models.CASCADE,
@@ -84,8 +81,8 @@ class Review(TimeStampedModel, ULIDModel):
     state = models.CharField(
         _("state"),
         max_length=32,
-        choices=State,
-        default=State.PENDING,
+        choices=ReviewState,
+        default=ReviewState.PENDING,
     )
     originality = models.PositiveSmallIntegerField(
         _("originality"),
@@ -164,8 +161,8 @@ class Review(TimeStampedModel, ULIDModel):
     assignment_level = models.CharField(
         _("assignment level"),
         max_length=32,
-        choices=AssignmentLevel,
-        default=AssignmentLevel.CONFERENCE,
+        choices=ReviewAssignmentLevel,
+        default=ReviewAssignmentLevel.CONFERENCE,
         help_text=_(
             "Whether assigned by conference or track admin. "
             "Track admins cannot cancel conference-level assignments."

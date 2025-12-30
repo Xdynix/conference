@@ -18,6 +18,29 @@ from .profile import AbstractProfile
 User = get_user_model()
 
 
+class PaperState(models.TextChoices):
+    DRAFT = "Draft", _("Draft")
+    SUBMITTED = "Submitted", _("Submitted")
+    UNDER_REVIEW = "Under Review", _("Under Review")
+    REJECTED = "Rejected", _("Rejected")
+    ACCEPTED = "Accepted", _("Accepted")
+    ACCEPTED_REVISION_NEEDED = (
+        "Accepted (Revision Needed)",
+        _("Accepted (Revision Needed)"),
+    )
+
+    @classmethod
+    def decided(cls) -> Sequence["PaperState"]:
+        return [
+            cls.REJECTED,
+            cls.ACCEPTED,
+            cls.ACCEPTED_REVISION_NEEDED,
+        ]
+
+
+PaperVisibleState = PaperState | Literal["Withdrawn"]
+
+
 class PaperQuerySet(models.QuerySet["Paper"]):
     def active(self) -> Self:
         return self.filter(
@@ -28,27 +51,6 @@ class PaperQuerySet(models.QuerySet["Paper"]):
 
 
 class Paper(TimeStampedModel, ULIDModel):
-    class State(models.TextChoices):
-        DRAFT = "Draft", _("Draft")
-        SUBMITTED = "Submitted", _("Submitted")
-        UNDER_REVIEW = "Under Review", _("Under Review")
-        REJECTED = "Rejected", _("Rejected")
-        ACCEPTED = "Accepted", _("Accepted")
-        ACCEPTED_REVISION_NEEDED = (
-            "Accepted (Revision Needed)",
-            _("Accepted (Revision Needed)"),
-        )
-
-        @classmethod
-        def decided(cls) -> Sequence["Paper.State"]:
-            return [
-                cls.REJECTED,
-                cls.ACCEPTED,
-                cls.ACCEPTED_REVISION_NEEDED,
-            ]
-
-    VisibleState = State | Literal["Withdrawn"]
-
     conference = models.ForeignKey(
         Conference,
         on_delete=models.CASCADE,
@@ -71,8 +73,8 @@ class Paper(TimeStampedModel, ULIDModel):
     state = models.CharField(
         _("state"),
         max_length=128,
-        choices=State,
-        default=State.DRAFT,
+        choices=PaperState,
+        default=PaperState.DRAFT,
     )
     delete_time = models.DateTimeField(
         _("delete time"),
@@ -155,12 +157,12 @@ class Paper(TimeStampedModel, ULIDModel):
         return f"[{self.track}] {self.code}"
 
     @property
-    def visible_state(self) -> VisibleState:
+    def visible_state(self) -> PaperVisibleState:
         if self.withdraw_time is not None:
             return "Withdrawn"
-        if self.announce_time is None and self.state in self.State.decided():
-            return self.State.UNDER_REVIEW
-        return self.State(self.state)
+        if self.announce_time is None and self.state in PaperState.decided():
+            return PaperState.UNDER_REVIEW
+        return PaperState(self.state)
 
 
 class PaperAuthor(AbstractProfile):
@@ -367,15 +369,16 @@ class PaperFinal(TimeStampedModel, ULIDModel):
         )
 
 
-class PaperDecision(TimeStampedModel):
-    class State(models.TextChoices):
-        REJECTED = "Rejected", _("Rejected")
-        ACCEPTED = "Accepted", _("Accepted")
-        ACCEPTED_REVISION_NEEDED = (
-            "Accepted (Revision Needed)",
-            _("Accepted (Revision Needed)"),
-        )
+class PaperDecisionState(models.TextChoices):
+    REJECTED = "Rejected", _("Rejected")
+    ACCEPTED = "Accepted", _("Accepted")
+    ACCEPTED_REVISION_NEEDED = (
+        "Accepted (Revision Needed)",
+        _("Accepted (Revision Needed)"),
+    )
 
+
+class PaperDecision(TimeStampedModel):
     paper = models.ForeignKey(
         Paper,
         on_delete=models.CASCADE,
@@ -390,7 +393,7 @@ class PaperDecision(TimeStampedModel):
         related_query_name="paper_decision",
         verbose_name=_("decider"),
     )
-    state = models.CharField(_("state"), max_length=128, choices=State)
+    state = models.CharField(_("state"), max_length=128, choices=PaperDecisionState)
     note = models.TextField(
         _("note"),
         blank=True,

@@ -6,7 +6,14 @@ from django.urls import reverse
 from django.utils import timezone
 from faker import Faker
 
-from app.conference.models import Conference, Paper, PaperSubmission, Review, Track
+from app.conference.models import (
+    Conference,
+    Paper,
+    PaperState,
+    PaperSubmission,
+    ReviewState,
+    Track,
+)
 from app.core.models import User
 
 
@@ -23,7 +30,7 @@ def paper(
         owner=user,
         code=f"PAPER-{faker.unique.random_int(1000, 9999)}",
         title=faker.sentence(),
-        state=Paper.State.SUBMITTED,
+        state=PaperState.SUBMITTED,
         submit_time=timezone.now(),
     )
     PaperSubmission.objects.create(
@@ -103,7 +110,7 @@ class TestReviewE2E:
         review_uid = response.json()["uid"]
 
         paper.refresh_from_db()
-        assert paper.state == Paper.State.UNDER_REVIEW
+        assert paper.state == PaperState.UNDER_REVIEW
 
         api_client.logout()
         api_client.force_login(conference_reviewer)
@@ -112,11 +119,11 @@ class TestReviewE2E:
         assert response.status_code == HTTPStatus.OK
         [review_data] = response.json()
         assert review_data["uid"] == review_uid
-        assert review_data["state"] == Review.State.PENDING
+        assert review_data["state"] == ReviewState.PENDING
 
         response = api_client.post(self.accept_review_path(conference.name, review_uid))
         assert response.status_code == HTTPStatus.OK
-        assert response.json()["state"] == Review.State.ACCEPTED
+        assert response.json()["state"] == ReviewState.ACCEPTED
 
         response = api_client.patch(
             self.update_my_review_path(conference.name, review_uid),
@@ -141,7 +148,7 @@ class TestReviewE2E:
         )
         assert response.status_code == HTTPStatus.OK
         data = response.json()
-        assert data["state"] == Review.State.SUBMITTED
+        assert data["state"] == ReviewState.SUBMITTED
         assert data["submit_time"] is not None
 
         api_client.logout()
@@ -151,17 +158,17 @@ class TestReviewE2E:
         assert response.status_code == HTTPStatus.OK
         [review_data] = response.json()
         assert review_data["uid"] == review_uid
-        assert review_data["state"] == Review.State.SUBMITTED
+        assert review_data["state"] == ReviewState.SUBMITTED
 
         response = api_client.get(self.get_review_path(conference.name, review_uid))
         assert response.status_code == HTTPStatus.OK
-        assert response.json()["state"] == Review.State.SUBMITTED
+        assert response.json()["state"] == ReviewState.SUBMITTED
 
         response = api_client.post(
             self.unsubmit_review_path(conference.name, review_uid)
         )
         assert response.status_code == HTTPStatus.OK
-        assert response.json()["state"] == Review.State.ACCEPTED
+        assert response.json()["state"] == ReviewState.ACCEPTED
 
         api_client.logout()
         api_client.force_login(conference_reviewer)
@@ -170,7 +177,7 @@ class TestReviewE2E:
             self.submit_my_review_path(conference.name, review_uid)
         )
         assert response.status_code == HTTPStatus.OK
-        assert response.json()["state"] == Review.State.SUBMITTED
+        assert response.json()["state"] == ReviewState.SUBMITTED
 
     def test_offline_review_import_update_flow(
         self,

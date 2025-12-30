@@ -11,6 +11,7 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     Paper,
+    PaperState,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -57,7 +58,7 @@ class TestDeleteMyPaper:
         conference: Conference,
         paper: Paper,
     ) -> None:
-        update_object(paper, state=Paper.State.SUBMITTED)
+        update_object(paper, state=PaperState.SUBMITTED)
         api_client.force_login(user)
 
         response = api_client.delete(self.path(conference.name, paper.code))
@@ -69,10 +70,10 @@ class TestDeleteMyPaper:
     @pytest.mark.parametrize(
         "state",
         [
-            Paper.State.UNDER_REVIEW,
-            Paper.State.REJECTED,
-            Paper.State.ACCEPTED,
-            Paper.State.ACCEPTED_REVISION_NEEDED,
+            PaperState.UNDER_REVIEW,
+            PaperState.REJECTED,
+            PaperState.ACCEPTED,
+            PaperState.ACCEPTED_REVISION_NEEDED,
         ],
     )
     def test_rejects_non_draft_submitted_state(
@@ -81,7 +82,7 @@ class TestDeleteMyPaper:
         user: User,
         conference: Conference,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
         api_client.force_login(user)
@@ -233,7 +234,7 @@ class TestDeletePaper:
 
     @pytest.mark.parametrize(
         "state",
-        [state for state in Paper.State if state not in Paper.State.decided()],
+        [state for state in PaperState if state not in PaperState.decided()],
     )
     def test_track_admin_can_delete_non_decided(
         self,
@@ -241,7 +242,7 @@ class TestDeletePaper:
         conference: Conference,
         track: Track,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         track_admin = User.objects.create_user(username="track-admin")
         TrackRoleAssignment.objects.create(
@@ -258,14 +259,14 @@ class TestDeletePaper:
         paper.refresh_from_db()
         assert paper.delete_time == approx_now()
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_track_admin_cannot_delete_decided_paper(
         self,
         api_client: Client,
         conference: Conference,
         track: Track,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         track_admin = User.objects.create_user(username="track-admin")
         TrackRoleAssignment.objects.create(
@@ -287,14 +288,14 @@ class TestDeletePaper:
         paper.refresh_from_db()
         assert paper.delete_time is None
 
-    @pytest.mark.parametrize("state", Paper.State)
+    @pytest.mark.parametrize("state", PaperState)
     def test_global_admin_can_delete_any_state(
         self,
         api_client: Client,
         conference: Conference,
         paper: Paper,
         global_admin: User,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
         api_client.force_login(global_admin)
@@ -305,14 +306,14 @@ class TestDeletePaper:
         paper.refresh_from_db()
         assert paper.delete_time is not None
 
-    @pytest.mark.parametrize("state", Paper.State)
+    @pytest.mark.parametrize("state", PaperState)
     def test_conference_admin_can_delete_any_state(
         self,
         api_client: Client,
         conference: Conference,
         paper: Paper,
         conference_chair: User,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
         api_client.force_login(conference_chair)

@@ -15,6 +15,7 @@ from app.conference.models import (
     Keyword,
     Paper,
     PaperAuthor,
+    PaperState,
     Profile,
     Track,
     TrackRole,
@@ -106,7 +107,7 @@ class TestUpdateMyPaper:
                 "display_name": track.display_name,
             },
             "code": paper.code,
-            "state": Paper.State.DRAFT,
+            "state": PaperState.DRAFT,
             "title": "Updated Title",
             "abstract": "Updated abstract",
             "contribution": "Updated contribution",
@@ -483,8 +484,8 @@ class TestUpdatePaper:
             },
             "code": paper.code,
             "create_time": any_str,
-            "state": Paper.State.DRAFT,
-            "visible_state": Paper.State.DRAFT,
+            "state": PaperState.DRAFT,
+            "visible_state": PaperState.DRAFT,
             "owner": {
                 "uid": str(conference_chair.uid),
                 "email": "admin@example.com",
@@ -629,7 +630,7 @@ class TestUpdatePaper:
 
     @pytest.mark.parametrize(
         "state",
-        [state for state in Paper.State if state not in Paper.State.decided()],
+        [state for state in PaperState if state not in PaperState.decided()],
     )
     def test_track_admin_can_update_non_decided(
         self,
@@ -639,7 +640,7 @@ class TestUpdatePaper:
         paper: Paper,
         paper_service_update: MagicMock,
         mock_visible_papers: AsyncMock,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         track_admin = User.objects.create_user(username="track-admin")
         TrackRoleAssignment.objects.create(

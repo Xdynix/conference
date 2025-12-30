@@ -1,7 +1,14 @@
 import pytest
 from django.utils import timezone
 
-from app.conference.models import Conference, Keyword, Paper, PaperAuthor, Track
+from app.conference.models import (
+    Conference,
+    Keyword,
+    Paper,
+    PaperAuthor,
+    PaperState,
+    Track,
+)
 from app.conference.services import PaperService
 from app.conference.services.paper import (
     AuthorData,
@@ -167,10 +174,10 @@ class TestPaperServiceUpdatePaper:
 
     @pytest.mark.parametrize(
         "state",
-        [state for state in Paper.State if state != Paper.State.DRAFT],
+        [state for state in PaperState if state != PaperState.DRAFT],
     )
     def test_author_mode_rejects_non_draft_state(
-        self, paper: Paper, state: Paper.State
+        self, paper: Paper, state: PaperState
     ) -> None:
         update_object(paper, state=state)
 
@@ -182,9 +189,9 @@ class TestPaperServiceUpdatePaper:
         paper.refresh_from_db()
         assert paper.title == "Original Title"
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_track_admin_mode_rejects_decided_state(
-        self, paper: Paper, state: Paper.State
+        self, paper: Paper, state: PaperState
     ) -> None:
         update_object(paper, state=state)
 
@@ -203,10 +210,10 @@ class TestPaperServiceUpdatePaper:
 
     @pytest.mark.parametrize(
         "state",
-        [state for state in Paper.State if state not in Paper.State.decided()],
+        [state for state in PaperState if state not in PaperState.decided()],
     )
     def test_track_admin_mode_allows_non_decided_state(
-        self, paper: Paper, state: Paper.State
+        self, paper: Paper, state: PaperState
     ) -> None:
         update_object(paper, state=state)
 
@@ -216,10 +223,8 @@ class TestPaperServiceUpdatePaper:
 
         assert updated.title == "Updated Title"
 
-    @pytest.mark.parametrize("state", Paper.State)
-    def test_admin_mode_allows_any_state(
-        self, paper: Paper, state: Paper.State
-    ) -> None:
+    @pytest.mark.parametrize("state", PaperState)
+    def test_admin_mode_allows_any_state(self, paper: Paper, state: PaperState) -> None:
         update_object(paper, state=state)
 
         updated = PaperService.update_paper(

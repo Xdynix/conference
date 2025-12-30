@@ -3,7 +3,7 @@ from django.db import IntegrityError
 from faker import Faker
 
 from app.conference.models import Conference, Paper, Review, Track
-from app.conference.models.review import MAX_SCORE, MIN_SCORE, AdminComment
+from app.conference.models.review import MAX_SCORE, MIN_SCORE, AdminComment, ReviewState
 from app.core.models import User
 
 
@@ -36,39 +36,39 @@ class TestReview:
         Review.objects.create(
             paper=paper,
             reviewer=user,
-            state=Review.State.PENDING,
+            state=ReviewState.PENDING,
         )
 
         with pytest.raises(IntegrityError):
             Review.objects.create(
                 paper=paper,
                 reviewer=user,
-                state=Review.State.ACCEPTED,
+                state=ReviewState.ACCEPTED,
             )
 
     def test_unique_active_allows_declined(self, user: User, paper: Paper) -> None:
         Review.objects.create(
             paper=paper,
             reviewer=user,
-            state=Review.State.DECLINED,
+            state=ReviewState.DECLINED,
         )
 
         Review.objects.create(
             paper=paper,
             reviewer=user,
-            state=Review.State.PENDING,
+            state=ReviewState.PENDING,
         )
 
     def test_unique_active_allows_offline_reviews(self, paper: Paper) -> None:
         Review.objects.create(
             paper=paper,
             reviewer=None,
-            state=Review.State.PENDING,
+            state=ReviewState.PENDING,
         )
         Review.objects.create(
             paper=paper,
             reviewer=None,
-            state=Review.State.PENDING,
+            state=ReviewState.PENDING,
         )
 
     def test_unique_offline_review(self, paper: Paper) -> None:
@@ -76,7 +76,7 @@ class TestReview:
             paper=paper,
             reviewer=None,
             offline_reviewer_name="Dr. External",
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
         )
 
         with pytest.raises(IntegrityError):
@@ -84,7 +84,7 @@ class TestReview:
                 paper=paper,
                 reviewer=None,
                 offline_reviewer_name="Dr. External",
-                state=Review.State.SUBMITTED,
+                state=ReviewState.SUBMITTED,
             )
 
     def test_unique_offline_allows_different_papers(
@@ -106,14 +106,14 @@ class TestReview:
             paper=paper,
             reviewer=None,
             offline_reviewer_name="Dr. External",
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
         )
 
         Review.objects.create(
             paper=other_paper,
             reviewer=None,
             offline_reviewer_name="Dr. External",
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
         )
 
     def test_unique_offline_allows_empty_name(self, paper: Paper) -> None:
@@ -121,14 +121,14 @@ class TestReview:
             paper=paper,
             reviewer=None,
             offline_reviewer_name="",
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
         )
 
         Review.objects.create(
             paper=paper,
             reviewer=None,
             offline_reviewer_name="",
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
         )
 
     def test_unique_offline_only_applies_to_offline_reviews(
@@ -140,14 +140,14 @@ class TestReview:
             paper=paper,
             reviewer=user,
             offline_reviewer_name="Dr. External",
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
         )
 
         Review.objects.create(
             paper=paper,
             reviewer=None,
             offline_reviewer_name="Dr. External",
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
         )
 
     @pytest.mark.parametrize(

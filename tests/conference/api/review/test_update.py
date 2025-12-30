@@ -15,6 +15,8 @@ from app.conference.models import (
     ConferenceRoleAssignment,
     Paper,
     Review,
+    ReviewAssignmentLevel,
+    ReviewState,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -30,7 +32,7 @@ def review(paper: Paper, user: User) -> Review:
     return Review.objects.create(
         paper=paper,
         reviewer=user,
-        state=Review.State.ACCEPTED,
+        state=ReviewState.ACCEPTED,
     )
 
 
@@ -89,7 +91,7 @@ class TestUpdateMyReview:
                 "code": review.paper.code,
                 "title": review.paper.title,
             },
-            "state": Review.State.ACCEPTED,
+            "state": ReviewState.ACCEPTED,
             "originality": 5,
             "significance": 4,
             "technical": 5,
@@ -271,7 +273,7 @@ class TestUpdateMyReview:
         conference: Conference,
         review: Review,
     ) -> None:
-        update_object(review, state=Review.State.CANCELLED)
+        update_object(review, state=ReviewState.CANCELLED)
         api_client.force_login(user)
 
         response = api_client.patch(
@@ -417,13 +419,13 @@ class TestUpdateReview:
                 "code": review.paper.code,
                 "title": review.paper.title,
             },
-            "state": Review.State.ACCEPTED,
+            "state": ReviewState.ACCEPTED,
             "reviewer": {
                 "uid": str(user.uid),
                 "email": user.email,
             },
             "offline_reviewer_name": "",
-            "assignment_level": Review.AssignmentLevel.CONFERENCE,
+            "assignment_level": ReviewAssignmentLevel.CONFERENCE,
             "originality": 5,
             "significance": 4,
             "contribution": "Admin edited.",

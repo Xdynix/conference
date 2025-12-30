@@ -16,7 +16,7 @@ class TestUnsubmitReview:
         return Review.objects.create(
             paper=paper,
             reviewer=user,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             submit_time=timezone.now(),
         )
 
@@ -24,7 +24,7 @@ class TestUnsubmitReview:
         result = ReviewService.unsubmit_review(review)
 
         db_result = Review.objects.get(pk=result.pk)
-        assert result.state == db_result.state == Review.State.ACCEPTED
+        assert result.state == db_result.state == ReviewState.ACCEPTED
         assert result.submit_time is None
         assert db_result.submit_time is None
 
@@ -54,7 +54,7 @@ class TestUnsubmitReview:
         review = Review.objects.create(
             paper=paper,
             reviewer=None,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             submit_time=timezone.now(),
             offline_reviewer_name="Offline Reviewer",
         )
@@ -66,7 +66,7 @@ class TestUnsubmitReview:
             ReviewService.unsubmit_review(review)
 
         review.refresh_from_db()
-        assert review.state == Review.State.SUBMITTED
+        assert review.state == ReviewState.SUBMITTED
         assert review.submit_time is not None
 
     def test_inactive_conference_raises_error(

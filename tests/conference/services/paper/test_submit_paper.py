@@ -8,6 +8,7 @@ from app.conference.models import (
     Keyword,
     Paper,
     PaperAuthor,
+    PaperState,
     PaperSubmission,
     Track,
 )
@@ -82,7 +83,7 @@ class TestPaperServiceSubmitPaper:
         submitted = PaperService.submit_paper(paper)
 
         db_submitted = Paper.objects.get(pk=submitted.pk)
-        assert submitted.state == db_submitted.state == Paper.State.SUBMITTED
+        assert submitted.state == db_submitted.state == PaperState.SUBMITTED
         assert submitted.submit_time == db_submitted.submit_time == approx_now()
 
     def test_non_strict_mode_with_minimal_fields(
@@ -102,7 +103,7 @@ class TestPaperServiceSubmitPaper:
         submitted = PaperService.submit_paper(paper, strict=False)
 
         db_submitted = Paper.objects.get(pk=submitted.pk)
-        assert submitted.state == db_submitted.state == Paper.State.SUBMITTED
+        assert submitted.state == db_submitted.state == PaperState.SUBMITTED
         assert submitted.submit_time == db_submitted.submit_time == approx_now()
 
     def test_non_strict_mode_requires_title(self, paper: Paper) -> None:
@@ -114,7 +115,7 @@ class TestPaperServiceSubmitPaper:
         assert exc_info.value.errors == [{"title": "Title is required."}]
 
         paper.refresh_from_db()
-        assert paper.state == Paper.State.DRAFT
+        assert paper.state == PaperState.DRAFT
         assert paper.submit_time is None
 
     def test_raises_when_paper_is_withdrawn(self, user: User, paper: Paper) -> None:
@@ -130,7 +131,7 @@ class TestPaperServiceSubmitPaper:
             PaperService.submit_paper(paper)
 
         paper.refresh_from_db()
-        assert paper.state == Paper.State.DRAFT
+        assert paper.state == PaperState.DRAFT
         assert paper.submit_time is None
 
     def test_withdrawn_paper_reports_withdrawn_even_when_not_draft(
@@ -143,7 +144,7 @@ class TestPaperServiceSubmitPaper:
         self.add_author(paper, corresponding=True)
         update_object(
             paper,
-            state=Paper.State.SUBMITTED,
+            state=PaperState.SUBMITTED,
             submit_time=timezone.now(),
             withdraw_time=timezone.now(),
         )
@@ -156,13 +157,13 @@ class TestPaperServiceSubmitPaper:
 
     @pytest.mark.parametrize(
         "state",
-        [state for state in Paper.State if state != Paper.State.DRAFT],
+        [state for state in PaperState if state != PaperState.DRAFT],
     )
     def test_rejects_non_draft_state(
         self,
         user: User,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         self.add_keyword(paper)
         self.add_submission(paper, user)

@@ -1,7 +1,7 @@
 import pytest
 from django.utils import timezone
 
-from app.conference.models import Conference, Paper, Track
+from app.conference.models import Conference, Paper, PaperState, Track
 from app.conference.services import PaperService
 from app.conference.services.paper import PaperStateError, PaperWithdrawnError
 from app.core.models import User
@@ -41,16 +41,16 @@ class TestPaperServiceDeletePaper:
     @pytest.mark.parametrize(
         "state",
         [
-            Paper.State.UNDER_REVIEW,
-            Paper.State.REJECTED,
-            Paper.State.ACCEPTED,
-            Paper.State.ACCEPTED_REVISION_NEEDED,
+            PaperState.UNDER_REVIEW,
+            PaperState.REJECTED,
+            PaperState.ACCEPTED,
+            PaperState.ACCEPTED_REVISION_NEEDED,
         ],
     )
     def test_author_mode_rejects_non_deletable_state(
         self,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state)
 
@@ -63,9 +63,9 @@ class TestPaperServiceDeletePaper:
         paper.refresh_from_db()
         assert paper.delete_time is None
 
-    @pytest.mark.parametrize("state", [Paper.State.DRAFT, Paper.State.SUBMITTED])
+    @pytest.mark.parametrize("state", [PaperState.DRAFT, PaperState.SUBMITTED])
     def test_author_mode_allows_draft_and_submitted(
-        self, paper: Paper, state: Paper.State
+        self, paper: Paper, state: PaperState
     ) -> None:
         update_object(paper, state=state)
 
@@ -73,9 +73,9 @@ class TestPaperServiceDeletePaper:
 
         assert deleted.delete_time is not None
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_track_admin_mode_rejects_decided_state(
-        self, paper: Paper, state: Paper.State
+        self, paper: Paper, state: PaperState
     ) -> None:
         update_object(paper, state=state)
 
@@ -93,10 +93,10 @@ class TestPaperServiceDeletePaper:
 
     @pytest.mark.parametrize(
         "state",
-        [state for state in Paper.State if state not in Paper.State.decided()],
+        [state for state in PaperState if state not in PaperState.decided()],
     )
     def test_track_admin_mode_allows_non_decided_state(
-        self, paper: Paper, state: Paper.State
+        self, paper: Paper, state: PaperState
     ) -> None:
         update_object(paper, state=state)
 
@@ -104,10 +104,8 @@ class TestPaperServiceDeletePaper:
 
         assert deleted.delete_time is not None
 
-    @pytest.mark.parametrize("state", Paper.State)
-    def test_admin_mode_allows_any_state(
-        self, paper: Paper, state: Paper.State
-    ) -> None:
+    @pytest.mark.parametrize("state", PaperState)
+    def test_admin_mode_allows_any_state(self, paper: Paper, state: PaperState) -> None:
         update_object(paper, state=state)
 
         deleted = PaperService.delete_paper(paper=paper, mode="admin")

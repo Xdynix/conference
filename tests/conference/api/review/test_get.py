@@ -17,6 +17,8 @@ from app.conference.models import (
     PaperSubmission,
     Profile,
     Review,
+    ReviewAssignmentLevel,
+    ReviewState,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -55,7 +57,7 @@ class TestGetMyReview:
         )
         update_object(
             review,
-            state=Review.State.ACCEPTED,
+            state=ReviewState.ACCEPTED,
             originality=4,
             significance=3,
             technical=5,
@@ -90,7 +92,7 @@ class TestGetMyReview:
                     "display_name": f"{paper.code}.pdf",
                 },
             },
-            "state": Review.State.ACCEPTED,
+            "state": ReviewState.ACCEPTED,
             "originality": 4,
             "significance": 3,
             "technical": 5,
@@ -154,7 +156,7 @@ class TestGetMyReview:
         conference: Conference,
         review: Review,
     ) -> None:
-        update_object(review, state=Review.State.CANCELLED)
+        update_object(review, state=ReviewState.CANCELLED)
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name, review.uid))
@@ -316,9 +318,9 @@ class TestGetReview:
         review = Review.objects.create(
             paper=paper,
             reviewer=reviewer,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             assigner=conference_chair,
-            assignment_level=Review.AssignmentLevel.CONFERENCE,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
             originality=4,
             significance=3,
             technical=5,
@@ -354,7 +356,7 @@ class TestGetReview:
                     "display_name": f"{paper.code}.pdf",
                 },
             },
-            "state": Review.State.SUBMITTED,
+            "state": ReviewState.SUBMITTED,
             "reviewer": {
                 "uid": str(reviewer.uid),
                 "email": reviewer.email,
@@ -376,7 +378,7 @@ class TestGetReview:
                     "region_code": "",
                 },
             },
-            "assignment_level": Review.AssignmentLevel.CONFERENCE,
+            "assignment_level": ReviewAssignmentLevel.CONFERENCE,
             "originality": 4,
             "significance": 3,
             "technical": 5,

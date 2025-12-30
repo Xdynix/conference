@@ -15,6 +15,7 @@ from app.conference.models import (
     Paper,
     Profile,
     Review,
+    ReviewState,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -137,7 +138,7 @@ class TestListReviewerCandidates:
         Review.objects.create(
             paper=paper,
             reviewer=conference_reviewer,
-            state=Review.State.PENDING,
+            state=ReviewState.PENDING,
         )
         api_client.force_login(conference_chair)
 
@@ -159,7 +160,7 @@ class TestListReviewerCandidates:
         Review.objects.create(
             paper=paper,
             reviewer=conference_reviewer,
-            state=Review.State.DECLINED,
+            state=ReviewState.DECLINED,
         )
         api_client.force_login(conference_chair)
 
@@ -203,17 +204,17 @@ class TestListReviewerCandidates:
         Review.objects.create(
             paper=other_paper1,
             reviewer=conference_reviewer,
-            state=Review.State.PENDING,
+            state=ReviewState.PENDING,
         )
         Review.objects.create(
             paper=other_paper2,
             reviewer=conference_reviewer,
-            state=Review.State.ACCEPTED,
+            state=ReviewState.ACCEPTED,
         )
         Review.objects.create(
             paper=other_paper3,
             reviewer=conference_reviewer,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
         )
         api_client.force_login(conference_chair)
 

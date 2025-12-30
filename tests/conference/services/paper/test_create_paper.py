@@ -2,7 +2,7 @@ import pytest
 from django.db import IntegrityError
 from pytest_mock import MockerFixture
 
-from app.conference.models import Conference, Keyword, Paper, Track
+from app.conference.models import Conference, Keyword, Paper, PaperState, Track
 from app.conference.services import PaperService
 from app.conference.services.paper import AuthorData, NoCodePoolError
 from app.core.models import User
@@ -32,7 +32,7 @@ class TestPaperServiceCreatePaper:
         assert paper.title == db_paper.title == "Test Paper"
         assert paper.abstract == db_paper.abstract == "Test abstract"
         assert paper.contribution == db_paper.contribution == "Test contribution"
-        assert paper.state == db_paper.state == Paper.State.DRAFT
+        assert paper.state == db_paper.state == PaperState.DRAFT
         assert paper.code == db_paper.code == "TEST-001"
 
     def test_generates_sequential_codes(

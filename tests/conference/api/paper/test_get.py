@@ -17,9 +17,11 @@ from app.conference.models import (
     PaperAuthor,
     PaperFinal,
     PaperLabel,
+    PaperState,
     PaperSubmission,
     Profile,
     Review,
+    ReviewState,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -103,7 +105,7 @@ class TestGetMyPaper:
                 "display_name": track.display_name,
             },
             "code": paper.code,
-            "state": Paper.State.DRAFT,
+            "state": PaperState.DRAFT,
             "title": paper.title,
             "abstract": "This is the abstract",
             "contribution": "This is the contribution",
@@ -251,14 +253,14 @@ class TestGetMyPaper:
         response = api_client.get(self.path(conference.name, "PAPER-001"))
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
-    @pytest.mark.parametrize("state", Paper.State)
+    @pytest.mark.parametrize("state", PaperState)
     def test_visible_state_when_announced(
         self,
         api_client: Client,
         user: User,
         conference: Conference,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         update_object(paper, state=state, announce_time=timezone.now())
         api_client.force_login(user)
@@ -273,13 +275,13 @@ class TestGetMyPaper:
         ("actual_state", "expected_state"),
         [
             # Non-decided states show actual state.
-            (Paper.State.DRAFT, Paper.State.DRAFT),
-            (Paper.State.SUBMITTED, Paper.State.SUBMITTED),
-            (Paper.State.UNDER_REVIEW, Paper.State.UNDER_REVIEW),
+            (PaperState.DRAFT, PaperState.DRAFT),
+            (PaperState.SUBMITTED, PaperState.SUBMITTED),
+            (PaperState.UNDER_REVIEW, PaperState.UNDER_REVIEW),
             # Decided states masked to "Under Review".
-            (Paper.State.REJECTED, Paper.State.UNDER_REVIEW),
-            (Paper.State.ACCEPTED, Paper.State.UNDER_REVIEW),
-            (Paper.State.ACCEPTED_REVISION_NEEDED, Paper.State.UNDER_REVIEW),
+            (PaperState.REJECTED, PaperState.UNDER_REVIEW),
+            (PaperState.ACCEPTED, PaperState.UNDER_REVIEW),
+            (PaperState.ACCEPTED_REVISION_NEEDED, PaperState.UNDER_REVIEW),
         ],
     )
     def test_visible_state_when_not_announced(
@@ -288,8 +290,8 @@ class TestGetMyPaper:
         user: User,
         conference: Conference,
         paper: Paper,
-        actual_state: Paper.State,
-        expected_state: Paper.State,
+        actual_state: PaperState,
+        expected_state: PaperState,
     ) -> None:
         update_object(paper, state=actual_state, announce_time=None)
         api_client.force_login(user)
@@ -494,8 +496,8 @@ class TestGetPaper:
             },
             "code": paper.code,
             "create_time": any_str,
-            "state": Paper.State.DRAFT,
-            "visible_state": Paper.State.DRAFT,
+            "state": PaperState.DRAFT,
+            "visible_state": PaperState.DRAFT,
             "owner": {
                 "uid": str(conference_chair.uid),
                 "email": "admin@example.com",
@@ -608,7 +610,7 @@ class TestGetPaper:
         paper: Paper,
         mock_visible_papers: AsyncMock,
     ) -> None:
-        update_object(paper, state=Paper.State.REJECTED, announce_time=None)
+        update_object(paper, state=PaperState.REJECTED, announce_time=None)
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         api_client.force_login(conference_chair)
 
@@ -616,8 +618,8 @@ class TestGetPaper:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert data["state"] == Paper.State.REJECTED
-        assert data["visible_state"] == Paper.State.UNDER_REVIEW
+        assert data["state"] == PaperState.REJECTED
+        assert data["visible_state"] == PaperState.UNDER_REVIEW
 
     def test_authorization_unauthenticated(
         self,
@@ -755,9 +757,9 @@ class TestGetPaper:
         mock_visible_papers: AsyncMock,
         mock_visible_reviews: AsyncMock,
     ) -> None:
-        Review.objects.create(paper=paper, state=Review.State.PENDING)
-        Review.objects.create(paper=paper, state=Review.State.ACCEPTED)
-        Review.objects.create(paper=paper, state=Review.State.SUBMITTED)
+        Review.objects.create(paper=paper, state=ReviewState.PENDING)
+        Review.objects.create(paper=paper, state=ReviewState.ACCEPTED)
+        Review.objects.create(paper=paper, state=ReviewState.SUBMITTED)
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         mock_visible_reviews.return_value = Review.objects.filter(paper=paper)
         api_client.force_login(conference_chair)
@@ -783,7 +785,7 @@ class TestGetPaper:
         mock_visible_papers: AsyncMock,
         mock_visible_reviews: AsyncMock,
     ) -> None:
-        for state in Review.State:
+        for state in ReviewState:
             Review.objects.create(paper=paper, state=state)
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         mock_visible_reviews.return_value = Review.objects.filter(paper=paper)
@@ -812,9 +814,9 @@ class TestGetPaper:
     ) -> None:
         visible_review = Review.objects.create(
             paper=paper,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
         )
-        Review.objects.create(paper=paper, state=Review.State.PENDING)
+        Review.objects.create(paper=paper, state=ReviewState.PENDING)
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
         mock_visible_reviews.return_value = Review.objects.filter(pk=visible_review.pk)
         api_client.force_login(conference_chair)
@@ -858,12 +860,12 @@ class TestGetPaper:
     ) -> None:
         Review.objects.create(
             paper=paper,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             recommendation=4,
         )
         Review.objects.create(
             paper=paper,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             recommendation=5,
         )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
@@ -888,12 +890,12 @@ class TestGetPaper:
     ) -> None:
         Review.objects.create(
             paper=paper,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             recommendation=4,
         )
         Review.objects.create(
             paper=paper,
-            state=Review.State.ACCEPTED,
+            state=ReviewState.ACCEPTED,
             recommendation=2,
         )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
@@ -918,12 +920,12 @@ class TestGetPaper:
     ) -> None:
         Review.objects.create(
             paper=paper,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             recommendation=4,
         )
         Review.objects.create(
             paper=paper,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             recommendation=None,
         )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
@@ -948,22 +950,22 @@ class TestGetPaper:
     ) -> None:
         Review.objects.create(
             paper=paper,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             recommendation=5,
         )
         Review.objects.create(
             paper=paper,
-            state=Review.State.PENDING,
+            state=ReviewState.PENDING,
             recommendation=1,
         )
         Review.objects.create(
             paper=paper,
-            state=Review.State.DECLINED,
+            state=ReviewState.DECLINED,
             recommendation=1,
         )
         Review.objects.create(
             paper=paper,
-            state=Review.State.CANCELLED,
+            state=ReviewState.CANCELLED,
             recommendation=1,
         )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)

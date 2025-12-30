@@ -15,6 +15,7 @@ from app.conference.models import (
     ConferenceRoleAssignment,
     Paper,
     Review,
+    ReviewState,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -33,7 +34,7 @@ def review(paper: Paper, user: User) -> Review:
     return Review.objects.create(
         paper=paper,
         reviewer=user,
-        state=Review.State.ACCEPTED,
+        state=ReviewState.ACCEPTED,
     )
 
 
@@ -60,7 +61,7 @@ class TestSubmitMyReview:
         review_service_submit: MagicMock,
     ) -> None:
         def submit_side_effect(r: Review, *_: Any, **__: Any) -> Review:
-            r.state = Review.State.SUBMITTED
+            r.state = ReviewState.SUBMITTED
             r.save(update_fields=["state"])
             return r
 
@@ -72,7 +73,7 @@ class TestSubmitMyReview:
 
         data = response.json()
         assert data["uid"] == str(review.uid)
-        assert data["state"] == Review.State.SUBMITTED
+        assert data["state"] == ReviewState.SUBMITTED
         assert "assignment_level" not in data
 
         review_service_submit.assert_called_once_with(review, strict=True)
@@ -173,7 +174,7 @@ class TestSubmitMyReview:
         conference: Conference,
         review: Review,
     ) -> None:
-        update_object(review, state=Review.State.CANCELLED)
+        update_object(review, state=ReviewState.CANCELLED)
         api_client.force_login(user)
 
         response = api_client.post(self.path(conference.name, review.uid))
@@ -218,7 +219,7 @@ class TestSubmitReview:
         mock_visible_reviews: AsyncMock,
     ) -> None:
         def submit_side_effect(r: Review, *_: Any, **__: Any) -> Review:
-            r.state = Review.State.SUBMITTED
+            r.state = ReviewState.SUBMITTED
             r.save(update_fields=["state"])
             return r
 
@@ -231,7 +232,7 @@ class TestSubmitReview:
 
         data = response.json()
         assert data["uid"] == str(review.uid)
-        assert data["state"] == Review.State.SUBMITTED
+        assert data["state"] == ReviewState.SUBMITTED
         assert "assignment_level" in data
 
         review_service_submit.assert_called_once_with(review, strict=False)
@@ -422,7 +423,7 @@ def review_service_unsubmit(mocker: MockerFixture) -> MagicMock:
 class TestUnsubmitReview:
     @pytest.fixture(autouse=True)
     def review(self, review: Review) -> Review:
-        update_object(review, state=Review.State.SUBMITTED)
+        update_object(review, state=ReviewState.SUBMITTED)
         return review
 
     @classmethod
@@ -442,7 +443,7 @@ class TestUnsubmitReview:
         mock_visible_reviews: AsyncMock,
     ) -> None:
         def unsubmit_side_effect(r: Review) -> Review:
-            r.state = Review.State.ACCEPTED
+            r.state = ReviewState.ACCEPTED
             r.submit_time = None
             r.save(update_fields=["state", "submit_time"])
             return r
@@ -456,7 +457,7 @@ class TestUnsubmitReview:
 
         data = response.json()
         assert data["uid"] == str(review.uid)
-        assert data["state"] == Review.State.ACCEPTED
+        assert data["state"] == ReviewState.ACCEPTED
         assert "submit_time" not in data
         assert "assignment_level" in data
 

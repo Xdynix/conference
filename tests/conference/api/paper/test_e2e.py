@@ -14,6 +14,7 @@ from app.conference.models import (
     Keyword,
     Paper,
     PaperAuthor,
+    PaperState,
     Track,
 )
 from app.core.models import User
@@ -140,7 +141,7 @@ class TestPaperE2E:
         )
         assert response.status_code == HTTPStatus.CREATED
         data = response.json()
-        assert data["state"] == Paper.State.DRAFT
+        assert data["state"] == PaperState.DRAFT
         assert data["keywords"] == sorted([kw1.text, kw2.text])
         assert "submission" not in data
 
@@ -157,11 +158,11 @@ class TestPaperE2E:
 
         response = api_client.post(self.submit_path(conference.name, paper_code))
         assert response.status_code == HTTPStatus.OK
-        assert response.json()["state"] == Paper.State.SUBMITTED
+        assert response.json()["state"] == PaperState.SUBMITTED
 
         response = api_client.post(self.unsubmit_path(conference.name, paper_code))
         assert response.status_code == HTTPStatus.OK
-        assert response.json()["state"] == Paper.State.DRAFT
+        assert response.json()["state"] == PaperState.DRAFT
         assert Paper.objects.get(code=paper_code).submit_time is None
 
         response = api_client.patch(
@@ -191,7 +192,7 @@ class TestPaperE2E:
 
         response = api_client.post(self.submit_path(conference.name, paper_code))
         assert response.status_code == HTTPStatus.OK
-        assert response.json()["state"] == Paper.State.SUBMITTED
+        assert response.json()["state"] == PaperState.SUBMITTED
 
         response = api_client.post(self.withdraw_path(conference.name, paper_code))
         assert response.status_code == HTTPStatus.OK
@@ -214,7 +215,7 @@ class TestPaperE2E:
             owner=user,
             code="PAPER-001",
             title="A Novel Approach to Distributed Systems",
-            state=Paper.State.SUBMITTED,
+            state=PaperState.SUBMITTED,
         )
         PaperAuthor.objects.create(
             paper=paper,
@@ -236,10 +237,10 @@ class TestPaperE2E:
 
         response = api_client.post(
             self.decide_path(conference.name, paper.code),
-            data={"state": Paper.State.ACCEPTED, "note": "Great work!"},
+            data={"state": PaperState.ACCEPTED, "note": "Great work!"},
         )
         assert response.status_code == HTTPStatus.OK
-        assert response.json()["state"] == Paper.State.ACCEPTED
+        assert response.json()["state"] == PaperState.ACCEPTED
         assert "acceptance_letter_url" not in response.json()
 
         template = dedent(

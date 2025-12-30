@@ -83,12 +83,12 @@ async def list_reviewer_candidates(
     active_reviewers = Review.objects.filter(
         paper=paper,
         reviewer_id=OuterRef("pk"),
-        state__in=Review.State.active(),
+        state__in=ReviewState.active(),
     )
     declined_review = Review.objects.filter(
         paper=paper,
         reviewer_id=OuterRef("pk"),
-        state=Review.State.DECLINED,
+        state=ReviewState.DECLINED,
     )
 
     def workload_count(state: ReviewState) -> Coalesce:
@@ -114,9 +114,9 @@ async def list_reviewer_candidates(
         .exclude(pk=user.pk)
         .exclude(Exists(active_reviewers))
         .annotate(
-            pending_count=workload_count(Review.State.PENDING),
-            accepted_count=workload_count(Review.State.ACCEPTED),
-            submitted_count=workload_count(Review.State.SUBMITTED),
+            pending_count=workload_count(ReviewState.PENDING),
+            accepted_count=workload_count(ReviewState.ACCEPTED),
+            submitted_count=workload_count(ReviewState.SUBMITTED),
             has_declined=Exists(declined_review),
         )
     )

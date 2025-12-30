@@ -16,6 +16,7 @@ from app.conference.models import (
     Paper,
     PaperAuthor,
     PaperFinal,
+    PaperState,
     PaperSubmission,
     Profile,
     Review,
@@ -35,7 +36,7 @@ def create_paper(
     owner: User,
     *,
     code: str = "PAPER-001",
-    state: Paper.State = Paper.State.DRAFT,
+    state: PaperState = PaperState.DRAFT,
     title: str = "Test Paper",
     announce_time: datetime | None = None,
     delete_time: datetime | None = None,
@@ -111,7 +112,7 @@ class TestListMyPapers:
                     },
                     "code": paper.code,
                     "create_time": any_str,
-                    "state": Paper.State.DRAFT,
+                    "state": PaperState.DRAFT,
                     "title": paper.title,
                     "authors": [
                         {
@@ -332,14 +333,14 @@ class TestListMyPapers:
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
-    @pytest.mark.parametrize("state", Paper.State)
+    @pytest.mark.parametrize("state", PaperState)
     def test_visible_state_when_announced(
         self,
         api_client: Client,
         user: User,
         conference: Conference,
         track: Track,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         create_paper(
             conference,
@@ -361,13 +362,13 @@ class TestListMyPapers:
         ("actual_state", "expected_state"),
         [
             # Non-decided states show actual state.
-            (Paper.State.DRAFT, Paper.State.DRAFT),
-            (Paper.State.SUBMITTED, Paper.State.SUBMITTED),
-            (Paper.State.UNDER_REVIEW, Paper.State.UNDER_REVIEW),
+            (PaperState.DRAFT, PaperState.DRAFT),
+            (PaperState.SUBMITTED, PaperState.SUBMITTED),
+            (PaperState.UNDER_REVIEW, PaperState.UNDER_REVIEW),
             # Decided states masked to "Under Review".
-            (Paper.State.REJECTED, Paper.State.UNDER_REVIEW),
-            (Paper.State.ACCEPTED, Paper.State.UNDER_REVIEW),
-            (Paper.State.ACCEPTED_REVISION_NEEDED, Paper.State.UNDER_REVIEW),
+            (PaperState.REJECTED, PaperState.UNDER_REVIEW),
+            (PaperState.ACCEPTED, PaperState.UNDER_REVIEW),
+            (PaperState.ACCEPTED_REVISION_NEEDED, PaperState.UNDER_REVIEW),
         ],
     )
     def test_visible_state_when_not_announced(
@@ -376,8 +377,8 @@ class TestListMyPapers:
         user: User,
         conference: Conference,
         track: Track,
-        actual_state: Paper.State,
-        expected_state: Paper.State,
+        actual_state: PaperState,
+        expected_state: PaperState,
     ) -> None:
         create_paper(
             conference,
@@ -435,7 +436,7 @@ class TestListPapers:
             conference,
             track,
             conference_chair,
-            state=Paper.State.ACCEPTED,
+            state=PaperState.ACCEPTED,
         )
         PaperAuthor.objects.create(
             paper=paper,
@@ -473,8 +474,8 @@ class TestListPapers:
                     },
                     "code": paper.code,
                     "create_time": any_str,
-                    "state": Paper.State.ACCEPTED,
-                    "visible_state": Paper.State.UNDER_REVIEW,
+                    "state": PaperState.ACCEPTED,
+                    "visible_state": PaperState.UNDER_REVIEW,
                     "owner": {
                         "uid": str(conference_chair.uid),
                         "email": "admin@example.com",
@@ -599,7 +600,7 @@ class TestListPapers:
             conference,
             track,
             conference_chair,
-            state=Paper.State.REJECTED,
+            state=PaperState.REJECTED,
             announce_time=None,
         )
         mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
@@ -610,8 +611,8 @@ class TestListPapers:
 
         data = response.json()
         [paper_data] = data["items"]
-        assert paper_data["state"] == Paper.State.REJECTED
-        assert paper_data["visible_state"] == Paper.State.UNDER_REVIEW
+        assert paper_data["state"] == PaperState.REJECTED
+        assert paper_data["visible_state"] == PaperState.UNDER_REVIEW
 
     def test_authorization_unauthenticated(
         self,
@@ -750,14 +751,14 @@ class TestListPapers:
             track,
             conference_chair,
             code="PAPER-DRAFT",
-            state=Paper.State.DRAFT,
+            state=PaperState.DRAFT,
         )
         paper_submitted = create_paper(
             conference,
             track,
             conference_chair,
             code="PAPER-SUBMITTED",
-            state=Paper.State.SUBMITTED,
+            state=PaperState.SUBMITTED,
         )
         mock_visible_papers.return_value = Paper.objects.filter(
             pk__in=[paper_draft.pk, paper_submitted.pk]
@@ -766,7 +767,7 @@ class TestListPapers:
 
         response = api_client.get(
             self.path(conference.name),
-            {"state": Paper.State.SUBMITTED},
+            {"state": PaperState.SUBMITTED},
         )
         assert response.status_code == HTTPStatus.OK
 

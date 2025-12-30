@@ -14,7 +14,7 @@ def review(paper: Paper, user: User) -> Review:
     return Review.objects.create(
         paper=paper,
         reviewer=user,
-        state=Review.State.ACCEPTED,
+        state=ReviewState.ACCEPTED,
     )
 
 
@@ -179,7 +179,7 @@ class TestUpdateReviewAdminMode:
         )
 
     def test_happy_path_submitted_state(self, review: Review) -> None:
-        update_object(review, state=Review.State.SUBMITTED)
+        update_object(review, state=ReviewState.SUBMITTED)
 
         result = ReviewService.update_review(
             review,
@@ -195,11 +195,11 @@ class TestUpdateReviewAdminMode:
             == db_result.contribution
             == "Admin edited submitted review."
         )
-        assert result.state == db_result.state == Review.State.SUBMITTED
+        assert result.state == db_result.state == ReviewState.SUBMITTED
 
     @pytest.mark.parametrize(
         "state",
-        [Review.State.PENDING, Review.State.DECLINED, Review.State.CANCELLED],
+        [ReviewState.PENDING, ReviewState.DECLINED, ReviewState.CANCELLED],
     )
     def test_rejects_invalid_state(
         self,
@@ -221,7 +221,7 @@ class TestUpdateReviewAdminMode:
     def test_partial_update_preserves_existing(self, review: Review) -> None:
         update_object(
             review,
-            state=Review.State.SUBMITTED,
+            state=ReviewState.SUBMITTED,
             originality=3,
             significance=4,
             contribution="Original contribution.",

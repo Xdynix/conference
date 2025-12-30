@@ -10,7 +10,13 @@ from app.conference.auth import (
     has_any_conference_or_track_roles,
     has_any_conference_roles,
 )
-from app.conference.models import Conference, ConferenceRole, Review, TrackRole
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    Review,
+    ReviewState,
+    TrackRole,
+)
 from app.conference.services import ConferenceService, ReviewService
 from app.conference.services.review import (
     InvalidReviewStateError,
@@ -57,7 +63,7 @@ async def submit_my_review(
     reviews = (
         Review.objects.active()
         .filter(paper__conference=conference, reviewer=user)
-        .exclude(state=Review.State.CANCELLED)
+        .exclude(state=ReviewState.CANCELLED)
     )
 
     review = await aget_object_or_404(reviews, uid=review_uid)

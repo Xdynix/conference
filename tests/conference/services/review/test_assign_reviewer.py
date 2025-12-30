@@ -7,7 +7,10 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     Paper,
+    PaperState,
     Review,
+    ReviewAssignmentLevel,
+    ReviewState,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -48,11 +51,11 @@ class TestAssignReviewer:
         assert review.paper_id == db_review.paper_id == paper.id
         assert review.reviewer_id == db_review.reviewer_id == reviewer.id
         assert review.assigner_id == db_review.assigner_id == assigner.id
-        assert review.state == db_review.state == Review.State.PENDING
+        assert review.state == db_review.state == ReviewState.PENDING
         assert (
             review.assignment_level
             == db_review.assignment_level
-            == Review.AssignmentLevel.CONFERENCE
+            == ReviewAssignmentLevel.CONFERENCE
         )
 
     @pytest.mark.parametrize("reviewer_role", TrackRole.reviewers())
@@ -82,7 +85,7 @@ class TestAssignReviewer:
         assert (
             review.assignment_level
             == db_review.assignment_level
-            == Review.AssignmentLevel.CONFERENCE
+            == ReviewAssignmentLevel.CONFERENCE
         )
 
     @pytest.mark.parametrize("reviewer_role", TrackRole.reviewers())
@@ -108,7 +111,7 @@ class TestAssignReviewer:
         )
 
         assert review.reviewer == reviewer
-        assert review.assignment_level == Review.AssignmentLevel.TRACK
+        assert review.assignment_level == ReviewAssignmentLevel.TRACK
 
     def test_conference_mode_can_assign_superuser(
         self,
@@ -265,7 +268,7 @@ class TestAssignReviewer:
         paper: Paper,
     ) -> None:
         assigner = User.objects.create_user(username=faker.user_name())
-        assert paper.state == Paper.State.SUBMITTED
+        assert paper.state == PaperState.SUBMITTED
 
         ReviewService.assign_reviewer(
             paper=paper,
@@ -275,7 +278,7 @@ class TestAssignReviewer:
         )
 
         paper.refresh_from_db()
-        assert paper.state == Paper.State.UNDER_REVIEW
+        assert paper.state == PaperState.UNDER_REVIEW
 
     def test_does_not_transition_under_review_paper(
         self,
@@ -284,7 +287,7 @@ class TestAssignReviewer:
         paper: Paper,
     ) -> None:
         assigner = User.objects.create_user(username=faker.user_name())
-        paper.state = Paper.State.UNDER_REVIEW
+        paper.state = PaperState.UNDER_REVIEW
         paper.save()
 
         ReviewService.assign_reviewer(
@@ -295,7 +298,7 @@ class TestAssignReviewer:
         )
 
         paper.refresh_from_db()
-        assert paper.state == Paper.State.UNDER_REVIEW
+        assert paper.state == PaperState.UNDER_REVIEW
 
     def test_draft_paper_raises_error(
         self,
@@ -304,7 +307,7 @@ class TestAssignReviewer:
         paper: Paper,
     ) -> None:
         assigner = User.objects.create_user(username=faker.user_name())
-        update_object(paper, state=Paper.State.DRAFT)
+        update_object(paper, state=PaperState.DRAFT)
 
         with pytest.raises(
             PaperStateError,
@@ -337,13 +340,13 @@ class TestAssignReviewer:
                 mode="conference",
             )
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_announced_decided_paper_raises_error(
         self,
         faker: Faker,
         conference_reviewer: User,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         assigner = User.objects.create_user(username=faker.user_name())
         update_object(paper, state=state, announce_time=timezone.now())
@@ -359,13 +362,13 @@ class TestAssignReviewer:
                 mode="conference",
             )
 
-    @pytest.mark.parametrize("state", Paper.State.decided())
+    @pytest.mark.parametrize("state", PaperState.decided())
     def test_unannounced_decided_paper_allows_assignment(
         self,
         faker: Faker,
         conference_reviewer: User,
         paper: Paper,
-        state: Paper.State,
+        state: PaperState,
     ) -> None:
         assigner = User.objects.create_user(username=faker.user_name())
         update_object(paper, state=state, announce_time=None)
@@ -388,7 +391,7 @@ class TestAssignReviewer:
         paper: Paper,
     ) -> None:
         assigner = User.objects.create_user(username=faker.user_name())
-        update_object(paper, state=Paper.State.UNDER_REVIEW)
+        update_object(paper, state=PaperState.UNDER_REVIEW)
 
         review = ReviewService.assign_reviewer(
             paper=paper,

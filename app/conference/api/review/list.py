@@ -1,7 +1,13 @@
 from django.shortcuts import aget_object_or_404
 
 from app.conference.auth import has_any_conference_or_track_roles
-from app.conference.models import Conference, ConferenceRole, Review, TrackRole
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    Review,
+    ReviewState,
+    TrackRole,
+)
 from app.conference.services import ConferenceService, PaperService, ReviewService
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole
@@ -32,7 +38,7 @@ async def list_my_reviews(
     reviews = (
         Review.objects.active()
         .filter(paper__conference=conference, reviewer=user)
-        .exclude(state=Review.State.CANCELLED)
+        .exclude(state=ReviewState.CANCELLED)
         .order_by("uid")
     )
 
