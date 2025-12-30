@@ -1,12 +1,21 @@
 from http import HTTPStatus
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
 
-from app.conference.models import CodePool, Conference, Keyword, Paper, Track
+from app.conference.models import (
+    AcceptanceLetter,
+    CodePool,
+    Conference,
+    Keyword,
+    Paper,
+    PaperAuthor,
+    Track,
+)
 from app.core.models import User
 from tests.helpers import any_str
 
@@ -75,6 +84,24 @@ class TestPaperE2E:
     def withdraw_path(cls, conference_name: str, paper_code: str) -> str:
         return reverse(
             "api-1.0.0:withdraw-my-paper",
+            args=[conference_name, paper_code],
+        )
+
+    @classmethod
+    def decide_path(cls, conference_name: str, paper_code: str) -> str:
+        return reverse(
+            "api-1.0.0:decide-paper",
+            args=[conference_name, paper_code],
+        )
+
+    @classmethod
+    def generate_acceptance_letter_path(
+        cls,
+        conference_name: str,
+        paper_code: str,
+    ) -> str:
+        return reverse(
+            "api-1.0.0:generate-acceptance-letter",
             args=[conference_name, paper_code],
         )
 
@@ -172,3 +199,110 @@ class TestPaperE2E:
         assert data["state"] == "Withdrawn"
         assert data["withdraw_time"] is not None
         assert Paper.objects.get(code=paper_code).withdraw_time is not None
+
+    def test_acceptance_letter_flow(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        track: Track,
+        user: User,
+    ) -> None:
+        paper = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="PAPER-001",
+            title="A Novel Approach to Distributed Systems",
+            state=Paper.State.SUBMITTED,
+        )
+        PaperAuthor.objects.create(
+            paper=paper,
+            given_name="Alice",
+            family_name="Smith",
+            affiliation="University of Testing",
+            ordering=0,
+            corresponding=True,
+        )
+        PaperAuthor.objects.create(
+            paper=paper,
+            given_name="Bob",
+            family_name="Jones",
+            affiliation="Institute of Science",
+            ordering=1,
+        )
+
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.decide_path(conference.name, paper.code),
+            data={"state": Paper.State.ACCEPTED, "note": "Great work!"},
+        )
+        assert response.status_code == HTTPStatus.OK
+        assert response.json()["state"] == Paper.State.ACCEPTED
+        assert "acceptance_letter_url" not in response.json()
+
+        template = dedent(
+            """<html>
+            <body>
+            <h1>Acceptance Letter</h1>
+            <p>Dear Authors,</p>
+            <p>Your paper "{{ paper.title }}" ({{ paper.code }}) has been accepted.</p>
+            <h2>Authors</h2>
+            <ul>
+            {% for author in paper.authors.all() -%}
+            <li>{{ author.given_name }} {{ author.family_name }}</li>
+            {% endfor -%}
+            </ul>
+            </body>
+            </html>"""
+        )
+
+        response = api_client.post(
+            self.generate_acceptance_letter_path(conference.name, paper.code),
+            data={"template": template},
+        )
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+        assert data["acceptance_letter_url"] == any_str
+
+        acceptance_letter_url = data["acceptance_letter_url"]
+
+        letter = AcceptanceLetter.objects.get(paper=paper)
+        expected_html = dedent(
+            """<html>
+            <body>
+            <h1>Acceptance Letter</h1>
+            <p>Dear Authors,</p>
+            <p>Your paper "A Novel Approach to Distributed Systems" (PAPER-001) has been accepted.</p>
+            <h2>Authors</h2>
+            <ul>
+            <li>Alice Smith</li>
+            <li>Bob Jones</li>
+            </ul>
+            </body>
+            </html>"""  # noqa: E501
+        )
+        assert letter.rendered_html == expected_html
+
+        api_client.logout()
+
+        response = api_client.get(acceptance_letter_url)
+        assert response.status_code == HTTPStatus.OK
+        assert response["Content-Type"] == "text/html"
+        assert response.content.decode() == expected_html
+
+        api_client.force_login(conference_chair)
+
+        updated_template = "<p>Updated: {{ paper.code }}</p>"
+        response = api_client.post(
+            self.generate_acceptance_letter_path(conference.name, paper.code),
+            data={"template": updated_template},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        api_client.logout()
+
+        response = api_client.get(acceptance_letter_url)
+        assert response.status_code == HTTPStatus.OK
+        assert response.content == b"<p>Updated: PAPER-001</p>"
