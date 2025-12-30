@@ -1,4 +1,4 @@
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from typing import Literal, TypedDict
 
 from django.db import IntegrityError, transaction
@@ -440,6 +440,51 @@ class PaperService:
             ]
             if label_objects:
                 PaperLabel.objects.bulk_create(label_objects)
+
+    @classmethod
+    async def announce_papers(
+        cls,
+        conference: Conference,
+        codes: Sequence[str],
+    ) -> list[str]:
+        """Announce decisions for multiple papers.
+
+        Uses bulk UPDATE to set ``announce_time`` on eligible papers. A paper is
+        eligible if it:
+
+        - Has a decision (state is ACCEPTED, ACCEPTED_REVISION_NEEDED, or REJECTED).
+        - Is not withdrawn.
+        - Is not already announced.
+        - Has an acceptance letter (for accepted papers only).
+
+        Returns:
+            Codes of papers that were announced.
+        """
+        now = timezone.now()
+        papers = conference.papers.active().filter(
+            code__in=codes,
+            withdraw_time__isnull=True,
+        )
+
+        await papers.filter(
+            state=PaperState.REJECTED,
+            announce_time__isnull=True,
+        ).aupdate(announce_time=now, update_time=now)
+        await papers.filter(
+            state__in=[PaperState.ACCEPTED, PaperState.ACCEPTED_REVISION_NEEDED],
+            announce_time__isnull=True,
+            acceptance_letter__isnull=False,
+        ).aupdate(announce_time=now, update_time=now)
+
+        return [
+            code
+            async for code in papers.filter(
+                code__in=codes,
+                announce_time=now,
+            )
+            .order_by("code")
+            .values_list("code", flat=True)
+        ]
 
     @classmethod
     async def visible_papers(
