@@ -3,8 +3,9 @@ from ninja.pagination import paginate
 
 from app.conference.models import Conference
 from app.conference.services import ConferenceService
+from app.conference.types import ConferenceName
 from app.core.types import HttpRequest
-from app.ninja.pagination import CursorPagination
+from app.ninja.pagination import cursor_pagination
 
 from .core import ConferenceResponse, router
 
@@ -16,7 +17,7 @@ from .core import ConferenceResponse, router
     response=list[ConferenceResponse],
     summary="List Conferences",
 )
-@paginate(CursorPagination, cursor_field="name")
+@paginate(cursor_pagination(cursor_field="name", cursor_type=ConferenceName))
 async def list_conferences(request: HttpRequest) -> QuerySet[Conference]:
     """Return the conferences the current user may access plus the tracks they can see.
 

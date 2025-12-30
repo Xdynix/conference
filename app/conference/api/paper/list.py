@@ -5,6 +5,7 @@ from django.shortcuts import aget_object_or_404
 from ninja import Field, FilterSchema, Query
 from ninja.pagination import paginate
 from pydantic import AfterValidator, StringConstraints
+from ulid import ULID
 
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import (
@@ -18,7 +19,7 @@ from app.conference.services import ConferenceService, PaperService
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
-from app.ninja.pagination import CursorPagination
+from app.ninja.pagination import cursor_pagination
 from app.utils.label_selector import LabelSelector
 
 from .core import PaperResponse, UserPaperResponse, router, with_paper_prefetch
@@ -32,7 +33,7 @@ from .core import PaperResponse, UserPaperResponse, router, with_paper_prefetch
     summary="List My Papers",
     auth=is_authenticated,
 )
-@paginate(CursorPagination, cursor_field="uid")
+@paginate(cursor_pagination(cursor_field="uid", cursor_type=ULID))
 async def list_my_papers(
     request: AuthedHttpRequest,
     conference_name: str,
@@ -94,7 +95,7 @@ class ListPapersFilters(FilterSchema):
         )
     ),
 )
-@paginate(CursorPagination, cursor_field="uid")
+@paginate(cursor_pagination(cursor_field="uid", cursor_type=ULID))
 async def list_papers(
     request: AuthedHttpRequest,
     conference_name: str,

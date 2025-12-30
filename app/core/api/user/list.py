@@ -11,22 +11,19 @@ from app.core.models import GlobalRole, User
 from app.core.registry.search_user import search_user_registry
 from app.core.registry.user_response import user_response_registry
 from app.core.types import AuthedHttpRequest, EmailStr, Username
-from app.ninja.pagination import CursorPagination
+from app.ninja.pagination import cursor_pagination
 
 from .core import UserResponse, router
 
 
-class UserPaginator(CursorPagination[User, ULID]):
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(cursor_field="uid", **kwargs)
-
+class UserPaginator(cursor_pagination(cursor_field="uid", cursor_type=ULID)):  # type: ignore[misc]
     async def make_page(
         self,
         items: list[Any],
-        pagination: CursorPagination.Input[ULID],
+        pagination: Any,
         request: HttpRequest,
     ) -> dict[str, Any]:
-        page = await super().make_page(items, pagination, request)
+        page: dict[str, Any] = await super().make_page(items, pagination, request)
         page[self.items_attribute] = await user_response_registry.dump_many(
             page[self.items_attribute]
         )

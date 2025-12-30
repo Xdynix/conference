@@ -8,7 +8,7 @@ from ninja import NinjaAPI, Schema
 from ninja.pagination import paginate
 
 from app.core.models import User
-from app.ninja.pagination import CursorPagination
+from app.ninja.pagination import cursor_pagination
 from tests.base import URLConfTestCase, URLPatterns
 
 
@@ -35,8 +35,8 @@ class TestCursorPagination:
         req: HttpRequest,
     ) -> None:
         await create_users(["alpha", "bravo", "charlie", "delta"])
-        paginator = CursorPagination[User, str](cursor_field="username")
-        pagination = CursorPagination.Input[str](page_size=2, order="desc")
+        paginator = cursor_pagination(cursor_field="username")()
+        pagination = paginator.Input(page_size=2, order="desc")
 
         result = await paginator.apaginate_queryset(
             User.objects.all(),
@@ -53,8 +53,8 @@ class TestCursorPagination:
         req: HttpRequest,
     ) -> None:
         await create_users(["alpha", "bravo", "charlie", "delta"])
-        paginator = CursorPagination[User, str](cursor_field="username")
-        pagination = CursorPagination.Input[str](page_size=2, order="asc")
+        paginator = cursor_pagination(cursor_field="username")()
+        pagination = paginator.Input(page_size=2, order="asc")
 
         result = await paginator.apaginate_queryset(
             User.objects.all(),
@@ -71,8 +71,8 @@ class TestCursorPagination:
         req: HttpRequest,
     ) -> None:
         await create_users(["alpha", "bravo", "charlie", "delta"])
-        paginator = CursorPagination[User, str](cursor_field="username")
-        pagination = CursorPagination.Input[str](
+        paginator = cursor_pagination(cursor_field="username")()
+        pagination = paginator.Input(
             page_size=1,
             order="desc",
             page_token="charlie",  # noqa: S106
@@ -93,8 +93,8 @@ class TestCursorPagination:
         req: HttpRequest,
     ) -> None:
         await create_users(["alpha", "bravo", "charlie", "delta"])
-        paginator = CursorPagination[User, str](cursor_field="username")
-        pagination = CursorPagination.Input[str](
+        paginator = cursor_pagination(cursor_field="username")()
+        pagination = paginator.Input(
             page_size=1,
             order="asc",
             page_token="bravo",  # noqa: S106
@@ -115,8 +115,8 @@ class TestCursorPagination:
         req: HttpRequest,
     ) -> None:
         await create_users(["alpha", "bravo"])
-        paginator = CursorPagination[User, str](cursor_field="username")
-        pagination = CursorPagination.Input[str](page_size=5, order="desc")
+        paginator = cursor_pagination(cursor_field="username")()
+        pagination = paginator.Input(page_size=5, order="desc")
 
         result = await paginator.apaginate_queryset(
             User.objects.all(),
@@ -133,8 +133,8 @@ class TestCursorPagination:
         req: HttpRequest,
     ) -> None:
         await create_users(["alpha", "bravo"])
-        paginator = CursorPagination[User, str](cursor_field="username")
-        pagination = CursorPagination.Input[str](page_size=1, order="asc")
+        paginator = cursor_pagination(cursor_field="username")()
+        pagination = paginator.Input(page_size=1, order="asc")
 
         queryset = User.objects.order_by("date_joined")
         with pytest.warns(UserWarning):
@@ -155,7 +155,7 @@ class TestCursorPaginationAPIIntegration(URLConfTestCase):
             username: str
 
         @api.get(self.path, response=list[UserSchema])
-        @paginate(CursorPagination, cursor_field="username")
+        @paginate(cursor_pagination(cursor_field="username"))
         async def list_users(*_: Any) -> Any:
             return User.objects.all()
 

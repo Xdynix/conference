@@ -1,6 +1,7 @@
 from django.db.models import QuerySet
 from django.shortcuts import aget_object_or_404
 from ninja.pagination import paginate
+from ulid import ULID
 
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import (
@@ -12,7 +13,7 @@ from app.conference.services import RoleAssignmentService
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest
-from app.ninja.pagination import CursorPagination
+from app.ninja.pagination import cursor_pagination
 
 from .core import RoleAssignmentResponse, router, with_role_assignment_prefetch
 
@@ -29,7 +30,7 @@ from .core import RoleAssignmentResponse, router, with_role_assignment_prefetch
         )
     ),
 )
-@paginate(CursorPagination, cursor_field="uid")
+@paginate(cursor_pagination(cursor_field="uid", cursor_type=ULID))
 async def list_role_assignments(
     request: AuthedHttpRequest,
     conference_name: str,
