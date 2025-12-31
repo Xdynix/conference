@@ -402,6 +402,21 @@ ALLOWED_SUBMISSION_TYPES = {
     "application/msword": [".doc"],
 }
 
+MAX_FINAL_SOURCE_SIZE = 50 * 1024 * 1024
+
+ALLOWED_FINAL_SOURCE_TYPES = {
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
+        ".docx"
+    ],
+    "application/msword": [".doc"],
+    "application/zip": [".zip"],
+    "application/gzip": [".tgz", ".gz"],
+}
+
+MAX_FINAL_VIEWABLE_SIZE = MAX_SUBMISSION_SIZE
+
+ALLOWED_FINAL_VIEWABLE_TYPES = ALLOWED_SUBMISSION_TYPES
+
 # Monkeypatch
 
 monkeypatch_django_async_auth()

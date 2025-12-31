@@ -9,7 +9,10 @@ from ninja import File
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
 
-from app.conference.auth import has_any_conference_or_track_roles
+from app.conference.auth import (
+    has_any_conference_or_track_roles,
+    has_any_conference_roles,
+)
 from app.conference.models import (
     Conference,
     ConferenceRole,
@@ -23,6 +26,7 @@ from app.conference.services import (
     PaperService,
     RevisionService,
 )
+from app.conference.services.revision import FinalRevisionLimitError
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
@@ -174,6 +178,152 @@ async def create_submission(
         paper_code=paper.code,
         conference_name=conference.name,
         revision=submission.revision,
+        user_uid=str(user.uid),
+    )
+
+    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
+
+
+@router.post(
+    "/conferences/{slug:conference_name}/my-papers/{slug:paper_code}/finals",
+    response={
+        HTTPStatus.CREATED: UserPaperDetailResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
+        HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
+    },
+    summary="Create My Final",
+    auth=is_authenticated,
+)
+async def create_my_final(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    paper_code: str,
+    source_file: File[UploadedFile],
+    # NOTE: Django Ninja doesn't handle `File[T] | None` for optional file uploads;
+    # using `| None` causes the parameter to always resolve as None. Use `= None`
+    # default without union type annotation as a workaround.
+    viewable_file: File[UploadedFile] = None,  # type: ignore[assignment]
+) -> tuple[int, Paper]:
+    """Upload final version files for a paper.
+
+    Creates a new revision of the final. Only papers in Accepted or Accepted (Revision
+    Needed) state can have finals uploaded. The revision limit is enforced.
+    """
+    user = await request.auser()
+    conference = await aget_object_or_404(
+        await ConferenceService.visible_conferences(user),
+        name=conference_name,
+    )
+
+    paper = await aget_object_or_404(
+        conference.papers.active().filter(owner=user),
+        code=paper_code,
+    )
+
+    if paper.withdraw_time is not None:
+        raise HttpError(HTTPStatus.BAD_REQUEST, _("Withdrawn papers cannot be edited."))
+
+    if paper.visible_state not in (
+        PaperState.ACCEPTED,
+        PaperState.ACCEPTED_REVISION_NEEDED,
+    ):
+        raise HttpError(
+            HTTPStatus.BAD_REQUEST,
+            _("Finals can only be uploaded for accepted papers."),
+        )
+
+    try:
+        final = await sync_to_async(RevisionService.create_final)(
+            paper=paper,
+            source_file=source_file,
+            viewable_file=viewable_file,
+            uploader=user,
+            enforce_limit=True,
+            source_max_size=settings.MAX_FINAL_SOURCE_SIZE,
+            source_allowed_types=settings.ALLOWED_FINAL_SOURCE_TYPES,
+            viewable_max_size=settings.MAX_FINAL_VIEWABLE_SIZE,
+            viewable_allowed_types=settings.ALLOWED_FINAL_VIEWABLE_TYPES,
+        )
+    except FinalRevisionLimitError as exc:
+        raise HttpError(
+            HTTPStatus.BAD_REQUEST,
+            _("Final revision limit exceeded."),
+        ) from exc
+    except UploadValidationError as exc:
+        raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    logger.info(
+        "Final uploaded.",
+        paper_code=paper.code,
+        conference_name=conference.name,
+        revision=final.revision,
+        user_uid=str(user.uid),
+    )
+
+    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
+
+
+@router.post(
+    "/conferences/{slug:conference_name}/papers/{slug:paper_code}/finals",
+    response={
+        HTTPStatus.CREATED: PaperDetailResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
+        HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
+    },
+    summary="Create Final",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def create_final(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    paper_code: str,
+    source_file: File[UploadedFile],
+    # NOTE: Django Ninja doesn't handle `File[T] | None` for optional file uploads;
+    # using `| None` causes the parameter to always resolve as None. Use `= None`
+    # default without union type annotation as a workaround.
+    viewable_file: File[UploadedFile] = None,  # type: ignore[assignment]
+) -> tuple[int, Paper]:
+    """Upload final version files for a paper as an admin.
+
+    Admin uploads bypass the revision limit. Allows 4x the standard size limits.
+    """
+    user = await request.auser()
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+
+    paper = await aget_object_or_404(
+        conference.papers.active(),
+        code=paper_code,
+    )
+
+    if paper.withdraw_time is not None:
+        raise HttpError(HTTPStatus.BAD_REQUEST, _("Withdrawn papers cannot be edited."))
+
+    try:
+        final = await sync_to_async(RevisionService.create_final)(
+            paper=paper,
+            source_file=source_file,
+            viewable_file=viewable_file,
+            uploader=user,
+            enforce_limit=False,
+            source_max_size=settings.MAX_FINAL_SOURCE_SIZE * 4,
+            source_allowed_types=settings.ALLOWED_FINAL_SOURCE_TYPES,
+            viewable_max_size=settings.MAX_FINAL_VIEWABLE_SIZE * 4,
+            viewable_allowed_types=settings.ALLOWED_FINAL_VIEWABLE_TYPES,
+        )
+    except UploadValidationError as exc:
+        raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    logger.info(
+        "Final uploaded by admin.",
+        paper_code=paper.code,
+        conference_name=conference.name,
+        revision=final.revision,
         user_uid=str(user.uid),
     )
 

@@ -16,6 +16,7 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     Paper,
+    PaperFinal,
     PaperState,
     PaperSubmission,
     Track,
@@ -23,6 +24,7 @@ from app.conference.models import (
     TrackRoleAssignment,
 )
 from app.conference.services import PaperService, RevisionService
+from app.conference.services.revision import FinalRevisionLimitError
 from app.core.models import User
 from app.utils.files import FileTooLargeError, InvalidFileTypeError
 from tests.helpers import any_str, update_object
@@ -46,11 +48,22 @@ def sample_pdf(test_data_dir: Path) -> SimpleUploadedFile:
 
 
 @pytest.fixture
+def sample_zip(test_data_dir: Path) -> SimpleUploadedFile:
+    content = (test_data_dir / "sample.zip").read_bytes()
+    return SimpleUploadedFile("source.zip", content, content_type="application/zip")
+
+
+@pytest.fixture
 def revision_service_create_submission(mocker: MockerFixture) -> MagicMock:
     return mocker.spy(RevisionService, "create_submission")
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.fixture
+def revision_service_create_final(mocker: MockerFixture) -> MagicMock:
+    return mocker.spy(RevisionService, "create_final")
+
+
+@pytest.mark.django_db
 class TestCreateMySubmission:
     @classmethod
     def path(cls, conference_name: str, paper_code: str) -> str:
@@ -352,7 +365,7 @@ def mock_visible_papers(mocker: MockerFixture) -> AsyncMock:
     return mocker.patch.object(PaperService, "visible_papers")
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 class TestCreateSubmission:
     @classmethod
     def path(cls, conference_name: str, paper_code: str) -> str:
@@ -778,5 +791,684 @@ class TestCreateSubmission:
         response = client.post(
             self.path(conference.name, paper.code),
             data={"file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestCreateMyFinal:
+    @classmethod
+    def path(cls, conference_name: str, paper_code: str) -> str:
+        return reverse(
+            "api-1.0.0:create-my-final",
+            args=[conference_name, paper_code],
+        )
+
+    def test_happy_path(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+    ) -> None:
+        update_object(paper, state=PaperState.ACCEPTED, announce_time=timezone.now())
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        data = response.json()
+        assert data["uid"] == str(paper.uid)
+        assert data["code"] == paper.code
+        assert data["final"] == {
+            "uid": any_str,
+            "display_name": "PAPER-001.zip",
+        }
+
+        revision_service_create_final.assert_called_once()
+        call_kwargs = revision_service_create_final.call_args.kwargs
+        assert call_kwargs["paper"] == paper
+        assert call_kwargs["uploader"] == user
+        assert call_kwargs["source_file"].name == "source.zip"
+        assert call_kwargs["viewable_file"] is None
+        assert call_kwargs["enforce_limit"] is True
+
+        assert PaperFinal.objects.filter(paper=paper).count() == 1
+
+    def test_with_viewable_file(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        sample_pdf: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+    ) -> None:
+        update_object(paper, state=PaperState.ACCEPTED, announce_time=timezone.now())
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip, "viewable_file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        revision_service_create_final.assert_called_once()
+        call_kwargs = revision_service_create_final.call_args.kwargs
+        assert call_kwargs["source_file"].name == "source.zip"
+        assert call_kwargs["viewable_file"].name == "test.pdf"
+
+    @pytest.mark.parametrize(
+        "state",
+        [PaperState.ACCEPTED, PaperState.ACCEPTED_REVISION_NEEDED],
+    )
+    def test_allows_accepted_states(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+        state: PaperState,
+    ) -> None:
+        update_object(paper, state=state, announce_time=timezone.now())
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        revision_service_create_final.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "state",
+        [PaperState.ACCEPTED, PaperState.ACCEPTED_REVISION_NEEDED],
+    )
+    def test_rejects_accepted_but_not_announced(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+        state: PaperState,
+    ) -> None:
+        update_object(paper, state=state, announce_time=None)
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+
+        assert "accepted papers" in response.json()["message"]
+
+        revision_service_create_final.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "state",
+        [
+            PaperState.DRAFT,
+            PaperState.SUBMITTED,
+            PaperState.UNDER_REVIEW,
+            PaperState.REJECTED,
+        ],
+    )
+    def test_rejects_non_accepted_states(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+        state: PaperState,
+    ) -> None:
+        update_object(paper, state=state)
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+
+        assert "accepted papers" in response.json()["message"]
+
+        revision_service_create_final.assert_not_called()
+
+    def test_rejects_withdrawn_paper(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+    ) -> None:
+        update_object(paper, state=PaperState.ACCEPTED, withdraw_time=timezone.now())
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+
+        assert "Withdrawn" in response.json()["message"]
+
+        revision_service_create_final.assert_not_called()
+
+    def test_revision_limit_exceeded_returns_400(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        mocker.patch.object(
+            RevisionService,
+            "create_final",
+            side_effect=FinalRevisionLimitError,
+        )
+        update_object(paper, state=PaperState.ACCEPTED, announce_time=timezone.now())
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+
+        assert "limit exceeded" in response.json()["message"]
+
+    def test_file_too_large_returns_422(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        mocker.patch(
+            "app.conference.services.revision.validate_upload",
+            side_effect=FileTooLargeError("File size exceeds maximum allowed."),
+        )
+        update_object(paper, state=PaperState.ACCEPTED, announce_time=timezone.now())
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert "exceeds maximum" in response.json()["message"]
+
+    def test_invalid_file_type_returns_422(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        mocker.patch(
+            "app.conference.services.revision.validate_upload",
+            side_effect=InvalidFileTypeError("File type not allowed."),
+        )
+        update_object(paper, state=PaperState.ACCEPTED, announce_time=timezone.now())
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert "not allowed" in response.json()["message"]
+
+    def test_paper_not_found(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, "NONEXISTENT"),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_paper_owned_by_another_user(
+        self,
+        faker: Faker,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        other_user = User.objects.create_user(username=faker.user_name())
+        update_object(paper, owner=other_user, state=PaperState.ACCEPTED)
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_deleted_paper_not_accessible(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        update_object(paper, state=PaperState.ACCEPTED, delete_time=timezone.now())
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_not_found(
+        self,
+        client: Client,
+        user: User,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        client.force_login(user)
+
+        response = client.post(
+            self.path("nonexistent-conference", paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_not_visible_to_user(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        update_object(paper, state=PaperState.ACCEPTED)
+        update_object(conference, visibility=Conference.Visibility.MEMBER_ONLY)
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_inactive(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        update_object(paper, state=PaperState.ACCEPTED)
+        update_object(conference, active=False)
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_track_inactive(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        update_object(paper, state=PaperState.ACCEPTED)
+        update_object(track, active=False)
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_authorization_unauthenticated(
+        self,
+        client: Client,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+
+@pytest.mark.django_db
+class TestCreateFinal:
+    @classmethod
+    def path(cls, conference_name: str, paper_code: str) -> str:
+        return reverse(
+            "api-1.0.0:create-final",
+            args=[conference_name, paper_code],
+        )
+
+    def test_happy_path(
+        self,
+        client: Client,
+        settings: LazySettings,
+        conference: Conference,
+        conference_chair: User,
+        user: User,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+    ) -> None:
+        client.force_login(conference_chair)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        data = response.json()
+        assert data["uid"] == str(paper.uid)
+        assert data["code"] == paper.code
+        assert data["owner"]["uid"] == str(user.uid)
+        assert data["final"] == {
+            "uid": any_str,
+            "display_name": "PAPER-001.zip",
+        }
+
+        revision_service_create_final.assert_called_once()
+        call_kwargs = revision_service_create_final.call_args.kwargs
+        assert call_kwargs["paper"] == paper
+        assert call_kwargs["uploader"] == conference_chair
+        assert call_kwargs["source_file"].name == "source.zip"
+        assert call_kwargs["viewable_file"] is None
+        assert call_kwargs["enforce_limit"] is False
+        assert call_kwargs["source_max_size"] == settings.MAX_FINAL_SOURCE_SIZE * 4
+
+        assert PaperFinal.objects.filter(paper=paper).count() == 1
+
+    def test_with_viewable_file(
+        self,
+        client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        sample_pdf: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+    ) -> None:
+        client.force_login(conference_chair)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip, "viewable_file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        revision_service_create_final.assert_called_once()
+        call_kwargs = revision_service_create_final.call_args.kwargs
+        assert call_kwargs["source_file"].name == "source.zip"
+        assert call_kwargs["viewable_file"].name == "test.pdf"
+
+    def test_rejects_withdrawn_paper(
+        self,
+        client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+    ) -> None:
+        update_object(paper, withdraw_time=timezone.now())
+        client.force_login(conference_chair)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+
+        assert "Withdrawn" in response.json()["message"]
+
+        revision_service_create_final.assert_not_called()
+
+    def test_invalid_file_type_returns_422(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        mocker.patch(
+            "app.conference.services.revision.validate_upload",
+            side_effect=InvalidFileTypeError("File type not allowed."),
+        )
+        client.force_login(conference_chair)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert "not allowed" in response.json()["message"]
+
+    def test_paper_not_found(
+        self,
+        client: Client,
+        conference: Conference,
+        conference_chair: User,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        client.force_login(conference_chair)
+
+        response = client.post(
+            self.path(conference.name, "NONEXISTENT"),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_not_found(
+        self,
+        client: Client,
+        conference_chair: User,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        client.force_login(conference_chair)
+
+        response = client.post(
+            self.path("nonexistent-conference", "PAPER-001"),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_inactive_conference_not_found(
+        self,
+        client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        update_object(conference, active=False)
+        client.force_login(conference_chair)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_authorization_unauthenticated(
+        self,
+        client: Client,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_authorization_user_without_roles(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+    ) -> None:
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+        revision_service_create_final.assert_not_called()
+
+    def test_authorization_global_admin(
+        self,
+        client: Client,
+        global_admin: User,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+    ) -> None:
+        client.force_login(global_admin)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        revision_service_create_final.assert_called_once()
+
+    @pytest.mark.parametrize("conference_role", ConferenceRole.admins())
+    def test_authorization_conference_admin(
+        self,
+        faker: Faker,
+        client: Client,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+        conference_role: ConferenceRole,
+    ) -> None:
+        admin = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=admin,
+            role=conference_role,
+        )
+        client.force_login(admin)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        revision_service_create_final.assert_called_once()
+
+    @pytest.mark.parametrize("track_role", TrackRole.admins())
+    def test_authorization_track_admin_forbidden(
+        self,
+        faker: Faker,
+        client: Client,
+        conference: Conference,
+        track: Track,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        revision_service_create_final: MagicMock,
+        track_role: TrackRole,
+    ) -> None:
+        admin = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=admin,
+            role=track_role,
+        )
+        client.force_login(admin)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+        revision_service_create_final.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "non_admin_role",
+        [role for role in ConferenceRole if role not in ConferenceRole.admins()],
+    )
+    def test_authorization_conference_non_admin_forbidden(
+        self,
+        faker: Faker,
+        client: Client,
+        conference: Conference,
+        paper: Paper,
+        sample_zip: SimpleUploadedFile,
+        non_admin_role: ConferenceRole,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=non_admin_role,
+        )
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"source_file": sample_zip},
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
