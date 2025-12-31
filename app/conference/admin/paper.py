@@ -63,6 +63,7 @@ class PaperAdmin(admin.ModelAdmin[Paper]):
                     "track",
                     "code",
                     "owner",
+                    "final_revision_limit",
                 )
             },
         ),

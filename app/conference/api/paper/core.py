@@ -4,6 +4,7 @@ from urllib.parse import urljoin
 from django.db.models import (
     Avg,
     CharField,
+    Count,
     Exists,
     OuterRef,
     Prefetch,
@@ -37,9 +38,16 @@ router = Router(tags=["Paper"], exclude_none=True)
 
 
 class BasePaperResponse(PaperSchema):
+    final_revision_remaining: int
+
     @staticmethod
     def resolve_conference(paper: Paper) -> str:
         return paper.conference.name
+
+    @staticmethod
+    def resolve_final_revision_remaining(paper: Paper) -> int:
+        final_count: int = paper.final_count  # type: ignore[attr-defined]
+        return max(0, paper.final_revision_limit - final_count)
 
     @staticmethod
     def resolve_submission(paper: Paper) -> PaperSubmissionSchema | None:
@@ -107,6 +115,7 @@ class PaperResponse(BasePaperResponse):
     announce_time: AwareDatetime | None
     submit_time: AwareDatetime | None
     owner: ConferenceUser
+    final_revision_limit: int
     review_stat: ReviewStat
     recommendation_summary: RecommendationSummary
     labels: dict[str, str]
@@ -174,6 +183,7 @@ async def with_paper_prefetch(
             has_acceptance_letter=Exists(
                 AcceptanceLetter.objects.filter(paper=OuterRef("pk"))
             ),
+            final_count=Count("final"),
             api_base_url=Value(
                 request.build_absolute_uri("/"),
                 output_field=CharField(),

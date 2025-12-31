@@ -131,6 +131,11 @@ class Paper(TimeStampedModel, ULIDModel):
         related_name="+",
         verbose_name=_("keywords"),
     )
+    final_revision_limit = models.PositiveSmallIntegerField(
+        _("final revision limit"),
+        default=1,
+        help_text=_("Maximum number of final version uploads allowed for this paper."),
+    )
 
     objects = PaperQuerySet.as_manager()
 

@@ -130,6 +130,7 @@ class TestCreateDraft:
                     "corresponding": False,
                 },
             ],
+            "final_revision_remaining": 1,
             "create_time": approx_now(),
         }
 
@@ -533,6 +534,8 @@ class TestCreatePaper:
                     "corresponding": True,
                 },
             ],
+            "final_revision_limit": 1,
+            "final_revision_remaining": 1,
             "review_stat": {
                 "pending_count": 0,
                 "declined_count": 0,

@@ -130,6 +130,7 @@ class TestGetMyPaper:
                     "corresponding": True,
                 },
             ],
+            "final_revision_remaining": 0,
             "submission": {
                 "uid": str(submission.uid),
                 "display_name": f"{paper.code}.pdf",
@@ -524,6 +525,8 @@ class TestGetPaper:
                     "corresponding": False,
                 },
             ],
+            "final_revision_limit": 1,
+            "final_revision_remaining": 0,
             "submission": {
                 "uid": str(submission.uid),
                 "display_name": f"{paper.code}.pdf",

@@ -132,6 +132,7 @@ class TestUpdateMyPaper:
                     "corresponding": False,
                 },
             ],
+            "final_revision_remaining": 1,
             "create_time": any_str,
         }
 
@@ -501,6 +502,8 @@ class TestUpdatePaper:
             "contribution": "Original contribution",
             "keywords": ["AI", "ML"],
             "authors": [],
+            "final_revision_limit": 1,
+            "final_revision_remaining": 1,
             "review_stat": {
                 "pending_count": 0,
                 "declined_count": 0,
