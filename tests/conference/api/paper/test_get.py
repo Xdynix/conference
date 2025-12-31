@@ -140,6 +140,8 @@ class TestGetMyPaper:
                 "uid": str(final.uid),
                 "display_name": f"{paper.code}.zip",
                 "viewable_display_name": f"{paper.code}-viewable.pdf",
+                "download_url": any_str,
+                "viewable_download_url": any_str,
             },
             "create_time": any_str,
         }
@@ -536,6 +538,8 @@ class TestGetPaper:
                 "uid": str(final.uid),
                 "display_name": f"{paper.code}.zip",
                 "viewable_display_name": f"{paper.code}-viewable.pdf",
+                "download_url": any_str,
+                "viewable_download_url": any_str,
             },
             "review_stat": {
                 "pending_count": 0,

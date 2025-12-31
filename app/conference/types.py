@@ -292,6 +292,8 @@ class PaperFinal(Schema):
     uid: ULID
     display_name: str = Field(examples=["PAPER-1001.zip"])
     viewable_display_name: str | None = Field(examples=["PAPER-1001-viewable.pdf"])
+    download_url: HttpUrl
+    viewable_download_url: HttpUrl | None
 
 
 class Paper(Schema):

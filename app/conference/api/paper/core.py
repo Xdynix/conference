@@ -70,10 +70,24 @@ class BasePaperResponse(PaperSchema):
         latest: PaperFinal | None = next(iter(paper.latest_final), None)  # type: ignore[attr-defined]
         if latest is None:
             return None
+        base_url: str = paper.api_base_url  # type: ignore[attr-defined]
+        path = reverse(
+            "api-1.0.0:download-final-ex",
+            args=[latest.uid, latest.display_name],
+        )
+        viewable_download_url = None
+        if latest.viewable_display_name:
+            viewable_path = reverse(
+                "api-1.0.0:download-final-viewable-ex",
+                args=[latest.uid, latest.viewable_display_name],
+            )
+            viewable_download_url = HttpUrl(urljoin(base_url, viewable_path))
         return PaperFinalSchema(
             uid=latest.uid,
             display_name=latest.display_name,
             viewable_display_name=latest.viewable_display_name,
+            download_url=HttpUrl(urljoin(base_url, path)),
+            viewable_download_url=viewable_download_url,
         )
 
 

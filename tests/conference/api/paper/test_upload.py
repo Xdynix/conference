@@ -828,6 +828,7 @@ class TestCreateMyFinal:
         assert data["final"] == {
             "uid": any_str,
             "display_name": "PAPER-001.zip",
+            "download_url": any_str,
         }
 
         revision_service_create_final.assert_called_once()
@@ -1213,6 +1214,7 @@ class TestCreateFinal:
         assert data["final"] == {
             "uid": any_str,
             "display_name": "PAPER-001.zip",
+            "download_url": any_str,
         }
 
         revision_service_create_final.assert_called_once()
