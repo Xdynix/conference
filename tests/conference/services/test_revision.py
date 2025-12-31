@@ -17,6 +17,7 @@ from app.conference.models import (
     Track,
 )
 from app.conference.services import RevisionService
+from app.conference.services.revision import FinalRevisionLimitError
 from app.core.models import User
 from app.utils.files import FileTooLargeError
 from tests.helpers import update_object
@@ -499,3 +500,295 @@ class TestRevisionServiceCreateSubmission:
 
         assert PaperSubmission.objects.filter(pk=submission.pk).exists()
         assert paper.submissions.count() == 1
+
+
+@pytest.mark.django_db(transaction=True)
+class TestRevisionServiceCreateFinal:
+    @pytest.fixture(autouse=True)
+    def mock_validate(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.patch("app.conference.services.revision.validate_upload")
+
+    def test_creates_final_with_revision_one(
+        self,
+        paper: Paper,
+        user: User,
+    ) -> None:
+        source_file = SimpleUploadedFile("source.zip", b"source content")
+
+        final = RevisionService.create_final(
+            paper=paper,
+            source_file=source_file,
+            viewable_file=None,
+            uploader=user,
+            enforce_limit=False,
+        )
+
+        db_final = PaperFinal.objects.get(pk=final.pk)
+        assert db_final.paper == final.paper == paper
+        assert db_final.revision == final.revision == 1
+        assert db_final.uploader == final.uploader == user
+
+    def test_increments_revision_number(self, paper: Paper, user: User) -> None:
+        PaperFinal.objects.create(paper=paper, revision=1, source_file="old.zip")
+        source_file = SimpleUploadedFile("source.zip", b"content")
+
+        final = RevisionService.create_final(
+            paper=paper,
+            source_file=source_file,
+            viewable_file=None,
+            uploader=user,
+            enforce_limit=False,
+        )
+
+        assert final.revision == 2
+
+    def test_saves_source_file_to_disk(self, paper: Paper, user: User) -> None:
+        source_file = SimpleUploadedFile("source.zip", b"source content")
+
+        final = RevisionService.create_final(
+            paper=paper,
+            source_file=source_file,
+            viewable_file=None,
+            uploader=user,
+            enforce_limit=False,
+        )
+
+        assert Path(final.source_file.path).exists()
+        assert Path(final.source_file.path).read_bytes() == b"source content"
+
+    def test_saves_viewable_file_when_provided(self, paper: Paper, user: User) -> None:
+        source_file = SimpleUploadedFile("source.zip", b"source")
+        viewable_file = SimpleUploadedFile("viewable.pdf", b"viewable content")
+
+        final = RevisionService.create_final(
+            paper=paper,
+            source_file=source_file,
+            viewable_file=viewable_file,
+            uploader=user,
+            enforce_limit=False,
+        )
+
+        assert Path(final.source_file.path).exists()
+        assert Path(final.viewable_file.path).exists()
+        assert Path(final.viewable_file.path).read_bytes() == b"viewable content"
+
+    def test_calls_validate_upload_for_source_file(
+        self,
+        paper: Paper,
+        user: User,
+        mock_validate: MagicMock,
+    ) -> None:
+        source_file = SimpleUploadedFile("source.zip", b"content")
+        source_allowed_types = {"application/zip": [".zip"]}
+
+        RevisionService.create_final(
+            paper=paper,
+            source_file=source_file,
+            viewable_file=None,
+            uploader=user,
+            enforce_limit=False,
+            source_max_size=1000,
+            source_allowed_types=source_allowed_types,
+        )
+
+        mock_validate.assert_called_once_with(
+            source_file,
+            max_size=1000,
+            allowed_types=source_allowed_types,
+        )
+
+    def test_calls_validate_upload_for_both_files(
+        self,
+        paper: Paper,
+        user: User,
+        mock_validate: MagicMock,
+    ) -> None:
+        source_file = SimpleUploadedFile("source.zip", b"source")
+        viewable_file = SimpleUploadedFile("viewable.pdf", b"viewable")
+        source_allowed_types = {"application/zip": [".zip"]}
+        viewable_allowed_types = {"application/pdf": [".pdf"]}
+
+        RevisionService.create_final(
+            paper=paper,
+            source_file=source_file,
+            viewable_file=viewable_file,
+            uploader=user,
+            enforce_limit=False,
+            source_max_size=1000,
+            source_allowed_types=source_allowed_types,
+            viewable_max_size=500,
+            viewable_allowed_types=viewable_allowed_types,
+        )
+
+        assert mock_validate.call_count == 2
+        mock_validate.assert_any_call(
+            source_file,
+            max_size=1000,
+            allowed_types=source_allowed_types,
+        )
+        mock_validate.assert_any_call(
+            viewable_file,
+            max_size=500,
+            allowed_types=viewable_allowed_types,
+        )
+
+    def test_raises_validation_error_before_creating_record(
+        self,
+        paper: Paper,
+        user: User,
+        mock_validate: MagicMock,
+    ) -> None:
+        mock_validate.side_effect = FileTooLargeError("Too large")
+        source_file = SimpleUploadedFile("source.zip", b"content")
+
+        with pytest.raises(FileTooLargeError):
+            RevisionService.create_final(
+                paper=paper,
+                source_file=source_file,
+                viewable_file=None,
+                uploader=user,
+                enforce_limit=False,
+            )
+
+        assert not paper.finals.exists()
+
+    def test_cleans_up_source_file_on_database_error(
+        self,
+        mocker: MagicMock,
+        paper: Paper,
+        user: User,
+        media_root: Path,
+    ) -> None:
+        mocker.patch.object(
+            PaperFinal,
+            "save",
+            side_effect=RuntimeError("DB error"),
+        )
+        source_file = SimpleUploadedFile("source.zip", b"content")
+
+        with pytest.raises(RuntimeError, match="DB error"):
+            RevisionService.create_final(
+                paper=paper,
+                source_file=source_file,
+                viewable_file=None,
+                uploader=user,
+                enforce_limit=False,
+            )
+
+        zip_files = list(media_root.rglob("*.zip"))
+        assert len(zip_files) == 0
+
+    def test_cleans_up_both_files_on_database_error(
+        self,
+        mocker: MagicMock,
+        paper: Paper,
+        user: User,
+        media_root: Path,
+    ) -> None:
+        mocker.patch.object(
+            PaperFinal,
+            "save",
+            side_effect=RuntimeError("DB error"),
+        )
+        source_file = SimpleUploadedFile("source.zip", b"source")
+        viewable_file = SimpleUploadedFile("viewable.pdf", b"viewable")
+
+        with pytest.raises(RuntimeError, match="DB error"):
+            RevisionService.create_final(
+                paper=paper,
+                source_file=source_file,
+                viewable_file=viewable_file,
+                uploader=user,
+                enforce_limit=False,
+            )
+
+        zip_files = list(media_root.rglob("*.zip"))
+        pdf_files = list(media_root.rglob("*.pdf"))
+        assert len(zip_files) == 0
+        assert len(pdf_files) == 0
+
+    def test_enforces_limit_when_enabled(
+        self,
+        paper: Paper,
+        user: User,
+    ) -> None:
+        update_object(paper, final_revision_limit=1)
+        PaperFinal.objects.create(paper=paper, revision=1, source_file="existing.zip")
+
+        source_file = SimpleUploadedFile("new.zip", b"content")
+
+        with pytest.raises(FinalRevisionLimitError):
+            RevisionService.create_final(
+                paper=paper,
+                source_file=source_file,
+                viewable_file=None,
+                uploader=user,
+                enforce_limit=True,
+            )
+
+        assert paper.finals.count() == 1
+
+    def test_bypasses_limit_when_disabled(
+        self,
+        paper: Paper,
+        user: User,
+    ) -> None:
+        update_object(paper, final_revision_limit=1)
+        PaperFinal.objects.create(paper=paper, revision=1, source_file="existing.zip")
+
+        source_file = SimpleUploadedFile("new.zip", b"content")
+
+        final = RevisionService.create_final(
+            paper=paper,
+            source_file=source_file,
+            viewable_file=None,
+            uploader=user,
+            enforce_limit=False,
+        )
+
+        assert paper.finals.count() == 2
+        assert final.revision == 2
+
+    def test_allows_upload_when_under_limit(
+        self,
+        paper: Paper,
+        user: User,
+    ) -> None:
+        update_object(paper, final_revision_limit=2)
+        PaperFinal.objects.create(paper=paper, revision=1, source_file="existing.zip")
+
+        source_file = SimpleUploadedFile("new.zip", b"content")
+
+        final = RevisionService.create_final(
+            paper=paper,
+            source_file=source_file,
+            viewable_file=None,
+            uploader=user,
+            enforce_limit=True,
+        )
+
+        assert paper.finals.count() == 2
+        assert final.revision == 2
+
+    def test_limit_check_does_not_clean_up_file_on_error(
+        self,
+        paper: Paper,
+        user: User,
+        media_root: Path,
+    ) -> None:
+        update_object(paper, final_revision_limit=1)
+        PaperFinal.objects.create(paper=paper, revision=1, source_file="existing.zip")
+
+        source_file = SimpleUploadedFile("new.zip", b"content")
+
+        with pytest.raises(FinalRevisionLimitError):
+            RevisionService.create_final(
+                paper=paper,
+                source_file=source_file,
+                viewable_file=None,
+                uploader=user,
+                enforce_limit=True,
+            )
+
+        zip_files = list(media_root.rglob("new.zip"))
+        assert len(zip_files) == 0

@@ -13,6 +13,10 @@ from app.infra.models import Mutex
 from app.utils.files import validate_upload
 
 
+class FinalRevisionLimitError(Exception):
+    pass
+
+
 def unlink_safe(path: Path) -> None:
     """Delete a file, logging errors instead of raising."""
     try:
@@ -135,6 +139,96 @@ class RevisionService:
         except Exception:
             if new_file_path:
                 unlink_safe(new_file_path)
+            raise
+
+    @classmethod
+    def create_final(
+        cls,
+        *,
+        paper: Paper,
+        source_file: UploadedFile,
+        viewable_file: UploadedFile | None,
+        uploader: User,
+        enforce_limit: bool = True,
+        source_max_size: int = 0,
+        source_allowed_types: Mapping[str, Sequence[str]] | None = None,
+        viewable_max_size: int = 0,
+        viewable_allowed_types: Mapping[str, Sequence[str]] | None = None,
+    ) -> PaperFinal:
+        """Upload final version files for a paper.
+
+        Creates a new revision of the paper final. All revisions are preserved (no
+        cleanup).
+
+        Args:
+            paper: The paper to upload the final for.
+            source_file: The source file (required).
+            viewable_file: The viewable file (optional, typically PDF for viewing).
+            uploader: The user uploading the files.
+            enforce_limit: If ``True``, enforces ``paper.final_revision_limit``. Set to
+                ``False`` for admin uploads that bypass the limit.
+            source_max_size: Maximum allowed source file size in bytes.
+            source_allowed_types: Mapping of allowed MIME types to extensions for
+                source file.
+            viewable_max_size: Maximum allowed viewable file size in bytes.
+            viewable_allowed_types: Mapping of allowed MIME types to extensions for
+                viewable file.
+
+        Raises:
+            FinalRevisionLimitError: If limit is enforced and quota is exceeded.
+            UploadValidationError: If file validation fails.
+        """
+        # Validate before acquiring lock to avoid holding it during validation.
+        validate_upload(
+            source_file,
+            max_size=source_max_size,
+            allowed_types=source_allowed_types,
+        )
+        if viewable_file:
+            validate_upload(
+                viewable_file,
+                max_size=viewable_max_size,
+                allowed_types=viewable_allowed_types,
+            )
+
+        new_source_path: Path | None = None
+        new_viewable_path: Path | None = None
+
+        try:
+            with Mutex.lock_in_transaction(str(paper.pk), namespace="paper_finals"):
+                if enforce_limit:
+                    # Avoid `paper.finals` because prefetched data can make counts
+                    # stale.
+                    current_count = PaperFinal.objects.filter(paper=paper).count()
+                    if current_count >= paper.final_revision_limit:
+                        raise FinalRevisionLimitError
+
+                revision = cls.next_revision(PaperFinal, paper)
+
+                final = PaperFinal(
+                    paper=paper,
+                    revision=revision,
+                    uploader=uploader,
+                )
+                final.source_file.save(source_file.name, source_file, save=False)
+                new_source_path = Path(final.source_file.path)
+                if viewable_file:
+                    final.viewable_file.save(
+                        viewable_file.name,
+                        viewable_file,
+                        save=False,
+                    )
+                    new_viewable_path = Path(final.viewable_file.path)
+
+                final.save()
+
+                return final
+
+        except Exception:
+            if new_source_path:
+                unlink_safe(new_source_path)
+            if new_viewable_path:
+                unlink_safe(new_viewable_path)
             raise
 
 
