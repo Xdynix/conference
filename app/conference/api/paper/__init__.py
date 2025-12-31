@@ -11,6 +11,7 @@ from . import (  # noqa: F401
     get,
     labels,
     list,
+    relocate,
     submit,
     transfer,
     update,
