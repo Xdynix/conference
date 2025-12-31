@@ -12,6 +12,7 @@ from . import (  # noqa: F401
     labels,
     list,
     submit,
+    transfer,
     update,
     upload,
     withdraw,
