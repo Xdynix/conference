@@ -18,7 +18,7 @@ from app.conference.models import (
     Track,
 )
 from app.core.models import User
-from tests.helpers import any_str
+from tests.helpers import any_str, approx_now
 
 
 @pytest.fixture
@@ -105,6 +105,10 @@ class TestPaperE2E:
             "api-1.0.0:generate-acceptance-letter",
             args=[conference_name, paper_code],
         )
+
+    @classmethod
+    def announce_path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:announce-papers", args=[conference_name])
 
     def test_author_flow_submit_resubmit_withdraw(
         self,
@@ -201,7 +205,7 @@ class TestPaperE2E:
         assert data["withdraw_time"] is not None
         assert Paper.objects.get(code=paper_code).withdraw_time is not None
 
-    def test_acceptance_letter_flow(
+    def test_acceptance_and_announcement_flow(
         self,
         api_client: Client,
         conference: Conference,
@@ -307,3 +311,24 @@ class TestPaperE2E:
         response = api_client.get(acceptance_letter_url)
         assert response.status_code == HTTPStatus.OK
         assert response.content == b"<p>Updated: PAPER-001</p>"
+
+        api_client.force_login(conference_chair)
+
+        assert paper.announce_time is None
+
+        response = api_client.post(
+            self.announce_path(conference.name),
+            data={"codes": [paper.code]},
+        )
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == [paper.code]
+
+        paper.refresh_from_db()
+        assert paper.announce_time == approx_now()
+
+        response = api_client.post(
+            self.announce_path(conference.name),
+            data={"codes": [paper.code]},
+        )
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == []
