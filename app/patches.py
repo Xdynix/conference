@@ -87,6 +87,9 @@ def monkeypatch_django_ninja_openapi_examples() -> None:
 
 def monkeypatch_django_ninja_patch_dict() -> None:
     # TODO: Remove after vitalik/django-ninja#1592 released.
+    # TODO: This patch causes field constraints (minLength, maxLength) to appear twice
+    #  in OpenAPI schemas. The `field._copy()` preserves constraints in field metadata
+    #  (top level), while `annotation | None` embeds them in the anyOf variant.
     import ninja.patch_dict
     from ninja.patch_dict import (  # type: ignore[attr-defined]
         ModelToDict,

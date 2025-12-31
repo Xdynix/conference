@@ -25,6 +25,15 @@ from app.ninja.errors import ErrorResponse, make_validation_error
 
 from .core import PaperDetailResponse, prefetch_paper, router
 
+# TODO: Add PDF generation for acceptance letters. Current gap: HTML to PDF conversion
+#  requires either OS-level libraries (xhtml2pdf, WeasyPrint with system deps) or a
+#  headless browser (Playwright, Puppeteer), with no elegant pure Python solution.
+#
+# TODO: Add acceptance letter email sending endpoint.
+#
+# TODO: Add endpoint to upload externally generated PDF to be sent with the email, as a
+#  workaround until PDF generation is implemented.
+
 jinja_env = SandboxedEnvironment(
     autoescape=True,
     undefined=StrictUndefined,

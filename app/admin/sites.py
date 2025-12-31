@@ -29,3 +29,6 @@ class AdminSite(DefaultAdminSite):
         # data through unprotected queries.
         user = request.user
         return bool(user.is_active and user.is_superuser)
+
+
+# TODO: Integrate Cloudflare Turnstile with admin login view.
