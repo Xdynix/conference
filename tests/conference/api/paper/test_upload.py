@@ -22,8 +22,7 @@ from app.conference.models import (
     TrackRole,
     TrackRoleAssignment,
 )
-from app.conference.services import PaperService
-from app.conference.services.revision import RevisionService
+from app.conference.services import PaperService, RevisionService
 from app.core.models import User
 from app.utils.files import FileTooLargeError, InvalidFileTypeError
 from tests.helpers import any_str, update_object

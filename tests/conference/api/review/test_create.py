@@ -46,7 +46,7 @@ def review_service_assign(mocker: MockerFixture) -> MagicMock:
     return mocker.spy(ReviewService, "assign_reviewer")
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 class TestAssignReview:
     @classmethod
     def path(cls, conference_name: str, paper_code: str) -> str:

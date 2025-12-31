@@ -1,7 +1,7 @@
 import pytest
 
 from app.conference.models import Keyword, KeywordSet
-from app.conference.services.keyword import KeywordService
+from app.conference.services import KeywordService
 
 
 async def create_keywords(*texts: str) -> None:

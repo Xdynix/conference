@@ -14,8 +14,7 @@ from app.conference.models import (
     UserConferenceProfile,
 )
 from app.conference.models.review import ReviewState
-from app.conference.services import PaperService
-from app.conference.services.access import ConferenceAccessService
+from app.conference.services import ConferenceAccessService, PaperService
 from app.conference.types import ConferenceUser
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole, User

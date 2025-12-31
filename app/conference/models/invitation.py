@@ -104,10 +104,6 @@ class Invitation(
                 # manually edited.
                 name="invitation_invitee_user_requires_accept_time",
                 condition=Q(invitee_user__isnull=True) | Q(accept_time__isnull=False),
-                violation_error_code="invalid",
-                violation_error_message=_(
-                    "Invitee user may only be set on accepted invitations."
-                ),
             ),
         )
         indexes = (

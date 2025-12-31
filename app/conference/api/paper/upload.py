@@ -21,8 +21,8 @@ from app.conference.services import (
     ConferenceAccessService,
     ConferenceService,
     PaperService,
+    RevisionService,
 )
-from app.conference.services.revision import RevisionService
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest

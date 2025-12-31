@@ -196,7 +196,7 @@ class TestPreviewInvitationEmail:
         assert response.status_code == HTTPStatus.FORBIDDEN
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 class TestSendInvitations:
     @classmethod
     def path(cls, conference_name: str) -> str:

@@ -2,7 +2,6 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
-from django.conf import LazySettings
 from django.core.files.base import ContentFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
@@ -17,7 +16,7 @@ from app.conference.models import (
     PaperSubmission,
     Track,
 )
-from app.conference.services.revision import RevisionService
+from app.conference.services import RevisionService
 from app.core.models import User
 from app.utils.files import FileTooLargeError
 from tests.helpers import update_object
@@ -179,11 +178,6 @@ class TestRevisionServiceDeleteRevision:
 
 @pytest.mark.django_db(transaction=True)
 class TestRevisionServiceDeleteRevisionE2E:
-    @pytest.fixture(autouse=True)
-    def media_root(self, tmp_path: Path, settings: LazySettings) -> Path:
-        settings.MEDIA_ROOT = tmp_path
-        return tmp_path
-
     def test_deletes_file_on_commit(self, paper: Paper) -> None:
         submission = PaperSubmission(paper=paper, revision=1)
         submission.file.save("test.pdf", ContentFile(b"test content"))
@@ -264,11 +258,6 @@ class TestRevisionServiceDeleteRevisionE2E:
 
 @pytest.mark.django_db(transaction=True)
 class TestRevisionServiceCreateSubmission:
-    @pytest.fixture(autouse=True)
-    def media_root(self, tmp_path: Path, settings: LazySettings) -> Path:
-        settings.MEDIA_ROOT = tmp_path
-        return tmp_path
-
     @pytest.fixture(autouse=True)
     def mock_validate(self, mocker: MockerFixture) -> MagicMock:
         return mocker.patch("app.conference.services.revision.validate_upload")

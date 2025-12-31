@@ -30,7 +30,7 @@ def invitation_service_create(mocker: MockerFixture) -> MagicMock:
     return mocker.spy(InvitationService, "create_invitation")
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 class TestCreateInvitation:
     @classmethod
     def path(cls, conference_name: str) -> str:

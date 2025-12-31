@@ -318,10 +318,6 @@ class Migration(migrations.Migration):
                     _connector="OR",
                 ),
                 name="invitation_invitee_user_requires_accept_time",
-                violation_error_code="invalid",
-                violation_error_message=(
-                    "Invitee user may only be set on accepted invitations."
-                ),
             ),
         ),
         migrations.AddIndex(

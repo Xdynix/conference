@@ -3,18 +3,11 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from django.conf import LazySettings
 from django.contrib.auth import get_user_model
 from django.test import Client
 from faker import Faker
 
 User = get_user_model()
-
-
-@pytest.fixture
-def media_root(tmp_path: Path, settings: LazySettings) -> Path:
-    settings.MEDIA_ROOT = tmp_path
-    return tmp_path
 
 
 @pytest.fixture
