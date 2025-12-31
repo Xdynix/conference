@@ -3,6 +3,7 @@ from typing import Annotated, Literal
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
+from loguru import logger
 from ninja import Schema
 from ninja.errors import HttpError
 from pydantic import AwareDatetime, BeforeValidator, StringConstraints
@@ -126,5 +127,13 @@ async def decide_paper(
         )
     except PaperStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+
+    logger.info(
+        "Paper decision recorded.",
+        paper_code=paper.code,
+        conference_name=conference.name,
+        decision=payload.state,
+        user_uid=str(user.uid),
+    )
 
     return await prefetch_paper(conference, paper, user, request)

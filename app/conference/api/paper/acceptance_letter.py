@@ -5,6 +5,7 @@ from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from jinja2 import StrictUndefined, TemplateSyntaxError, UndefinedError
 from jinja2.sandbox import SandboxedEnvironment
+from loguru import logger
 from ninja import Field, Schema
 from ninja.errors import HttpError
 from ulid import ULID
@@ -101,6 +102,13 @@ async def generate_acceptance_letter(
     await AcceptanceLetter.objects.aupdate_or_create(
         paper=paper,
         defaults={"rendered_html": rendered_html},
+    )
+
+    logger.info(
+        "Acceptance letter generated.",
+        paper_code=paper.code,
+        conference_name=conference.name,
+        user_uid=str(user.uid),
     )
 
     return await prefetch_paper(conference, paper, user, request)
