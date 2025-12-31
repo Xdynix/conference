@@ -14,6 +14,7 @@ from app.conference.models import (
     PaperAuthor,
     PaperDecision,
     PaperDecisionState,
+    PaperFinal,
     PaperLabel,
     PaperState,
     ReviewAssignmentLevel,
@@ -565,6 +566,35 @@ class PaperService:
             return papers.none()
 
         return papers.filter(track_id__in=ctx.administered_track_ids)
+
+    @classmethod
+    def set_final_revision_limit(cls, paper: Paper, count: int) -> Paper:
+        """Set the final revision limit for a paper.
+
+        The effective limit is set to ``max(count, current_final_count)`` to avoid
+        putting the paper in an "over limit" state. Setting ``count`` below the current
+        final count effectively drains the remaining quota, preventing further author
+        uploads.
+
+        Raises:
+            Paper.DoesNotExist: If the paper has been deleted or deactivated.
+            PaperWithdrawnError: If the paper has been withdrawn.
+        """
+        with Mutex.lock_in_transaction(str(paper.pk), namespace="paper_finals"):
+            paper = Paper.objects.active().get(pk=paper.pk)
+
+            if paper.withdraw_time is not None:
+                raise PaperWithdrawnError(
+                    _("Cannot modify final revision limit for withdrawn papers.")
+                )
+
+            current_final_count = PaperFinal.objects.filter(paper=paper).count()
+            effective_limit = max(count, current_final_count)
+
+            paper.final_revision_limit = effective_limit
+            paper.save(update_fields=["final_revision_limit", "update_time"])
+
+            return paper
 
     @classmethod
     def _set_paper_keywords(cls, paper: Paper, keywords: Collection[Keyword]) -> None:
