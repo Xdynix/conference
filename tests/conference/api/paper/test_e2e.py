@@ -7,6 +7,7 @@ from django.conf import LazySettings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 
 from app.conference.models import (
     AcceptanceLetter,
@@ -15,6 +16,7 @@ from app.conference.models import (
     Keyword,
     Paper,
     PaperAuthor,
+    PaperFinal,
     PaperState,
     Track,
 )
@@ -51,6 +53,12 @@ def track(conference: Conference, code_pool: CodePool) -> Track:
 def sample_pdf(test_data_dir: Path) -> SimpleUploadedFile:
     content = (test_data_dir / "sample.pdf").read_bytes()
     return SimpleUploadedFile("sample.pdf", content, content_type="application/pdf")
+
+
+@pytest.fixture
+def sample_zip(test_data_dir: Path) -> SimpleUploadedFile:
+    content = (test_data_dir / "sample.zip").read_bytes()
+    return SimpleUploadedFile("source.zip", content, content_type="application/zip")
 
 
 @pytest.mark.django_db
@@ -115,6 +123,27 @@ class TestPaperE2E:
     @classmethod
     def announce_path(cls, conference_name: str) -> str:
         return reverse("api-1.0.0:announce-papers", args=[conference_name])
+
+    @classmethod
+    def create_my_final_path(cls, conference_name: str, paper_code: str) -> str:
+        return reverse(
+            "api-1.0.0:create-my-final",
+            args=[conference_name, paper_code],
+        )
+
+    @classmethod
+    def create_final_path(cls, conference_name: str, paper_code: str) -> str:
+        return reverse(
+            "api-1.0.0:create-final",
+            args=[conference_name, paper_code],
+        )
+
+    @classmethod
+    def set_final_limit_path(cls, conference_name: str, paper_code: str) -> str:
+        return reverse(
+            "api-1.0.0:set-paper-final-limit",
+            args=[conference_name, paper_code],
+        )
 
     def test_author_flow_submit_resubmit_withdraw(
         self,
@@ -343,3 +372,104 @@ class TestPaperE2E:
         )
         assert response.status_code == HTTPStatus.OK
         assert response.json() == []
+
+    def test_final_upload_download_and_limit_management(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        track: Track,
+        user: User,
+        sample_pdf: SimpleUploadedFile,
+        sample_zip: SimpleUploadedFile,
+    ) -> None:
+        paper = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="PAPER-002",
+            title="A Paper for Final Upload Testing",
+            state=PaperState.ACCEPTED,
+            final_revision_limit=1,
+            announce_time=timezone.now(),
+        )
+
+        api_client.force_login(user)
+
+        response = api_client.post.func(  # type: ignore[attr-defined]
+            self.create_my_final_path(conference.name, paper.code),
+            data={"source_file": sample_zip, "viewable_file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+        data = response.json()
+        assert data["final"]["uid"] == any_str
+        assert data["final"]["display_name"] == "PAPER-002.zip"
+        assert data["final"]["viewable_display_name"] == "PAPER-002-viewable.pdf"
+        assert data["final"]["download_url"] == any_str
+        assert data["final"]["viewable_download_url"] == any_str
+        assert data["final_revision_remaining"] == 0
+
+        final_uid = data["final"]["uid"]
+
+        download_response = api_client.get(data["final"]["download_url"])
+        assert download_response.status_code == HTTPStatus.OK
+        assert download_response["Content-Type"] == "application/zip"
+        sample_zip.seek(0)
+        assert b"".join(download_response.streaming_content) == sample_zip.read()  # type: ignore[attr-defined]
+
+        viewable_response = api_client.get(data["final"]["viewable_download_url"])
+        assert viewable_response.status_code == HTTPStatus.OK
+        assert viewable_response["Content-Type"] == "application/pdf"
+        sample_pdf.seek(0)
+        assert b"".join(viewable_response.streaming_content) == sample_pdf.read()  # type: ignore[attr-defined]
+
+        sample_zip.seek(0)
+        response = api_client.post.func(  # type: ignore[attr-defined]
+            self.create_my_final_path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert "limit exceeded" in response.json()["message"]
+
+        api_client.force_login(conference_chair)
+        response = api_client.post(
+            self.set_final_limit_path(conference.name, paper.code),
+            data={"count": 3},
+        )
+        assert response.status_code == HTTPStatus.OK
+        data = response.json()
+        assert data["final_revision_limit"] == 3
+        assert data["final_revision_remaining"] == 2
+
+        api_client.force_login(user)
+        sample_zip.seek(0)
+        response = api_client.post.func(  # type: ignore[attr-defined]
+            self.create_my_final_path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+        data = response.json()
+        assert data["final"]["uid"] != final_uid
+        assert data["final_revision_remaining"] == 1
+
+        assert PaperFinal.objects.filter(paper=paper).count() == 2
+
+        api_client.force_login(conference_chair)
+        sample_zip.seek(0)
+        response = api_client.post.func(  # type: ignore[attr-defined]
+            self.create_final_path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+        data = response.json()
+        assert data["final_revision_remaining"] == 0
+
+        sample_zip.seek(0)
+        response = api_client.post.func(  # type: ignore[attr-defined]
+            self.create_final_path(conference.name, paper.code),
+            data={"source_file": sample_zip},
+        )
+        assert response.status_code == HTTPStatus.CREATED
+        assert data["final_revision_remaining"] == 0
+
+        assert PaperFinal.objects.filter(paper=paper).count() == 4
