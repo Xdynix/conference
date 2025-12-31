@@ -3,6 +3,7 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
+from django.conf import LazySettings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client
 from django.urls import reverse
@@ -19,6 +20,11 @@ from app.conference.models import (
 )
 from app.core.models import User
 from tests.helpers import any_str, approx_now
+
+
+@pytest.fixture(autouse=True)
+def file_download_mode(settings: LazySettings) -> None:
+    settings.FILE_DOWNLOAD_MODE = "django"
 
 
 @pytest.fixture
