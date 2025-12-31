@@ -16,6 +16,7 @@ from app.conference.models import (
     PaperDecisionState,
     PaperLabel,
     PaperState,
+    ReviewAssignmentLevel,
     Track,
 )
 from app.core.models import GlobalRole, User
@@ -425,6 +426,50 @@ class PaperService:
                 decider=decider,
                 state=PaperDecisionState(state),
                 note=note,
+            )
+
+            return paper
+
+    @classmethod
+    def relocate_paper(cls, paper: Paper, target_track: Track) -> Paper:
+        """Relocate a paper to a different track within the same conference.
+
+        All existing reviews are promoted to CONFERENCE assignment level to prevent the
+        new track admin from cancelling pre-existing reviews.
+
+        Raises:
+            Paper.DoesNotExist: If the paper has been deleted or deactivated.
+            ValueError: If the target track is in a different conference or is the same
+                as the current track.
+        """
+        with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
+            paper = Paper.objects.active().get(pk=paper.pk)
+
+            if not target_track.active:
+                raise ValueError(_("Target track is not active."))
+            if target_track.conference_id != paper.conference_id:
+                raise ValueError(_("Target track must be in the same conference."))
+            if target_track.pk == paper.track_id:
+                raise ValueError(
+                    _("Target track must be different from current track.")
+                )
+
+            paper.track = target_track
+            paper.save(update_fields=["track", "update_time"])
+
+            # Promote track-level reviews to CONFERENCE level so the new track admin
+            # cannot cancel pre-existing reviews. The original track admin loses
+            # visibility since the paper moved.
+            #
+            # Caveat: The new track admin cannot see these promoted reviews. If they
+            # attempt to assign a reviewer who already has a review, the unique
+            # constraint on `(reviewer, paper)` will reject the assignment. The admin
+            # should coordinate with conference chairs to view existing assignments.
+            paper.reviews.filter(
+                assignment_level=ReviewAssignmentLevel.TRACK,
+            ).update(
+                assignment_level=ReviewAssignmentLevel.CONFERENCE,
+                update_time=timezone.now(),
             )
 
             return paper
