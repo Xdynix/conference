@@ -82,6 +82,7 @@ class TestCreateMySubmission:
         assert data["submission"] == {
             "uid": any_str,
             "display_name": "PAPER-001.pdf",
+            "download_url": any_str,
         }
 
         revision_service_create_submission.assert_called_once()
@@ -388,6 +389,7 @@ class TestCreateSubmission:
         assert data["submission"] == {
             "uid": any_str,
             "display_name": "PAPER-001.pdf",
+            "download_url": any_str,
         }
 
         revision_service_create_submission.assert_called_once()

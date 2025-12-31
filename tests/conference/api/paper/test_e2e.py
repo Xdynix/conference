@@ -160,6 +160,11 @@ class TestPaperE2E:
         assert submission["uid"] == any_str
         assert submission["display_name"] == f"{paper_code}.pdf"
 
+        download_response = api_client.get(submission["download_url"])
+        assert download_response.status_code == HTTPStatus.OK
+        sample_pdf.seek(0)
+        assert b"".join(download_response.streaming_content) == sample_pdf.read()  # type: ignore[attr-defined]
+
         response = api_client.post(self.submit_path(conference.name, paper_code))
         assert response.status_code == HTTPStatus.OK
         assert response.json()["state"] == PaperState.SUBMITTED

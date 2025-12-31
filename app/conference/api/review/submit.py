@@ -85,7 +85,7 @@ async def submit_my_review(
         user_uid=str(user.uid),
     )
 
-    return HTTPStatus.OK, await prefetch_review(review)
+    return HTTPStatus.OK, await prefetch_review(review, request)
 
 
 @router.post(
@@ -128,7 +128,7 @@ async def submit_review(
         admin_uid=str(user.uid),
     )
 
-    return await prefetch_review(review)
+    return await prefetch_review(review, request)
 
 
 @router.post(
@@ -178,4 +178,4 @@ async def unsubmit_review(
         admin_uid=str(user.uid),
     )
 
-    return await prefetch_review(review)
+    return await prefetch_review(review, request)

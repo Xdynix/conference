@@ -73,7 +73,7 @@ async def accept_review(
         reviewer_uid=user.uid,
     )
 
-    return await prefetch_review(review)
+    return await prefetch_review(review, request)
 
 
 @router.post(
@@ -120,7 +120,7 @@ async def decline_review(
         reviewer_uid=user.uid,
     )
 
-    return await prefetch_review(review)
+    return await prefetch_review(review, request)
 
 
 @router.post(
@@ -171,4 +171,4 @@ async def cancel_review(
         admin_uid=str(user.uid),
     )
 
-    return await prefetch_review(review)
+    return await prefetch_review(review, request)

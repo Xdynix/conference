@@ -36,7 +36,7 @@ from typing import Annotated, Literal
 
 from django.utils.translation import gettext as _
 from ninja import Field, Schema
-from pydantic import AwareDatetime, BeforeValidator, StringConstraints
+from pydantic import AwareDatetime, BeforeValidator, HttpUrl, StringConstraints
 from ulid import ULID
 
 from app.conference.models import Conference as ConferenceModel
@@ -285,6 +285,7 @@ class PaperAuthor(Profile):
 class PaperSubmission(Schema):
     uid: ULID
     display_name: str = Field(examples=["PAPER-1001.pdf"])
+    download_url: HttpUrl
 
 
 class PaperFinal(Schema):

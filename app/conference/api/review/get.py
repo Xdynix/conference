@@ -47,7 +47,7 @@ async def get_my_review(
     )
 
     review = await aget_object_or_404(reviews, uid=review_uid)
-    return await prefetch_review(review)
+    return await prefetch_review(review, request)
 
 
 @router.get(
@@ -81,4 +81,4 @@ async def get_review(
     reviews = await ReviewService.visible_reviews(conference=conference, user=user)
 
     review = await aget_object_or_404(reviews, uid=review_uid)
-    return await prefetch_review(review)
+    return await prefetch_review(review, request)

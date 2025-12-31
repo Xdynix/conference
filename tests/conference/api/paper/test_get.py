@@ -133,6 +133,7 @@ class TestGetMyPaper:
             "submission": {
                 "uid": str(submission.uid),
                 "display_name": f"{paper.code}.pdf",
+                "download_url": any_str,
             },
             "final": {
                 "uid": str(final.uid),
@@ -526,6 +527,7 @@ class TestGetPaper:
             "submission": {
                 "uid": str(submission.uid),
                 "display_name": f"{paper.code}.pdf",
+                "download_url": any_str,
             },
             "final": {
                 "uid": str(final.uid),

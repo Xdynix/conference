@@ -89,7 +89,7 @@ async def update_my_review(
         user_uid=str(user.uid),
     )
 
-    return await prefetch_review(updated)
+    return await prefetch_review(updated, request)
 
 
 @router.patch(
@@ -141,4 +141,4 @@ async def update_review(
         user_uid=str(user.uid),
     )
 
-    return await prefetch_review(updated)
+    return await prefetch_review(updated, request)

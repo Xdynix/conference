@@ -104,6 +104,7 @@ class TestAssignReview:
                 "submission": {
                     "uid": any_str,
                     "display_name": any_str,
+                    "download_url": any_str,
                 },
             },
             "state": ReviewState.PENDING,
@@ -475,6 +476,7 @@ class TestImportReview:
                 "submission": {
                     "uid": any_str,
                     "display_name": any_str,
+                    "download_url": any_str,
                 },
             },
             "state": ReviewState.SUBMITTED,

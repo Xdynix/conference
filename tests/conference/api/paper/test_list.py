@@ -137,6 +137,7 @@ class TestListMyPapers:
                     "submission": {
                         "uid": str(submission.uid),
                         "display_name": f"{paper.code}.pdf",
+                        "download_url": any_str,
                     },
                     "final": {
                         "uid": str(final.uid),
@@ -501,6 +502,7 @@ class TestListPapers:
                     "submission": {
                         "uid": str(submission.uid),
                         "display_name": f"{paper.code}.pdf",
+                        "download_url": any_str,
                     },
                     "final": {
                         "uid": str(final.uid),

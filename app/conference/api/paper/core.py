@@ -46,9 +46,15 @@ class BasePaperResponse(PaperSchema):
         latest: PaperSubmission | None = next(iter(paper.latest_submission), None)  # type: ignore[attr-defined]
         if latest is None:
             return None
+        base_url: str = paper.api_base_url  # type: ignore[attr-defined]
+        path = reverse(
+            "api-1.0.0:download-submission-ex",
+            args=[latest.uid, latest.display_name],
+        )
         return PaperSubmissionSchema(
             uid=latest.uid,
             display_name=latest.display_name,
+            download_url=HttpUrl(urljoin(base_url, path)),
         )
 
     @staticmethod

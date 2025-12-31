@@ -42,7 +42,7 @@ async def list_my_reviews(
         .order_by("uid")
     )
 
-    return [review async for review in with_review_prefetch(reviews)]
+    return [review async for review in with_review_prefetch(reviews, request)]
 
 
 @router.get(
@@ -81,4 +81,4 @@ async def list_reviews(
     reviews = await ReviewService.visible_reviews(conference=conference, user=user)
     reviews = reviews.filter(paper=paper).order_by("uid")
 
-    return [review async for review in with_review_prefetch(reviews)]
+    return [review async for review in with_review_prefetch(reviews, request)]

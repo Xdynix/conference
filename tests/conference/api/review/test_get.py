@@ -90,6 +90,7 @@ class TestGetMyReview:
                 "submission": {
                     "uid": str(submission.uid),
                     "display_name": f"{paper.code}.pdf",
+                    "download_url": any_str,
                 },
             },
             "state": ReviewState.ACCEPTED,
@@ -354,6 +355,7 @@ class TestGetReview:
                 "submission": {
                     "uid": str(submission.uid),
                     "display_name": f"{paper.code}.pdf",
+                    "download_url": any_str,
                 },
             },
             "state": ReviewState.SUBMITTED,

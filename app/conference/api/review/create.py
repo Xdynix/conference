@@ -125,7 +125,7 @@ async def assign_review(
         assigner_uid=user.uid,
     )
 
-    return HTTPStatus.CREATED, await prefetch_review(review)
+    return HTTPStatus.CREATED, await prefetch_review(review, request)
 
 
 class ImportReviewRequest(Schema):
@@ -222,4 +222,4 @@ async def import_review(
     )
 
     status = HTTPStatus.CREATED if created else HTTPStatus.OK
-    return status, await prefetch_review(review)
+    return status, await prefetch_review(review, request)
