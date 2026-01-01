@@ -1,3 +1,8 @@
+# Note: These endpoints do not use Mutex for simplicity. Concurrent operations may
+# result in slightly inconsistent ordering (e.g., gaps or duplicates in ordering
+# values). This is acceptable for these low-frequency admin operations; the secondary
+# sort by `display_name` ensures deterministic results.
+
 from http import HTTPStatus
 from typing import Annotated
 
@@ -237,3 +242,77 @@ async def delete_attendance_type(
     )
 
     return HTTPStatus.NO_CONTENT, None
+
+
+@router.post(
+    "/conferences/{slug:conference_name}/attendance-types:reorder",
+    response=list[AttendanceTypeResponse],
+    summary="Reorder Attendance Types",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
+    ),
+)
+async def reorder_attendance_types(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    payload: list[ULID],
+) -> list[AttendanceType]:
+    """Reorder attendance types by providing the complete list of UIDs in desired order.
+
+    All attendance types for the conference must be included exactly once.
+    """
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+
+    if len(payload) != len(set(payload)):
+        seen: set[ULID] = set()
+        duplicates: set[ULID] = set()
+        for uid in payload:
+            if uid in seen:
+                duplicates.add(uid)
+            seen.add(uid)
+        raise HttpError(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            _("Duplicate UIDs in payload: {uids}.").format(
+                uids=", ".join(str(uid) for uid in sorted(duplicates))
+            ),
+        )
+
+    existing_types = {at.uid: at async for at in conference.attendance_types.all()}
+    existing_uids = set(existing_types)
+    payload_uids = set(payload)
+
+    missing_uids = existing_uids - payload_uids
+    if missing_uids:
+        raise HttpError(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            _("Missing UIDs in payload: {uids}.").format(
+                uids=", ".join(str(uid) for uid in sorted(missing_uids))
+            ),
+        )
+
+    invalid_uids = payload_uids - existing_uids
+    if invalid_uids:
+        raise HttpError(
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            _("Invalid UIDs: {uids}.").format(
+                uids=", ".join(str(uid) for uid in sorted(invalid_uids))
+            ),
+        )
+
+    for ordering, uid in enumerate(payload):
+        attendance_type = existing_types[uid]
+        if attendance_type.ordering != ordering:
+            attendance_type.ordering = ordering
+            await attendance_type.asave(update_fields=["ordering"])
+
+    user = await request.auser()
+    logger.info(
+        "Attendance types reordered.",
+        conference_name=conference.name,
+        actor_uid=user.uid,
+    )
+
+    return [existing_types[uid] for uid in payload]

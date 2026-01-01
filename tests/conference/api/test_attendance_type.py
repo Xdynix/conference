@@ -950,3 +950,311 @@ class TestDeleteAttendanceType:
             self.path(conference.name, attendance_type.uid),
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestReorderAttendanceTypes:
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse(
+            "api-1.0.0:reorder-attendance-types",
+            args=[conference_name],
+        )
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        type_a = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Alpha",
+            ordering=0,
+        )
+        type_b = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Bravo",
+            ordering=1,
+        )
+        type_c = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Charlie",
+            ordering=2,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[str(type_c.uid), str(type_a.uid), str(type_b.uid)],
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert [item["uid"] for item in data] == [
+            str(type_c.uid),
+            str(type_a.uid),
+            str(type_b.uid),
+        ]
+
+        type_a.refresh_from_db()
+        type_b.refresh_from_db()
+        type_c.refresh_from_db()
+        assert type_c.ordering == 0
+        assert type_a.ordering == 1
+        assert type_b.ordering == 2
+
+    def test_no_changes_when_order_unchanged(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        type_a = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Alpha",
+            ordering=0,
+        )
+        type_b = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Bravo",
+            ordering=1,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[str(type_a.uid), str(type_b.uid)],
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        type_a.refresh_from_db()
+        type_b.refresh_from_db()
+        assert type_a.ordering == 0
+        assert type_b.ordering == 1
+
+    def test_empty_list_when_no_types(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[],
+        )
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == []
+
+    def test_duplicate_uids_rejected(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        type_a = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Alpha",
+        )
+        AttendanceType.objects.create(
+            conference=conference,
+            display_name="Bravo",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[str(type_a.uid), str(type_a.uid)],
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "Duplicate" in response.json()["message"]
+
+    def test_missing_uids_rejected(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        type_a = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Alpha",
+        )
+        type_b = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Bravo",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[str(type_a.uid)],
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert "Missing" in data["message"]
+        assert str(type_b.uid) in data["message"]
+
+    def test_invalid_uids_rejected(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        type_a = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Alpha",
+        )
+        api_client.force_login(global_admin)
+        fake_uid = ULID()
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[str(type_a.uid), str(fake_uid)],
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        assert "Invalid" in data["message"]
+        assert str(fake_uid) in data["message"]
+
+    def test_uids_from_other_conference_rejected(
+        self,
+        faker: Faker,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        type_a = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Alpha",
+        )
+        other_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        other_type = AttendanceType.objects.create(
+            conference=other_conference,
+            display_name="Other",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[str(type_a.uid), str(other_type.uid)],
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    def test_conference_not_found(
+        self,
+        api_client: Client,
+        global_admin: User,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path("nonexistent-conf"),
+            data=[],
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_chair_authorized(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+    ) -> None:
+        type_a = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Alpha",
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[str(type_a.uid)],
+        )
+        assert response.status_code == HTTPStatus.OK
+
+    def test_global_read_all_forbidden(
+        self,
+        api_client: Client,
+        global_read_all: User,
+        conference: Conference,
+    ) -> None:
+        type_a = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Alpha",
+        )
+        api_client.force_login(global_read_all)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[str(type_a.uid)],
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_chair_of_other_conference_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        other_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        user = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=other_conference,
+            user=user,
+            role=ConferenceRole.CHAIR,
+        )
+        type_a = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Alpha",
+        )
+        api_client.force_login(user)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[str(type_a.uid)],
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_unauthenticated(
+        self,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        type_a = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Alpha",
+        )
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[str(type_a.uid)],
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_unauthorized_user_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        type_a = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Alpha",
+        )
+        api_client.force_login(user)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=[str(type_a.uid)],
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
