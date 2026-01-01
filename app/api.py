@@ -1,4 +1,5 @@
 from app.conference.api.admin_comment import router as admin_comment_router
+from app.conference.api.attendance_type import router as attendance_type_router
 from app.conference.api.code_pool import router as code_pool_router
 from app.conference.api.conference import router as conference_router
 from app.conference.api.invitation import router as invitation_router
@@ -20,6 +21,7 @@ api = AppNinjaAPI.build()
 
 for router in (
     admin_comment_router,
+    attendance_type_router,
     code_pool_router,
     conference_router,
     conference_user_router,
