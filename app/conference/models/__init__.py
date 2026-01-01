@@ -1,6 +1,7 @@
 __all__ = (
     "AcceptanceLetter",
     "AdminComment",
+    "AttendanceType",
     "CodePool",
     "Conference",
     "ConferenceRole",
@@ -58,6 +59,7 @@ from .paper import (
     PaperVisibleState,
 )
 from .profile import Profile, UserConferenceProfile
+from .registration import AttendanceType
 from .review import AdminComment, Review, ReviewAssignmentLevel, ReviewState
 from .role import (
     ConferenceRole,

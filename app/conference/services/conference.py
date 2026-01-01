@@ -8,6 +8,7 @@ from django.db.models import Q, QuerySet
 from django.utils.translation import gettext as _
 
 from app.conference.models import (
+    AttendanceType,
     Conference,
     ConferenceRole,
     ConferenceVisibility,
@@ -18,6 +19,7 @@ from app.conference.models import (
     TrackRoleAssignment,
     TrackVisibility,
 )
+from app.conference.services import ConferenceAccessService
 from app.core.models import GlobalRole, User
 from app.infra.models import Mutex
 
@@ -403,3 +405,36 @@ class ConferenceService:
                         roles=", ".join(restricted_track_roles),
                     )
                 )
+
+    @classmethod
+    async def visible_attendance_types(
+        cls,
+        user: User,
+        conference: Conference,
+        global_readable: Collection[GlobalRole] = (
+            GlobalRole.ADMIN,
+            GlobalRole.READ_ALL,
+        ),
+    ) -> QuerySet[AttendanceType]:
+        """Return the queryset of attendance types visible to the user.
+
+        Visibility rules:
+
+        - Global admins and conference admins see all attendance types.
+        - If registration is disabled, regular users see an empty list.
+        - Otherwise, regular users see non-admin-only types.
+        """
+        attendance_types = AttendanceType.objects.filter(conference=conference)
+
+        ctx = await ConferenceAccessService.context(
+            conference=conference,
+            user=user,
+            global_roles=global_readable,
+        )
+        if ctx.has_full_conference_scope:
+            return attendance_types
+
+        if not conference.registration_enabled:
+            return attendance_types.none()
+
+        return attendance_types.filter(admin_only=False)

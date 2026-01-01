@@ -1,12 +1,19 @@
 from django.contrib import admin
 
 from app.conference.models import (
+    AttendanceType,
     CodePool,
     Conference,
     ConferenceRoleAssignment,
     Track,
     TrackRoleAssignment,
 )
+
+
+class AttendanceTypeInline(admin.TabularInline[AttendanceType, Conference]):
+    model = AttendanceType
+    extra = 0
+    readonly_fields = ("uid",)
 
 
 class ConferenceRoleAssignmentInline(
@@ -22,7 +29,7 @@ class ConferenceRoleAssignmentInline(
 class ConferenceAdmin(admin.ModelAdmin[Conference]):
     date_hierarchy = "create_time"
     filter_horizontal = ("keywords",)
-    inlines = (ConferenceRoleAssignmentInline,)
+    inlines = (AttendanceTypeInline, ConferenceRoleAssignmentInline)
     list_display = (
         "__str__",
         "display_name",
