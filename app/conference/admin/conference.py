@@ -23,8 +23,15 @@ class ConferenceAdmin(admin.ModelAdmin[Conference]):
     date_hierarchy = "create_time"
     filter_horizontal = ("keywords",)
     inlines = (ConferenceRoleAssignmentInline,)
-    list_display = ("__str__", "display_name", "visibility", "active", "create_time")
-    list_filter = ("active", "visibility")
+    list_display = (
+        "__str__",
+        "display_name",
+        "visibility",
+        "registration_enabled",
+        "active",
+        "create_time",
+    )
+    list_filter = ("active", "visibility", "registration_enabled")
     readonly_fields = ("create_time", "update_time")
     search_fields = ("name", "display_name")
 

@@ -29,6 +29,17 @@ class TestConferenceServiceUpdateConference:
             updated.visibility == db_updated.visibility == ConferenceVisibility.PUBLIC
         )
 
+    def test_update_registration_enabled(self, conference: Conference) -> None:
+        update_object(conference, registration_enabled=False)
+
+        updated = ConferenceService.update_conference(
+            name=conference.name,
+            registration_enabled=True,
+        )
+
+        db_updated = Conference.objects.get(pk=conference.pk)
+        assert updated.registration_enabled is db_updated.registration_enabled is True
+
     def test_update_keywords(self, conference: Conference) -> None:
         keyword1 = Keyword.objects.create(text="python")
         keyword2 = Keyword.objects.create(text="django")

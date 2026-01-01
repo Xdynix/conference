@@ -22,6 +22,7 @@ class ConferenceSchema(Schema):
     keywords: list[KeywordText] = Field(max_length=500)
     keyword_sets: list[KeywordSetName] = Field(max_length=50)
     visibility: ConferenceVisibility
+    registration_enabled: bool
 
 
 @router.patch(
@@ -64,6 +65,7 @@ async def update_conference(
             name=conference_name,
             display_name=payload.get("display_name"),
             visibility=payload.get("visibility"),
+            registration_enabled=payload.get("registration_enabled"),
             keywords=keywords,
             keyword_sets=keyword_sets,
         )

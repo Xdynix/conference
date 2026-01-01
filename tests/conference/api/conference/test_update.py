@@ -40,6 +40,7 @@ class TestUpdateConference:
             data={
                 "display_name": "Cyber Security Summit",
                 "visibility": ConferenceVisibility.PUBLIC,
+                "registration_enabled": True,
                 "keywords": [keyword.text],
                 "keyword_sets": [keyword_set.name],
             },
@@ -50,13 +51,15 @@ class TestUpdateConference:
         assert data["name"] == conference.name
         assert data["display_name"] == "Cyber Security Summit"
         assert data["visibility"] == ConferenceVisibility.PUBLIC
-        assert set(data["keywords"]) == {"AI", "Security"}
+        assert data["registration_enabled"] is True
+        assert data["keywords"] == ["AI", "Security"]
         assert data["tracks"] == []
 
         conference_service_update.assert_called_once_with(
             name=conference.name,
             display_name="Cyber Security Summit",
             visibility=ConferenceVisibility.PUBLIC,
+            registration_enabled=True,
             keywords=[keyword],
             keyword_sets=[keyword_set],
         )
@@ -80,6 +83,7 @@ class TestUpdateConference:
             name=conference.name,
             display_name="Updated Name",
             visibility=None,
+            registration_enabled=None,
             keywords=None,
             keyword_sets=None,
         )
@@ -103,6 +107,7 @@ class TestUpdateConference:
             name=conference.name,
             display_name=None,
             visibility=None,
+            registration_enabled=None,
             keywords=None,
             keyword_sets=None,
         )

@@ -18,11 +18,13 @@ class TestConferenceServiceCreateConference:
         name = faker.slug()
         display_name = faker.sentence()
         visibility = ConferenceVisibility.PUBLIC
+        registration_enabled = True
 
         conference = ConferenceService.create_conference(
             name=name,
             display_name=display_name,
             visibility=visibility,
+            registration_enabled=registration_enabled,
             keywords=[],
             keyword_sets=[],
             tracks=[],
@@ -32,6 +34,11 @@ class TestConferenceServiceCreateConference:
         assert conference.name == db_conference.name == name
         assert conference.display_name == db_conference.display_name == display_name
         assert conference.visibility == db_conference.visibility == visibility
+        assert (
+            conference.registration_enabled
+            == db_conference.registration_enabled
+            == registration_enabled
+        )
         assert not db_conference.keywords.exists()
         assert db_conference.tracks.count() == 0
 
@@ -43,6 +50,7 @@ class TestConferenceServiceCreateConference:
             name=faker.slug(),
             display_name=faker.sentence(),
             visibility=ConferenceVisibility.ADMIN_ONLY,
+            registration_enabled=False,
             keywords=[keyword1, keyword2],
             keyword_sets=[],
             tracks=[],
@@ -65,6 +73,7 @@ class TestConferenceServiceCreateConference:
             name=faker.slug(),
             display_name=faker.sentence(),
             visibility=ConferenceVisibility.ADMIN_ONLY,
+            registration_enabled=False,
             keywords=[],
             keyword_sets=[keyword_set1, keyword_set2],
             tracks=[],
@@ -84,6 +93,7 @@ class TestConferenceServiceCreateConference:
             name=faker.slug(),
             display_name=faker.sentence(),
             visibility=ConferenceVisibility.ADMIN_ONLY,
+            registration_enabled=False,
             keywords=[keyword1],
             keyword_sets=[keyword_set],
             tracks=[],
@@ -102,6 +112,7 @@ class TestConferenceServiceCreateConference:
             name=faker.slug(),
             display_name=faker.sentence(),
             visibility=ConferenceVisibility.ADMIN_ONLY,
+            registration_enabled=False,
             keywords=[keyword1],
             keyword_sets=[keyword_set],
             tracks=[],
@@ -123,6 +134,7 @@ class TestConferenceServiceCreateConference:
             name=faker.slug(),
             display_name=faker.sentence(),
             visibility=ConferenceVisibility.PUBLIC,
+            registration_enabled=False,
             keywords=[],
             keyword_sets=[],
             tracks=tracks,
@@ -155,6 +167,7 @@ class TestConferenceServiceCreateConference:
                 name=existing_conference.name,
                 display_name=faker.sentence(),
                 visibility=ConferenceVisibility.PUBLIC,
+                registration_enabled=False,
                 keywords=[],
                 keyword_sets=[],
                 tracks=[],

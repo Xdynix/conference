@@ -61,6 +61,14 @@ class Conference(TimeStampedModel):
         choices=ConferenceVisibility,
         default=ConferenceVisibility.ADMIN_ONLY,
     )
+    registration_enabled = models.BooleanField(
+        _("registration enabled"),
+        default=False,
+        help_text=_(
+            "Whether this conference is currently accepting registrations. "
+            "When disabled, no new registrations can be created."
+        ),
+    )
 
     objects = ConferenceQuerySet.as_manager()
 

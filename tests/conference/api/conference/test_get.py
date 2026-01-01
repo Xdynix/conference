@@ -55,6 +55,7 @@ class TestGetConference:
             "name": conference.name,
             "display_name": conference.display_name,
             "visibility": conference.visibility,
+            "registration_enabled": False,
             "keywords": ["ai", "cloud", "security"],
             "tracks": [
                 {

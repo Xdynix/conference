@@ -34,6 +34,7 @@ class TestListConferences:
             name="beta-conf",
             display_name="Beta Conf",
             visibility=ConferenceVisibility.ADMIN_ONLY,
+            registration_enabled=True,
         )
         alpha_tracks = [
             Track.objects.create(
@@ -78,6 +79,7 @@ class TestListConferences:
                     "name": alpha.name,
                     "display_name": alpha.display_name,
                     "visibility": alpha.visibility,
+                    "registration_enabled": False,
                     "tracks": [
                         {
                             "uid": str(alpha_tracks[0].uid),
@@ -91,6 +93,7 @@ class TestListConferences:
                     "name": beta.name,
                     "display_name": beta.display_name,
                     "visibility": beta.visibility,
+                    "registration_enabled": True,
                     "tracks": [
                         {
                             "uid": str(beta_tracks[0].uid),

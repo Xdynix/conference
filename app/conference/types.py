@@ -138,6 +138,7 @@ class Conference(Schema):
     name: ConferenceName
     display_name: ConferenceDisplayName
     visibility: ConferenceVisibility
+    registration_enabled: bool
     tracks: list[Track]
 
 

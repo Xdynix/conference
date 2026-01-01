@@ -44,6 +44,7 @@ class TestCreateConference:
                 "name": "sec-conf",
                 "display_name": "Security Conf",
                 "visibility": ConferenceVisibility.PUBLIC,
+                "registration_enabled": True,
                 "keywords": [keyword.text],
                 "keyword_sets": [keyword_set.name],
                 "tracks": [
@@ -64,7 +65,8 @@ class TestCreateConference:
         assert data["name"] == "sec-conf"
         assert data["display_name"] == "Security Conf"
         assert data["visibility"] == ConferenceVisibility.PUBLIC
-        assert set(data["keywords"]) == {"AI", "Analysis"}
+        assert data["registration_enabled"] is True
+        assert data["keywords"] == ["AI", "Analysis"]
         [track_a, track_b] = data["tracks"]
         assert track_a["display_name"] == "Research Track"
         assert track_a["visibility"] == TrackVisibility.PUBLIC
@@ -76,6 +78,7 @@ class TestCreateConference:
         assert call_kwargs["name"] == "sec-conf"
         assert call_kwargs["display_name"] == "Security Conf"
         assert call_kwargs["visibility"] == ConferenceVisibility.PUBLIC
+        assert call_kwargs["registration_enabled"] is True
         assert list(call_kwargs["keywords"]) == [keyword]
         assert list(call_kwargs["keyword_sets"]) == [keyword_set]
         [call_kwargs_a, call_kwargs_b] = call_kwargs["tracks"]
@@ -117,7 +120,7 @@ class TestCreateConference:
 
         data = response.json()
         assert data["display_name"] == "Cyber Defense Summit"
-        assert set(data["keywords"]) == {"AI", "Security"}
+        assert data["keywords"] == ["AI", "Security"]
         assert data["tracks"][0]["display_name"] == "Research Track"
         assert data["tracks"][0]["visibility"] == TrackVisibility.PUBLIC
         assert data["tracks"][1]["display_name"] == "Operations Track"
@@ -152,6 +155,7 @@ class TestCreateConference:
             "name": "minimal-conf",
             "display_name": "Minimal Conf",
             "visibility": ConferenceVisibility.ADMIN_ONLY,
+            "registration_enabled": False,
             "keywords": [],
             "tracks": [],
         }
@@ -160,6 +164,7 @@ class TestCreateConference:
         call_kwargs = conference_service_create.call_args.kwargs
         assert call_kwargs["name"] == "minimal-conf"
         assert call_kwargs["visibility"] == ConferenceVisibility.ADMIN_ONLY
+        assert call_kwargs["registration_enabled"] is False
         assert list(call_kwargs["keywords"]) == []
         assert list(call_kwargs["keyword_sets"]) == []
         assert list(call_kwargs["tracks"]) == []

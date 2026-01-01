@@ -32,6 +32,7 @@ class CreateConferenceRequest(ConferenceSchema):
     keywords: list[KeywordText] = Field(default_factory=list, max_length=500)
     keyword_sets: list[KeywordSetName] = Field(default_factory=list, max_length=50)
     visibility: ConferenceVisibility = ConferenceVisibility.ADMIN_ONLY
+    registration_enabled: bool = False
     tracks: list[CreateTrackPayload] = Field(default_factory=list, max_length=100)  # type: ignore[assignment]
 
 
@@ -67,6 +68,7 @@ async def create_conference(
             name=payload.name,
             display_name=payload.display_name,
             visibility=payload.visibility,
+            registration_enabled=payload.registration_enabled,
             keywords=keywords,
             keyword_sets=keyword_sets,
             tracks=[

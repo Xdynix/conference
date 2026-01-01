@@ -44,6 +44,7 @@ class ConferenceService:
         name: str,
         display_name: str,
         visibility: ConferenceVisibility,
+        registration_enabled: bool,
         keywords: Collection[Keyword],
         keyword_sets: Collection[KeywordSet],
         tracks: Collection[TrackData],
@@ -61,6 +62,7 @@ class ConferenceService:
                 name=name,
                 display_name=display_name,
                 visibility=visibility,
+                registration_enabled=registration_enabled,
             )
         except IntegrityError as exc:
             raise ConferenceNameConflict from exc
@@ -92,6 +94,7 @@ class ConferenceService:
         name: str,
         display_name: str | None = None,
         visibility: ConferenceVisibility | None = None,
+        registration_enabled: bool | None = None,
         keywords: Collection[Keyword] | None = None,
         keyword_sets: Collection[KeywordSet] | None = None,
     ) -> Conference:
@@ -115,6 +118,10 @@ class ConferenceService:
             if visibility is not None:
                 conference.visibility = visibility
                 update_fields.append("visibility")
+
+            if registration_enabled is not None:
+                conference.registration_enabled = registration_enabled
+                update_fields.append("registration_enabled")
 
             keywords_provided = keywords is not None
             keyword_sets_provided = keyword_sets is not None
