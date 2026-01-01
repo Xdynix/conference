@@ -2,6 +2,7 @@ from http import HTTPStatus
 from unittest.mock import AsyncMock
 
 import pytest
+from django.db.models import ProtectedError
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
@@ -754,3 +755,198 @@ class TestUpdateAttendanceType:
             data={"display_name": ""},
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.django_db
+class TestDeleteAttendanceType:
+    @classmethod
+    def path(cls, conference_name: str, attendance_type_uid: ULID) -> str:
+        return reverse(
+            "api-1.0.0:delete-attendance-type",
+            args=[conference_name, attendance_type_uid],
+        )
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="To Delete",
+        )
+        uid = attendance_type.uid
+        api_client.force_login(global_admin)
+
+        response = api_client.delete(self.path(conference.name, uid))
+        assert response.status_code == HTTPStatus.NO_CONTENT
+
+        assert not AttendanceType.objects.filter(uid=uid).exists()
+
+    def test_protected_error_conflict(
+        self,
+        mocker: MockerFixture,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Protected Type",
+        )
+        mocker.patch.object(
+            AttendanceType,
+            "adelete",
+            side_effect=ProtectedError("Cannot delete", {attendance_type}),
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.delete(
+            self.path(conference.name, attendance_type.uid),
+        )
+        assert response.status_code == HTTPStatus.CONFLICT
+
+        assert "still referenced" in response.json()["message"]
+
+    def test_attendance_type_not_found(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.delete(self.path(conference.name, ULID()))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_attendance_type_from_other_conference_not_found(
+        self,
+        faker: Faker,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        other_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        other_type = AttendanceType.objects.create(
+            conference=other_conference,
+            display_name="Other Type",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.delete(self.path(conference.name, other_type.uid))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_not_found(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.delete(
+            self.path("nonexistent-conf", attendance_type.uid),
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_chair_authorized(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.delete(
+            self.path(conference.name, attendance_type.uid),
+        )
+        assert response.status_code == HTTPStatus.NO_CONTENT
+
+    def test_global_read_all_forbidden(
+        self,
+        api_client: Client,
+        global_read_all: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+        api_client.force_login(global_read_all)
+
+        response = api_client.delete(
+            self.path(conference.name, attendance_type.uid),
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_chair_of_other_conference_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        other_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        user = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=other_conference,
+            user=user,
+            role=ConferenceRole.CHAIR,
+        )
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+        api_client.force_login(user)
+
+        response = api_client.delete(
+            self.path(conference.name, attendance_type.uid),
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_unauthenticated(
+        self,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+
+        response = api_client.delete(
+            self.path(conference.name, attendance_type.uid),
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_unauthorized_user_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+        api_client.force_login(user)
+
+        response = api_client.delete(
+            self.path(conference.name, attendance_type.uid),
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
