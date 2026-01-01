@@ -6,6 +6,7 @@ from django.test import Client
 from django.urls import reverse
 from faker import Faker
 from pytest_mock import MockerFixture
+from ulid import ULID
 
 from app.conference.models import (
     AttendanceType,
@@ -396,6 +397,360 @@ class TestCreateAttendanceType:
 
         response = api_client.post(
             self.path(conference.name),
+            data={"display_name": ""},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.django_db
+class TestUpdateAttendanceType:
+    @classmethod
+    def path(cls, conference_name: str, attendance_type_uid: ULID) -> str:
+        return reverse(
+            "api-1.0.0:update-attendance-type",
+            args=[conference_name, attendance_type_uid],
+        )
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Original Name",
+            admin_only=True,
+            paper_required=True,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={
+                "display_name": "Updated Name",
+                "admin_only": False,
+                "paper_required": False,
+            },
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == {
+            "uid": str(attendance_type.uid),
+            "display_name": "Updated Name",
+            "admin_only": False,
+            "paper_required": False,
+        }
+
+        attendance_type.refresh_from_db()
+        assert attendance_type.display_name == "Updated Name"
+        assert attendance_type.admin_only is False
+        assert attendance_type.paper_required is False
+
+    def test_partial_update_display_name_only(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Original",
+            admin_only=True,
+            paper_required=True,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={"display_name": "New Name"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        attendance_type.refresh_from_db()
+        assert attendance_type.display_name == "New Name"
+        assert attendance_type.admin_only is True
+        assert attendance_type.paper_required is True
+
+    def test_partial_update_admin_only(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+            admin_only=True,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={"admin_only": False},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        attendance_type.refresh_from_db()
+        assert attendance_type.admin_only is False
+
+    def test_partial_update_paper_required(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+            paper_required=True,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={"paper_required": False},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        attendance_type.refresh_from_db()
+        assert attendance_type.paper_required is False
+
+    def test_empty_payload_no_changes(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Original",
+            admin_only=True,
+            paper_required=True,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        attendance_type.refresh_from_db()
+        assert attendance_type.display_name == "Original"
+
+    def test_trims_whitespace(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Original",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={"display_name": "  Trimmed  "},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["display_name"] == "Trimmed"
+
+    def test_duplicate_display_name_conflict(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        AttendanceType.objects.create(
+            conference=conference,
+            display_name="Existing Name",
+        )
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Original",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={"display_name": "Existing Name"},
+        )
+        assert response.status_code == HTTPStatus.CONFLICT
+
+        assert "already exists" in response.json()["message"]
+
+    def test_attendance_type_not_found(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name, ULID()),
+            data={"display_name": "Updated"},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_attendance_type_from_other_conference_not_found(
+        self,
+        faker: Faker,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        other_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        other_type = AttendanceType.objects.create(
+            conference=other_conference,
+            display_name="Other Type",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name, other_type.uid),
+            data={"display_name": "Hijacked"},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_not_found(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path("nonexistent-conf", attendance_type.uid),
+            data={"display_name": "Updated"},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_conference_chair_authorized(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={"display_name": "Chair Updated"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+    def test_global_read_all_forbidden(
+        self,
+        api_client: Client,
+        global_read_all: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+        api_client.force_login(global_read_all)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={"display_name": "Updated"},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_chair_of_other_conference_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        other_conference = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        user = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=other_conference,
+            user=user,
+            role=ConferenceRole.CHAIR,
+        )
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+        api_client.force_login(user)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={"display_name": "Updated"},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_unauthenticated(
+        self,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={"display_name": "Updated"},
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_unauthorized_user_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+        api_client.force_login(user)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
+            data={"display_name": "Updated"},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_empty_display_name_rejected(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Type",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.patch(
+            self.path(conference.name, attendance_type.uid),
             data={"display_name": ""},
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY

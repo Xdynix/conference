@@ -5,7 +5,7 @@ from django.db import IntegrityError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
-from ninja import Router, Schema
+from ninja import PatchDict, Router, Schema
 from ninja.errors import HttpError
 from pydantic import BeforeValidator, StringConstraints
 from ulid import ULID
@@ -130,3 +130,61 @@ async def create_attendance_type(
     )
 
     return HTTPStatus.CREATED, attendance_type
+
+
+class AttendanceTypeSchema(Schema):
+    display_name: AttendanceTypeDisplayName
+    admin_only: bool
+    paper_required: bool
+
+
+@router.patch(
+    "/conferences/{slug:conference_name}/attendance-types/{ulid:attendance_type_uid}",
+    response=AttendanceTypeResponse,
+    summary="Update Attendance Type",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
+    ),
+)
+async def update_attendance_type(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    attendance_type_uid: ULID,
+    payload: PatchDict[AttendanceTypeSchema],
+) -> AttendanceType:
+    """Update an attendance type's display name, visibility, or paper requirement."""
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+    attendance_type = await aget_object_or_404(
+        AttendanceType.objects.filter(conference=conference),
+        uid=attendance_type_uid,
+    )
+
+    update_fields: list[str] = []
+    for attr, value in payload.items():
+        setattr(attendance_type, attr, value)
+        update_fields.append(attr)
+
+    if update_fields:
+        try:
+            await attendance_type.asave(update_fields=update_fields)
+        except IntegrityError as exc:
+            raise HttpError(
+                HTTPStatus.CONFLICT,
+                _(
+                    "An attendance type with this name already exists for this "
+                    "conference."
+                ),
+            ) from exc
+
+    user = await request.auser()
+    logger.info(
+        "Attendance type updated.",
+        attendance_type_uid=attendance_type.uid,
+        conference_name=conference.name,
+        actor_uid=user.uid,
+    )
+
+    return attendance_type
