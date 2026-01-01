@@ -1,13 +1,20 @@
+from http import HTTPStatus
 from typing import Annotated
 
+from django.db import IntegrityError
 from django.shortcuts import aget_object_or_404
+from django.utils.translation import gettext as _
+from loguru import logger
 from ninja import Router, Schema
+from ninja.errors import HttpError
 from pydantic import BeforeValidator, StringConstraints
 from ulid import ULID
 
-from app.conference.models import AttendanceType
+from app.conference.auth import has_any_conference_roles
+from app.conference.models import AttendanceType, Conference, ConferenceRole
 from app.conference.services import ConferenceService
-from app.core.auth import is_authenticated
+from app.core.auth import has_any_roles, is_authenticated
+from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.utils.sanitization import sanitize_text
 
@@ -63,3 +70,63 @@ async def list_attendance_types(
             user, conference
         )
     ]
+
+
+class CreateAttendanceTypeRequest(Schema):
+    display_name: AttendanceTypeDisplayName
+    admin_only: bool = True
+    paper_required: bool = True
+
+
+@router.post(
+    "/conferences/{slug:conference_name}/attendance-types",
+    response={HTTPStatus.CREATED: AttendanceTypeResponse},
+    summary="Create Attendance Type",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
+    ),
+)
+async def create_attendance_type(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    payload: CreateAttendanceTypeRequest,
+) -> tuple[int, AttendanceType]:
+    """Create a new attendance type for the conference.
+
+    The new type is appended to the end of the ordering.
+    """
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+
+    last_ordering = await (
+        conference.attendance_types.order_by("-ordering")
+        .values_list("ordering", flat=True)
+        .afirst()
+    )
+    next_ordering = 0 if last_ordering is None else last_ordering + 1
+
+    try:
+        attendance_type = await AttendanceType.objects.acreate(
+            conference=conference,
+            display_name=payload.display_name,
+            ordering=next_ordering,
+            admin_only=payload.admin_only,
+            paper_required=payload.paper_required,
+        )
+    except IntegrityError as exc:
+        raise HttpError(
+            HTTPStatus.CONFLICT,
+            _("An attendance type with this name already exists for this conference."),
+        ) from exc
+
+    user = await request.auser()
+    logger.info(
+        "Attendance type created.",
+        attendance_type_uid=attendance_type.uid,
+        conference_name=conference.name,
+        actor_uid=user.uid,
+    )
+
+    return HTTPStatus.CREATED, attendance_type
