@@ -1,5 +1,3 @@
-from itertools import pairwise
-
 import pytest
 from ulid import ULID
 
@@ -171,7 +169,7 @@ class TestTrackServiceDeactivateTask:
 
 
 @pytest.mark.django_db
-class TestTrackServiceMoveTrack:
+class TestTrackServiceReorderTracks:
     @pytest.fixture
     def tracks(self, conference: Conference) -> tuple[Track, ...]:
         return tuple(
@@ -184,13 +182,6 @@ class TestTrackServiceMoveTrack:
             for idx, name in enumerate(["Alpha", "Beta", "Gamma"])
         )
 
-    @classmethod
-    def assert_ordering(cls, *tracks: Track) -> None:
-        for track in tracks:
-            track.refresh_from_db()
-        for a, b in pairwise(tracks):
-            assert a.ordering < b.ordering
-
     def test_happy_path(
         self,
         conference: Conference,
@@ -198,31 +189,53 @@ class TestTrackServiceMoveTrack:
     ) -> None:
         first, second, third = tracks
 
-        third_moved = TrackService.move_track(
+        result = TrackService.reorder_tracks(
             conference_name=conference.name,
-            track_uid=third.uid,
-            after_track_uid=first.uid,
+            track_uids=[third.uid, first.uid, second.uid],
         )
 
-        db_third_moved = Track.objects.get(pk=third_moved.pk)
-        assert third_moved.ordering == db_third_moved.ordering
+        assert result == conference
 
-        self.assert_ordering(first, third, second)
+        for track in tracks:
+            track.refresh_from_db()
+        assert third.ordering == 0
+        assert first.ordering == 1
+        assert second.ordering == 2
 
-    def test_move_to_head(
+    def test_reverse_order(
         self,
         conference: Conference,
         tracks: tuple[Track, ...],
     ) -> None:
         first, second, third = tracks
 
-        TrackService.move_track(
+        TrackService.reorder_tracks(
             conference_name=conference.name,
-            track_uid=third.uid,
-            after_track_uid=None,
+            track_uids=[third.uid, second.uid, first.uid],
         )
 
-        self.assert_ordering(third, first, second)
+        for track in tracks:
+            track.refresh_from_db()
+        assert third.ordering == 0
+        assert second.ordering == 1
+        assert first.ordering == 2
+
+    def test_same_order_no_updates(
+        self,
+        conference: Conference,
+        tracks: tuple[Track, ...],
+    ) -> None:
+        first, second, third = tracks
+        original_update_times = [t.update_time for t in tracks]
+
+        TrackService.reorder_tracks(
+            conference_name=conference.name,
+            track_uids=[first.uid, second.uid, third.uid],
+        )
+
+        for track, original_time in zip(tracks, original_update_times, strict=True):
+            track.refresh_from_db()
+            assert track.update_time == original_time
 
     def test_inactive_conference(
         self,
@@ -233,72 +246,90 @@ class TestTrackServiceMoveTrack:
         update_object(conference, active=False)
 
         with pytest.raises(Conference.DoesNotExist):
-            TrackService.move_track(
+            TrackService.reorder_tracks(
                 conference_name=conference.name,
-                track_uid=third.uid,
-                after_track_uid=first.uid,
+                track_uids=[third.uid, first.uid, second.uid],
             )
 
-        self.assert_ordering(first, second, third)
+        for track in tracks:
+            track.refresh_from_db()
+        assert first.ordering == 0
+        assert second.ordering == 1
+        assert third.ordering == 2
 
-    def test_inactive_track(
+    def test_duplicate_uids(
         self,
         conference: Conference,
         tracks: tuple[Track, ...],
     ) -> None:
         first, second, third = tracks
-        update_object(third, active=False)
 
-        with pytest.raises(Track.DoesNotExist):
-            TrackService.move_track(
+        with pytest.raises(ValueError, match=r"Duplicate UIDs"):
+            TrackService.reorder_tracks(
                 conference_name=conference.name,
-                track_uid=third.uid,
-                after_track_uid=first.uid,
+                track_uids=[first.uid, first.uid, second.uid, third.uid],
             )
 
-        self.assert_ordering(first, second, third)
+        for track in tracks:
+            track.refresh_from_db()
+        assert first.ordering == 0
+        assert second.ordering == 1
+        assert third.ordering == 2
 
-    def test_mismatch_conference(self) -> None:
-        conf1 = Conference.objects.create(name="conf-1", display_name="conf-1")
-        conf2 = Conference.objects.create(name="conf-2", display_name="conf-2")
-        track2 = Track.objects.create(conference=conf2, display_name="track-2")
-
-        with pytest.raises(Track.DoesNotExist):
-            TrackService.move_track(
-                conference_name=conf1.name,
-                track_uid=track2.uid,
-                after_track_uid=None,
-            )
-
-    def test_move_after_self(self, track: Track) -> None:
-        with pytest.raises(ValueError, match=r"Track cannot be moved after itself."):
-            TrackService.move_track(
-                conference_name=track.conference.name,
-                track_uid=track.uid,
-                after_track_uid=track.uid,
-            )
-
-    def test_inactive_target(
+    def test_missing_uids(
         self,
         conference: Conference,
         tracks: tuple[Track, ...],
     ) -> None:
         first, second, third = tracks
-        update_object(first, active=False)
 
-        with pytest.raises(ValueError, match=r"Target track does not exist."):
-            TrackService.move_track(
+        with pytest.raises(ValueError, match=r"Missing UIDs"):
+            TrackService.reorder_tracks(
                 conference_name=conference.name,
-                track_uid=third.uid,
-                after_track_uid=first.uid,
+                track_uids=[first.uid, second.uid],
             )
 
-        self.assert_ordering(first, second, third)
+        for track in tracks:
+            track.refresh_from_db()
+        assert first.ordering == 0
+        assert second.ordering == 1
+        assert third.ordering == 2
 
-    def test_not_exist_target(self, track: Track) -> None:
-        with pytest.raises(ValueError, match=r"Target track does not exist."):
-            TrackService.move_track(
-                conference_name=track.conference.name,
-                track_uid=track.uid,
-                after_track_uid=ULID(),
+    def test_invalid_uids(
+        self,
+        conference: Conference,
+        tracks: tuple[Track, ...],
+    ) -> None:
+        first, second, third = tracks
+        unknown_uid = ULID()
+
+        with pytest.raises(ValueError, match=r"Invalid UIDs"):
+            TrackService.reorder_tracks(
+                conference_name=conference.name,
+                track_uids=[first.uid, second.uid, third.uid, unknown_uid],
             )
+
+        for track in tracks:
+            track.refresh_from_db()
+        assert first.ordering == 0
+        assert second.ordering == 1
+        assert third.ordering == 2
+
+    def test_excludes_inactive_tracks(
+        self,
+        conference: Conference,
+        tracks: tuple[Track, ...],
+    ) -> None:
+        first, second, third = tracks
+        update_object(second, active=False)
+
+        TrackService.reorder_tracks(
+            conference_name=conference.name,
+            track_uids=[third.uid, first.uid],
+        )
+
+        for track in tracks:
+            track.refresh_from_db()
+        assert third.ordering == 0
+        assert first.ordering == 1
+        assert second.ordering == 1

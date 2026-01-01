@@ -4,6 +4,7 @@ from asgiref.sync import sync_to_async
 from django.http import Http404
 from loguru import logger
 from ninja import PatchDict, Schema
+from ninja.errors import HttpError
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_roles
@@ -13,7 +14,7 @@ from app.conference.types import TrackDisplayName
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
-from app.ninja.errors import ErrorResponse, make_validation_error
+from app.ninja.errors import ErrorResponse
 
 from .core import ConferenceDetailResponse, prefetch_conference, router
 
@@ -137,50 +138,40 @@ async def delete_track(
     return await prefetch_conference(conference, user)
 
 
-class MoveTrackRequest(Schema):
-    after_track: ULID | None = None
-
-
 @router.post(
-    "/conferences/{slug:conference_name}/tracks/{ulid:track_uid}:move",
+    "/conferences/{slug:conference_name}/tracks:reorder",
     response={
         HTTPStatus.OK: ConferenceDetailResponse,
         HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
     },
-    summary="Move Track",
+    summary="Reorder Tracks",
     auth=(
         has_any_roles(GlobalRole.ADMIN) | has_any_conference_roles(ConferenceRole.CHAIR)
     ),
 )
-async def move_track(
+async def reorder_tracks(
     request: AuthedHttpRequest,
     conference_name: str,
-    track_uid: ULID,
-    payload: MoveTrackRequest,
+    payload: list[ULID],
 ) -> Conference:
-    """Reorder a track within the conference.
+    """Reorder tracks by providing the complete list of UIDs in desired order.
 
-    Places the track after a specified target track, or at the beginning if no target
-    is provided.
+    All active tracks for the conference must be included exactly once.
     """
     try:
-        track = await sync_to_async(TrackService.move_track)(
+        conference = await sync_to_async(TrackService.reorder_tracks)(
             conference_name=conference_name,
-            track_uid=track_uid,
-            after_track_uid=payload.after_track,
+            track_uids=payload,
         )
-    except (Conference.DoesNotExist, Track.DoesNotExist) as exc:
+    except Conference.DoesNotExist as exc:
         raise Http404 from exc
     except ValueError as exc:
-        raise make_validation_error(path="after_track", message=str(exc)) from exc
+        raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, message=str(exc)) from exc
 
     user = await request.auser()
-    conference = track.conference
-
     logger.info(
-        "Track moved.",
+        "Tracks reordered.",
         conference_name=conference.name,
-        track_uid=track.uid,
         user_uid=user.uid,
     )
 

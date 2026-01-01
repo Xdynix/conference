@@ -363,120 +363,141 @@ class TestDeleteTrack:
 
 
 @pytest.mark.django_db
-class TestMoveTrack:
+class TestReorderTracks:
     @classmethod
-    def path(cls, conference_name: str, track_uid: str | ULID) -> str:
-        return reverse("api-1.0.0:move-track", args=[conference_name, track_uid])
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:reorder-tracks", args=[conference_name])
 
     @pytest.fixture
-    def track(self, conference: Conference) -> Track:
-        return Track.objects.create(
-            conference=conference,
-            display_name="Track",
+    def tracks(self, conference: Conference) -> tuple[Track, Track, Track]:
+        return (
+            Track.objects.create(
+                conference=conference,
+                display_name="First Track",
+                ordering=0,
+                visibility=TrackVisibility.PUBLIC,
+            ),
+            Track.objects.create(
+                conference=conference,
+                display_name="Second Track",
+                ordering=1,
+                visibility=TrackVisibility.PUBLIC,
+            ),
+            Track.objects.create(
+                conference=conference,
+                display_name="Third Track",
+                ordering=2,
+                visibility=TrackVisibility.ADMIN_ONLY,
+            ),
         )
 
     @pytest.fixture
-    def track_service_move(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.spy(TrackService, "move_track")
+    def track_service_reorder(self, mocker: MockerFixture) -> MagicMock:
+        return mocker.spy(TrackService, "reorder_tracks")
 
     def test_happy_path(
         self,
         api_client: Client,
         global_admin: User,
         conference: Conference,
-        track_service_move: MagicMock,
+        tracks: tuple[Track, Track, Track],
+        track_service_reorder: MagicMock,
     ) -> None:
-        first = Track.objects.create(
-            conference=conference,
-            display_name="First Track",
-            ordering=1,
-            visibility=TrackVisibility.PUBLIC,
-        )
-        second = Track.objects.create(
-            conference=conference,
-            display_name="Second Track",
-            ordering=2,
-            visibility=TrackVisibility.PUBLIC,
-        )
-        third = Track.objects.create(
-            conference=conference,
-            display_name="Third Track",
-            ordering=3,
-            visibility=TrackVisibility.PUBLIC,
-        )
+        first, second, third = tracks
         api_client.force_login(global_admin)
 
         response = api_client.post(
-            self.path(conference.name, third.uid),
-            data={"after_track": str(first.uid)},
+            self.path(conference.name),
+            data=[str(third.uid), str(first.uid), str(second.uid)],
         )
         assert response.status_code == HTTPStatus.OK
 
-        assert [track["uid"] for track in response.json()["tracks"]] == [
-            str(first.uid),
-            str(third.uid),
-            str(second.uid),
-        ]
+        assert response.json() == {
+            "name": conference.name,
+            "display_name": conference.display_name,
+            "visibility": conference.visibility,
+            "registration_enabled": False,
+            "keywords": [],
+            "tracks": [
+                {
+                    "uid": str(third.uid),
+                    "display_name": third.display_name,
+                    "visibility": third.visibility,
+                    "submissions_enabled": False,
+                },
+                {
+                    "uid": str(first.uid),
+                    "display_name": first.display_name,
+                    "visibility": first.visibility,
+                    "submissions_enabled": False,
+                },
+                {
+                    "uid": str(second.uid),
+                    "display_name": second.display_name,
+                    "visibility": second.visibility,
+                    "submissions_enabled": False,
+                },
+            ],
+        }
 
-        track_service_move.assert_called_once_with(
+        track_service_reorder.assert_called_once_with(
             conference_name=conference.name,
-            track_uid=third.uid,
-            after_track_uid=str(first.uid),
+            track_uids=[third.uid, first.uid, second.uid],
         )
 
-    def test_conference_chair_can_move_track(
+    def test_conference_chair_can_reorder(
         self,
         api_client: Client,
         conference_chair: User,
-        track: Track,
-        track_service_move: MagicMock,
+        conference: Conference,
+        tracks: tuple[Track, Track, Track],
+        track_service_reorder: MagicMock,
     ) -> None:
+        first, second, third = tracks
         api_client.force_login(conference_chair)
 
         response = api_client.post(
-            self.path(track.conference.name, track.uid),
-            data={"after_track": None},
+            self.path(conference.name),
+            data=[str(first.uid), str(second.uid), str(third.uid)],
         )
         assert response.status_code == HTTPStatus.OK
 
-        track_service_move.assert_called_once()
+        track_service_reorder.assert_called_once()
 
     def test_unauthorized_user_forbidden(
         self,
         api_client: Client,
         conference_secretary: User,
-        track: Track,
-        track_service_move: MagicMock,
+        conference: Conference,
+        tracks: tuple[Track, Track, Track],
+        track_service_reorder: MagicMock,
     ) -> None:
+        first, second, third = tracks
         api_client.force_login(conference_secretary)
 
         response = api_client.post(
-            self.path(track.conference.name, track.uid),
-            data={"after_track": None},
+            self.path(conference.name),
+            data=[str(first.uid), str(second.uid), str(third.uid)],
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
 
-        track_service_move.assert_not_called()
+        track_service_reorder.assert_not_called()
 
-    @pytest.mark.parametrize(
-        "exc",
-        [Conference.DoesNotExist, Track.DoesNotExist],
-        ids=["ConferenceDoesNotExist", "TrackDoesNotExist"],
-    )
-    def test_handle_does_not_exist(
+    def test_handle_conference_does_not_exist(
         self,
         api_client: Client,
         global_admin: User,
-        track: Track,
-        track_service_move: MagicMock,
-        exc: type[Exception],
+        conference: Conference,
+        tracks: tuple[Track, Track, Track],
+        track_service_reorder: MagicMock,
     ) -> None:
-        track_service_move.side_effect = exc
+        first, second, third = tracks
+        track_service_reorder.side_effect = Conference.DoesNotExist
         api_client.force_login(global_admin)
 
         response = api_client.post(
-            self.path(track.conference.name, track.uid),
-            data={"after_track": None},
+            self.path(conference.name),
+            data=[str(first.uid), str(second.uid), str(third.uid)],
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
@@ -484,20 +505,18 @@ class TestMoveTrack:
         self,
         api_client: Client,
         global_admin: User,
-        track: Track,
-        track_service_move: MagicMock,
+        conference: Conference,
+        tracks: tuple[Track, Track, Track],
+        track_service_reorder: MagicMock,
     ) -> None:
-        track_service_move.side_effect = ValueError("Invalid target.")
+        first, second, _ = tracks
+        track_service_reorder.side_effect = ValueError("Missing UIDs: 01ABC.")
         api_client.force_login(global_admin)
 
         response = api_client.post(
-            self.path(track.conference.name, track.uid),
-            data={"after_track": None},
+            self.path(conference.name),
+            data=[str(first.uid), str(second.uid)],
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-        data = response.json()
-        [error] = data["details"]
-        assert error["type"] == "value_error"
-        assert error["loc"] == ["body", "payload", "after_track"]
-        assert "Invalid target." in error["msg"]
+        assert "Missing UIDs" in response.json()["message"]

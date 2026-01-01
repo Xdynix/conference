@@ -98,60 +98,64 @@ class TrackService:
             return track
 
     @classmethod
-    def move_track(
+    def reorder_tracks(
         cls,
         *,
         conference_name: str,
-        track_uid: ULID,
-        after_track_uid: ULID | None,
-    ) -> Track:
-        """Move a track to a new position within its conference.
+        track_uids: list[ULID],
+    ) -> Conference:
+        """Reorder tracks within a conference.
 
-        Places the track after the specified track, or at the beginning if no target is
-        specified.
+        The order of UIDs in the list determines the new ordering. All active tracks
+        must be included exactly once.
 
         Returns:
-            The moved track instance.
+            The conference instance.
 
         Raises:
             Conference.DoesNotExist: If the conference is not found.
-            Track.DoesNotExist: If the track is not found.
-            ValueError: If the track is being moved after itself or if the target track
-                does not exist.
+            ValueError: If the list contains duplicates, missing active tracks, or
+                invalid UIDs.
         """
-        if after_track_uid == track_uid:
-            raise ValueError(_("Track cannot be moved after itself."))
-
         with Mutex.lock_in_transaction(conference_name, namespace="conference_tracks"):
             conference = Conference.objects.active().get(name=conference_name)
+            active_tracks = {t.uid: t for t in conference.tracks.active()}
 
-            track = (
-                conference.tracks.active()
-                .select_related("conference")
-                .get(uid=track_uid)
-            )
-
-            # Include inactive tracks in reordering to maintain consistent ordering
-            # values across the entire track history. This simplifies the logic and
-            # preserves ordering continuity if tracks are reactivated later.
-            conference_tracks = list(conference.tracks.exclude(pk=track.pk))
-
-            if after_track_uid is None:
-                conference_tracks.insert(0, track)
-            else:
-                try:
-                    target_index = next(
-                        idx
-                        for idx, track_obj in enumerate(conference_tracks)
-                        if track_obj.active and track_obj.uid == after_track_uid
+            payload_uids = set(track_uids)
+            if len(track_uids) != len(payload_uids):
+                seen: set[ULID] = set()
+                duplicates: set[ULID] = set()
+                for uid in track_uids:
+                    if uid in seen:
+                        duplicates.add(uid)
+                    seen.add(uid)
+                raise ValueError(
+                    _("Duplicate UIDs: {uids}.").format(
+                        uids=", ".join(str(uid) for uid in sorted(duplicates))
                     )
-                except StopIteration as exc:
-                    raise ValueError(_("Target track does not exist.")) from exc
-                conference_tracks.insert(target_index + 1, track)
+                )
 
-            for ordering, track_obj in enumerate(conference_tracks):
-                if track_obj.ordering != ordering:
-                    track_obj.ordering = ordering
-                    track_obj.save(update_fields=["ordering", "update_time"])
+            existing_uids = set(active_tracks)
+            missing_uids = existing_uids - payload_uids
+            if missing_uids:
+                raise ValueError(
+                    _("Missing UIDs: {uids}.").format(
+                        uids=", ".join(str(uid) for uid in sorted(missing_uids))
+                    )
+                )
 
-            return track
+            invalid_uids = payload_uids - existing_uids
+            if invalid_uids:
+                raise ValueError(
+                    _("Invalid UIDs: {uids}.").format(
+                        uids=", ".join(str(uid) for uid in sorted(invalid_uids))
+                    )
+                )
+
+            for ordering, uid in enumerate(track_uids):
+                track = active_tracks[uid]
+                if track.ordering != ordering:
+                    track.ordering = ordering
+                    track.save(update_fields=["ordering", "update_time"])
+
+            return conference
