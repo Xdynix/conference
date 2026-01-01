@@ -10,17 +10,18 @@ from app.utils.models import TimeStampedModel, ULIDModel
 from .keyword import Keyword
 
 
+class ConferenceVisibility(models.TextChoices):
+    PUBLIC = "Public", _("Public")
+    MEMBER_ONLY = "Member-Only", _("Member-Only")
+    ADMIN_ONLY = "Admin-Only", _("Admin-Only")
+
+
 class ConferenceQuerySet(models.QuerySet["Conference"]):
     def active(self) -> Self:
         return self.filter(active=True)
 
 
 class Conference(TimeStampedModel):
-    class Visibility(models.TextChoices):
-        PUBLIC = "Public", _("Public")
-        MEMBER_ONLY = "Member-Only", _("Member-Only")
-        ADMIN_ONLY = "Admin-Only", _("Admin-Only")
-
     name = models.SlugField(
         _("name"),
         max_length=255,
@@ -57,8 +58,8 @@ class Conference(TimeStampedModel):
     visibility = models.CharField(
         _("visibility"),
         max_length=128,
-        choices=Visibility,
-        default=Visibility.ADMIN_ONLY,
+        choices=ConferenceVisibility,
+        default=ConferenceVisibility.ADMIN_ONLY,
     )
 
     objects = ConferenceQuerySet.as_manager()
@@ -135,6 +136,12 @@ class CodePool(TimeStampedModel, ULIDModel):
             return f"{self.prefix}{sequence:03d}"
 
 
+class TrackVisibility(models.TextChoices):
+    PUBLIC = "Public", _("Public")
+    MEMBER_ONLY = "Member-Only", _("Member-Only")
+    ADMIN_ONLY = "Admin-Only", _("Admin-Only")
+
+
 class TrackQuerySet(models.QuerySet["Track"]):
     def active(self) -> Self:
         return self.filter(
@@ -144,11 +151,6 @@ class TrackQuerySet(models.QuerySet["Track"]):
 
 
 class Track(TimeStampedModel, ULIDModel):
-    class Visibility(models.TextChoices):
-        PUBLIC = "Public", _("Public")
-        MEMBER_ONLY = "Member-Only", _("Member-Only")
-        ADMIN_ONLY = "Admin-Only", _("Admin-Only")
-
     conference = models.ForeignKey(
         Conference,
         on_delete=models.CASCADE,
@@ -191,8 +193,8 @@ class Track(TimeStampedModel, ULIDModel):
     visibility = models.CharField(
         _("visibility"),
         max_length=128,
-        choices=Visibility,
-        default=Visibility.ADMIN_ONLY,
+        choices=TrackVisibility,
+        default=TrackVisibility.ADMIN_ONLY,
     )
     submissions_enabled = models.BooleanField(
         _("submissions enabled"),

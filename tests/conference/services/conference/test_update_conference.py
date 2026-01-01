@@ -1,6 +1,6 @@
 import pytest
 
-from app.conference.models import Conference, Keyword, KeywordSet
+from app.conference.models import Conference, ConferenceVisibility, Keyword, KeywordSet
 from app.conference.services import ConferenceService
 from tests.helpers import update_object
 
@@ -17,16 +17,16 @@ class TestConferenceServiceUpdateConference:
         assert updated.display_name == db_updated.display_name == "New Display Name"
 
     def test_update_visibility(self, conference: Conference) -> None:
-        update_object(conference, visibility=Conference.Visibility.ADMIN_ONLY)
+        update_object(conference, visibility=ConferenceVisibility.ADMIN_ONLY)
 
         updated = ConferenceService.update_conference(
             name=conference.name,
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
         )
 
         db_updated = Conference.objects.get(pk=conference.pk)
         assert (
-            updated.visibility == db_updated.visibility == Conference.Visibility.PUBLIC
+            updated.visibility == db_updated.visibility == ConferenceVisibility.PUBLIC
         )
 
     def test_update_keywords(self, conference: Conference) -> None:

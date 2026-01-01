@@ -12,6 +12,7 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    ConferenceVisibility,
     Paper,
     Review,
     ReviewState,
@@ -124,7 +125,7 @@ class TestAcceptReview:
         other_conference = Conference.objects.create(
             name=faker.slug(),
             display_name=faker.sentence(),
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
         )
         api_client.force_login(user)
 
@@ -244,7 +245,7 @@ class TestDeclineReview:
         other_conference = Conference.objects.create(
             name=faker.slug(),
             display_name=faker.sentence(),
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
         )
         api_client.force_login(user)
 

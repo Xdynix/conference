@@ -6,7 +6,12 @@ from django.test import Client
 from django.urls import reverse
 from pytest_mock import MockerFixture
 
-from app.conference.models import Conference, Track
+from app.conference.models import (
+    Conference,
+    ConferenceVisibility,
+    Track,
+    TrackVisibility,
+)
 from app.conference.services import ConferenceService
 from app.core.models import User
 
@@ -23,30 +28,30 @@ class TestListConferences:
         alpha = Conference.objects.create(
             name="alpha-conf",
             display_name="Alpha Conf",
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
         )
         beta = Conference.objects.create(
             name="beta-conf",
             display_name="Beta Conf",
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
         alpha_tracks = [
             Track.objects.create(
                 conference=alpha,
                 display_name="Alpha Track",
-                visibility=Track.Visibility.PUBLIC,
+                visibility=TrackVisibility.PUBLIC,
             )
         ]
         beta_tracks = [
             Track.objects.create(
                 conference=beta,
                 display_name="Beta Public",
-                visibility=Track.Visibility.PUBLIC,
+                visibility=TrackVisibility.PUBLIC,
             ),
             Track.objects.create(
                 conference=beta,
                 display_name="Beta Private",
-                visibility=Track.Visibility.ADMIN_ONLY,
+                visibility=TrackVisibility.ADMIN_ONLY,
             ),
         ]
         mock_visible_conferences = mocker.patch.object(
@@ -129,22 +134,22 @@ class TestListConferences:
         alpha = Conference.objects.create(
             name="alpha-conf",
             display_name="Alpha Conf",
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
         )
         beta = Conference.objects.create(
             name="beta-conf",
             display_name="Beta Conf",
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
         )
         alpha_track = Track.objects.create(
             conference=alpha,
             display_name="Alpha Track",
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
         beta_track = Track.objects.create(
             conference=beta,
             display_name="Beta Track",
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
 
         response = api_client.get(self.path, {"order": "asc"})

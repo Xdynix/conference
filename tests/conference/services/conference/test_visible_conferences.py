@@ -5,9 +5,11 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    ConferenceVisibility,
     Track,
     TrackRole,
     TrackRoleAssignment,
+    TrackVisibility,
 )
 from app.conference.services import ConferenceService
 from app.core.models import User
@@ -20,17 +22,17 @@ class TestConferenceServiceVisibleConferences:
         public = await Conference.objects.acreate(
             name="public-conf",
             display_name="Public",
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
         )
         await Conference.objects.acreate(
             name="private-conf",
             display_name="Private",
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
         await Conference.objects.acreate(
             name="inactive-conf",
             display_name="Inactive",
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
             active=False,
         )
 
@@ -43,17 +45,17 @@ class TestConferenceServiceVisibleConferences:
         public = await Conference.objects.acreate(
             name="public-conf",
             display_name="Public",
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
         )
         private = await Conference.objects.acreate(
             name="private-conf",
             display_name="Private",
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
         await Conference.objects.acreate(
             name="inactive-conf",
             display_name="Inactive",
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
             active=False,
         )
         await a_update_object(user, is_superuser=True)
@@ -70,7 +72,7 @@ class TestConferenceServiceVisibleConferences:
         private = await Conference.objects.acreate(
             name="secure-conf",
             display_name="Secure",
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
 
         qs = await ConferenceService.visible_conferences(global_admin)
@@ -82,12 +84,12 @@ class TestConferenceServiceVisibleConferences:
         visible = await Conference.objects.acreate(
             name="visible-conf",
             display_name="Visible",
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
         await Conference.objects.acreate(
             name="other-conf",
             display_name="Other",
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
         await ConferenceRoleAssignment.objects.acreate(
             conference=visible,
@@ -104,17 +106,17 @@ class TestConferenceServiceVisibleConferences:
         target = await Conference.objects.acreate(
             name="target-conf",
             display_name="Target",
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
         await Conference.objects.acreate(
             name="other-conf",
             display_name="Other",
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
         track = await Track.objects.acreate(
             conference=target,
             display_name="Visible Track",
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
         await TrackRoleAssignment.objects.acreate(
             track=track,
@@ -134,12 +136,12 @@ class TestConferenceServiceVisibleConferences:
         target = await Conference.objects.acreate(
             name="target-conf",
             display_name="Target",
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
         await Conference.objects.acreate(
             name="other-conf",
             display_name="Other",
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
         inactive_track = await Track.objects.acreate(
             conference=target,
@@ -169,7 +171,7 @@ class TestConferenceServiceVisibleConferences:
         member_only = await Conference.objects.acreate(
             name="member-only-conf",
             display_name="Member Only",
-            visibility=Conference.Visibility.MEMBER_ONLY,
+            visibility=ConferenceVisibility.MEMBER_ONLY,
         )
         inactive_track = await Track.objects.acreate(
             conference=member_only,
@@ -196,7 +198,7 @@ class TestConferenceServiceVisibleConferences:
         member_only = await Conference.objects.acreate(
             name="member-only-conf",
             display_name="Member Only",
-            visibility=Conference.Visibility.MEMBER_ONLY,
+            visibility=ConferenceVisibility.MEMBER_ONLY,
         )
         await ConferenceRoleAssignment.objects.acreate(
             conference=member_only,
@@ -218,7 +220,7 @@ class TestConferenceServiceVisibleConferences:
         member_only = await Conference.objects.acreate(
             name="member-only-conf",
             display_name="Member Only",
-            visibility=Conference.Visibility.MEMBER_ONLY,
+            visibility=ConferenceVisibility.MEMBER_ONLY,
         )
         track = await Track.objects.acreate(
             conference=member_only,
@@ -247,7 +249,7 @@ class TestConferenceServiceVisibleConferences:
         admin_only = await Conference.objects.acreate(
             name="admin-only-conf",
             display_name="Admin Only",
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
         track = await Track.objects.acreate(
             conference=admin_only,
@@ -271,7 +273,7 @@ class TestConferenceServiceVisibleConferences:
         await Conference.objects.acreate(
             name="member-only-conf",
             display_name="Member Only",
-            visibility=Conference.Visibility.MEMBER_ONLY,
+            visibility=ConferenceVisibility.MEMBER_ONLY,
         )
 
         qs = await ConferenceService.visible_conferences(user)

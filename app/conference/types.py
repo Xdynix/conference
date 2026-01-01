@@ -40,7 +40,13 @@ from pydantic import AwareDatetime, BeforeValidator, HttpUrl, StringConstraints
 from ulid import ULID
 
 from app.conference.models import Conference as ConferenceModel
-from app.conference.models import ConferenceRole, PaperState, TrackRole
+from app.conference.models import (
+    ConferenceRole,
+    ConferenceVisibility,
+    PaperState,
+    TrackRole,
+    TrackVisibility,
+)
 from app.conference.models import Invitation as InvitationModel
 from app.conference.models import Keyword as KeywordModel
 from app.conference.models import KeywordSet as KeywordSetModel
@@ -93,7 +99,7 @@ TrackDisplayName = Annotated[
 class Track(Schema):
     uid: ULID
     display_name: TrackDisplayName
-    visibility: TrackModel.Visibility
+    visibility: TrackVisibility
     submissions_enabled: bool
 
 
@@ -131,7 +137,7 @@ ConferenceDisplayName = Annotated[
 class Conference(Schema):
     name: ConferenceName
     display_name: ConferenceDisplayName
-    visibility: ConferenceModel.Visibility
+    visibility: ConferenceVisibility
     tracks: list[Track]
 
 

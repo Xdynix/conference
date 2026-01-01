@@ -3,7 +3,7 @@ from itertools import pairwise
 import pytest
 from ulid import ULID
 
-from app.conference.models import Conference, Track
+from app.conference.models import Conference, Track, TrackVisibility
 from app.conference.services import TrackService
 from tests.helpers import a_update_object, update_object
 
@@ -27,14 +27,14 @@ class TestTrackServiceCreateTask:
         new = TrackService.create_track(
             conference_name=conference.name,
             display_name="New",
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
 
         db_new = Track.objects.get(pk=new.pk)
         assert new.conference == db_new.conference == conference
         assert new.display_name == db_new.display_name == "New"
         assert new.ordering == db_new.ordering > existing.ordering
-        assert new.visibility == db_new.visibility == Track.Visibility.PUBLIC
+        assert new.visibility == db_new.visibility == TrackVisibility.PUBLIC
 
         assert (existing, new) == tuple(conference.tracks.all())
 
@@ -45,7 +45,7 @@ class TestTrackServiceCreateTask:
             TrackService.create_track(
                 conference_name=conference.name,
                 display_name="New",
-                visibility=Track.Visibility.PUBLIC,
+                visibility=TrackVisibility.PUBLIC,
             )
 
         assert not conference.tracks.filter(display_name="New").exists()
@@ -57,7 +57,7 @@ class TestTrackServiceUpdateTask:
         await a_update_object(
             track,
             display_name="Old",
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
             submissions_enabled=False,
         )
 
@@ -65,13 +65,13 @@ class TestTrackServiceUpdateTask:
             conference_name=track.conference.name,
             track_uid=track.uid,
             display_name="New",
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
             submissions_enabled=True,
         )
 
         db_updated = await Track.objects.aget(pk=updated.pk)
         assert updated.display_name == db_updated.display_name == "New"
-        assert updated.visibility == db_updated.visibility == Track.Visibility.PUBLIC
+        assert updated.visibility == db_updated.visibility == TrackVisibility.PUBLIC
         assert updated.submissions_enabled is db_updated.submissions_enabled is True
 
     async def test_inactive_conference(self, track: Track) -> None:
@@ -179,7 +179,7 @@ class TestTrackServiceMoveTrack:
                 conference=conference,
                 display_name=name,
                 ordering=idx,
-                visibility=Track.Visibility.PUBLIC,
+                visibility=TrackVisibility.PUBLIC,
             )
             for idx, name in enumerate(["Alpha", "Beta", "Gamma"])
         )

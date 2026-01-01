@@ -12,6 +12,7 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    ConferenceVisibility,
     Keyword,
     Paper,
     PaperAuthor,
@@ -377,7 +378,7 @@ class TestUpdateMyPaper:
         conference: Conference,
         paper: Paper,
     ) -> None:
-        update_object(conference, visibility=Conference.Visibility.MEMBER_ONLY)
+        update_object(conference, visibility=ConferenceVisibility.MEMBER_ONLY)
         api_client.force_login(user)
 
         response = api_client.patch(

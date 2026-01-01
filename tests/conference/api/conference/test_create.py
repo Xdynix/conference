@@ -6,7 +6,12 @@ from django.test import Client
 from django.urls import reverse
 from pytest_mock import MockerFixture
 
-from app.conference.models import Conference, Keyword, KeywordSet, Track
+from app.conference.models import (
+    ConferenceVisibility,
+    Keyword,
+    KeywordSet,
+    TrackVisibility,
+)
 from app.conference.services import ConferenceService, KeywordService
 from app.conference.services.conference import ConferenceNameConflict
 from app.core.models import User
@@ -38,17 +43,17 @@ class TestCreateConference:
             data={
                 "name": "sec-conf",
                 "display_name": "Security Conf",
-                "visibility": Conference.Visibility.PUBLIC,
+                "visibility": ConferenceVisibility.PUBLIC,
                 "keywords": [keyword.text],
                 "keyword_sets": [keyword_set.name],
                 "tracks": [
                     {
                         "display_name": "Research Track",
-                        "visibility": Track.Visibility.PUBLIC,
+                        "visibility": TrackVisibility.PUBLIC,
                     },
                     {
                         "display_name": "Operations Track",
-                        "visibility": Track.Visibility.ADMIN_ONLY,
+                        "visibility": TrackVisibility.ADMIN_ONLY,
                     },
                 ],
             },
@@ -58,27 +63,27 @@ class TestCreateConference:
         data = response.json()
         assert data["name"] == "sec-conf"
         assert data["display_name"] == "Security Conf"
-        assert data["visibility"] == Conference.Visibility.PUBLIC
+        assert data["visibility"] == ConferenceVisibility.PUBLIC
         assert set(data["keywords"]) == {"AI", "Analysis"}
         [track_a, track_b] = data["tracks"]
         assert track_a["display_name"] == "Research Track"
-        assert track_a["visibility"] == Track.Visibility.PUBLIC
+        assert track_a["visibility"] == TrackVisibility.PUBLIC
         assert track_b["display_name"] == "Operations Track"
-        assert track_b["visibility"] == Track.Visibility.ADMIN_ONLY
+        assert track_b["visibility"] == TrackVisibility.ADMIN_ONLY
 
         conference_service_create.assert_called_once()
         call_kwargs = conference_service_create.call_args.kwargs
         assert call_kwargs["name"] == "sec-conf"
         assert call_kwargs["display_name"] == "Security Conf"
-        assert call_kwargs["visibility"] == Conference.Visibility.PUBLIC
+        assert call_kwargs["visibility"] == ConferenceVisibility.PUBLIC
         assert list(call_kwargs["keywords"]) == [keyword]
         assert list(call_kwargs["keyword_sets"]) == [keyword_set]
         [call_kwargs_a, call_kwargs_b] = call_kwargs["tracks"]
         assert len(call_kwargs["tracks"]) == 2
         assert call_kwargs_a["display_name"] == "Research Track"
-        assert call_kwargs_a["visibility"] == Track.Visibility.PUBLIC
+        assert call_kwargs_a["visibility"] == TrackVisibility.PUBLIC
         assert call_kwargs_b["display_name"] == "Operations Track"
-        assert call_kwargs_b["visibility"] == Track.Visibility.ADMIN_ONLY
+        assert call_kwargs_b["visibility"] == TrackVisibility.ADMIN_ONLY
 
     def test_trims_whitespace_fields(
         self,
@@ -102,7 +107,7 @@ class TestCreateConference:
                 "tracks": [
                     {
                         "display_name": "  Research Track ",
-                        "visibility": Track.Visibility.PUBLIC,
+                        "visibility": TrackVisibility.PUBLIC,
                     },
                     {"display_name": " Operations Track  "},
                 ],
@@ -114,9 +119,9 @@ class TestCreateConference:
         assert data["display_name"] == "Cyber Defense Summit"
         assert set(data["keywords"]) == {"AI", "Security"}
         assert data["tracks"][0]["display_name"] == "Research Track"
-        assert data["tracks"][0]["visibility"] == Track.Visibility.PUBLIC
+        assert data["tracks"][0]["visibility"] == TrackVisibility.PUBLIC
         assert data["tracks"][1]["display_name"] == "Operations Track"
-        assert data["tracks"][1]["visibility"] == Track.Visibility.ADMIN_ONLY
+        assert data["tracks"][1]["visibility"] == TrackVisibility.ADMIN_ONLY
 
         conference_service_create.assert_called_once()
         call_kwargs = conference_service_create.call_args.kwargs
@@ -146,7 +151,7 @@ class TestCreateConference:
         assert response.json() == {
             "name": "minimal-conf",
             "display_name": "Minimal Conf",
-            "visibility": Conference.Visibility.ADMIN_ONLY,
+            "visibility": ConferenceVisibility.ADMIN_ONLY,
             "keywords": [],
             "tracks": [],
         }
@@ -154,7 +159,7 @@ class TestCreateConference:
         conference_service_create.assert_called_once()
         call_kwargs = conference_service_create.call_args.kwargs
         assert call_kwargs["name"] == "minimal-conf"
-        assert call_kwargs["visibility"] == Conference.Visibility.ADMIN_ONLY
+        assert call_kwargs["visibility"] == ConferenceVisibility.ADMIN_ONLY
         assert list(call_kwargs["keywords"]) == []
         assert list(call_kwargs["keyword_sets"]) == []
         assert list(call_kwargs["tracks"]) == []

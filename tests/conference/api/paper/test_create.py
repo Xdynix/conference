@@ -13,12 +13,14 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    ConferenceVisibility,
     Keyword,
     PaperState,
     Profile,
     Track,
     TrackRole,
     TrackRoleAssignment,
+    TrackVisibility,
 )
 from app.conference.services import KeywordService, PaperService
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
@@ -41,7 +43,7 @@ def track(faker: Faker, conference: Conference, code_pool: CodePool) -> Track:
         conference=conference,
         code_pool=code_pool,
         display_name=faker.word(),
-        visibility=Track.Visibility.PUBLIC,
+        visibility=TrackVisibility.PUBLIC,
         submissions_enabled=True,
     )
 
@@ -234,7 +236,7 @@ class TestCreateDraft:
             conference=conference,
             code_pool=code_pool,
             display_name=faker.word(),
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
             submissions_enabled=True,
         )
         api_client.force_login(user)
@@ -418,7 +420,7 @@ class TestCreateDraft:
         hidden_conference = Conference.objects.create(
             name=faker.slug(),
             display_name=faker.sentence(),
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
         )
         api_client.force_login(user)
 
@@ -615,7 +617,7 @@ class TestCreatePaper:
             conference=conference,
             code_pool=code_pool,
             display_name=faker.word(),
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
             submissions_enabled=False,
         )
         track_admin = User.objects.create_user(username=faker.user_name())
@@ -655,7 +657,7 @@ class TestCreatePaper:
             conference=conference,
             code_pool=code_pool,
             display_name=faker.word(),
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
             submissions_enabled=True,
         )
         track_admin = User.objects.create_user(username=faker.user_name())

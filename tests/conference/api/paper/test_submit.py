@@ -13,6 +13,7 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    ConferenceVisibility,
     Paper,
     PaperState,
     Track,
@@ -190,7 +191,7 @@ class TestSubmitMyPaper:
         conference: Conference,
         paper: Paper,
     ) -> None:
-        update_object(conference, visibility=Conference.Visibility.MEMBER_ONLY)
+        update_object(conference, visibility=ConferenceVisibility.MEMBER_ONLY)
         client.force_login(user)
 
         response = client.post(self.path(conference.name, paper.code))
@@ -349,7 +350,7 @@ class TestUnsubmitMyPaper:
         conference: Conference,
         paper: Paper,
     ) -> None:
-        update_object(conference, visibility=Conference.Visibility.MEMBER_ONLY)
+        update_object(conference, visibility=ConferenceVisibility.MEMBER_ONLY)
         client.force_login(user)
 
         response = client.post(self.path(conference.name, paper.code))

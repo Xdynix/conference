@@ -12,6 +12,7 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    ConferenceVisibility,
     Keyword,
     Paper,
     PaperAuthor,
@@ -25,6 +26,7 @@ from app.conference.models import (
     Track,
     TrackRole,
     TrackRoleAssignment,
+    TrackVisibility,
 )
 from app.conference.services import PaperService, ReviewService
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
@@ -154,7 +156,7 @@ class TestGetMyPaper:
         track: Track,
         paper: Paper,
     ) -> None:
-        update_object(track, visibility=Track.Visibility.ADMIN_ONLY)
+        update_object(track, visibility=TrackVisibility.ADMIN_ONLY)
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name, paper.code))
@@ -216,7 +218,7 @@ class TestGetMyPaper:
         conference: Conference,
         paper: Paper,
     ) -> None:
-        update_object(conference, visibility=Conference.Visibility.MEMBER_ONLY)
+        update_object(conference, visibility=ConferenceVisibility.MEMBER_ONLY)
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name, paper.code))

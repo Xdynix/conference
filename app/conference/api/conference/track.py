@@ -7,7 +7,7 @@ from ninja import PatchDict, Schema
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_roles
-from app.conference.models import Conference, ConferenceRole, Track
+from app.conference.models import Conference, ConferenceRole, Track, TrackVisibility
 from app.conference.services import TrackService
 from app.conference.types import TrackDisplayName
 from app.core.auth import has_any_roles
@@ -20,7 +20,7 @@ from .core import ConferenceDetailResponse, prefetch_conference, router
 
 class CreateTrackRequest(Schema):
     display_name: TrackDisplayName
-    visibility: Track.Visibility = Track.Visibility.ADMIN_ONLY
+    visibility: TrackVisibility = TrackVisibility.ADMIN_ONLY
 
 
 @router.post(
@@ -61,7 +61,7 @@ async def create_track(
 
 class TrackSchema(Schema):
     display_name: TrackDisplayName
-    visibility: Track.Visibility
+    visibility: TrackVisibility
     submissions_enabled: bool
 
 

@@ -6,7 +6,13 @@ from django.test import Client
 from django.urls import reverse
 from pytest_mock import MockerFixture
 
-from app.conference.models import Conference, Keyword, Track
+from app.conference.models import (
+    Conference,
+    ConferenceVisibility,
+    Keyword,
+    Track,
+    TrackVisibility,
+)
 from app.conference.services import ConferenceService
 from app.core.models import User
 
@@ -21,7 +27,7 @@ class TestGetConference:
         conference = Conference.objects.create(
             name="conf",
             display_name="Conf",
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
         )
         keywords = [
             Keyword.objects.create(text="ai"),
@@ -32,7 +38,7 @@ class TestGetConference:
         track = Track.objects.create(
             conference=conference,
             display_name="Main Track",
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
         mock_visible = mocker.patch.object(
             ConferenceService,

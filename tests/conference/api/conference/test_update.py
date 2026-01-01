@@ -6,7 +6,7 @@ from django.test import Client
 from django.urls import reverse
 from pytest_mock import MockerFixture
 
-from app.conference.models import Conference, Keyword, KeywordSet
+from app.conference.models import Conference, ConferenceVisibility, Keyword, KeywordSet
 from app.conference.services import ConferenceService, KeywordService
 from app.core.models import User
 
@@ -39,22 +39,24 @@ class TestUpdateConference:
             self.path(conference.name),
             data={
                 "display_name": "Cyber Security Summit",
-                "visibility": Conference.Visibility.PUBLIC,
+                "visibility": ConferenceVisibility.PUBLIC,
                 "keywords": [keyword.text],
                 "keyword_sets": [keyword_set.name],
             },
         )
         assert response.status_code == HTTPStatus.OK
-        assert response.json()["name"] == conference.name
-        assert response.json()["display_name"] == "Cyber Security Summit"
-        assert response.json()["visibility"] == Conference.Visibility.PUBLIC
-        assert set(response.json()["keywords"]) == {"AI", "Security"}
-        assert response.json()["tracks"] == []
+
+        data = response.json()
+        assert data["name"] == conference.name
+        assert data["display_name"] == "Cyber Security Summit"
+        assert data["visibility"] == ConferenceVisibility.PUBLIC
+        assert set(data["keywords"]) == {"AI", "Security"}
+        assert data["tracks"] == []
 
         conference_service_update.assert_called_once_with(
             name=conference.name,
             display_name="Cyber Security Summit",
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
             keywords=[keyword],
             keyword_sets=[keyword_set],
         )

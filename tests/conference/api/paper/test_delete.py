@@ -10,6 +10,7 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    ConferenceVisibility,
     Paper,
     PaperState,
     Track,
@@ -168,7 +169,7 @@ class TestDeleteMyPaper:
         conference: Conference,
         paper: Paper,
     ) -> None:
-        update_object(conference, visibility=Conference.Visibility.MEMBER_ONLY)
+        update_object(conference, visibility=ConferenceVisibility.MEMBER_ONLY)
         api_client.force_login(user)
 
         response = api_client.delete(self.path(conference.name, paper.code))

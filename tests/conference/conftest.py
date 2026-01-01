@@ -5,8 +5,10 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    ConferenceVisibility,
     Invitation,
     Track,
+    TrackVisibility,
 )
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 
@@ -35,7 +37,7 @@ def conference(faker: Faker) -> Conference:
     return Conference.objects.create(
         name=faker.slug(),
         display_name=faker.sentence(),
-        visibility=Conference.Visibility.PUBLIC,
+        visibility=ConferenceVisibility.PUBLIC,
     )
 
 
@@ -44,7 +46,7 @@ def track(faker: Faker, conference: Conference) -> Track:
     return Track.objects.create(
         conference=conference,
         display_name=faker.word(),
-        visibility=Track.Visibility.PUBLIC,
+        visibility=TrackVisibility.PUBLIC,
     )
 
 

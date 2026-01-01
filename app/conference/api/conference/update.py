@@ -6,7 +6,7 @@ from loguru import logger
 from ninja import Field, PatchDict, Schema
 
 from app.conference.auth import has_any_conference_roles
-from app.conference.models import Conference, ConferenceRole
+from app.conference.models import Conference, ConferenceRole, ConferenceVisibility
 from app.conference.services import ConferenceService, KeywordService
 from app.conference.types import ConferenceDisplayName, KeywordSetName, KeywordText
 from app.core.auth import has_any_roles
@@ -21,7 +21,7 @@ class ConferenceSchema(Schema):
     display_name: ConferenceDisplayName
     keywords: list[KeywordText] = Field(max_length=500)
     keyword_sets: list[KeywordSetName] = Field(max_length=50)
-    visibility: Conference.Visibility
+    visibility: ConferenceVisibility
 
 
 @router.patch(

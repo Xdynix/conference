@@ -10,11 +10,13 @@ from django.utils.translation import gettext as _
 from app.conference.models import (
     Conference,
     ConferenceRole,
+    ConferenceVisibility,
     Keyword,
     KeywordSet,
     Track,
     TrackRole,
     TrackRoleAssignment,
+    TrackVisibility,
 )
 from app.core.models import GlobalRole, User
 from app.infra.models import Mutex
@@ -30,7 +32,7 @@ class InsufficientRolePermission(Exception):
 
 class TrackData(TypedDict):
     display_name: str
-    visibility: Track.Visibility
+    visibility: TrackVisibility
 
 
 class ConferenceService:
@@ -41,7 +43,7 @@ class ConferenceService:
         *,
         name: str,
         display_name: str,
-        visibility: Conference.Visibility,
+        visibility: ConferenceVisibility,
         keywords: Collection[Keyword],
         keyword_sets: Collection[KeywordSet],
         tracks: Collection[TrackData],
@@ -89,7 +91,7 @@ class ConferenceService:
         *,
         name: str,
         display_name: str | None = None,
-        visibility: Conference.Visibility | None = None,
+        visibility: ConferenceVisibility | None = None,
         keywords: Collection[Keyword] | None = None,
         keyword_sets: Collection[KeywordSet] | None = None,
     ) -> Conference:
@@ -169,7 +171,7 @@ class ConferenceService:
         conferences = Conference.objects.active()
 
         if not user.is_authenticated:
-            return conferences.filter(visibility=Conference.Visibility.PUBLIC)
+            return conferences.filter(visibility=ConferenceVisibility.PUBLIC)
 
         is_global_privileged = user.is_superuser or (
             await user.global_role_assignments.filter(
@@ -179,7 +181,7 @@ class ConferenceService:
         if is_global_privileged:
             return conferences
 
-        is_public = Q(visibility=Conference.Visibility.PUBLIC)
+        is_public = Q(visibility=ConferenceVisibility.PUBLIC)
         is_conference_admin = Q(
             role_assignment__user=user,
             role_assignment__role__in=ConferenceRole.admins(),
@@ -189,7 +191,7 @@ class ConferenceService:
             track__role_assignment__user=user,
             track__role_assignment__role__in=TrackRole.admins(),
         )
-        is_member_only = Q(visibility=Conference.Visibility.MEMBER_ONLY)
+        is_member_only = Q(visibility=ConferenceVisibility.MEMBER_ONLY)
         has_any_conference_role = Q(role_assignment__user=user)
         has_any_track_role = Q(track__active=True, track__role_assignment__user=user)
         return conferences.filter(
@@ -222,7 +224,7 @@ class ConferenceService:
         tracks = Track.objects.active()
 
         if not user.is_authenticated:
-            return tracks.filter(visibility=Track.Visibility.PUBLIC)
+            return tracks.filter(visibility=TrackVisibility.PUBLIC)
 
         is_global_privileged = user.is_superuser or (
             await user.global_role_assignments.filter(
@@ -232,7 +234,7 @@ class ConferenceService:
         if is_global_privileged:
             return tracks
 
-        is_public = Q(visibility=Track.Visibility.PUBLIC)
+        is_public = Q(visibility=TrackVisibility.PUBLIC)
         is_conference_admin = Q(
             conference__role_assignment__user=user,
             conference__role_assignment__role__in=ConferenceRole.admins(),
@@ -241,7 +243,7 @@ class ConferenceService:
             role_assignment__user=user,
             role_assignment__role__in=TrackRole.admins(),
         )
-        is_member_only = Q(visibility=Track.Visibility.MEMBER_ONLY)
+        is_member_only = Q(visibility=TrackVisibility.MEMBER_ONLY)
         has_any_track_role = Q(role_assignment__user=user)
         return tracks.filter(
             is_public

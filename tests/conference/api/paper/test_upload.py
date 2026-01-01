@@ -15,6 +15,7 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    ConferenceVisibility,
     Paper,
     PaperFinal,
     PaperState,
@@ -302,7 +303,7 @@ class TestCreateMySubmission:
         paper: Paper,
         sample_pdf: SimpleUploadedFile,
     ) -> None:
-        update_object(conference, visibility=Conference.Visibility.MEMBER_ONLY)
+        update_object(conference, visibility=ConferenceVisibility.MEMBER_ONLY)
         client.force_login(user)
 
         response = client.post(
@@ -1119,7 +1120,7 @@ class TestCreateMyFinal:
         sample_zip: SimpleUploadedFile,
     ) -> None:
         update_object(paper, state=PaperState.ACCEPTED)
-        update_object(conference, visibility=Conference.Visibility.MEMBER_ONLY)
+        update_object(conference, visibility=ConferenceVisibility.MEMBER_ONLY)
         client.force_login(user)
 
         response = client.post(

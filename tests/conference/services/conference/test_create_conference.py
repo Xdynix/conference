@@ -1,7 +1,13 @@
 import pytest
 from faker import Faker
 
-from app.conference.models import Conference, Keyword, KeywordSet, Track
+from app.conference.models import (
+    Conference,
+    ConferenceVisibility,
+    Keyword,
+    KeywordSet,
+    TrackVisibility,
+)
 from app.conference.services import ConferenceService
 from app.conference.services.conference import ConferenceNameConflict, TrackData
 
@@ -11,7 +17,7 @@ class TestConferenceServiceCreateConference:
     def test_happy_path(self, faker: Faker) -> None:
         name = faker.slug()
         display_name = faker.sentence()
-        visibility = Conference.Visibility.PUBLIC
+        visibility = ConferenceVisibility.PUBLIC
 
         conference = ConferenceService.create_conference(
             name=name,
@@ -36,7 +42,7 @@ class TestConferenceServiceCreateConference:
         conference = ConferenceService.create_conference(
             name=faker.slug(),
             display_name=faker.sentence(),
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
             keywords=[keyword1, keyword2],
             keyword_sets=[],
             tracks=[],
@@ -58,7 +64,7 @@ class TestConferenceServiceCreateConference:
         conference = ConferenceService.create_conference(
             name=faker.slug(),
             display_name=faker.sentence(),
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
             keywords=[],
             keyword_sets=[keyword_set1, keyword_set2],
             tracks=[],
@@ -77,7 +83,7 @@ class TestConferenceServiceCreateConference:
         conference = ConferenceService.create_conference(
             name=faker.slug(),
             display_name=faker.sentence(),
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
             keywords=[keyword1],
             keyword_sets=[keyword_set],
             tracks=[],
@@ -95,7 +101,7 @@ class TestConferenceServiceCreateConference:
         conference = ConferenceService.create_conference(
             name=faker.slug(),
             display_name=faker.sentence(),
-            visibility=Conference.Visibility.ADMIN_ONLY,
+            visibility=ConferenceVisibility.ADMIN_ONLY,
             keywords=[keyword1],
             keyword_sets=[keyword_set],
             tracks=[],
@@ -107,16 +113,16 @@ class TestConferenceServiceCreateConference:
         tracks = [
             TrackData(display_name=display_name, visibility=visibility)
             for display_name, visibility in [
-                ("Track A", Track.Visibility.PUBLIC),
-                ("Track B", Track.Visibility.ADMIN_ONLY),
-                ("Track C", Track.Visibility.PUBLIC),
+                ("Track A", TrackVisibility.PUBLIC),
+                ("Track B", TrackVisibility.ADMIN_ONLY),
+                ("Track C", TrackVisibility.PUBLIC),
             ]
         ]
 
         conference = ConferenceService.create_conference(
             name=faker.slug(),
             display_name=faker.sentence(),
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
             keywords=[],
             keyword_sets=[],
             tracks=tracks,
@@ -128,13 +134,13 @@ class TestConferenceServiceCreateConference:
         [db_track_a, db_track_b, db_track_c] = db_tracks
         assert db_track_a.display_name == "Track A"
         assert db_track_a.ordering == 0
-        assert db_track_a.visibility == Track.Visibility.PUBLIC
+        assert db_track_a.visibility == TrackVisibility.PUBLIC
         assert db_track_b.display_name == "Track B"
         assert db_track_b.ordering == 1
-        assert db_track_b.visibility == Track.Visibility.ADMIN_ONLY
+        assert db_track_b.visibility == TrackVisibility.ADMIN_ONLY
         assert db_track_c.display_name == "Track C"
         assert db_track_c.ordering == 2
-        assert db_track_c.visibility == Track.Visibility.PUBLIC
+        assert db_track_c.visibility == TrackVisibility.PUBLIC
 
     def test_raises_conference_name_conflict_for_duplicate_name(
         self, faker: Faker
@@ -148,7 +154,7 @@ class TestConferenceServiceCreateConference:
             ConferenceService.create_conference(
                 name=existing_conference.name,
                 display_name=faker.sentence(),
-                visibility=Conference.Visibility.PUBLIC,
+                visibility=ConferenceVisibility.PUBLIC,
                 keywords=[],
                 keyword_sets=[],
                 tracks=[],

@@ -13,6 +13,7 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    ConferenceVisibility,
     Paper,
     PaperAuthor,
     PaperFinal,
@@ -23,6 +24,7 @@ from app.conference.models import (
     Track,
     TrackRole,
     TrackRoleAssignment,
+    TrackVisibility,
 )
 from app.conference.services import PaperService, ReviewService
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
@@ -158,7 +160,7 @@ class TestListMyPapers:
         conference: Conference,
         track: Track,
     ) -> None:
-        update_object(track, visibility=Track.Visibility.ADMIN_ONLY)
+        update_object(track, visibility=TrackVisibility.ADMIN_ONLY)
         paper = create_paper(conference, track, user)
         api_client.force_login(user)
 
@@ -202,7 +204,7 @@ class TestListMyPapers:
         other_conference = Conference.objects.create(
             name=faker.slug(),
             display_name=faker.sentence(),
-            visibility=Conference.Visibility.PUBLIC,
+            visibility=ConferenceVisibility.PUBLIC,
         )
         other_track = Track.objects.create(
             conference=other_conference,
@@ -294,7 +296,7 @@ class TestListMyPapers:
         hidden_conference = Conference.objects.create(
             name=faker.slug(),
             display_name=faker.sentence(),
-            visibility=Conference.Visibility.MEMBER_ONLY,
+            visibility=ConferenceVisibility.MEMBER_ONLY,
         )
         api_client.force_login(user)
 

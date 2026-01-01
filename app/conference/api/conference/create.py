@@ -6,7 +6,11 @@ from loguru import logger
 from ninja import Field, Schema
 from ninja.errors import HttpError
 
-from app.conference.models import Conference, Track
+from app.conference.models import (
+    Conference,
+    ConferenceVisibility,
+    TrackVisibility,
+)
 from app.conference.services import ConferenceService, KeywordService
 from app.conference.services.conference import ConferenceNameConflict, TrackData
 from app.conference.types import Conference as ConferenceSchema
@@ -21,13 +25,13 @@ from .core import ConferenceDetailResponse, prefetch_conference, router
 
 class CreateTrackPayload(Schema):
     display_name: TrackDisplayName
-    visibility: Track.Visibility = Track.Visibility.ADMIN_ONLY
+    visibility: TrackVisibility = TrackVisibility.ADMIN_ONLY
 
 
 class CreateConferenceRequest(ConferenceSchema):
     keywords: list[KeywordText] = Field(default_factory=list, max_length=500)
     keyword_sets: list[KeywordSetName] = Field(default_factory=list, max_length=50)
-    visibility: Conference.Visibility = Conference.Visibility.ADMIN_ONLY
+    visibility: ConferenceVisibility = ConferenceVisibility.ADMIN_ONLY
     tracks: list[CreateTrackPayload] = Field(default_factory=list, max_length=100)  # type: ignore[assignment]
 
 

@@ -8,6 +8,7 @@ from app.conference.models import (
     Track,
     TrackRole,
     TrackRoleAssignment,
+    TrackVisibility,
 )
 from app.conference.services import ConferenceService
 from app.core.models import User
@@ -23,12 +24,12 @@ class TestConferenceServiceVisibleTracks:
         public_track = await Track.objects.acreate(
             conference=conference,
             display_name="Public Track",
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
         await Track.objects.acreate(
             conference=conference,
             display_name="Private Track",
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
 
         qs = await ConferenceService.visible_tracks(AnonymousUser())
@@ -45,13 +46,13 @@ class TestConferenceServiceVisibleTracks:
             conference=conference,
             display_name="First",
             ordering=1,
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
         second_track = await Track.objects.acreate(
             conference=conference,
             display_name="Second",
             ordering=2,
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
         await a_update_object(user, is_superuser=True)
 
@@ -68,7 +69,7 @@ class TestConferenceServiceVisibleTracks:
         private_track = await Track.objects.acreate(
             conference=conference,
             display_name="Private Track",
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
 
         qs = await ConferenceService.visible_tracks(global_read_all)
@@ -85,13 +86,13 @@ class TestConferenceServiceVisibleTracks:
             conference=conference,
             display_name="Public",
             ordering=1,
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
         private_track = await Track.objects.acreate(
             conference=conference,
             display_name="Private",
             ordering=2,
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
 
         qs = await ConferenceService.visible_tracks(conference_secretary)
@@ -107,12 +108,12 @@ class TestConferenceServiceVisibleTracks:
         assigned_track = await Track.objects.acreate(
             conference=conference,
             display_name="Assigned",
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
         await Track.objects.acreate(
             conference=conference,
             display_name="Hidden",
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
         await TrackRoleAssignment.objects.acreate(
             track=assigned_track,
@@ -138,18 +139,18 @@ class TestConferenceServiceVisibleTracks:
         active_track = await Track.objects.acreate(
             conference=active_conference,
             display_name="Active",
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
         await Track.objects.acreate(
             conference=active_conference,
             display_name="Inactive Track",
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
             active=False,
         )
         await Track.objects.acreate(
             conference=inactive_conference,
             display_name="Hidden",
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
         await a_update_object(user, is_superuser=True)
 
@@ -168,7 +169,7 @@ class TestConferenceServiceVisibleTracks:
         member_only_track = await Track.objects.acreate(
             conference=conference,
             display_name="Member Only Track",
-            visibility=Track.Visibility.MEMBER_ONLY,
+            visibility=TrackVisibility.MEMBER_ONLY,
         )
         await TrackRoleAssignment.objects.acreate(
             track=member_only_track,
@@ -194,7 +195,7 @@ class TestConferenceServiceVisibleTracks:
         admin_only_track = await Track.objects.acreate(
             conference=conference,
             display_name="Admin Only Track",
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
         await TrackRoleAssignment.objects.acreate(
             track=admin_only_track,
@@ -217,7 +218,7 @@ class TestConferenceServiceVisibleTracks:
         admin_only_track = await Track.objects.acreate(
             conference=conference,
             display_name="Admin Only Track",
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
         await TrackRoleAssignment.objects.acreate(
             track=admin_only_track,
@@ -238,7 +239,7 @@ class TestConferenceServiceVisibleTracks:
         await Track.objects.acreate(
             conference=conference,
             display_name="Member Only Track",
-            visibility=Track.Visibility.MEMBER_ONLY,
+            visibility=TrackVisibility.MEMBER_ONLY,
         )
 
         qs = await ConferenceService.visible_tracks(user)
@@ -259,7 +260,7 @@ class TestConferenceServiceVisibleTracks:
         await Track.objects.acreate(
             conference=conference,
             display_name="Member Only Track",
-            visibility=Track.Visibility.MEMBER_ONLY,
+            visibility=TrackVisibility.MEMBER_ONLY,
         )
         await ConferenceRoleAssignment.objects.acreate(
             conference=conference,
@@ -273,13 +274,13 @@ class TestConferenceServiceVisibleTracks:
         assert tracks == []
 
     @pytest.mark.parametrize("track_role", TrackRole)
-    @pytest.mark.parametrize("visibility", Track.Visibility)
+    @pytest.mark.parametrize("visibility", TrackVisibility)
     async def test_inactive_track_role_does_not_grant_track_visibility(
         self,
         user: User,
         conference: Conference,
         track_role: TrackRole,
-        visibility: Track.Visibility,
+        visibility: TrackVisibility,
     ) -> None:
         inactive_track = await Track.objects.acreate(
             conference=conference,

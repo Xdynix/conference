@@ -11,10 +11,12 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
+    ConferenceVisibility,
     Keyword,
     Track,
     TrackRole,
     TrackRoleAssignment,
+    TrackVisibility,
     UserConferenceProfile,
 )
 from app.conference.services import UserConferenceProfileService
@@ -69,7 +71,7 @@ class TestGetCurrentUserConferenceProfile:
         hidden_track = Track.objects.create(
             conference=conference,
             display_name="Private Track",
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
         TrackRoleAssignment.objects.create(
             track=hidden_track,
@@ -97,7 +99,7 @@ class TestGetCurrentUserConferenceProfile:
         conference: Conference,
         profile_service_get_or_create: AsyncMock,
     ) -> None:
-        update_object(conference, visibility=Conference.Visibility.ADMIN_ONLY)
+        update_object(conference, visibility=ConferenceVisibility.ADMIN_ONLY)
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name))
@@ -156,7 +158,7 @@ class TestGetUserConferenceProfile:
             conference=conference,
             display_name="Private Track",
             ordering=1,
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
         TrackRoleAssignment.objects.create(
             track=hidden_track,

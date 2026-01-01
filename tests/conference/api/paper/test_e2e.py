@@ -19,6 +19,7 @@ from app.conference.models import (
     PaperFinal,
     PaperState,
     Track,
+    TrackVisibility,
 )
 from app.core.models import User
 from tests.helpers import any_str, approx_now
@@ -44,7 +45,7 @@ def track(conference: Conference, code_pool: CodePool) -> Track:
         conference=conference,
         code_pool=code_pool,
         display_name="Main Track",
-        visibility=Track.Visibility.PUBLIC,
+        visibility=TrackVisibility.PUBLIC,
         submissions_enabled=True,
     )
 

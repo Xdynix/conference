@@ -5,6 +5,7 @@ __all__ = (
     "Conference",
     "ConferenceRole",
     "ConferenceRoleAssignment",
+    "ConferenceVisibility",
     "Invitation",
     "InvitationConferenceRoleEntry",
     "InvitationTrackRoleEntry",
@@ -26,11 +27,18 @@ __all__ = (
     "Track",
     "TrackRole",
     "TrackRoleAssignment",
+    "TrackVisibility",
     "UserConferenceProfile",
 )
 
 
-from .conference import CodePool, Conference, Track
+from .conference import (
+    CodePool,
+    Conference,
+    ConferenceVisibility,
+    Track,
+    TrackVisibility,
+)
 from .document import AcceptanceLetter
 from .invitation import (
     Invitation,

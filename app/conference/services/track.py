@@ -3,7 +3,7 @@ from typing import Any
 from django.utils.translation import gettext as _
 from ulid import ULID
 
-from app.conference.models import Conference, Track
+from app.conference.models import Conference, Track, TrackVisibility
 from app.infra.models import Mutex
 
 
@@ -14,7 +14,7 @@ class TrackService:
         *,
         conference_name: str,
         display_name: str,
-        visibility: Track.Visibility,
+        visibility: TrackVisibility,
     ) -> Track:
         """Create a new track and append it to the end of the conference's track list.
 

@@ -7,7 +7,7 @@ from django.urls import reverse
 from pytest_mock import MockerFixture
 from ulid import ULID
 
-from app.conference.models import Conference, Track
+from app.conference.models import Conference, Track, TrackVisibility
 from app.conference.services import TrackService
 from app.core.models import User
 from tests.helpers import any_str
@@ -34,7 +34,7 @@ class TestCreateTrack:
             conference=conference,
             display_name="Research Track",
             ordering=5,
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
         api_client.force_login(global_admin)
 
@@ -42,7 +42,7 @@ class TestCreateTrack:
             self.path(conference.name),
             data={
                 "display_name": "Operations Track",
-                "visibility": Track.Visibility.ADMIN_ONLY,
+                "visibility": TrackVisibility.ADMIN_ONLY,
             },
         )
         assert response.status_code == HTTPStatus.CREATED
@@ -61,7 +61,7 @@ class TestCreateTrack:
                 {
                     "uid": any_str,
                     "display_name": "Operations Track",
-                    "visibility": Track.Visibility.ADMIN_ONLY,
+                    "visibility": TrackVisibility.ADMIN_ONLY,
                     "submissions_enabled": False,
                 },
             ],
@@ -70,7 +70,7 @@ class TestCreateTrack:
         track_service_create.assert_called_once_with(
             conference_name=conference.name,
             display_name="Operations Track",
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
 
     def test_conference_chair_can_create_track(
@@ -86,7 +86,7 @@ class TestCreateTrack:
             self.path(conference.name),
             data={
                 "display_name": "Chair Created",
-                "visibility": Track.Visibility.PUBLIC,
+                "visibility": TrackVisibility.PUBLIC,
             },
         )
         assert response.status_code == HTTPStatus.CREATED
@@ -124,7 +124,7 @@ class TestCreateTrack:
             self.path(conference.name),
             data={
                 "display_name": "Chair Created",
-                "visibility": Track.Visibility.PUBLIC,
+                "visibility": TrackVisibility.PUBLIC,
             },
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
@@ -141,7 +141,7 @@ class TestUpdateTrack:
         return Track.objects.create(
             conference=conference,
             display_name="Infrastructure",
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
 
     @pytest.fixture
@@ -161,7 +161,7 @@ class TestUpdateTrack:
             self.path(track.conference.name, track.uid),
             data={
                 "display_name": "Infrastructure & Ops",
-                "visibility": Track.Visibility.ADMIN_ONLY,
+                "visibility": TrackVisibility.ADMIN_ONLY,
                 "submissions_enabled": True,
             },
         )
@@ -175,7 +175,7 @@ class TestUpdateTrack:
                 {
                     "uid": str(track.uid),
                     "display_name": "Infrastructure & Ops",
-                    "visibility": Track.Visibility.ADMIN_ONLY,
+                    "visibility": TrackVisibility.ADMIN_ONLY,
                     "submissions_enabled": True,
                 },
             ],
@@ -185,7 +185,7 @@ class TestUpdateTrack:
             conference_name=track.conference.name,
             track_uid=track.uid,
             display_name="Infrastructure & Ops",
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
             submissions_enabled=True,
         )
 
@@ -272,7 +272,7 @@ class TestDeleteTrack:
             conference=conference,
             display_name="Analytics",
             ordering=1,
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
 
     @pytest.fixture
@@ -281,7 +281,7 @@ class TestDeleteTrack:
             conference=conference,
             display_name="Governance",
             ordering=2,
-            visibility=Track.Visibility.ADMIN_ONLY,
+            visibility=TrackVisibility.ADMIN_ONLY,
         )
 
     @pytest.fixture
@@ -387,19 +387,19 @@ class TestMoveTrack:
             conference=conference,
             display_name="First Track",
             ordering=1,
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
         second = Track.objects.create(
             conference=conference,
             display_name="Second Track",
             ordering=2,
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
         third = Track.objects.create(
             conference=conference,
             display_name="Third Track",
             ordering=3,
-            visibility=Track.Visibility.PUBLIC,
+            visibility=TrackVisibility.PUBLIC,
         )
         api_client.force_login(global_admin)
 
