@@ -49,6 +49,13 @@ class PaperQuerySet(models.QuerySet["Paper"]):
             delete_time__isnull=True,
         )
 
+    def registrable(self) -> Self:
+        return self.active().filter(
+            state__in=[PaperState.ACCEPTED, PaperState.ACCEPTED_REVISION_NEEDED],
+            withdraw_time__isnull=True,
+            announce_time__isnull=False,
+        )
+
 
 class Paper(TimeStampedModel, ULIDModel):
     conference = models.ForeignKey(
