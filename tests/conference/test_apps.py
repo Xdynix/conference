@@ -142,7 +142,7 @@ class TestProfileInjectionInSessionEndpoints:
 
 @pytest.mark.django_db
 class TestProfileInjectionInUserCreationEndpoints:
-    create_registration_path = reverse("api-1.0.0:create-registration")
+    create_account_path = reverse("api-1.0.0:create-account")
     create_user_path = reverse("api-1.0.0:create-user")
 
     @pytest.fixture
@@ -158,7 +158,7 @@ class TestProfileInjectionInUserCreationEndpoints:
             "region_code": "US",
         }
 
-    def test_create_registration_with_profile(
+    def test_create_account_with_profile(
         self,
         faker: Faker,
         api_client: Client,
@@ -169,7 +169,7 @@ class TestProfileInjectionInUserCreationEndpoints:
         password = faker.password()
 
         response = api_client.post(
-            self.create_registration_path,
+            self.create_account_path,
             data={
                 "username": username,
                 "email": email_token,
@@ -187,7 +187,7 @@ class TestProfileInjectionInUserCreationEndpoints:
                 getattr(profile, field) == profile_data[field] == profile_payload[field]
             )
 
-    def test_create_registration_with_empty_profile(
+    def test_create_account_with_empty_profile(
         self,
         faker: Faker,
         api_client: Client,
@@ -197,7 +197,7 @@ class TestProfileInjectionInUserCreationEndpoints:
         password = faker.password()
 
         response = api_client.post(
-            self.create_registration_path,
+            self.create_account_path,
             data={
                 "username": username,
                 "email": email_token,
@@ -275,7 +275,7 @@ class TestProfileInjectionInUserCreationEndpoints:
 
 @pytest.mark.django_db
 class TestInvitationRedeemInUserCreationEndpoints:
-    create_registration_path = reverse("api-1.0.0:create-registration")
+    create_account_path = reverse("api-1.0.0:create-account")
     create_user_path = reverse("api-1.0.0:create-user")
 
     @classmethod
@@ -294,7 +294,7 @@ class TestInvitationRedeemInUserCreationEndpoints:
         invitation_token = InvitationService.get_invitation_token(invitation)
 
         response = api_client.post(
-            self.create_registration_path,
+            self.create_account_path,
             data={
                 "username": username,
                 "email": email_token,
@@ -326,7 +326,7 @@ class TestInvitationRedeemInUserCreationEndpoints:
         email_token = EmailVerificationService.issue_token(faker.email())
 
         response = api_client.post(
-            self.create_registration_path,
+            self.create_account_path,
             data={
                 "username": username,
                 "email": email_token,
@@ -358,7 +358,7 @@ class TestInvitationRedeemInUserCreationEndpoints:
         invitation_token = InvitationService.get_invitation_token(invitation)
 
         response = api_client.post(
-            self.create_registration_path,
+            self.create_account_path,
             data={
                 "username": faker.user_name(),
                 "email": email_token,

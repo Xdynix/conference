@@ -25,38 +25,37 @@ from app.verikit.types import VerifiedEmailStr
 from .core import UserResponse, router
 
 
-class BaseCreateRegistrationRequest(Schema):
+class BaseCreateAccountRequest(Schema):
     username: Username
     email: VerifiedEmailStr
     password: Password
 
 
-CreateRegistrationRequest = create_user_registry.extend_schema(
-    BaseCreateRegistrationRequest,
-    "CreateRegistrationRequest",
+CreateAccountRequest = create_user_registry.extend_schema(
+    BaseCreateAccountRequest,
+    "CreateAccountRequest",
 )
 
 
 @router.post(
-    "/registrations",
+    "/accounts",
     response={
         HTTPStatus.CREATED: Session,
         HTTPStatus.CONFLICT: ErrorResponse,
     },
-    summary="Register",
+    summary="Create Account",
 )
 @decorate_view(throttling(AnonThrottle("20/min")))
 @decorate_view(cf_turnstile_required)
-async def create_registration(
+async def create_account(
     request: HttpRequest,
-    payload: CreateRegistrationRequest,  # type: ignore[valid-type]
+    payload: CreateAccountRequest,  # type: ignore[valid-type]
 ) -> tuple[int, Session]:
-    """Create a new user registration and log them in.
+    """Create a new user account and log them in.
 
-    Registers a new user account with the provided username, verified email, and
-    password. The email must be verified using a token obtained from the email
-    verification flow. Upon successful registration, the user is automatically logged in
-    and a session is created.
+    Creates a new account with the provided username, verified email, and password. The
+    email must be verified using a token obtained from the email verification flow. Upon
+    success, the user is automatically logged in and a session is created.
     """
     try:
         user = await sync_to_async(UserService.create_user)(
@@ -73,7 +72,7 @@ async def create_registration(
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
     await alogin(request, user)
 
-    logger.info("User registered and logged in.", user_uid=user.uid)
+    logger.info("Account created and logged in.", user_uid=user.uid)
 
     return HTTPStatus.CREATED, await Session.from_request(request)
 

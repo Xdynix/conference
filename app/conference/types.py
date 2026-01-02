@@ -1,4 +1,6 @@
 __all__ = (
+    "AttendanceType",
+    "AttendanceTypeDisplayName",
     "Conference",
     "ConferenceDisplayName",
     "ConferenceName",
@@ -39,6 +41,7 @@ from ninja import Field, Schema
 from pydantic import AwareDatetime, BeforeValidator, HttpUrl, StringConstraints
 from ulid import ULID
 
+from app.conference.models import AttendanceType as AttendanceTypeModel
 from app.conference.models import Conference as ConferenceModel
 from app.conference.models import (
     ConferenceRole,
@@ -372,3 +375,24 @@ class ReviewDetailMixin(Schema):
     decision_reason: ReviewComment
     comments: ReviewComment
     confidential_remarks: ReviewComment
+
+
+attendance_type_meta = AttendanceTypeModel._meta
+attendance_type_display_name_field = attendance_type_meta.get_field("display_name")
+
+AttendanceTypeDisplayName = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        min_length=1,
+        max_length=attendance_type_display_name_field.max_length,
+        strip_whitespace=True,
+    ),
+]
+
+
+class AttendanceType(Schema):
+    uid: ULID
+    display_name: AttendanceTypeDisplayName
+    admin_only: bool
+    paper_required: bool

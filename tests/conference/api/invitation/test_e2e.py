@@ -44,7 +44,7 @@ class TestInvitationE2E:
     lookup_invitation_path = reverse("api-1.0.0:lookup-invitation")
     redeem_invitation_path = reverse("api-1.0.0:redeem-invitation")
     reject_invitation_path = reverse("api-1.0.0:reject-invitation")
-    create_registration_path = reverse("api-1.0.0:create-registration")
+    create_account_path = reverse("api-1.0.0:create-account")
 
     @classmethod
     def create_invitation_path(cls, conference_name: str) -> str:
@@ -195,7 +195,7 @@ class TestInvitationE2E:
         new_password = faker.password()
 
         response = api_client.post(
-            self.create_registration_path,
+            self.create_account_path,
             data={
                 "username": new_username,
                 "email": email_verification_token,

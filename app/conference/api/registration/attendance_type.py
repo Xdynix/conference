@@ -4,48 +4,26 @@
 # sort by `display_name` ensures deterministic results.
 
 from http import HTTPStatus
-from typing import Annotated
 
 from django.db import IntegrityError
 from django.db.models import ProtectedError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
-from ninja import PatchDict, Router, Schema
+from ninja import PatchDict, Schema
 from ninja.errors import HttpError
-from pydantic import BeforeValidator, StringConstraints
 from ulid import ULID
 
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import AttendanceType, Conference, ConferenceRole
 from app.conference.services import ConferenceService
+from app.conference.types import AttendanceType as AttendanceTypeResponse
+from app.conference.types import AttendanceTypeDisplayName
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
-from app.utils.sanitization import sanitize_text
 
-router = Router(tags=["Attendance Type"], exclude_none=True)
-
-
-attendance_type_meta = AttendanceType._meta
-attendance_type_display_name_field = attendance_type_meta.get_field("display_name")
-
-AttendanceTypeDisplayName = Annotated[
-    str,
-    BeforeValidator(sanitize_text),
-    StringConstraints(
-        min_length=1,
-        max_length=attendance_type_display_name_field.max_length,
-        strip_whitespace=True,
-    ),
-]
-
-
-class AttendanceTypeResponse(Schema):
-    uid: ULID
-    display_name: AttendanceTypeDisplayName
-    admin_only: bool
-    paper_required: bool
+from .core import router
 
 
 @router.get(

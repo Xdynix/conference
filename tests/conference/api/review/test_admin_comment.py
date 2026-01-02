@@ -12,24 +12,10 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     Paper,
-    PaperState,
     Profile,
-    Track,
 )
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from tests.helpers import any_str, approx_now
-
-
-@pytest.fixture
-def paper(conference: Conference, track: Track, user: User) -> Paper:
-    return Paper.objects.create(
-        conference=conference,
-        track=track,
-        owner=user,
-        code="PAPER-001",
-        title="Test Paper",
-        state=PaperState.SUBMITTED,
-    )
 
 
 def create_admin_comment(

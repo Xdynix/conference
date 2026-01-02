@@ -7,7 +7,7 @@ from django.db.models import ProtectedError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
-from ninja import Field, PatchDict, Router, Schema
+from ninja import Field, PatchDict, Schema
 from ninja.errors import HttpError
 from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 from ulid import ULID
@@ -20,7 +20,7 @@ from app.core.types import AuthedHttpRequest
 from app.infra.models import Mutex
 from app.utils.sanitization import sanitize_text
 
-router = Router(tags=["Code Pool"], exclude_none=True)
+from .core import router
 
 code_pool_meta = CodePool._meta
 code_pool_name_field = code_pool_meta.get_field("name")

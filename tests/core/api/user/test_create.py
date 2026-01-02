@@ -21,8 +21,8 @@ def user_service_create(mocker: MockerFixture) -> MagicMock:
 
 
 @pytest.mark.django_db
-class TestCreateRegistration:
-    path = reverse("api-1.0.0:create-registration")
+class TestCreateAccount:
+    path = reverse("api-1.0.0:create-account")
 
     @pytest.fixture(autouse=True)
     def mock_cf_turnstile(self, mock_cf_turnstile: MagicMock) -> MagicMock:
@@ -98,7 +98,7 @@ class TestCreateRegistration:
             payload=mocker.ANY,
         )
 
-    def test_ignores_managed_field_in_registration(
+    def test_ignores_managed_field_in_payload(
         self,
         mocker: MockerFixture,
         faker: Faker,

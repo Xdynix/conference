@@ -1,11 +1,8 @@
-from app.conference.api.admin_comment import router as admin_comment_router
-from app.conference.api.attendance_type import router as attendance_type_router
-from app.conference.api.code_pool import router as code_pool_router
 from app.conference.api.conference import router as conference_router
 from app.conference.api.invitation import router as invitation_router
 from app.conference.api.keyword_set import router as keyword_set_router
 from app.conference.api.paper import router as paper_router
-from app.conference.api.profile import router as profile_router
+from app.conference.api.registration import router as registration_router
 from app.conference.api.review import router as review_router
 from app.conference.api.role_assignment import router as role_assignment_router
 from app.conference.api.user import router as conference_user_router
@@ -20,9 +17,6 @@ api = AppNinjaAPI.build()
 
 
 for router in (
-    admin_comment_router,
-    attendance_type_router,
-    code_pool_router,
     conference_router,
     conference_user_router,
     invitation_router,
@@ -30,7 +24,7 @@ for router in (
     misc_router,
     paper_router,
     password_reset_router,
-    profile_router,
+    registration_router,
     review_router,
     role_assignment_router,
     session_router,

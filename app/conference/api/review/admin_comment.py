@@ -3,7 +3,7 @@ from typing import Annotated
 
 from django.shortcuts import aget_object_or_404
 from loguru import logger
-from ninja import Router, Schema
+from ninja import Schema
 from pydantic import AwareDatetime, StringConstraints
 from ulid import ULID
 
@@ -14,7 +14,7 @@ from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 
-router = Router(tags=["Admin Comment"], exclude_none=True)
+from .core import router
 
 
 class AdminCommentResponse(Schema):
