@@ -5,5 +5,6 @@ from . import (  # noqa: F401
     keyword,
     paper,
     profile,
+    registration,
     review,
 )
