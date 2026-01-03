@@ -1,10 +1,13 @@
 __all__ = (
+    "Affiliation",
     "AttendanceType",
     "AttendanceTypeDisplayName",
     "Conference",
     "ConferenceDisplayName",
     "ConferenceName",
     "ConferenceUser",
+    "FamilyName",
+    "GivenName",
     "Invitation",
     "InvitationTrackRole",
     "KeywordSetName",
@@ -21,6 +24,7 @@ __all__ = (
     "PaperTitle",
     "PaperTrack",
     "Profile",
+    "RegionCode",
     "Registration",
     "RegistrationPaper",
     "RegistrationPhone",
@@ -158,37 +162,40 @@ given_name_field = profile_meta.get_field("given_name")
 family_name_field = profile_meta.get_field("family_name")
 affiliation_field = profile_meta.get_field("affiliation")
 
+GivenName = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        max_length=given_name_field.max_length,
+        strip_whitespace=True,
+    ),
+    Field(examples=["John"]),
+]
+FamilyName = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        max_length=family_name_field.max_length,
+        strip_whitespace=True,
+    ),
+    Field(examples=["Doe"]),
+]
+Affiliation = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        max_length=affiliation_field.max_length,
+        strip_whitespace=True,
+    ),
+    Field(examples=["Department of Physics, University of Oxford"]),
+]
 RegionCode = StrEnum("RegionCode", {region.name: region.name for region in Region})  # type: ignore[misc]
 
 
 class Profile(Schema):
-    given_name: Annotated[
-        str,
-        BeforeValidator(sanitize_text),
-        StringConstraints(
-            max_length=given_name_field.max_length,
-            strip_whitespace=True,
-        ),
-        Field(examples=["John"]),
-    ] = ""
-    family_name: Annotated[
-        str,
-        BeforeValidator(sanitize_text),
-        StringConstraints(
-            max_length=family_name_field.max_length,
-            strip_whitespace=True,
-        ),
-        Field(examples=["Doe"]),
-    ] = ""
-    affiliation: Annotated[
-        str,
-        BeforeValidator(sanitize_text),
-        StringConstraints(
-            max_length=affiliation_field.max_length,
-            strip_whitespace=True,
-        ),
-        Field(examples=["Department of Physics, University of Oxford"]),
-    ] = ""
+    given_name: GivenName = ""
+    family_name: FamilyName = ""
+    affiliation: Affiliation = ""
     region_code: Literal[""] | RegionCode = Field("", examples=[Region.GB.name])
 
 
