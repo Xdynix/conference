@@ -21,6 +21,11 @@ __all__ = (
     "PaperTitle",
     "PaperTrack",
     "Profile",
+    "Registration",
+    "RegistrationPaper",
+    "RegistrationPhone",
+    "RegistrationReceiptTitle",
+    "RegistrationSelfIntroduction",
     "Review",
     "ReviewComment",
     "ReviewDetailMixin",
@@ -47,6 +52,8 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceVisibility,
     PaperState,
+    RegistrationState,
+    RegistrationTitle,
     TrackRole,
     TrackVisibility,
 )
@@ -56,6 +63,7 @@ from app.conference.models import KeywordSet as KeywordSetModel
 from app.conference.models import Paper as PaperModel
 from app.conference.models import PaperAuthor as PaperAuthorModel
 from app.conference.models import Profile as ProfileModel
+from app.conference.models import Registration as RegistrationModel
 from app.conference.models import Review as ReviewModel
 from app.conference.models import Track as TrackModel
 from app.conference.models import UserConferenceProfile as UserConferenceProfileModel
@@ -396,3 +404,50 @@ class AttendanceType(Schema):
     display_name: AttendanceTypeDisplayName
     admin_only: bool
     paper_required: bool
+
+
+registration_meta = RegistrationModel._meta
+registration_receipt_title_field = registration_meta.get_field("receipt_title")
+registration_phone_field = registration_meta.get_field("phone")
+
+RegistrationReceiptTitle = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        max_length=registration_receipt_title_field.max_length,
+        strip_whitespace=True,
+    ),
+]
+RegistrationPhone = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        max_length=registration_phone_field.max_length,
+        strip_whitespace=True,
+    ),
+]  # TODO: Consider use Pydantic's `PhoneNumber` type.
+RegistrationSelfIntroduction = Annotated[
+    str,
+    BeforeValidator(sanitize_formatted_text),
+    StringConstraints(max_length=1_000),
+]
+
+
+class RegistrationPaper(Schema):
+    code: PaperCode
+    title: PaperTitle
+
+
+class Registration(Profile):
+    uid: ULID
+    create_time: AwareDatetime
+    conference: ConferenceName
+    reference_code: str
+    state: RegistrationState
+    paper: RegistrationPaper | None
+    attendance_type: AttendanceType
+    receipt_title: RegistrationReceiptTitle
+    title: RegistrationTitle | Literal[""]
+    email: EmailStr | Literal[""] = Field(title=_("Email Address"))
+    phone: RegistrationPhone
+    self_introduction: RegistrationSelfIntroduction
