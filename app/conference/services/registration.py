@@ -139,41 +139,20 @@ class RegistrationService:
             return registration
 
     @classmethod
-    def cancel_registration(
-        cls,
-        registration: Registration,
-        *,
-        mode: Literal["admin", "author"],
-    ) -> Registration:
+    def cancel_registration(cls, registration: Registration) -> Registration:
         """Cancel a registration.
 
-        Authors can only cancel registrations in Pending state. Admins can cancel any
-        registration that is not already cancelled.
-
-        Args:
-            registration: The registration to cancel.
-            mode: Controls state restrictions. ``"admin"`` allows cancellation of
-                registrations in Pending or Confirmed state. ``"author"`` allows
-                cancellation only of registrations in Pending state.
+        Only registrations in Pending state can be cancelled by authors. Admins should
+        use the update endpoint to change registration state directly.
 
         Raises:
             Registration.DoesNotExist: If the registration has been deleted.
-            InvalidRegistrationStateError: If the registration is not in a valid state
-                for the given mode.
+            InvalidRegistrationStateError: If the registration is not in Pending state.
         """
-        if mode == "admin":
-            allowed_states = {RegistrationState.PENDING, RegistrationState.CONFIRMED}
-        else:
-            allowed_states = {RegistrationState.PENDING}
-
         with Mutex.lock_in_transaction(str(registration.pk), namespace="registration"):
             registration = Registration.objects.get(pk=registration.pk)
 
-            if registration.state not in allowed_states:
-                if mode == "admin":
-                    raise InvalidRegistrationStateError(
-                        _("Registration is already cancelled.")
-                    )
+            if registration.state != RegistrationState.PENDING:
                 raise InvalidRegistrationStateError(
                     _("Only pending registrations can be cancelled.")
                 )
