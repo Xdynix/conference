@@ -27,6 +27,7 @@ class RegistrationService:
         registration: Registration,
         *,
         mode: Literal["admin", "author"],
+        state: RegistrationState | None = None,
         attendance_type: ULID | None = None,
         receipt_title: str | None = None,
         title: RegistrationTitle | Literal[""] | None = None,
@@ -41,15 +42,16 @@ class RegistrationService:
         """Update a registration with the provided field values.
 
         Only fields that are explicitly passed (not ``None``) are modified. Paper is
-        immutable for all modes. Attendance type is immutable for author mode but can
-        be changed by admin with validation.
+        immutable for all modes. State and attendance type are immutable for author
+        mode but can be changed by admin.
 
         Args:
             registration: The registration to update.
             mode: Controls state restrictions and field permissions. ``"admin"`` allows
-                updates to registrations in Pending or Confirmed state and can change
-                attendance type. ``"author"`` allows updates only to registrations in
-                Pending state and cannot change attendance type.
+                updates to any registration and can change state and attendance type.
+                ``"author"`` allows updates only to registrations in Pending state and
+                cannot change state or attendance type.
+            state: New registration state. Admin mode only.
             attendance_type: New attendance type UID. Admin mode only; must be
                 compatible with the registration's paper presence.
             receipt_title: Name to appear on the receipt.
@@ -64,32 +66,29 @@ class RegistrationService:
 
         Raises:
             Registration.DoesNotExist: If the registration has been deleted.
-            InvalidRegistrationStateError: If the registration is not in a valid state
-                for the given mode.
-            ValueError: If ``attendance_type`` is provided in author mode.
+            InvalidRegistrationStateError: If the registration is not in Pending state
+                for author mode.
+            ValueError: If ``state`` or ``attendance_type`` is provided in author mode.
             AttendanceType.DoesNotExist: If the specified attendance type does not
                 exist for this conference.
             AttendanceTypeIncompatibleError: If the new attendance type requires a
                 paper but the registration has none.
         """
-        if mode == "admin":
-            allowed_states = {RegistrationState.PENDING, RegistrationState.CONFIRMED}
-        else:
-            allowed_states = {RegistrationState.PENDING}
-
         with Mutex.lock_in_transaction(str(registration.pk), namespace="registration"):
             registration = Registration.objects.get(pk=registration.pk)
 
-            if registration.state not in allowed_states:
-                if mode == "admin":
-                    raise InvalidRegistrationStateError(
-                        _("Cannot update a cancelled registration.")
-                    )
+            if mode != "admin" and registration.state != RegistrationState.PENDING:
                 raise InvalidRegistrationStateError(
                     _("Only pending registrations can be updated.")
                 )
 
             update_fields: list[str] = []
+
+            if state is not None:
+                if mode != "admin":
+                    raise ValueError("`state` can only be changed in admin mode.")
+                registration.state = state
+                update_fields.append("state")
 
             if attendance_type is not None:
                 if mode != "admin":

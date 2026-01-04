@@ -132,6 +132,17 @@ class TestUpdateRegistrationAuthorMode:
         assert registration.state == state
         assert registration.receipt_title != "Should Fail"
 
+    def test_rejects_state_change(self, registration: Registration) -> None:
+        with pytest.raises(
+            ValueError,
+            match="`state` can only be changed in admin mode",
+        ):
+            RegistrationService.update_registration(
+                registration,
+                mode="author",
+                state=RegistrationState.CONFIRMED,
+            )
+
     def test_rejects_attendance_type_change(
         self,
         registration: Registration,
@@ -175,39 +186,50 @@ class TestUpdateRegistrationAdminMode:
         assert result.receipt_title == db_result.receipt_title == "Admin Updated"
         assert result.given_name == db_result.given_name == "AdminEdit"
 
-    def test_happy_path_confirmed_state(self, registration: Registration) -> None:
-        update_object(registration, state=RegistrationState.CONFIRMED)
+    @pytest.mark.parametrize(
+        "initial_state",
+        [RegistrationState.CONFIRMED, RegistrationState.CANCELLED],
+    )
+    def test_happy_path_any_state(
+        self,
+        registration: Registration,
+        initial_state: RegistrationState,
+    ) -> None:
+        update_object(registration, state=initial_state)
 
         result = RegistrationService.update_registration(
             registration,
             mode="admin",
-            receipt_title="Admin Updated Confirmed",
-            given_name="ConfirmedEdit",
+            receipt_title="Admin Updated",
+            given_name="AdminEdit",
         )
 
         db_result = Registration.objects.get(pk=result.pk)
-        assert (
-            result.receipt_title == db_result.receipt_title == "Admin Updated Confirmed"
+        assert result.receipt_title == db_result.receipt_title == "Admin Updated"
+        assert result.given_name == db_result.given_name == "AdminEdit"
+        assert result.state == db_result.state == initial_state
+
+    def test_change_state(self, registration: Registration) -> None:
+        result = RegistrationService.update_registration(
+            registration,
+            mode="admin",
+            state=RegistrationState.CONFIRMED,
         )
-        assert result.given_name == db_result.given_name == "ConfirmedEdit"
+
+        db_result = Registration.objects.get(pk=result.pk)
         assert result.state == db_result.state == RegistrationState.CONFIRMED
 
-    def test_rejects_cancelled_state(self, registration: Registration) -> None:
+    def test_change_state_from_cancelled(self, registration: Registration) -> None:
         update_object(registration, state=RegistrationState.CANCELLED)
 
-        with pytest.raises(
-            InvalidRegistrationStateError,
-            match="Cannot update a cancelled registration",
-        ):
-            RegistrationService.update_registration(
-                registration,
-                mode="admin",
-                receipt_title="Should Fail",
-            )
+        result = RegistrationService.update_registration(
+            registration,
+            mode="admin",
+            state=RegistrationState.PENDING,
+        )
 
-        registration.refresh_from_db()
-        assert registration.state == RegistrationState.CANCELLED
-        assert registration.receipt_title != "Should Fail"
+        db_result = Registration.objects.get(pk=result.pk)
+        assert result.state == db_result.state == RegistrationState.PENDING
 
     def test_change_attendance_type(
         self,

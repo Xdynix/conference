@@ -447,6 +447,48 @@ class TestUpdateRegistration:
             given_name="AdminEdit",
         )
 
+    def test_change_state(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        registration: Registration,
+        registration_service_update: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.patch(
+            self.path(conference.name, registration.uid),
+            data={"state": RegistrationState.CONFIRMED},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["state"] == RegistrationState.CONFIRMED
+
+        registration_service_update.assert_called_once_with(
+            registration,
+            mode="admin",
+            state=RegistrationState.CONFIRMED,
+        )
+
+    def test_change_state_from_cancelled(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        registration: Registration,
+    ) -> None:
+        update_object(registration, state=RegistrationState.CANCELLED)
+        api_client.force_login(conference_chair)
+
+        response = api_client.patch(
+            self.path(conference.name, registration.uid),
+            data={"state": RegistrationState.PENDING},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["state"] == RegistrationState.PENDING
+
     def test_change_attendance_type(
         self,
         api_client: Client,

@@ -16,6 +16,7 @@ from app.conference.models import (
     Conference,
     ConferenceRole,
     Registration,
+    RegistrationState,
     RegistrationTitle,
 )
 from app.conference.services import ConferenceService, RegistrationService
@@ -130,6 +131,7 @@ async def update_my_registration(
 
 
 class AdminRegistrationSchema(RegistrationSchema):
+    state: RegistrationState
     attendance_type: ULID
 
 
