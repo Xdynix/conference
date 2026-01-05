@@ -70,7 +70,6 @@ INSTALLED_APPS = [
     "app.core",
     "app.infra",
     "app.misc",
-    "app.turnstile",
     "app.verikit",
 ]
 
@@ -238,7 +237,6 @@ RUNSERVER_PLUS_EXCLUDE_PATTERNS = [
 
 # TODO: Configure `IPWARE_META_PRECEDENCE_ORDER`.
 
-
 # Site
 
 SITE_NAME = config("SITE_NAME", default="Django")
@@ -332,7 +330,6 @@ PASSWORD_RESET_TOKEN_RETENTION = config(
 PASSWORD_RESET_PAGE_URL = config("PASSWORD_RESET_PAGE_URL", default="")
 # TODO: Add prod check for the URL setting.
 
-
 # File Downloads
 #
 # In "django" mode, files are served directly by Django using `FileResponse`. In "nginx"
@@ -372,7 +369,6 @@ FILE_DOWNLOAD_NGINX_HEADER = config(
     "FILE_DOWNLOAD_NGINX_HEADER",
     default="X-Accel-Redirect",
 )
-
 
 # Conference
 

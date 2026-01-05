@@ -67,7 +67,6 @@ The project follows Django's app-based architecture.
 - **`app/infra/`** - Infrastructure services (background jobs, scheduling, mutex locks).
 - **`app/misc/`** - Miscellaneous utilities and views.
 - **`app/admin/`** - Django admin customizations.
-- **`app/turnstile/`** - Cloudflare Turnstile demo. Debugging aide that may be removed.
 
 When adding new features, choose the appropriate app based on responsibility:
 
