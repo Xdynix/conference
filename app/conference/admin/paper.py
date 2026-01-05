@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
 from app.conference.models import (
+    IEEEeCopyrightConsent,
     Paper,
     PaperAuthor,
     PaperDecision,
@@ -48,6 +49,13 @@ class PaperDecisionInline(admin.TabularInline[PaperDecision, Paper]):
     fields = ("decider", "state", "note", "create_time")
     readonly_fields = ("decider", "state", "note", "create_time")
     can_delete = False
+
+
+class IEEEeCopyrightConsentInline(admin.TabularInline[IEEEeCopyrightConsent, Paper]):
+    model = IEEEeCopyrightConsent
+    extra = 0
+    max_num = 1
+    readonly_fields = ("create_time", "update_time")
 
 
 @admin.register(Paper)
@@ -107,6 +115,7 @@ class PaperAdmin(admin.ModelAdmin[Paper]):
         PaperFinalInline,
         PaperLabelInline,
         PaperDecisionInline,
+        IEEEeCopyrightConsentInline,
     )
     list_display = (
         "__str__",

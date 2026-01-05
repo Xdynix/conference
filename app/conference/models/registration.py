@@ -2,7 +2,6 @@ import secrets
 
 from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import F, Q
 from django.utils.translation import gettext_lazy as _
 
 from app.utils.models import TimeStampedModel, ULIDModel
@@ -117,7 +116,6 @@ class Registration(AbstractProfile, TimeStampedModel, ULIDModel):
         null=True,
         blank=True,
         default=None,
-        limit_choices_to=Q(conference=F("conference")),
         related_name="registrations",
         related_query_name="registration",
         verbose_name=_("paper"),
@@ -125,7 +123,6 @@ class Registration(AbstractProfile, TimeStampedModel, ULIDModel):
     attendance_type = models.ForeignKey(
         AttendanceType,
         on_delete=models.PROTECT,
-        limit_choices_to=Q(conference=F("conference")),
         related_name="registrations",
         related_query_name="registration",
         verbose_name=_("attendance type"),

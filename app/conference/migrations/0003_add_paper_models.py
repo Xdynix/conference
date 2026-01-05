@@ -159,9 +159,6 @@ class Migration(migrations.Migration):
                 (
                     "track",
                     models.ForeignKey(
-                        limit_choices_to=models.Q(
-                            ("conference", models.F("conference"))
-                        ),
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="papers",
                         related_query_name="paper",

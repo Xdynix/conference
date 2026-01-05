@@ -7,6 +7,8 @@ __all__ = (
     "ConferenceRole",
     "ConferenceRoleAssignment",
     "ConferenceVisibility",
+    "IEEEeCopyrightConfig",
+    "IEEEeCopyrightConsent",
     "Invitation",
     "InvitationConferenceRoleEntry",
     "InvitationTrackRoleEntry",
@@ -50,6 +52,7 @@ from .conference import (
     TrackVisibility,
 )
 from .document import AcceptanceLetter, Receipt
+from .ieee_ecopyright import IEEEeCopyrightConfig, IEEEeCopyrightConsent
 from .invitation import (
     Invitation,
     InvitationConferenceRoleEntry,

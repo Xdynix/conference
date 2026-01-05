@@ -1,7 +1,7 @@
 from typing import Self
 
 from django.db import models
-from django.db.models import F, Q
+from django.db.models import F
 from django.utils.translation import gettext_lazy as _
 
 from app.infra.models import Mutex
@@ -172,7 +172,6 @@ class Track(TimeStampedModel, ULIDModel):
     code_pool = models.ForeignKey(
         CodePool,
         on_delete=models.PROTECT,
-        limit_choices_to=Q(conference=F("conference")),
         null=True,
         blank=True,
         default=None,

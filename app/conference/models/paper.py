@@ -71,7 +71,6 @@ class Paper(TimeStampedModel, ULIDModel):
     track = models.ForeignKey(
         Track,
         on_delete=models.CASCADE,
-        limit_choices_to=Q(conference=F("conference")),
         related_name="papers",
         related_query_name="paper",
         verbose_name=_("track"),

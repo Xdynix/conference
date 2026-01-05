@@ -413,9 +413,6 @@ class Migration(migrations.Migration):
                 (
                     "attendance_type",
                     models.ForeignKey(
-                        limit_choices_to=models.Q(
-                            ("conference", models.F("conference"))
-                        ),
                         on_delete=django.db.models.deletion.PROTECT,
                         related_name="registrations",
                         related_query_name="registration",
@@ -438,9 +435,6 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         blank=True,
                         default=None,
-                        limit_choices_to=models.Q(
-                            ("conference", models.F("conference"))
-                        ),
                         null=True,
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="registrations",
