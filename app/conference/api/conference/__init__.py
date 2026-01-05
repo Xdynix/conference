@@ -1,4 +1,14 @@
 __all__ = ("router",)
 
-from . import code_pool, create, delete, get, list, profile, track, update  # noqa: F401
+from . import (  # noqa: F401
+    code_pool,
+    create,
+    delete,
+    get,
+    ieee_ecopyright,
+    list,
+    profile,
+    track,
+    update,
+)
 from .core import router
