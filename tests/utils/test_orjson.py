@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from decimal import Decimal
 
 from faker import Faker
 from pydantic import HttpUrl
@@ -27,3 +28,10 @@ def test_http_url(faker: Faker) -> None:
     dumped = serializer.dumps(value)
     loaded = serializer.loads(dumped)
     assert HttpUrl(loaded) == value
+
+
+def test_decimal(faker: Faker) -> None:
+    value = faker.pydecimal()
+    dumped = serializer.dumps(value)
+    loaded = serializer.loads(dumped)
+    assert Decimal(loaded) == value

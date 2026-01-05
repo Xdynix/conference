@@ -23,6 +23,13 @@ __all__ = (
     "PaperSubmission",
     "PaperTitle",
     "PaperTrack",
+    "Payment",
+    "PaymentAmount",
+    "PaymentItem",
+    "PaymentItemAmount",
+    "PaymentItemDescription",
+    "PaymentNote",
+    "PaymentReference",
     "Profile",
     "RegionCode",
     "Registration",
@@ -42,6 +49,7 @@ __all__ = (
     "UserConferenceProfile",
 )
 
+from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated, Literal
 
@@ -56,6 +64,9 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceVisibility,
     PaperState,
+    PaymentCurrency,
+    PaymentMethod,
+    PaymentType,
     RegistrationState,
     RegistrationTitle,
     TrackRole,
@@ -66,6 +77,8 @@ from app.conference.models import Keyword as KeywordModel
 from app.conference.models import KeywordSet as KeywordSetModel
 from app.conference.models import Paper as PaperModel
 from app.conference.models import PaperAuthor as PaperAuthorModel
+from app.conference.models import Payment as PaymentModel
+from app.conference.models import PaymentItem as PaymentItemModel
 from app.conference.models import Profile as ProfileModel
 from app.conference.models import Registration as RegistrationModel
 from app.conference.models import Review as ReviewModel
@@ -458,3 +471,69 @@ class Registration(Profile):
     email: EmailStr | Literal[""] = Field(title=_("Email Address"))
     phone: RegistrationPhone
     self_introduction: RegistrationSelfIntroduction
+
+
+payment_item_meta = PaymentItemModel._meta
+payment_item_amount_field = payment_item_meta.get_field("amount")
+payment_item_description_field = payment_item_meta.get_field("description")
+
+PaymentItemAmount = Annotated[
+    Decimal,
+    Field(
+        ge=0,
+        max_digits=payment_item_amount_field.max_digits,
+        decimal_places=payment_item_amount_field.decimal_places,
+        examples=["100.00"],
+    ),
+]
+PaymentItemDescription = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        max_length=payment_item_description_field.max_length,
+        strip_whitespace=True,
+    ),
+]
+
+
+class PaymentItem(Schema):
+    amount: PaymentItemAmount
+    description: PaymentItemDescription = ""
+
+
+payment_meta = PaymentModel._meta
+payment_amount_field = payment_meta.get_field("amount")
+payment_reference_field = payment_meta.get_field("reference")
+
+PaymentAmount = Annotated[
+    Decimal,
+    Field(
+        ge=0,
+        max_digits=payment_amount_field.max_digits,
+        decimal_places=payment_amount_field.decimal_places,
+        examples=["100.00"],
+    ),
+]
+PaymentReference = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        max_length=payment_reference_field.max_length,
+        strip_whitespace=True,
+    ),
+]
+PaymentNote = Annotated[
+    str,
+    BeforeValidator(sanitize_formatted_text),
+    StringConstraints(max_length=10_000),
+]
+
+
+class Payment(Schema):
+    conference: ConferenceName
+    amount: PaymentAmount
+    currency: PaymentCurrency
+    type: PaymentType
+    method: PaymentMethod
+    reference: PaymentReference
+    note: PaymentNote

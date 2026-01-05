@@ -2,6 +2,7 @@ from app.conference.api.conference import router as conference_router
 from app.conference.api.invitation import router as invitation_router
 from app.conference.api.keyword_set import router as keyword_set_router
 from app.conference.api.paper import router as paper_router
+from app.conference.api.payment import router as payment_router
 from app.conference.api.registration import router as registration_router
 from app.conference.api.review import router as review_router
 from app.conference.api.role_assignment import router as role_assignment_router
@@ -24,6 +25,7 @@ for router in (
     misc_router,
     paper_router,
     password_reset_router,
+    payment_router,
     registration_router,
     review_router,
     role_assignment_router,

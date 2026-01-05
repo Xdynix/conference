@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Any
 
 import orjson
@@ -8,7 +9,7 @@ from ulid import ULID
 def default(obj: Any) -> Any:
     """Serialize non-standard type."""
     match obj:
-        case ULID() | HttpUrl():
+        case ULID() | HttpUrl() | Decimal():
             return str(obj)
         case _:  # pragma: no cover
             raise TypeError
