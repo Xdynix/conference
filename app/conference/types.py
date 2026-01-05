@@ -530,7 +530,6 @@ PaymentNote = Annotated[
 
 
 class Payment(Schema):
-    conference: ConferenceName
     amount: PaymentAmount
     currency: PaymentCurrency
     type: PaymentType

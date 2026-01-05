@@ -7,7 +7,7 @@ from pydantic import AwareDatetime
 from ulid import ULID
 
 from app.conference.models import Payment, Registration, RegistrationState
-from app.conference.types import PaperCode
+from app.conference.types import ConferenceName, PaperCode
 from app.conference.types import Payment as PaymentSchema
 from app.conference.types import PaymentItem as PaymentItemSchema
 from app.conference.types import Profile as ProfileSchema
@@ -42,6 +42,7 @@ class PaymentResponse(PaymentSchema):
     uid: ULID
     create_time: AwareDatetime
     update_time: AwareDatetime
+    conference: ConferenceName
     items: list[PaymentItemResponse]
 
     @staticmethod

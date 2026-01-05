@@ -4,6 +4,7 @@ __all__ = (
     "InvitationService",
     "KeywordService",
     "PaperService",
+    "PaymentService",
     "RegistrationService",
     "ReviewService",
     "RevisionService",
@@ -17,6 +18,7 @@ from .conference import ConferenceService
 from .invitation import InvitationService
 from .keyword import KeywordService
 from .paper import PaperService
+from .payment import PaymentService
 from .registration import RegistrationService
 from .review import ReviewService
 from .revision import RevisionService

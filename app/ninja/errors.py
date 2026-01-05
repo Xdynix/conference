@@ -34,7 +34,7 @@ ExcHandler = Callable[[Exc | type[Exc]], ExcHandlerReturn]
 
 def make_validation_error(
     *,
-    path: str | Sequence[str],
+    path: str | Sequence[str | int],
     message: str | Sequence[str],
     type_: str = "value_error",
 ) -> ValidationError:

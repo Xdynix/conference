@@ -13,8 +13,6 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     ConferenceVisibility,
-    Paper,
-    PaperState,
     Payment,
     PaymentCurrency,
     PaymentItem,
@@ -22,7 +20,6 @@ from app.conference.models import (
     PaymentType,
     Registration,
     RegistrationState,
-    Track,
 )
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from tests.helpers import any_str, update_object
@@ -46,43 +43,6 @@ def create_payment(
         method=method,
         reference=reference,
         note=note,
-    )
-
-
-@pytest.fixture
-def paper(conference: Conference, track: Track, user: User) -> Paper:
-    return Paper.objects.create(
-        conference=conference,
-        track=track,
-        owner=user,
-        code="PAPER-001",
-        title="Test Paper",
-        state=PaperState.ACCEPTED,
-    )
-
-
-@pytest.fixture
-def attendance_type(conference: Conference) -> AttendanceType:
-    return AttendanceType.objects.create(
-        conference=conference,
-        display_name="Oral Presentation",
-        admin_only=False,
-        paper_required=True,
-    )
-
-
-@pytest.fixture
-def registration(
-    conference: Conference,
-    user: User,
-    paper: Paper,
-    attendance_type: AttendanceType,
-) -> Registration:
-    return Registration.objects.create(
-        conference=conference,
-        user=user,
-        paper=paper,
-        attendance_type=attendance_type,
     )
 
 
