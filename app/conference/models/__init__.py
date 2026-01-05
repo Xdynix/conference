@@ -21,6 +21,11 @@ __all__ = (
     "PaperState",
     "PaperSubmission",
     "PaperVisibleState",
+    "Payment",
+    "PaymentCurrency",
+    "PaymentItem",
+    "PaymentMethod",
+    "PaymentType",
     "Profile",
     "Registration",
     "RegistrationState",
@@ -61,6 +66,7 @@ from .paper import (
     PaperSubmission,
     PaperVisibleState,
 )
+from .payment import Payment, PaymentCurrency, PaymentItem, PaymentMethod, PaymentType
 from .profile import Profile, UserConferenceProfile
 from .registration import (
     AttendanceType,
