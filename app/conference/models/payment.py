@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Self
 
 from django.db import models
@@ -8,6 +9,37 @@ from app.utils.models import TimeStampedModel, ULIDModel
 
 from .conference import Conference
 from .registration import Registration
+
+# Currencies that do not use decimal places (non-decimal currencies).
+NON_DECIMAL_CURRENCIES = frozenset({"JPY"})
+
+
+def format_amount(amount: Decimal, currency: str) -> str:
+    """Format an amount with currency code for display.
+
+    Non-decimal currencies (e.g., JPY) are formatted without decimal places.
+    All others are formatted with 2 decimal places. Thousands separators are used.
+
+    >>> format_amount(Decimal("1234.56"), "USD")
+    '1,234.56 USD'
+    >>> format_amount(Decimal("1000.00"), "USD")
+    '1,000.00 USD'
+    >>> format_amount(Decimal("12345"), "JPY")
+    '12,345 JPY'
+    >>> format_amount(Decimal("12345.67"), "JPY")
+    '12,345 JPY'
+    >>> format_amount(Decimal("9999.99"), "CNY")
+    '9,999.99 CNY'
+    >>> format_amount(Decimal("1234567.89"), "EUR")
+    '1,234,567.89 EUR'
+    >>> format_amount(Decimal("0.00"), "USD")
+    '0.00 USD'
+    >>> format_amount(Decimal("0"), "JPY")
+    '0 JPY'
+    """
+    if currency in NON_DECIMAL_CURRENCIES:
+        return f"{int(amount):,} {currency}"
+    return f"{amount:,.2f} {currency}"
 
 
 class PaymentCurrency(models.TextChoices):
@@ -94,6 +126,11 @@ class Payment(TimeStampedModel, ULIDModel):
             f"{self.amount} {self.currency}"
         )
 
+    @property
+    def formatted_amount(self) -> str:
+        """Return the amount formatted with currency code for display."""
+        return format_amount(self.amount, self.currency)
+
 
 class PaymentItem(models.Model):
     payment = models.ForeignKey(
@@ -138,3 +175,8 @@ class PaymentItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.amount} for {self.registration}"
+
+    @property
+    def formatted_amount(self) -> str:
+        """Return the amount formatted with currency code for display."""
+        return format_amount(self.amount, self.payment.currency)

@@ -163,6 +163,24 @@ class TestPayment:
     def test_active_includes_active_payments(self, payment: Payment) -> None:
         assert Payment.objects.active().filter(pk=payment.pk).count() == 1
 
+    def test_formatted_amount_usd(self, conference: Conference) -> None:
+        payment = Payment(
+            conference=conference,
+            amount=Decimal("1234.56"),
+            currency=PaymentCurrency.USD,
+            type=PaymentType.PAYMENT,
+        )
+        assert payment.formatted_amount == "1,234.56 USD"
+
+    def test_formatted_amount_jpy(self, conference: Conference) -> None:
+        payment = Payment(
+            conference=conference,
+            amount=Decimal(12345),
+            currency=PaymentCurrency.JPY,
+            type=PaymentType.PAYMENT,
+        )
+        assert payment.formatted_amount == "12,345 JPY"
+
 
 @pytest.mark.django_db
 class TestPaymentItem:
@@ -297,3 +315,34 @@ class TestPaymentItem:
         )
 
         assert payment.items.count() == 2
+
+    def test_formatted_amount_uses_payment_currency(
+        self,
+        payment: Payment,
+        registration: Registration,
+    ) -> None:
+        item = PaymentItem(
+            payment=payment,
+            registration=registration,
+            amount=Decimal("100.00"),
+        )
+        assert item.formatted_amount == "100.00 USD"
+
+    def test_formatted_amount_jpy(
+        self,
+        conference: Conference,
+        registration: Registration,
+    ) -> None:
+        payment = Payment.objects.create(
+            conference=conference,
+            amount=Decimal(10000),
+            currency=PaymentCurrency.JPY,
+            type=PaymentType.PAYMENT,
+            method=PaymentMethod.WIRE_TRANSFER,
+        )
+        item = PaymentItem(
+            payment=payment,
+            registration=registration,
+            amount=Decimal(5000),
+        )
+        assert item.formatted_amount == "5,000 JPY"

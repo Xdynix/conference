@@ -122,9 +122,7 @@ class TestGenerateReceipt:
             <h2>Payment Items</h2>
             <ul>
             {% for item in registration.payment_items.all() -%}
-            <li>
-                {{ item.description }}: {{ item.amount }} {{ item.payment.currency }}
-            </li>
+            <li>{{ item.description }}: {{ item.formatted_amount }}</li>
             {% endfor -%}
             </ul>
             </body>
@@ -159,12 +157,8 @@ class TestGenerateReceipt:
             <p>Track: {paper.track.display_name}</p>
             <h2>Payment Items</h2>
             <ul>
-            <li>
-                Registration Fee: 300.00 USD
-            </li>
-            <li>
-                Banquet: 200.00 USD
-            </li>
+            <li>Registration Fee: 300.00 USD</li>
+            <li>Banquet: 200.00 USD</li>
             </ul>
             </body>
             </html>"""
