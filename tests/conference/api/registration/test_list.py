@@ -451,3 +451,156 @@ class TestListRegistrations:
 
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+    @pytest.mark.parametrize(
+        ("search_term", "expected_given_name"),
+        [
+            ("REF-ABC123", "Alice"),  # reference_code
+            ("PAPER-001", "Alice"),  # paper__code
+            ("Alice", "Alice"),  # given_name
+            ("Smith", "Alice"),  # family_name
+            ("alice@example.com", "Alice"),  # email
+        ],
+    )
+    def test_search_filter(
+        self,
+        faker: Faker,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+        track: Track,
+        attendance_type: AttendanceType,
+        search_term: str,
+        expected_given_name: str,
+    ) -> None:
+        registrant = User.objects.create_user(username=faker.user_name())
+        paper = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=registrant,
+            code="PAPER-001",
+            title="Test Paper",
+            state=PaperState.ACCEPTED,
+        )
+        target_registration = Registration.objects.create(
+            conference=conference,
+            user=registrant,
+            attendance_type=attendance_type,
+            paper=paper,
+            reference_code="REF-ABC123",
+            given_name="Alice",
+            family_name="Smith",
+            email="alice@example.com",
+        )
+        other_user = User.objects.create_user(username=faker.user_name())
+        Registration.objects.create(
+            conference=conference,
+            user=other_user,
+            attendance_type=attendance_type,
+            reference_code="REF-XYZ789",
+            given_name="Bob",
+            family_name="Jones",
+            email="bob@example.com",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.get(self.path(conference.name), {"search": search_term})
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()["items"]
+        assert data["uid"] == str(target_registration.uid)
+        assert data["given_name"] == expected_given_name
+
+    def test_search_filter_case_insensitive(
+        self,
+        faker: Faker,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+        attendance_type: AttendanceType,
+    ) -> None:
+        registrant = User.objects.create_user(username=faker.user_name())
+        registration = Registration.objects.create(
+            conference=conference,
+            user=registrant,
+            attendance_type=attendance_type,
+            given_name="Alice",
+            family_name="Smith",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.get(self.path(conference.name), {"search": "alice"})
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()["items"]
+        assert data["uid"] == str(registration.uid)
+
+    def test_search_filter_partial_match(
+        self,
+        faker: Faker,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+        attendance_type: AttendanceType,
+    ) -> None:
+        registrant = User.objects.create_user(username=faker.user_name())
+        registration = Registration.objects.create(
+            conference=conference,
+            user=registrant,
+            attendance_type=attendance_type,
+            given_name="Alice",
+            email="alice.smith@example.com",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.get(self.path(conference.name), {"search": "alice.smith"})
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()["items"]
+        assert data["uid"] == str(registration.uid)
+
+    def test_search_filter_no_match(
+        self,
+        faker: Faker,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+        attendance_type: AttendanceType,
+    ) -> None:
+        registrant = User.objects.create_user(username=faker.user_name())
+        Registration.objects.create(
+            conference=conference,
+            user=registrant,
+            attendance_type=attendance_type,
+            given_name="Alice",
+            family_name="Smith",
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.get(
+            self.path(conference.name),
+            {"search": "nonexistent"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["items"] == []
+
+    def test_search_filter_empty_returns_all(
+        self,
+        faker: Faker,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+        attendance_type: AttendanceType,
+    ) -> None:
+        user_a = User.objects.create_user(username=faker.user_name())
+        user_b = User.objects.create_user(username=faker.user_name())
+        reg_a = create_registration(conference, user_a, attendance_type)
+        reg_b = create_registration(conference, user_b, attendance_type)
+        api_client.force_login(global_admin)
+
+        response = api_client.get(self.path(conference.name), {"search": ""})
+        assert response.status_code == HTTPStatus.OK
+
+        uids = {item["uid"] for item in response.json()["items"]}
+        assert uids == {str(reg_a.uid), str(reg_b.uid)}

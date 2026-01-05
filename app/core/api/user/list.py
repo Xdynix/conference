@@ -32,12 +32,12 @@ class UserPaginator(cursor_pagination(cursor_field="uid", cursor_type=ULID)):  #
 
 class ListUsersFilters(FilterSchema):
     username: Username | None = None
-    email: Annotated[EmailStr | None, FilterLookup(q="email__iexact")] = None
+    email: Annotated[EmailStr | None, FilterLookup("email__iexact")] = None
     managed: bool | None = None
     search: Annotated[
         str | None,
         FilterLookup(
-            q=[
+            [
                 "username__icontains",
                 "email__icontains",
                 *search_user_registry.get_queries(),

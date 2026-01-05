@@ -80,7 +80,7 @@ class ListPapersFilters(FilterSchema):
     search: Annotated[
         str | None,
         FilterLookup(
-            q=[
+            [
                 "code__icontains",
                 "title__icontains",
                 "owner__email__icontains",

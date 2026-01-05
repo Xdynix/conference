@@ -1,5 +1,8 @@
+from typing import Annotated
+
 from django.db.models import QuerySet
 from django.shortcuts import aget_object_or_404
+from ninja import FilterLookup, FilterSchema, Query
 from ninja.pagination import paginate
 from ulid import ULID
 
@@ -42,6 +45,21 @@ async def list_my_registrations(
     return with_registration_prefetch(registrations)
 
 
+class ListRegistrationsFilters(FilterSchema):
+    search: Annotated[
+        str | None,
+        FilterLookup(
+            [
+                "reference_code__icontains",
+                "paper__code__icontains",
+                "given_name__icontains",
+                "family_name__icontains",
+                "email__icontains",
+            ],
+        ),
+    ] = None
+
+
 @router.get(
     "/conferences/{slug:conference_name}/registrations",
     response=list[RegistrationResponse],
@@ -55,6 +73,7 @@ async def list_my_registrations(
 async def list_registrations(
     request: AuthedHttpRequest,  # noqa: ARG001
     conference_name: str,
+    filters: Query[ListRegistrationsFilters],
 ) -> QuerySet[Registration]:
     """Returns all registrations for this conference."""
     conference = await aget_object_or_404(
@@ -63,5 +82,6 @@ async def list_registrations(
     )
 
     registrations = conference.registrations.all()
+    registrations = filters.filter(registrations)
 
     return with_registration_prefetch(registrations)
