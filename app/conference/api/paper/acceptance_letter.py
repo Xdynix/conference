@@ -41,7 +41,7 @@ jinja_env = SandboxedEnvironment(
 
 
 class GenerateAcceptanceLetterRequest(Schema):
-    template: str = Field(min_length=1, max_length=100_000)
+    template: str = Field(min_length=1, max_length=500_000)
 
 
 @router.post(
