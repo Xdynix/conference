@@ -27,6 +27,7 @@ __all__ = (
     "PaymentMethod",
     "PaymentType",
     "Profile",
+    "Receipt",
     "Registration",
     "RegistrationState",
     "RegistrationTitle",
@@ -48,7 +49,7 @@ from .conference import (
     Track,
     TrackVisibility,
 )
-from .document import AcceptanceLetter
+from .document import AcceptanceLetter, Receipt
 from .invitation import (
     Invitation,
     InvitationConferenceRoleEntry,
