@@ -1,4 +1,4 @@
-from django.db.models import Prefetch, QuerySet
+from django.db.models import QuerySet
 from ninja.pagination import paginate
 
 from app.conference.models import Conference
@@ -7,7 +7,7 @@ from app.conference.types import ConferenceName
 from app.core.types import HttpRequest
 from app.ninja.pagination import cursor_pagination
 
-from .core import ConferenceResponse, router
+from .core import ConferenceResponse, router, with_conference_prefetch
 
 # TODO: Filtering and searching.
 
@@ -34,12 +34,6 @@ async def list_conferences(request: HttpRequest) -> QuerySet[Conference]:
     """
     user = await request.auser()
 
-    visible_conferences = await ConferenceService.visible_conferences(user)
-    visible_tracks = await ConferenceService.visible_tracks(user)
-    return visible_conferences.prefetch_related(
-        Prefetch(
-            "tracks",
-            queryset=visible_tracks,
-            to_attr="visible_tracks",
-        )
-    )
+    conferences = await ConferenceService.visible_conferences(user)
+
+    return await with_conference_prefetch(conferences, user)

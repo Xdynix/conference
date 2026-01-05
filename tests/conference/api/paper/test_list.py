@@ -14,6 +14,7 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     ConferenceVisibility,
+    IEEEeCopyrightConsent,
     Paper,
     PaperAuthor,
     PaperFinal,
@@ -527,6 +528,7 @@ class TestListPapers:
                     },
                     "recommendation_summary": {},
                     "labels": {},
+                    "has_ieee_ecopyright_consent": False,
                 },
             ],
         }
@@ -1022,3 +1024,23 @@ class TestListPapers:
 
         [data] = response.json()["items"]
         assert data["code"] == expected_code
+
+    def test_has_ieee_ecopyright_consent_true_when_consent_exists(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+        mock_visible_papers: AsyncMock,
+        mock_visible_reviews: AsyncMock,  # noqa: ARG002
+    ) -> None:
+        paper = create_paper(conference, track, conference_chair)
+        IEEEeCopyrightConsent.objects.create(paper=paper)
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+
+        assert response.status_code == HTTPStatus.OK
+        [data] = response.json()["items"]
+        assert data["has_ieee_ecopyright_consent"] is True

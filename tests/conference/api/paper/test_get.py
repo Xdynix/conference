@@ -552,6 +552,7 @@ class TestGetPaper:
             },
             "recommendation_summary": {},
             "labels": {},
+            "has_ieee_ecopyright_consent": False,
         }
 
         mock_visible_papers.assert_awaited_once_with(conference, conference_chair)

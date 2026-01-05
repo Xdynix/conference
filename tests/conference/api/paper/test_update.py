@@ -514,6 +514,7 @@ class TestUpdatePaper:
             },
             "recommendation_summary": {},
             "labels": {},
+            "has_ieee_ecopyright_consent": False,
         }
 
         paper_service_update.assert_called_once_with(

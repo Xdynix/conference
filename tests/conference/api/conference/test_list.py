@@ -86,6 +86,7 @@ class TestListConferences:
                             "display_name": alpha_tracks[0].display_name,
                             "visibility": alpha_tracks[0].visibility,
                             "submissions_enabled": False,
+                            "ieee_ecopyright_required": False,
                         }
                     ],
                 },
@@ -100,6 +101,7 @@ class TestListConferences:
                             "display_name": beta_tracks[0].display_name,
                             "visibility": beta_tracks[0].visibility,
                             "submissions_enabled": False,
+                            "ieee_ecopyright_required": False,
                         },
                     ],
                 },

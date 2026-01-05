@@ -547,6 +547,7 @@ class TestCreatePaper:
             },
             "recommendation_summary": {},
             "labels": {},
+            "has_ieee_ecopyright_consent": False,
         }
 
         paper_service_create.assert_called_once()

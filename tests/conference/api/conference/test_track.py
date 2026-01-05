@@ -58,12 +58,14 @@ class TestCreateTrack:
                     "display_name": existing_track.display_name,
                     "visibility": existing_track.visibility,
                     "submissions_enabled": False,
+                    "ieee_ecopyright_required": False,
                 },
                 {
                     "uid": any_str,
                     "display_name": "Operations Track",
                     "visibility": TrackVisibility.ADMIN_ONLY,
                     "submissions_enabled": False,
+                    "ieee_ecopyright_required": False,
                 },
             ],
         }
@@ -179,6 +181,7 @@ class TestUpdateTrack:
                     "display_name": "Infrastructure & Ops",
                     "visibility": TrackVisibility.ADMIN_ONLY,
                     "submissions_enabled": True,
+                    "ieee_ecopyright_required": False,
                 },
             ],
         }
@@ -314,6 +317,7 @@ class TestDeleteTrack:
                     "display_name": remaining_track.display_name,
                     "visibility": remaining_track.visibility,
                     "submissions_enabled": False,
+                    "ieee_ecopyright_required": False,
                 },
             ],
         }
@@ -424,18 +428,21 @@ class TestReorderTracks:
                     "display_name": third.display_name,
                     "visibility": third.visibility,
                     "submissions_enabled": False,
+                    "ieee_ecopyright_required": False,
                 },
                 {
                     "uid": str(first.uid),
                     "display_name": first.display_name,
                     "visibility": first.visibility,
                     "submissions_enabled": False,
+                    "ieee_ecopyright_required": False,
                 },
                 {
                     "uid": str(second.uid),
                     "display_name": second.display_name,
                     "visibility": second.visibility,
                     "submissions_enabled": False,
+                    "ieee_ecopyright_required": False,
                 },
             ],
         }

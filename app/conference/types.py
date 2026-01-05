@@ -8,6 +8,9 @@ __all__ = (
     "ConferenceUser",
     "FamilyName",
     "GivenName",
+    "IEEEeCopyrightConfig",
+    "IEEEeCopyrightConfigArticleSource",
+    "IEEEeCopyrightConfigPublicationTitle",
     "Invitation",
     "InvitationTrackRole",
     "KeywordSetName",
@@ -72,6 +75,7 @@ from app.conference.models import (
     TrackRole,
     TrackVisibility,
 )
+from app.conference.models import IEEEeCopyrightConfig as IEEEeCopyrightConfigModel
 from app.conference.models import Invitation as InvitationModel
 from app.conference.models import Keyword as KeywordModel
 from app.conference.models import KeywordSet as KeywordSetModel
@@ -129,6 +133,39 @@ class Track(Schema):
     display_name: TrackDisplayName
     visibility: TrackVisibility
     submissions_enabled: bool
+
+
+ieee_ecopyright_config_model_meta = IEEEeCopyrightConfigModel._meta
+ieee_ecopyright_config_publication_title_field = (
+    ieee_ecopyright_config_model_meta.get_field("publication_title")
+)
+ieee_ecopyright_config_article_source_field = (
+    ieee_ecopyright_config_model_meta.get_field("article_source")
+)
+
+IEEEeCopyrightConfigPublicationTitle = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        min_length=1,
+        max_length=ieee_ecopyright_config_publication_title_field.max_length,
+        strip_whitespace=True,
+    ),
+]
+IEEEeCopyrightConfigArticleSource = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        min_length=1,
+        max_length=ieee_ecopyright_config_article_source_field.max_length,
+        strip_whitespace=True,
+    ),
+]
+
+
+class IEEEeCopyrightConfig(Schema):
+    publication_title: IEEEeCopyrightConfigPublicationTitle
+    article_source: IEEEeCopyrightConfigArticleSource
 
 
 conference_meta = ConferenceModel._meta

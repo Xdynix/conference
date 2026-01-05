@@ -20,6 +20,7 @@ from pydantic import AwareDatetime, HttpUrl
 from app.conference.models import (
     AcceptanceLetter,
     Conference,
+    IEEEeCopyrightConsent,
     Paper,
     PaperFinal,
     PaperSubmission,
@@ -134,6 +135,7 @@ class PaperResponse(BasePaperResponse):
     recommendation_summary: RecommendationSummary
     labels: dict[str, str]
     acceptance_letter_url: HttpUrl | None
+    has_ieee_ecopyright_consent: bool
 
     @staticmethod
     def resolve_acceptance_letter_url(paper: Paper) -> HttpUrl | None:
@@ -196,6 +198,9 @@ async def with_paper_prefetch(
             ),
             has_acceptance_letter=Exists(
                 AcceptanceLetter.objects.filter(paper=OuterRef("pk"))
+            ),
+            has_ieee_ecopyright_consent=Exists(
+                IEEEeCopyrightConsent.objects.filter(paper=OuterRef("pk"))
             ),
             final_count=Count("final"),
             api_base_url=Value(
