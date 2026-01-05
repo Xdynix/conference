@@ -46,6 +46,12 @@ class InvitationUrlsMixin(Schema):
 
 
 class InvitationResponse(InvitationUrlsMixin, InvitationSchema):
+    invitee_user: ULID | None
+
+    @staticmethod
+    def resolve_invitee_user(invitation: Invitation) -> ULID | None:
+        return invitation.invitee_user.uid if invitation.invitee_user else None
+
     @staticmethod
     def resolve_interested_keywords(invitation: Invitation) -> list[str]:
         return [keyword.text for keyword in invitation.interested_keywords.all()]
@@ -117,7 +123,7 @@ def with_invitation_prefetch(
     invitation_reject_page_url = settings.INVITATION_REJECT_PAGE_URL
 
     return (
-        queryset.select_related("conference")
+        queryset.select_related("conference", "invitee_user")
         .annotate(
             invitation_accept_page_url=Value(
                 invitation_accept_page_url,

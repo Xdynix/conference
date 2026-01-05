@@ -5,6 +5,7 @@ import pytest
 from django.conf import settings
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 from faker import Faker
 from pytest_mock import MockerFixture
 from ulid import ULID
@@ -150,6 +151,31 @@ class TestGetInvitation:
         ]
 
         mock_visible.assert_awaited_once_with(conference, conference_chair)
+
+    def test_invitee_user_resolved_for_accepted_invitation(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        mock_visible: AsyncMock,
+    ) -> None:
+        invitee = User.objects.create_user(username=faker.user_name())
+        invitation = Invitation.objects.create(
+            conference=conference,
+            invitee_email=faker.email(),
+            invitee_user=invitee,
+            accept_time=timezone.now(),
+        )
+        mock_visible.return_value = Invitation.objects.filter(pk=invitation.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, invitation.uid))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["state"] == Invitation.State.ACCEPTED
+        assert data["invitee_user"] == str(invitee.uid)
 
     def test_returns_404_when_invitation_not_visible(
         self,

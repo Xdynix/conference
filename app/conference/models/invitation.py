@@ -203,3 +203,6 @@ class InvitationTrackRoleEntry(models.Model):
 
     def __str__(self) -> str:
         return f"{self.invitation}: {self.track.display_name} - {self.role}"
+
+
+# TODO: Add labels.
