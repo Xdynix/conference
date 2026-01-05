@@ -37,7 +37,7 @@ async def get_my_registration(
     registrations = conference.registrations.filter(user=user)
 
     registration = await aget_object_or_404(registrations, uid=registration_uid)
-    return await prefetch_registration(registration)
+    return await prefetch_registration(registration, request)
 
 
 @router.get(
@@ -50,7 +50,7 @@ async def get_my_registration(
     ),
 )
 async def get_registration(
-    request: AuthedHttpRequest,  # noqa: ARG001
+    request: AuthedHttpRequest,
     conference_name: str,
     registration_uid: ULID,
 ) -> Registration:
@@ -64,4 +64,4 @@ async def get_registration(
         conference.registrations.all(),
         uid=registration_uid,
     )
-    return await prefetch_registration(registration)
+    return await prefetch_registration(registration, request)

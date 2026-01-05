@@ -42,7 +42,7 @@ async def list_my_registrations(
 
     registrations = conference.registrations.filter(user=user)
 
-    return with_registration_prefetch(registrations)
+    return with_registration_prefetch(registrations, request)
 
 
 class ListRegistrationsFilters(FilterSchema):
@@ -71,7 +71,7 @@ class ListRegistrationsFilters(FilterSchema):
 )
 @paginate(cursor_pagination(cursor_field="uid", cursor_type=ULID))
 async def list_registrations(
-    request: AuthedHttpRequest,  # noqa: ARG001
+    request: AuthedHttpRequest,
     conference_name: str,
     filters: Query[ListRegistrationsFilters],
 ) -> QuerySet[Registration]:
@@ -84,4 +84,4 @@ async def list_registrations(
     registrations = conference.registrations.all()
     registrations = filters.filter(registrations)
 
-    return with_registration_prefetch(registrations)
+    return with_registration_prefetch(registrations, request)

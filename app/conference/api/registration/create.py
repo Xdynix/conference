@@ -163,4 +163,4 @@ async def create_my_registration(
         user_uid=str(user.uid),
     )
 
-    return HTTPStatus.CREATED, await prefetch_registration(registration)
+    return HTTPStatus.CREATED, await prefetch_registration(registration, request)

@@ -59,4 +59,4 @@ async def cancel_my_registration(
         user_uid=str(user.uid),
     )
 
-    return await prefetch_registration(cancelled)
+    return await prefetch_registration(cancelled, request)

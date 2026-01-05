@@ -127,7 +127,7 @@ async def update_my_registration(
         user_uid=str(user.uid),
     )
 
-    return await prefetch_registration(updated)
+    return await prefetch_registration(updated, request)
 
 
 class AdminRegistrationSchema(RegistrationSchema):
@@ -197,4 +197,4 @@ async def update_registration(
         admin_uid=str(user.uid),
     )
 
-    return await prefetch_registration(updated)
+    return await prefetch_registration(updated, request)

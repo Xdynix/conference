@@ -119,7 +119,7 @@ async def generate_receipt(
         user_uid=str(user.uid),
     )
 
-    return await prefetch_registration(registration)
+    return await prefetch_registration(registration, request)
 
 
 GET_RECEIPT_OPENAPI_EXTRA = {
