@@ -1,5 +1,14 @@
 __all__ = ("router",)
 
 
-from . import attendance_type, cancel, create, get, list, receipt, update  # noqa: F401
+from . import (  # noqa: F401
+    attendance_type,
+    cancel,
+    create,
+    get,
+    list,
+    paper,
+    receipt,
+    update,
+)
 from .core import router
