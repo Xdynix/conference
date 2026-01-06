@@ -28,6 +28,10 @@ manage *args:
 shell:
     uv run manage.py shell_plus
 
+# populate the database with dummy data
+seed-dummy:
+    uv run manage.py runscript seed-dummy
+
 # start development services
 [parallel]
 dev: dev-app dev-mailer dev-scheduler
