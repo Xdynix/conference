@@ -8,6 +8,7 @@ from . import (  # noqa: F401
     decide,
     delete,
     download,
+    feedback,
     get,
     labels,
     list,
