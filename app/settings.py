@@ -34,6 +34,31 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 
 ALLOWED_HOSTS: list[str] = config("ALLOWED_HOSTS", default="", cast=Csv())
 
+# Reverse Proxy / Sub-Path Deployment
+#
+# When deploying under a sub-path (e.g., https://example.com/submission/), set
+# FORCE_SCRIPT_NAME to the path prefix. This ensures reverse(), build_absolute_uri(),
+# {% url %}, and {% static %} all include the prefix correctly.
+#
+# Example nginx configuration:
+#
+#     location /submission/ {
+#         proxy_pass http://127.0.0.1:8000/;  # Trailing slash strips prefix
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Real-IP $remote_addr;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#         client_max_body_size 256m;  # Must exceed MAX_FINAL_SOURCE_SIZE * 4 (50MB * 4)
+#     }
+#
+#     # If serving static files via nginx:
+#     location /submission/static/ {
+#         alias /path/to/staticfiles/;
+#     }
+#
+# TODO: Review and configure FORCE_SCRIPT_NAME at deployment time.
+# FORCE_SCRIPT_NAME: str | None = config("FORCE_SCRIPT_NAME", default=None)
+
 # Cookies
 
 COOKIE_DOMAIN = config("COOKIE_DOMAIN", default=None)
