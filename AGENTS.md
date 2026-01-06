@@ -411,3 +411,5 @@ model memory:
   coverage; ask the user when the intent is unclear.
 - Keep responses concise and cite only the relevant snippets; avoid guessing when docs
   are available.
+
+@./FRONTEND.md
