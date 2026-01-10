@@ -1,0 +1,20 @@
+<nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom py-1">
+  <div class="container-fluid">
+    <div class="navbar-brand mb-0 d-flex align-items-center gap-2">
+      {% if settings.BRANDING.logo_url %}
+        <a href="{{ settings.BRANDING.parent_url|default:'/' }}">
+          <img
+            src="{{ settings.BRANDING.logo_url }}"
+            alt="{{ settings.BRANDING.logo_alt|default:'Logo' }}"
+            {% if settings.BRANDING.logo_height %}
+            height="{{ settings.BRANDING.logo_height }}"
+            {% else %}
+            style="height: 1.5em"
+            {% endif %}
+          >
+        </a>
+      {% endif %}
+      <span>Paper Submission</span>
+    </div>
+  </div>
+</nav>

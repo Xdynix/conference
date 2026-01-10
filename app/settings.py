@@ -440,6 +440,18 @@ MAX_FINAL_VIEWABLE_SIZE = MAX_SUBMISSION_SIZE
 
 ALLOWED_FINAL_VIEWABLE_TYPES = ALLOWED_SUBMISSION_TYPES
 
+# Frontend
+
+BRANDING_LOGO_URL = config("BRANDING_LOGO_URL", default="")
+
+BRANDING_LOGO_ALT = config("BRANDING_LOGO_ALT", default="")
+
+BRANDING_LOGO_HEIGHT = config("BRANDING_LOGO_HEIGHT", default=0, cast=int)
+
+BRANDING_PARENT_URL = config("BRANDING_PARENT_URL", default="")
+
+BRANDING_FAVICON_URL = config("BRANDING_FAVICON_URL", default="")
+
 # Monkeypatch
 
 monkeypatch_django_async_auth()

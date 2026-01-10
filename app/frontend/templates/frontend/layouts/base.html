@@ -10,6 +10,9 @@
       window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   </script>
   <title>{% block title %}{% endblock %}{{ settings.SITE_NAME }}</title>
+  {% if settings.BRANDING.favicon_url %}
+    <link rel="icon" href="{{ settings.BRANDING.favicon_url }}">
+  {% endif %}
   <link
     rel="stylesheet"
     href="{% static 'frontend/vendor/bootstrap/css/bootstrap.min.css' %}"
@@ -22,6 +25,7 @@
   {% block styles %}{% endblock %}
 </head>
 <body>
+{% include "frontend/components/navbar.html" %}
 {% block body %}{% endblock %}
 {% block scripts %}{% endblock %}
 </body>
