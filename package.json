@@ -1,5 +1,6 @@
 {
   "devDependencies": {
+    "@types/alpinejs": "^3.13.11",
     "@types/axios": "^0.9.36",
     "@types/bootstrap": "^5.2.10"
   },
