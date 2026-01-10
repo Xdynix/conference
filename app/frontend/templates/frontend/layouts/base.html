@@ -39,6 +39,11 @@
       header: "{{ settings.CSRF_HEADER_NAME|escapejs }}",
     },
     params: JSON.parse(document.getElementById("app-params").textContent),
+    urls: {
+      session: {
+        get: "{% url 'api-1.0.0:get-session' %}",
+      },
+    },
   };
 </script>
 {% block app_config %}{% endblock %}
