@@ -1,10 +1,16 @@
 function createCachedStore(key, initialState, fetcher) {
   const cacheKey = `cache.${key}`;
-  const cached = localStorage.getItem(cacheKey);
+  let cachedValue = null;
+  try {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) cachedValue = JSON.parse(cached);
+  } catch {
+    cachedValue = null;
+  }
 
   return {
     ...initialState,
-    ...(cached ? JSON.parse(cached) : {}),
+    ...(cachedValue || {}),
 
     init() {
       this.load().catch((err) => {

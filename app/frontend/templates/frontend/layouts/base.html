@@ -11,8 +11,12 @@
       }
   </style>
   <script>
-    document.documentElement.dataset.bsTheme =
-      window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    {# The navbar theme switcher depends on Alpine, so set a default theme here to avoid a light-then-dark flash before Alpine loads. #}
+    (function () {
+      const stored = localStorage.getItem('theme') || 'auto';
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.bsTheme = stored === 'auto' ? (prefersDark ? 'dark' : 'light') : stored;
+    })();
   </script>
   <title>{% block title %}{% endblock %}{{ settings.SITE_NAME }}</title>
   {% if settings.BRANDING.favicon_url %}
@@ -21,6 +25,10 @@
   <link
     rel="stylesheet"
     href="{% static 'frontend/vendor/bootstrap/css/bootstrap.min.css' %}"
+  >
+  <link
+    rel="stylesheet"
+    href="{% static 'frontend/vendor/bootstrap-icons/bootstrap-icons.min.css' %}"
   >
   <script
     src="{% static 'frontend/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"

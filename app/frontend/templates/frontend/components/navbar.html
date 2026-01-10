@@ -20,51 +20,122 @@
       <span class="{% if not settings.BRANDING.logo_url %}ps-3 py-2{% endif %}">Paper Submission</span>
     </div>
 
-    <div class="d-flex align-items-center gap-2" x-data="navbar()" x-cloak>
-      <template x-if="$store.session.user">
-        <div class="dropdown">
-          <button
-            class="btn btn-outline-secondary dropdown-toggle"
-            type="button"
-            data-bs-toggle="dropdown"
-            aria-expanded="false"
-            x-text="displayName()"
-          ></button>
-          <ul class="dropdown-menu dropdown-menu-end">
+    <div class="d-flex align-items-center gap-2">
+      <div class="dropdown" x-data="themeSwitcher()">
+        <button
+          class="btn btn-link nav-link dropdown-toggle px-2"
+          type="button"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+          aria-label="Theme"
+        ><i x-cloak :class="icon"></i></button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <template x-for="opt in options" :key="opt.value">
             <li>
-              <!-- TODO: link to profile page -->
-              <a class="dropdown-item" href="#" @click.prevent>Profile</a>
-            </li>
-            <li>
-              <hr class="dropdown-divider">
-            </li>
-            <li>
-              <button class="dropdown-item" type="button" @click="logout()">
-                Sign out
+              <button
+                class="dropdown-item d-flex align-items-center"
+                :class="value === opt.value && 'active'"
+                type="button"
+                @click="set(opt.value)"
+              >
+                <i class="me-2" :class="opt.icon"></i>
+                <span x-text="opt.label"></span>
+                <i
+                  class="bi-check2 ms-auto"
+                  :class="value !== opt.value && 'invisible'"
+                ></i>
               </button>
             </li>
-          </ul>
-        </div>
-      </template>
+          </template>
+        </ul>
+      </div>
 
-      <template x-if="!$store.session.user">
-        <div class="d-flex gap-2">
-          <!-- TODO: link to registration page -->
-          <a href="#" class="btn btn-outline-secondary btn-sm" @click.prevent>
-            Sign up
-          </a>
-          <!-- TODO: link to login page -->
-          <a href="#" class="btn btn-primary btn-sm" @click.prevent>
-            Log in
-          </a>
-        </div>
-      </template>
+      <div x-data="userMenu()" x-cloak>
+        <template x-if="$store.session.user">
+          <div class="dropdown">
+            <button
+              class="btn btn-secondary dropdown-toggle"
+              type="button"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              <i class="bi-person-circle me-1"></i>
+              <span x-text="displayName()"></span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <!-- TODO: link to profile page -->
+                <a class="dropdown-item" href="#" @click.prevent>Profile</a>
+              </li>
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" @click="logout()">
+                  Log out
+                </button>
+              </li>
+            </ul>
+          </div>
+        </template>
+
+        <template x-if="!$store.session.user">
+          <div class="d-flex gap-2">
+            <!-- TODO: link to registration page -->
+            <a href="#" class="btn btn-outline-primary btn-sm" @click.prevent>
+              Sign up
+            </a>
+            <!-- TODO: link to login page -->
+            <a href="#" class="btn btn-primary btn-sm" @click.prevent>
+              Log in
+            </a>
+          </div>
+        </template>
+      </div>
     </div>
   </div>
 </nav>
 
 <script>
-  function navbar() {
+  function themeSwitcher() {
+    const options = [
+      {value: "light", label: "Light", icon: "bi-sun-fill"},
+      {value: "dark", label: "Dark", icon: "bi-moon-stars-fill"},
+      {value: "auto", label: "Auto", icon: "bi-circle-half"},
+    ];
+    const iconMap = Object.fromEntries(options.map((o) => [o.value, o.icon]));
+
+    return {
+      options,
+      value: localStorage.getItem("theme") || "auto",
+
+      get icon() {
+        return iconMap[this.value];
+      },
+
+      init() {
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+          if (this.value === "auto") {
+            this.apply();
+          }
+        });
+      },
+
+      set(value) {
+        this.value = value;
+        localStorage.setItem("theme", value);
+        this.apply();
+      },
+
+      apply() {
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.dataset.bsTheme =
+          this.value === "auto" ? (prefersDark ? "dark" : "light") : this.value;
+      },
+    };
+  }
+
+  function userMenu() {
     return {
       displayName() {
         const user = this.$store.session.user;
@@ -78,7 +149,7 @@
 
       logout() {
         this.$store.session.logout();
-      }
+      },
     };
   }
 </script>
