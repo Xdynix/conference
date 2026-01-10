@@ -67,6 +67,42 @@ or when IE compatibility mode is triggered:
   client-side. Data volumes are small (hundreds of items). For paginated endpoints,
   prefetch all pages or request a large page size.
 
+## State Management
+
+Use different storage mechanisms based on data characteristics:
+
+| Data type             | Location     | Example                           |
+|-----------------------|--------------|-----------------------------------|
+| Static config         | `window.APP` | csrf, urls, params, feature flags |
+| Reactive shared state | Alpine store | session, theme, notifications     |
+| Component-local state | `x-data`     | form fields, loading state        |
+
+**Alpine stores** provide Redux-like shared state without extra dependencies:
+
+```javascript
+// In api.js or a dedicated store file
+Alpine.store("session", {
+  user: null,
+  conference: null,
+  async load() {
+    const response = await api.get(APP.urls.session);
+    this.user = response.data.user;
+    this.conference = response.data.conference;
+  }
+});
+
+// Access in any component via $store
+<span x-text="$store.session.user?.name"></span>
+<button @click = "$store.session.load()" > Refresh < /button>
+```
+
+**Guidelines:**
+
+- Initialize stores before Alpine starts (in `api.js` or via `Alpine.data()`).
+- Keep stores focused (one per domain: session, theme, notifications).
+- Use `window.APP` for data rendered by Django at page load.
+- Use stores for data fetched client-side or shared across components.
+
 ## File Organization
 
 All frontend code lives in the `frontend` app:
@@ -91,7 +127,7 @@ app/frontend/
     │   ├── alpine.min.js
     │   └── axios.min.js
     ├── js/
-    │   ├── app.js            # API client, error mapping, form utilities
+    │   ├── api.js            # API client, error mapping, form utilities
     │   ├── theme.js          # Dark mode handling
     │   └── components/       # Reusable Alpine components
     └── css/
@@ -108,7 +144,7 @@ The base template must:
 1. Set `data-bs-theme="auto"` on `<html>` for dark mode support.
 2. Load vendor files: Bootstrap CSS, Bootstrap Icons, Bootstrap JS, Alpine.js, axios.
 3. Render a global `window.APP` object containing CSRF configuration and URL mappings.
-4. Load `app.js` before page-specific scripts.
+4. Load `api.js` before page-specific scripts.
 
 ```html
 
@@ -416,7 +452,7 @@ Place JavaScript logic based on reusability:
 |-----------------------|-------------------------------------|----------------------------|
 | Page-specific         | Inline `<script>` block in template | Co-located, self-contained |
 | Reusable across pages | `static/js/components/*.js`         | Shared, lintable           |
-| Core utilities        | `static/js/app.js`                  | API client, error mapping  |
+| Core utilities        | `static/js/api.js`                  | API client, error mapping  |
 
 <!-- markdownlint-enable MD013 -->
 
