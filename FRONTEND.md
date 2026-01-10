@@ -452,6 +452,16 @@ and are loaded globally or per-page as needed.
 
 - Alpine.js Devtools: Inspect component data, watchers, and events live.
 
+**IDE type support:**
+
+Install TypeScript definitions for vendor libraries to enable autocompletion:
+
+```bash
+npm install --save-dev @types/bootstrap axios alpine-types
+```
+
+These are dev-only dependencies for IDE support; they do not affect runtime.
+
 **Linting (via pre-commit):**
 
 - Biome: Lint and format `.js` files in `static/js/`.

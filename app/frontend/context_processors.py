@@ -14,5 +14,8 @@ def config(_: Any) -> dict[str, Any]:
                 "parent_url": settings.BRANDING_PARENT_URL,
                 "favicon_url": settings.BRANDING_FAVICON_URL,
             },
+            "CSRF_HEADER_NAME": (
+                settings.CSRF_HEADER_NAME.removeprefix("HTTP_").replace("_", "-")
+            ),
         },
     }

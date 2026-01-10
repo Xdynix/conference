@@ -21,12 +21,25 @@
     src="{% static 'frontend/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"
     defer
   ></script>
+  <script src="{% static 'frontend/vendor/axios/js/axios.min.js' %}" defer></script>
+  <script src="{% static 'frontend/js/app.js' %}" defer></script>
   {% block head %}{% endblock %}
   {% block styles %}{% endblock %}
 </head>
 <body>
 {% include "frontend/components/navbar.html" %}
 {% block body %}{% endblock %}
+{{ params|json_script:"app-params" }}
+<script>
+  window.APP = {
+    csrf: {
+      token: "{{ csrf_token }}",
+      header: "{{ settings.CSRF_HEADER_NAME|escapejs }}",
+    },
+    params: JSON.parse(document.getElementById("app-params").textContent),
+  };
+</script>
+{% block app_config %}{% endblock %}
 {% block scripts %}{% endblock %}
 </body>
 </html>

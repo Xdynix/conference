@@ -1,4 +1,8 @@
 {
+  "devDependencies": {
+    "@types/axios": "^0.9.36",
+    "@types/bootstrap": "^5.2.10"
+  },
   "commitlint": {
     "extends": [
       "@commitlint/config-conventional"
