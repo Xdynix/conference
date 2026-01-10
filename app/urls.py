@@ -14,4 +14,5 @@ urlpatterns = [
     path("api/", api.urls),
     path("core/", include("app.core.urls")),
     path("media/<path:path>", media, name="media"),
+    path("", include("app.frontend.urls")),
 ]
