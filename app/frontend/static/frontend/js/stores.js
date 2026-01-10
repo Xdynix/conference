@@ -26,11 +26,16 @@ function createCachedStore(key, initialState, fetcher) {
 }
 
 document.addEventListener("alpine:init", () => {
-  Alpine.store(
-    "session",
-    createCachedStore("session", {}, async () => {
+  Alpine.store("session", {
+    ...createCachedStore("session", {}, async () => {
       const {data} = await api.get(APP.urls.session.get);
       return data;
     }),
-  );
+
+    async logout() {
+      await api.delete(APP.urls.session.delete);
+      this.clear();
+      window.location.reload();
+    },
+  });
 });
