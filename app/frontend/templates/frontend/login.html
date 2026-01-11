@@ -50,7 +50,7 @@
         <button
           type="submit"
           class="btn btn-primary"
-          :disabled="loading || !hasToken()"
+          :disabled="loading || !cfTurnstileReady()"
         >
           <span
             x-show="loading"
@@ -131,7 +131,7 @@
             }
             window.location.href = safeNext || "{% url 'frontend:index' %}";
           } catch (error) {
-            this.reset();
+            this.cfTurnstileReset();
 
             const data = error.response?.data;
             if (error.response?.status === 422) {

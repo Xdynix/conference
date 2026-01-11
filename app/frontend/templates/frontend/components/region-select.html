@@ -1,6 +1,9 @@
 {% comment %}
 Searchable region select dropdown.
 
+Requires the parent component to provide an `errors` object for displaying validation
+errors. The component accesses `errors.<error_key>` to show field-level errors.
+
 Parameters:
   - id: Input element id (required)
   - label: Label text (required)
@@ -89,7 +92,7 @@ Parameters:
 
       init() {
         // Initialize from model value if set.
-        const initial = this.getModelValue(modelPath);
+        const initial = getModelValue(this, modelPath);
         if (initial) {
           this.setFromCode(initial);
         }
@@ -119,17 +122,6 @@ Parameters:
         }
       },
 
-      getModelValue(path) {
-        return path.split(".").reduce((obj, key) => obj?.[key], this);
-      },
-
-      setModelValue(path, value) {
-        const keys = path.split(".");
-        const last = keys.pop();
-        const target = keys.reduce((obj, key) => obj[key], this);
-        target[last] = value;
-      },
-
       get filtered() {
         if (!this.search) return this.regions;
         const query = this.search.toLowerCase();
@@ -150,7 +142,7 @@ Parameters:
       select(region) {
         this.selectedCode = region[0];
         this.selectedName = region[1];
-        this.setModelValue(modelPath, region[0]);
+        setModelValue(this, modelPath, region[0]);
         this.close();
       },
 

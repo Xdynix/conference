@@ -18,7 +18,7 @@
    * @example
    * <div x-data="cfTurnstileWidget({ action: 'login' })">
    *   <div x-ref="cf-turnstile"></div>
-   *   <button :disabled="!hasToken()" @click="submit()">Submit</button>
+   *   <button :disabled="!cfTurnstileReady()" @click="submit()">Submit</button>
    * </div>
    */
   function cfTurnstileWidget({action = "", ref = "cf-turnstile"} = {}) {
@@ -27,8 +27,8 @@
       error: "",
       widgetId: null,
 
-      hasToken() {
-        return !APP.cfTurnstile.enabled || !!this.token;
+      cfTurnstileReady() {
+        return !this.isEnabled() || !!this.token;
       },
 
       isEnabled() {
@@ -36,7 +36,7 @@
       },
 
       init() {
-        if (!APP.cfTurnstile.enabled) {
+        if (!this.isEnabled()) {
           return;
         }
 
@@ -68,7 +68,7 @@
         });
       },
 
-      reset() {
+      cfTurnstileReset() {
         this.token = "";
         this.error = "";
         if (this.widgetId !== null && window.turnstile) {
@@ -83,7 +83,7 @@
        * @returns {object} Axios request config with Turnstile header.
        */
       cfRequestConfig() {
-        if (!APP.cfTurnstile.enabled || !this.token) {
+        if (!this.isEnabled() || !this.token) {
           return {};
         }
         return {

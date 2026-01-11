@@ -1,0 +1,256 @@
+{% comment %}
+Email verification component with code-based flow.
+
+Requires the parent component to provide:
+  - Turnstile methods via cfTurnstileWidget spread:
+    - cfTurnstileReady(): Returns true if Turnstile token is available
+    - cfRequestConfig(): Returns axios config with Turnstile header
+    - cfTurnstileReset(): Refreshes the Turnstile token for the next API call
+  - `errors` object for displaying form submission errors (e.g., "email already taken")
+    in the verified state. The component accesses `errors.<error_key>`.
+
+The component uses its own `verifyErrors` object for internal verification flow errors.
+
+Example parent setup:
+  <div x-data="{ ...cfTurnstileWidget({ action: 'signup' }), form: { email_token: null }, errors: {} }">
+    {% include "frontend/components/email-verification.html" with ... %}
+    <div x-ref="cf-turnstile"></div>
+  </div>
+
+Parameters:
+  - id: Input element id (required)
+  - label: Label text (required)
+  - model: Alpine model path for the verified token, e.g. "form.email_token" (required)
+  - error_key: Key for errors object, e.g. "email" (required)
+  - required: Whether the field is required (default: false)
+  - placeholder: Placeholder text for email input (default: "Enter email")
+  - save_hint: Hint text shown after verification (default: "Click Save to apply this change.")
+
+States:
+  - idle: Initial state, empty email input with "Send Code" button
+  - input: User typing email
+  - pending: Code sent, awaiting code input
+  - verified: Success, token obtained and bound to model
+{% endcomment %}
+
+<div class="mb-3" x-data="emailVerification('{{ model }}')">
+  <label for="{{ id }}" class="form-label">{{ label }}</label>
+
+  {# Step: idle/input - enter email and request code #}
+  <div x-show="step === 'idle' || step === 'input'">
+    <div class="input-group">
+      <input
+        id="{{ id }}"
+        type="email"
+        class="form-control"
+        :class="{ 'is-invalid': verifyErrors.{{ error_key }} }"
+        x-model="email"
+        x-ref="emailInput"
+        @input="step = 'input'"
+        placeholder="{{ placeholder|default:'Enter email' }}"
+        {% if required %}required{% endif %}
+      >
+      <button
+        type="button"
+        class="btn btn-outline-primary"
+        :disabled="loading || !email || !cfTurnstileReady()"
+        @click="sendCode()"
+      >
+        <span
+          x-show="loading"
+          x-cloak
+          class="spinner-border spinner-border-sm me-1"
+        ></span>
+        Send Code
+      </button>
+    </div>
+    <div
+      class="invalid-feedback"
+      :class="{ 'd-block': verifyErrors.{{ error_key }} }"
+      x-text="verifyErrors.{{ error_key }}"
+    ></div>
+  </div>
+
+  {# Step: pending - enter verification code #}
+  <div x-show="step === 'pending'" x-cloak>
+    <div class="d-flex flex-wrap align-items-center column-gap-2 text-muted small mb-2">
+      <span>Code sent to <strong x-text="email"></strong></span>
+      <span class="d-flex align-items-center column-gap-2">
+        <span>&middot;</span>
+        <button
+          type="button"
+          class="btn btn-link p-0 text-secondary text-decoration-none"
+          :disabled="loading"
+          @click="resendCode()"
+        >Resend</button>
+        <span>&middot;</span>
+        <button
+          type="button"
+          class="btn btn-link p-0 text-secondary text-decoration-none"
+          :disabled="loading"
+          @click="clearForm()"
+        >Use different email</button>
+      </span>
+    </div>
+    <div class="input-group">
+      <input
+        id="{{ id }}-code"
+        type="text"
+        class="form-control"
+        :class="{ 'is-invalid': verifyErrors.code }"
+        x-model="code"
+        placeholder="000000"
+        autocomplete="one-time-code"
+        inputmode="numeric"
+      >
+      <button
+        type="button"
+        class="btn btn-outline-primary"
+        :disabled="loading || !code || !cfTurnstileReady()"
+        @click="verifyCode()"
+      >
+        <span
+          x-show="loading"
+          x-cloak
+          class="spinner-border spinner-border-sm me-1"
+        ></span>
+        Verify
+      </button>
+    </div>
+    <div
+      class="invalid-feedback"
+      :class="{ 'd-block': verifyErrors.code }"
+      x-text="verifyErrors.code"
+    ></div>
+  </div>
+
+  {# Step: verified - show confirmation #}
+  <div x-show="step === 'verified'" x-cloak>
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-check-circle-fill text-success"></i>
+      <span x-text="email"></span>
+      <button
+        type="button"
+        class="btn btn-link p-0 text-secondary text-decoration-none small"
+        @click="clearForm()"
+      >
+        Change
+      </button>
+    </div>
+    <div class="text-muted small mt-1">{{ save_hint|default:"Click Save to apply this change." }}</div>
+    <div
+      x-show="errors.{{ error_key }}"
+      x-cloak
+      class="text-danger small mt-1"
+      x-text="errors.{{ error_key }}"
+    ></div>
+  </div>
+</div>
+
+<script>
+  function emailVerification(modelPath) {
+    return {
+      step: "idle", // idle, input, pending, verified
+      email: "",
+      code: "",
+      verifiedToken: null,
+      loading: false,
+      verifyErrors: {},
+
+      init() {
+        // Reset component when model is cleared externally (e.g., after successful form submit).
+        this.$watch(modelPath, (value) => {
+          if (value === null && this.step === "verified") {
+            this.step = "idle";
+            this.email = "";
+            this.code = "";
+            this.verifiedToken = null;
+            this.verifyErrors = {};
+          }
+        });
+      },
+
+      async sendCode() {
+        if (this.loading) return;
+        if (!this.$refs.emailInput.reportValidity()) return;
+        this.loading = true;
+        this.verifyErrors = {};
+
+        try {
+          await api.post(
+            APP.urls.emailVerification.create,
+            {email: this.email},
+            this.cfRequestConfig(),
+          );
+          this.step = "pending";
+        } catch (error) {
+          const data = error.response?.data;
+          if (error.response?.status === 422 && data?.details?.length) {
+            this.verifyErrors = mapErrors(data.details);
+          } else if (error.response?.status === 429) {
+            const retryAfter = error.response.headers?.["retry-after"];
+            if (retryAfter) {
+              this.verifyErrors.email = `Please wait ${retryAfter} seconds before requesting another code.`;
+            } else {
+              this.verifyErrors.email = data?.message || "Please wait before requesting another code.";
+            }
+          } else {
+            this.verifyErrors.email = data?.message || "Failed to send code.";
+          }
+        } finally {
+          this.cfTurnstileReset();
+          this.loading = false;
+        }
+      },
+
+      async resendCode() {
+        if (this.loading) return;
+        this.verifyErrors = {};
+        await this.sendCode();
+      },
+
+      async verifyCode() {
+        if (this.loading) return;
+        this.loading = true;
+        this.verifyErrors = {};
+
+        try {
+          const {data} = await api.post(
+            APP.urls.emailVerification.verify,
+            {email: this.email, code: this.code},
+            this.cfRequestConfig(),
+          );
+          this.verifiedToken = data.token;
+          setModelValue(this, modelPath, this.verifiedToken);
+          this.step = "verified";
+        } catch (error) {
+          const data = error.response?.data;
+          if (error.response?.status === 422 && data?.details?.length) {
+            this.verifyErrors = mapErrors(data.details);
+          } else if (error.response?.status === 429) {
+            const retryAfter = error.response.headers?.["retry-after"];
+            if (retryAfter) {
+              this.verifyErrors.code = `Too many attempts. Please wait ${retryAfter} seconds.`;
+            } else {
+              this.verifyErrors.code = data?.message || "Too many attempts. Please wait.";
+            }
+          } else {
+            this.verifyErrors.code = data?.message || "Invalid or expired code.";
+          }
+        } finally {
+          this.cfTurnstileReset();
+          this.loading = false;
+        }
+      },
+
+      clearForm() {
+        this.step = "idle";
+        this.email = "";
+        this.code = "";
+        this.verifiedToken = null;
+        setModelValue(this, modelPath, null);
+        this.verifyErrors = {};
+      },
+    };
+  }
+</script>

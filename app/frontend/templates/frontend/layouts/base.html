@@ -36,6 +36,7 @@
   ></script>
   <script src="{% static 'frontend/vendor/axios/js/axios.min.js' %}" defer></script>
   <script src="{% static 'frontend/js/api.js' %}" defer></script>
+  <script src="{% static 'frontend/js/forms.js' %}" defer></script>
   <script src="{% static 'frontend/js/stores.js' %}" defer></script>
   <script src="{% static 'frontend/js/cf-turnstile.js' %}" defer></script>
   <script src="{% static 'frontend/vendor/alpine/js/alpine.min.js' %}" defer></script>
@@ -76,6 +77,10 @@
       },
       user: {
         updateProfile: "{% url 'api-1.0.0:update-current-user-profile' %}",
+      },
+      emailVerification: {
+        create: "{% url 'api-1.0.0:create-email-verification' %}",
+        verify: "{% url 'api-1.0.0:verify-email-verification' %}",
       },
     },
   };
