@@ -28,8 +28,20 @@ function createCachedStore(key, initialState, fetcher) {
       }
     },
 
+    // Replace store state with new data and persist to cache.
     update(data) {
       Object.assign(this, data);
+      this.save();
+    },
+
+    // Persist current store state to cache. Call after modifying individual properties.
+    save() {
+      const data = {};
+      for (const [key, value] of Object.entries(this)) {
+        if (key !== "loading" && typeof value !== "function") {
+          data[key] = value;
+        }
+      }
       localStorage.setItem(cacheKey, JSON.stringify(data));
     },
 

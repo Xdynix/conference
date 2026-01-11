@@ -1,0 +1,263 @@
+{% extends "frontend/layouts/simple.html" %}
+
+{% block title %}Account - {% endblock %}
+
+{% block content %}
+  <div class="d-flex align-items-center gap-2 mb-4">
+    <a
+      href="javascript:history.back()"
+      class="text-secondary"
+      aria-label="Go back"
+    ><i class="bi bi-arrow-left"></i></a>
+    <h1 class="h4 mb-0">Account</h1>
+  </div>
+
+  <ul class="nav nav-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button
+        class="nav-link active"
+        id="profile-tab"
+        data-bs-toggle="tab"
+        data-bs-target="#profile-pane"
+        type="button"
+        role="tab"
+        aria-controls="profile-pane"
+        aria-selected="true"
+      >
+        Profile
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button
+        class="nav-link"
+        id="account-tab"
+        data-bs-toggle="tab"
+        data-bs-target="#account-pane"
+        type="button"
+        role="tab"
+        aria-controls="account-pane"
+        aria-selected="false"
+      >
+        Account
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button
+        class="nav-link"
+        id="security-tab"
+        data-bs-toggle="tab"
+        data-bs-target="#security-pane"
+        type="button"
+        role="tab"
+        aria-controls="security-pane"
+        aria-selected="false"
+      >
+        Security
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content pt-4">
+    <div
+      class="tab-pane fade show active"
+      id="profile-pane"
+      role="tabpanel"
+      aria-labelledby="profile-tab"
+      tabindex="0"
+      x-data="profileForm()"
+    >
+      <form @submit.prevent="submit()">
+        <p class="text-muted small mb-3">All fields are required.</p>
+
+        <div class="mb-3">
+          <label for="given-name" class="form-label">
+            Given name
+            <i
+              class="bi bi-info-circle text-muted"
+              role="button"
+              tabindex="0"
+              data-bs-toggle="popover"
+              data-bs-trigger="focus"
+              data-bs-content="First/personal name"
+              onclick="event.preventDefault()"
+            ></i>
+          </label>
+          <input
+            id="given-name"
+            type="text"
+            class="form-control"
+            :class="{ 'is-invalid': errors.given_name }"
+            x-model="form.given_name"
+            autocomplete="given-name"
+            required
+          >
+          <div class="invalid-feedback" x-text="errors.given_name"></div>
+        </div>
+
+        <div class="mb-3">
+          <label for="family-name" class="form-label">
+            Family name
+            <i
+              class="bi bi-info-circle text-muted"
+              role="button"
+              tabindex="0"
+              data-bs-toggle="popover"
+              data-bs-trigger="focus"
+              data-bs-content="Last name/surname"
+              onclick="event.preventDefault()"
+            ></i>
+          </label>
+          <input
+            id="family-name"
+            type="text"
+            class="form-control"
+            :class="{ 'is-invalid': errors.family_name }"
+            x-model="form.family_name"
+            autocomplete="family-name"
+            required
+          >
+          <div class="invalid-feedback" x-text="errors.family_name"></div>
+        </div>
+
+        <div class="mb-3">
+          <label for="affiliation" class="form-label">Affiliation</label>
+          <input
+            id="affiliation"
+            type="text"
+            class="form-control"
+            :class="{ 'is-invalid': errors.affiliation }"
+            x-model="form.affiliation"
+            autocomplete="organization"
+            required
+          >
+          <div class="invalid-feedback" x-text="errors.affiliation"></div>
+          <small class="form-text text-muted">
+            e.g., <em>Google LLC</em> or
+            <em>School of Computing, Example University</em>
+          </small>
+        </div>
+
+        {% include "frontend/components/region-select.html" with id="region-code" label="Region" model="form.region_code" error_key="region_code" required=True autocomplete="country-name" %}
+
+        <div
+          x-show="errors._form"
+          x-cloak
+          class="alert alert-danger"
+          role="alert"
+          x-text="errors._form"
+        ></div>
+
+        <div
+          x-show="success"
+          x-cloak
+          class="alert alert-success"
+          role="alert"
+        >
+          Profile updated successfully.
+        </div>
+
+        <div class="d-grid">
+          <button
+            type="submit"
+            class="btn btn-primary"
+            :disabled="loading"
+          >
+            <span
+              x-show="loading"
+              x-cloak
+              class="spinner-border spinner-border-sm me-1"
+              role="status"
+            >
+              <span class="visually-hidden">Saving...</span>
+            </span>
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <div
+      class="tab-pane fade"
+      id="account-pane"
+      role="tabpanel"
+      aria-labelledby="account-tab"
+      tabindex="0"
+    >
+      <!-- Account form: username, email -->
+    </div>
+
+    <div
+      class="tab-pane fade"
+      id="security-pane"
+      role="tabpanel"
+      aria-labelledby="security-tab"
+      tabindex="0"
+    >
+      <!-- Security form: password change -->
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function profileForm() {
+      return {
+        form: {
+          given_name: "",
+          family_name: "",
+          affiliation: "",
+          region_code: "",
+        },
+        errors: {},
+        loading: false,
+        success: false,
+
+        init() {
+          this.populateFromStore();
+          this.$watch("$store.session.user", () => this.populateFromStore());
+          this.$watch("form", () => {
+            this.success = false;
+          }, {deep: true});
+        },
+
+        populateFromStore() {
+          const profile = this.$store.session.user?.profile;
+          this.form.given_name = profile?.given_name || "";
+          this.form.family_name = profile?.family_name || "";
+          this.form.affiliation = profile?.affiliation || "";
+          this.form.region_code = profile?.region_code || "";
+        },
+
+        async submit() {
+          if (this.loading) return;
+          this.errors = {};
+          this.success = false;
+          this.loading = true;
+
+          try {
+            const {data} = await api.patch(APP.urls.user.updateProfile, {
+              given_name: this.form.given_name,
+              family_name: this.form.family_name,
+              affiliation: this.form.affiliation,
+              region_code: this.form.region_code,
+            });
+
+            this.$store.session.user = data;
+            this.$store.session.save();
+            this.success = true;
+          } catch (error) {
+            const data = error.response?.data;
+            if (error.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred. Please try again.";
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}

@@ -2,6 +2,7 @@ from typing import Any
 
 from django.conf import settings
 
+from app.frontend.views import ProtectedView
 from app.utils.cf_turnstile.types import CFTurnstileMode
 
 
@@ -10,6 +11,7 @@ def config(_: Any) -> dict[str, Any]:
         settings.CF_TURNSTILE_SITE_KEY
     )
     return {
+        "redirect_field_name": ProtectedView.redirect_field_name,
         "settings": {
             "SITE_NAME": settings.SITE_NAME,
             "BRANDING": {

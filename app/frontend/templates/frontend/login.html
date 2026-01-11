@@ -117,7 +117,7 @@
 
             this.$store.session.update(data);
 
-            const next = new URLSearchParams(window.location.search).get("next");
+            const next = new URLSearchParams(window.location.search).get("{{ redirect_field_name }}");
             let safeNext = null;
             if (next) {
               try {

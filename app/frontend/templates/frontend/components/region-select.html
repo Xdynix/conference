@@ -7,6 +7,7 @@ Parameters:
   - model: Alpine x-model binding, e.g. "form.region" (required)
   - error_key: Key for errors object, e.g. "region" (required)
   - required: Whether the field is required (default: false)
+  - autocomplete: Autocomplete attribute value (optional, default: off)
 {% endcomment %}
 {% load frontend_tags %}
 <div
@@ -20,7 +21,7 @@ Parameters:
     <input
       id="{{ id }}"
       type="text"
-      class="form-control"
+      class="form-control pe-4"
       :class="{ 'is-invalid': errors.{{ error_key }} }"
       :value="isOpen ? search : selectedName"
       @input="search = $event.target.value"
@@ -30,9 +31,14 @@ Parameters:
       @keydown.arrow-up.prevent="moveUp()"
       @keydown.enter.prevent="selectHighlighted()"
       placeholder="Search..."
-      autocomplete="off"
+      autocomplete="{{ autocomplete|default:'off' }}"
       {% if required %}required{% endif %}
     >
+    <i
+      class="bi bi-chevron-down position-absolute top-50 translate-middle-y text-muted pe-none"
+      style="right: 0.75rem;"
+      aria-hidden="true"
+    ></i>
     <input type="hidden" name="{{ id }}" :value="selectedCode">
 
     <ul

@@ -47,6 +47,13 @@
 {% block body %}{% endblock %}
 {{ params|json_script:"app-params" }}
 <script>
+  document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll('[data-bs-toggle="popover"]').forEach(function (el) {
+      new bootstrap.Popover(el);
+    });
+  });
+</script>
+<script>
   window.APP = {
     csrf: {
       token: "{{ csrf_token }}",
@@ -66,6 +73,9 @@
       },
       conferences: {
         list: "{% url 'api-1.0.0:list-conferences' %}",
+      },
+      user: {
+        updateProfile: "{% url 'api-1.0.0:update-current-user-profile' %}",
       },
     },
   };
