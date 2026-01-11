@@ -22,11 +22,15 @@ function createCachedStore(key, initialState, fetcher) {
     async load() {
       try {
         const data = await fetcher();
-        Object.assign(this, data);
-        localStorage.setItem(cacheKey, JSON.stringify(data));
+        this.update(data);
       } finally {
         this.loading = false;
       }
+    },
+
+    update(data) {
+      Object.assign(this, data);
+      localStorage.setItem(cacheKey, JSON.stringify(data));
     },
 
     clear() {

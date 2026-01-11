@@ -40,8 +40,10 @@ async def check_cf_turnstile_response(
     if not enforce_on_safe and request.method in ("GET", "HEAD", "OPTIONS", "TRACE"):
         return None
 
-    if settings.DEBUG and not settings.CF_TURNSTILE_SECRET_KEY:  # pragma: no cover
-        logger.warning("CF Turnstile secret key not set, skipping verification.")
+    if settings.DEBUG and not (
+        settings.CF_TURNSTILE_SITE_KEY and settings.CF_TURNSTILE_SECRET_KEY
+    ):  # pragma: no cover
+        logger.warning("CF Turnstile not fully configured, skipping verification.")
         return None
 
     user = await request.auser()

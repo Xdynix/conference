@@ -1,0 +1,153 @@
+{% extends "frontend/layouts/simple.html" %}
+
+{% block title %}Log In - {% endblock %}
+
+{% block head %}
+  {% if settings.CF_TURNSTILE.enabled %}
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <div x-data="loginForm()">
+    <h1 class="h4 mb-4 text-center">Log in</h1>
+
+    <form @submit.prevent="submit()">
+      <div class="mb-3">
+        <label for="username" class="form-label">Username</label>
+        <input
+          id="username"
+          type="text"
+          class="form-control"
+          :class="{ 'is-invalid': errors.username }"
+          x-model="form.username"
+          autocomplete="username"
+          required
+        >
+        <div class="invalid-feedback" x-text="errors.username"></div>
+      </div>
+
+      {% include "frontend/components/password-input.html" with id="password" label="Password" model="form.password" error_key="password" autocomplete="current-password" %}
+
+      {% if settings.CF_TURNSTILE.enabled %}
+        <div class="mb-3 d-flex flex-column align-items-center">
+          <div x-ref="cf-turnstile"></div>
+          <small x-show="error" x-cloak class="text-danger mt-1">
+            Verification failed. Please try again.
+          </small>
+        </div>
+      {% endif %}
+
+      <div
+        x-show="errors._form"
+        x-cloak
+        class="alert alert-danger"
+        role="alert"
+        x-text="errors._form"
+      ></div>
+
+      <div class="d-grid mb-3">
+        <button
+          type="submit"
+          class="btn btn-primary"
+          :disabled="loading || !hasToken()"
+        >
+          <span
+            x-show="loading"
+            x-cloak
+            class="spinner-border spinner-border-sm me-1"
+            role="status"
+          >
+            <span class="visually-hidden">Logging in...</span>
+          </span>
+          Log in
+        </button>
+      </div>
+
+      <div class="text-center">
+        {# TODO: Add password-forgot URL when implemented #}
+        <a href="#" class="link-body-emphasis text-decoration-none">Forgot password?</a>
+        <span class="text-muted mx-2">&middot;</span>
+        {# TODO: Add register URL when implemented #}
+        <a href="#" class="link-body-emphasis text-decoration-none">Sign up</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function loginForm() {
+      const turnstile = cfTurnstileWidget({action: "login"});
+
+      return {
+        ...turnstile,
+
+        form: {
+          username: "",
+          password: "",
+        },
+        errors: {},
+        loading: false,
+
+        clearErrors() {
+          this.errors = {};
+        },
+
+        async submit() {
+          if (this.loading) return;
+          this.clearErrors();
+
+          if (!this.form.username || !this.form.password) {
+            return;
+          }
+
+          this.loading = true;
+
+          try {
+            const {data} = await api.post(
+              APP.urls.session.create,
+              {
+                username: this.form.username,
+                password: this.form.password,
+              },
+              this.cfRequestConfig(),
+            );
+
+            this.$store.session.update(data);
+
+            const next = new URLSearchParams(window.location.search).get("next");
+            let safeNext = null;
+            if (next) {
+              try {
+                const url = new URL(next, window.location.origin);
+                if (url.origin === window.location.origin) {
+                  safeNext = url.pathname + url.search + url.hash;
+                }
+              } catch {
+                // Invalid URL, ignore.
+              }
+            }
+            window.location.href = safeNext || "{% url 'frontend:index' %}";
+          } catch (error) {
+            this.reset();
+
+            const data = error.response?.data;
+            if (error.response?.status === 422) {
+              if (data?.details?.length) {
+                this.errors = mapErrors(data.details);
+              } else {
+                this.errors._form = data?.message;
+              }
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred. Please try again.";
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}
