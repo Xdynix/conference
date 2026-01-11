@@ -1,0 +1,183 @@
+{% comment %}
+Searchable region select dropdown.
+
+Parameters:
+  - id: Input element id (required)
+  - label: Label text (required)
+  - model: Alpine x-model binding, e.g. "form.region" (required)
+  - error_key: Key for errors object, e.g. "region" (required)
+  - required: Whether the field is required (default: false)
+{% endcomment %}
+{% load frontend_tags %}
+<div
+  class="mb-3"
+  x-data="regionSelect('{{ model }}', {% regions_json %})"
+  @click.outside="close()"
+  @keydown.escape.prevent="close()"
+>
+  <label for="{{ id }}" class="form-label">{{ label }}</label>
+  <div class="position-relative">
+    <input
+      id="{{ id }}"
+      type="text"
+      class="form-control"
+      :class="{ 'is-invalid': errors.{{ error_key }} }"
+      :value="isOpen ? search : selectedName"
+      @input="search = $event.target.value"
+      @focus="open()"
+      @blur="close()"
+      @keydown.arrow-down.prevent="moveDown()"
+      @keydown.arrow-up.prevent="moveUp()"
+      @keydown.enter.prevent="selectHighlighted()"
+      placeholder="Search..."
+      autocomplete="off"
+      {% if required %}required{% endif %}
+    >
+    <input type="hidden" name="{{ id }}" :value="selectedCode">
+
+    <ul
+      x-show="isOpen && filtered.length > 0"
+      x-cloak
+      class="dropdown-menu show w-100 overflow-auto"
+      style="max-height: 240px;"
+      role="listbox"
+      :aria-activedescendant="highlightedIndex >= 0 ? '{{ id }}-option-' + highlightedIndex : null"
+    >
+      <template x-for="(region, index) in filtered" :key="region[0]">
+        <li>
+          <button
+            type="button"
+            class="dropdown-item"
+            :class="{ 'active': index === highlightedIndex }"
+            :id="'{{ id }}-option-' + index"
+            role="option"
+            :aria-selected="region[0] === selectedCode"
+            @mousedown.prevent="select(region)"
+            @mouseenter="highlightedIndex = index"
+            x-text="region[1]"
+          ></button>
+        </li>
+      </template>
+    </ul>
+
+    <div
+      x-show="isOpen && search && filtered.length === 0"
+      x-cloak
+      class="dropdown-menu show w-100"
+    >
+      <span class="dropdown-item-text text-muted">No regions found</span>
+    </div>
+  </div>
+  <div class="invalid-feedback" x-text="errors.{{ error_key }}"></div>
+</div>
+
+<script>
+  function regionSelect(modelPath, regions) {
+    return {
+      regions,
+      search: "",
+      isOpen: false,
+      highlightedIndex: -1,
+      selectedCode: "",
+      selectedName: "",
+
+      init() {
+        // Initialize from model value if set.
+        const initial = this.getModelValue(modelPath);
+        if (initial) {
+          this.setFromCode(initial);
+        }
+
+        // Watch for external model changes.
+        this.$watch(modelPath, (value) => {
+          if (value !== this.selectedCode) {
+            this.setFromCode(value);
+          }
+        });
+      },
+
+      setFromCode(code) {
+        if (!code) {
+          this.selectedCode = "";
+          this.selectedName = "";
+          return;
+        }
+        const found = this.regions.find((r) => r[0] === code);
+        if (found) {
+          this.selectedCode = found[0];
+          this.selectedName = found[1];
+        } else {
+          // Keep invalid code as-is, display it in parentheses.
+          this.selectedCode = code;
+          this.selectedName = `(${code})`;
+        }
+      },
+
+      getModelValue(path) {
+        return path.split(".").reduce((obj, key) => obj?.[key], this);
+      },
+
+      setModelValue(path, value) {
+        const keys = path.split(".");
+        const last = keys.pop();
+        const target = keys.reduce((obj, key) => obj[key], this);
+        target[last] = value;
+      },
+
+      get filtered() {
+        if (!this.search) return this.regions;
+        const query = this.search.toLowerCase();
+        return this.regions.filter((r) => r[1].toLowerCase().includes(query));
+      },
+
+      open() {
+        this.isOpen = true;
+        this.highlightedIndex = -1;
+      },
+
+      close() {
+        this.isOpen = false;
+        this.search = "";
+        this.highlightedIndex = -1;
+      },
+
+      select(region) {
+        this.selectedCode = region[0];
+        this.selectedName = region[1];
+        this.setModelValue(modelPath, region[0]);
+        this.close();
+      },
+
+      selectHighlighted() {
+        if (this.highlightedIndex >= 0 && this.highlightedIndex < this.filtered.length) {
+          this.select(this.filtered[this.highlightedIndex]);
+        }
+      },
+
+      moveDown() {
+        if (!this.isOpen) {
+          this.open();
+          return;
+        }
+        if (this.highlightedIndex < this.filtered.length - 1) {
+          this.highlightedIndex++;
+          this.scrollToHighlighted();
+        }
+      },
+
+      moveUp() {
+        if (this.highlightedIndex > 0) {
+          this.highlightedIndex--;
+          this.scrollToHighlighted();
+        }
+      },
+
+      scrollToHighlighted() {
+        this.$nextTick(() => {
+          const el = document.getElementById(`{{ id }}-option-${this.highlightedIndex}`);
+          el?.scrollIntoView({block: "nearest"});
+        });
+      },
+    };
+  }
+</script>
