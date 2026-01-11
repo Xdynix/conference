@@ -2,6 +2,12 @@
 
 {% block title %}Account - {% endblock %}
 
+{% block head %}
+  {% if settings.CF_TURNSTILE.enabled %}
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
+  {% endif %}
+{% endblock %}
+
 {% block content %}
   <div class="d-flex align-items-center gap-2 mb-4">
     <a
@@ -12,7 +18,7 @@
     <h1 class="h4 mb-0">Account</h1>
   </div>
 
-  <ul class="nav nav-tabs" role="tablist">
+  <ul class="nav nav-tabs" id="account-tabs" role="tablist">
     <li class="nav-item" role="presentation">
       <button
         class="nav-link active"
@@ -30,15 +36,15 @@
     <li class="nav-item" role="presentation">
       <button
         class="nav-link"
-        id="account-tab"
+        id="login-tab"
         data-bs-toggle="tab"
-        data-bs-target="#account-pane"
+        data-bs-target="#login-pane"
         type="button"
         role="tab"
-        aria-controls="account-pane"
+        aria-controls="login-pane"
         aria-selected="false"
       >
-        Account
+        Login
       </button>
     </li>
     <li class="nav-item" role="presentation">
@@ -87,7 +93,7 @@
             type="text"
             class="form-control"
             :class="{ 'is-invalid': errors.given_name }"
-            x-model="form.given_name"
+            x-model="form.givenName"
             autocomplete="given-name"
             required
           >
@@ -112,7 +118,7 @@
             type="text"
             class="form-control"
             :class="{ 'is-invalid': errors.family_name }"
-            x-model="form.family_name"
+            x-model="form.familyName"
             autocomplete="family-name"
             required
           >
@@ -137,7 +143,7 @@
           </small>
         </div>
 
-        {% include "frontend/components/region-select.html" with id="region-code" label="Region" model="form.region_code" error_key="region_code" required=True autocomplete="country-name" %}
+        {% include "frontend/components/region-select.html" with id="region-code" label="Region" model="form.regionCode" error_key="region_code" required=True autocomplete="country-name" %}
 
         <div
           x-show="errors._form"
@@ -178,12 +184,108 @@
 
     <div
       class="tab-pane fade"
-      id="account-pane"
+      id="login-pane"
       role="tabpanel"
-      aria-labelledby="account-tab"
+      aria-labelledby="login-tab"
       tabindex="0"
+      x-data="userForm()"
     >
-      <!-- Account form: username, email -->
+      {# Managed user: read-only view. This mirrors the backend check in app/core/api/user/update.py (update_current_user). #}
+      <div x-show="$store.session.user?.managed === true" x-cloak>
+        <div class="alert alert-info" role="alert">
+          Your account is managed and cannot be changed here.
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Username</label>
+          <div
+            class="form-control-plaintext"
+            x-text="$store.session.user?.username || '—'"
+          ></div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Email</label>
+          <div
+            class="form-control-plaintext"
+            x-text="$store.session.user?.email || '—'"
+          ></div>
+        </div>
+      </div>
+
+      {# Regular user: editable form #}
+      <form
+        x-show="$store.session.user?.managed === false"
+        x-cloak
+        @submit.prevent="submit()"
+      >
+        <div class="mb-3">
+          <label for="username" class="form-label">Username</label>
+          <input
+            id="username"
+            type="text"
+            class="form-control"
+            :class="{ 'is-invalid': errors.username }"
+            x-model="form.username"
+            autocomplete="username"
+            required
+          >
+          <div class="invalid-feedback" x-text="errors.username"></div>
+        </div>
+
+        <div class="border rounded p-3 mb-3 bg-body-tertiary">
+          <div class="mb-3">
+            <label class="form-label">Current email</label>
+            <div class="form-control-plaintext" x-text="currentEmail || '—'"></div>
+          </div>
+
+          {% include "frontend/components/email-verification.html" with id="new-email" label="New email" model="form.emailToken" error_key="email" placeholder="Enter new email" %}
+        </div>
+
+        {% if settings.CF_TURNSTILE.enabled %}
+          <div class="mb-3 d-flex flex-column align-items-center">
+            <div x-ref="cf-turnstile"></div>
+            <small x-show="error" x-cloak class="text-danger mt-1">
+              Verification failed. Please try again.
+            </small>
+          </div>
+        {% endif %}
+
+        <div
+          x-show="errors._form"
+          x-cloak
+          class="alert alert-danger"
+          role="alert"
+          x-text="errors._form"
+        ></div>
+
+        <div
+          x-show="success"
+          x-cloak
+          class="alert alert-success"
+          role="alert"
+        >
+          Login details updated successfully.
+        </div>
+
+        <div class="d-grid">
+          <button
+            type="submit"
+            class="btn btn-primary"
+            :disabled="loading || !hasChanges()"
+          >
+            <span
+              x-show="loading"
+              x-cloak
+              class="spinner-border spinner-border-sm me-1"
+              role="status"
+            >
+              <span class="visually-hidden">Saving...</span>
+            </span>
+            Save
+          </button>
+        </div>
+      </form>
     </div>
 
     <div
@@ -196,18 +298,41 @@
       <!-- Security form: password change -->
     </div>
   </div>
+
+  <script>
+    // Activate tab from hash immediately to avoid flash.
+    (function () {
+      const hash = window.location.hash.slice(1);
+      if (!hash) return;
+      const tabList = document.getElementById("account-tabs");
+      const tab = tabList.querySelector(`#${hash}-tab`);
+      if (!tab) return;
+      // Remove active state from default tab.
+      tabList.querySelector(".nav-link.active")?.classList.remove("active");
+      tab.classList.add("active");
+      tab.setAttribute("aria-selected", "true");
+      // Update panes: hide default, show target.
+      document.querySelector(".tab-pane.show.active")?.classList.remove("show", "active");
+      document.getElementById(`${hash}-pane`)?.classList.add("show", "active");
+    })();
+  </script>
 {% endblock %}
 
 {% block scripts %}
   {{ block.super }}
   <script>
+    document.getElementById("account-tabs").addEventListener("shown.bs.tab", function (event) {
+      const id = event.target.id.replace("-tab", "");
+      history.replaceState(null, "", `#${id}`);
+    });
+
     function profileForm() {
       return {
         form: {
-          given_name: "",
-          family_name: "",
+          givenName: "",
+          familyName: "",
           affiliation: "",
-          region_code: "",
+          regionCode: "",
         },
         errors: {},
         loading: false,
@@ -223,10 +348,10 @@
 
         populateFromStore() {
           const profile = this.$store.session.user?.profile;
-          this.form.given_name = profile?.given_name || "";
-          this.form.family_name = profile?.family_name || "";
+          this.form.givenName = profile?.given_name || "";
+          this.form.familyName = profile?.family_name || "";
           this.form.affiliation = profile?.affiliation || "";
-          this.form.region_code = profile?.region_code || "";
+          this.form.regionCode = profile?.region_code || "";
         },
 
         async submit() {
@@ -237,10 +362,10 @@
 
           try {
             const {data} = await api.patch(APP.urls.user.updateProfile, {
-              given_name: this.form.given_name,
-              family_name: this.form.family_name,
+              given_name: this.form.givenName,
+              family_name: this.form.familyName,
               affiliation: this.form.affiliation,
-              region_code: this.form.region_code,
+              region_code: this.form.regionCode,
             });
 
             this.$store.session.user = data;
@@ -259,5 +384,88 @@
         },
       };
     }
+
+    function userForm() {
+      const turnstile = cfTurnstileWidget({action: "update-user"});
+
+      return {
+        ...turnstile,
+
+        form: {
+          username: "",
+          emailToken: null,
+        },
+        originalUsername: "",
+        currentEmail: "",
+        errors: {},
+        loading: false,
+        success: false,
+
+        init() {
+          turnstile.init.call(this);
+          this.populateFromStore();
+          this.$watch("$store.session.user", () => this.populateFromStore());
+          // Only watch username, not the entire form. Watching form.emailToken would
+          // clear success when it's reset to null after a successful save.
+          this.$watch("form.username", () => {
+            this.success = false;
+          });
+        },
+
+        populateFromStore() {
+          const user = this.$store.session.user;
+          this.form.username = user?.username || "";
+          this.originalUsername = user?.username || "";
+          this.currentEmail = user?.email || "";
+        },
+
+        hasChanges() {
+          return (
+            this.form.username !== this.originalUsername ||
+            this.form.emailToken !== null
+          );
+        },
+
+        async submit() {
+          if (this.loading) return;
+          this.errors = {};
+          this.success = false;
+          this.loading = true;
+
+          const payload = {};
+          if (this.form.username !== this.originalUsername) {
+            payload.username = this.form.username;
+          }
+          if (this.form.emailToken) {
+            payload.email = this.form.emailToken;
+          }
+
+          try {
+            const {data} = await api.patch(APP.urls.user.update, payload);
+
+            this.$store.session.user = data;
+            this.$store.session.save();
+            this.originalUsername = data.username;
+            this.currentEmail = data.email;
+            this.form.emailToken = null;
+            this.success = true;
+          } catch (error) {
+            const data = error.response?.data;
+            if (error.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
+            } else if (error.response?.status === 409) {
+              this.errors._form = data?.message || "Username or email already exists.";
+            } else if (error.response?.status === 400) {
+              this.errors._form = data?.message || "Unable to update login details.";
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred. Please try again.";
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+
   </script>
 {% endblock %}
