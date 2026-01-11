@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 
 from app.conference.models import Conference, ConferenceVisibility, Keyword, KeywordSet
@@ -150,3 +152,65 @@ class TestConferenceServiceUpdateConference:
         conference.refresh_from_db()
         assert conference.display_name == "Original"
         assert conference.update_time == original_update_time
+
+    def test_update_display_fields(self, conference: Conference) -> None:
+        updated = ConferenceService.update_conference(
+            name=conference.name,
+            start_date=date(2026, 9, 24),
+            end_date=date(2026, 9, 27),
+            location="Cagliari, Italy",
+        )
+
+        db_updated = Conference.objects.get(pk=conference.pk)
+        assert updated.start_date == db_updated.start_date == date(2026, 9, 24)
+        assert updated.end_date == db_updated.end_date == date(2026, 9, 27)
+        assert updated.location == db_updated.location == "Cagliari, Italy"
+
+    def test_update_clears_start_date_with_empty_string(
+        self,
+        conference: Conference,
+    ) -> None:
+        update_object(conference, start_date=date(2026, 9, 24))
+
+        updated = ConferenceService.update_conference(
+            name=conference.name,
+            start_date="",
+        )
+
+        db_updated = Conference.objects.get(pk=conference.pk)
+        assert updated.start_date is db_updated.start_date is None
+
+    def test_update_clears_end_date_with_empty_string(
+        self,
+        conference: Conference,
+    ) -> None:
+        update_object(conference, end_date=date(2026, 9, 27))
+
+        updated = ConferenceService.update_conference(
+            name=conference.name,
+            end_date="",
+        )
+
+        db_updated = Conference.objects.get(pk=conference.pk)
+        assert updated.end_date is db_updated.end_date is None
+
+    def test_omit_display_fields_preserves_existing(
+        self, conference: Conference
+    ) -> None:
+        update_object(
+            conference,
+            start_date=date(2026, 9, 24),
+            end_date=date(2026, 9, 27),
+            location="Cagliari, Italy",
+        )
+
+        updated = ConferenceService.update_conference(
+            name=conference.name,
+            display_name="Updated Name",
+        )
+
+        db_updated = Conference.objects.get(pk=conference.pk)
+        assert updated.display_name == "Updated Name"
+        assert updated.start_date == db_updated.start_date == date(2026, 9, 24)
+        assert updated.end_date == db_updated.end_date == date(2026, 9, 27)
+        assert updated.location == db_updated.location == "Cagliari, Italy"

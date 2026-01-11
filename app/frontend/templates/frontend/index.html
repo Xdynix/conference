@@ -3,7 +3,7 @@
 {% block title %}Select Conference - {% endblock %}
 
 {% block content %}
-  <div x-data>
+  <div x-data="conferenceIndex()">
     <h1 class="h4 mb-4 text-center">Select a conference</h1>
 
     <template x-if="$store.conferences.loading">
@@ -25,11 +25,19 @@
       <div class="d-grid gap-2">
         <template x-for="conf in $store.conferences.items" :key="conf.name">
           <a
+            {# TODO: Replace with reversed conference home URL once available. #}
             :href="`/${conf.name}/`"
             class="card card-body bg-body-tertiary text-decoration-none"
           >
             <div class="d-flex justify-content-between align-items-center gap-2">
-              <span class="fw-semibold" x-text="conf.name"></span>
+              <div>
+                <div class="fw-semibold" x-text="conf.name"></div>
+                <small
+                  class="text-muted"
+                  x-text="formatConferenceSubtitle(conf)"
+                  x-show="formatConferenceSubtitle(conf)"
+                ></small>
+              </div>
               <span class="d-flex align-items-center gap-2">
                 <span
                   x-show="conf.visibility !== 'Public'"
@@ -41,11 +49,52 @@
                 <i class="bi bi-chevron-right text-muted"></i>
               </span>
             </div>
-            {# TODO: Show formatted date range and location when backend adds these fields #}
-            {# <small class="text-muted" x-text="formatConferenceSubtitle(conf)"></small> #}
           </a>
         </template>
       </div>
     </template>
   </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function conferenceIndex() {
+      const sameMonthYear = (a, b) =>
+        a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
+
+      const fmtDay = new Intl.DateTimeFormat("en-US", {day: "numeric"});
+      const fmtMonthYear = new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        year: "numeric"
+      });
+      const fmtFull = new Intl.DateTimeFormat("en-US", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+
+      const formatRange = (start, end) => {
+        if (start && end) {
+          if (sameMonthYear(start, end)) {
+            return `${fmtDay.format(start)}-${fmtDay.format(end)} ${fmtMonthYear.format(start)}`;
+          }
+          return `${fmtFull.format(start)} - ${fmtFull.format(end)}`;
+        }
+        if (start) return fmtFull.format(start);
+        if (end) return fmtFull.format(end);
+        return "";
+      };
+
+      return {
+        formatConferenceSubtitle(conf) {
+          const start = conf.start_date ? new Date(conf.start_date) : null;
+          const end = conf.end_date ? new Date(conf.end_date) : null;
+          const datePart = formatRange(start, end);
+          const location = (conf.location || "").trim();
+          return [datePart, location].filter(Boolean).join(", ");
+        },
+      };
+    }
+  </script>
 {% endblock %}

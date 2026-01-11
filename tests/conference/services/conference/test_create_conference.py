@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 from faker import Faker
 
@@ -19,6 +21,9 @@ class TestConferenceServiceCreateConference:
         display_name = faker.sentence()
         visibility = ConferenceVisibility.PUBLIC
         registration_enabled = True
+        start_date = date(2026, 9, 24)
+        end_date = date(2026, 9, 27)
+        location = "Cagliari, Italy"
 
         conference = ConferenceService.create_conference(
             name=name,
@@ -28,6 +33,9 @@ class TestConferenceServiceCreateConference:
             keywords=[],
             keyword_sets=[],
             tracks=[],
+            start_date=start_date,
+            end_date=end_date,
+            location=location,
         )
 
         db_conference = Conference.objects.get(pk=conference.pk)
@@ -39,6 +47,9 @@ class TestConferenceServiceCreateConference:
             == db_conference.registration_enabled
             == registration_enabled
         )
+        assert conference.start_date == db_conference.start_date == start_date
+        assert conference.end_date == db_conference.end_date == end_date
+        assert conference.location == db_conference.location == location
         assert not db_conference.keywords.exists()
         assert db_conference.tracks.count() == 0
 
@@ -174,3 +185,39 @@ class TestConferenceServiceCreateConference:
             )
 
         assert Conference.objects.filter(name=existing_conference.name).count() == 1
+
+    def test_creates_conference_with_display_fields_null(self, faker: Faker) -> None:
+        conference = ConferenceService.create_conference(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+            visibility=ConferenceVisibility.PUBLIC,
+            registration_enabled=False,
+            keywords=[],
+            keyword_sets=[],
+            tracks=[],
+        )
+
+        db_conference = Conference.objects.get(pk=conference.pk)
+        assert db_conference.start_date is None
+        assert db_conference.end_date is None
+        assert db_conference.location == ""
+
+    def test_creates_conference_with_partial_display_fields(self, faker: Faker) -> None:
+        start_date = date(2026, 9, 24)
+
+        conference = ConferenceService.create_conference(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+            visibility=ConferenceVisibility.PUBLIC,
+            registration_enabled=False,
+            keywords=[],
+            keyword_sets=[],
+            tracks=[],
+            start_date=start_date,
+            location="Remote",
+        )
+
+        db_conference = Conference.objects.get(pk=conference.pk)
+        assert db_conference.start_date == start_date
+        assert db_conference.end_date is None
+        assert db_conference.location == "Remote"

@@ -4,6 +4,7 @@ __all__ = (
     "AttendanceTypeDisplayName",
     "Conference",
     "ConferenceDisplayName",
+    "ConferenceLocation",
     "ConferenceName",
     "ConferenceUser",
     "FamilyName",
@@ -52,13 +53,21 @@ __all__ = (
     "UserConferenceProfile",
 )
 
+from datetime import date
 from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated, Literal
 
 from django.utils.translation import gettext as _
 from ninja import Field, Schema
-from pydantic import AwareDatetime, BeforeValidator, HttpUrl, StringConstraints
+from pydantic import (
+    AwareDatetime,
+    BeforeValidator,
+    HttpUrl,
+    StringConstraints,
+    ValidationInfo,
+    field_validator,
+)
 from ulid import ULID
 
 from app.conference.models import AttendanceType as AttendanceTypeModel
@@ -171,6 +180,7 @@ class IEEEeCopyrightConfig(Schema):
 conference_meta = ConferenceModel._meta
 conference_name_field = conference_meta.get_field("name")
 conference_display_name_field = conference_meta.get_field("display_name")
+conference_location_field = conference_meta.get_field("location")
 
 ConferenceName = Annotated[
     str,
@@ -197,6 +207,18 @@ ConferenceDisplayName = Annotated[
         examples=["Conference on Blockchain Protocols and Knowledge 2020"],
     ),
 ]
+ConferenceLocation = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(
+        max_length=conference_location_field.max_length,
+        strip_whitespace=True,
+    ),
+    Field(
+        description=str(conference_location_field.help_text),
+        examples=["Cagliari, Italy"],
+    ),
+]
 
 
 class Conference(Schema):
@@ -204,7 +226,20 @@ class Conference(Schema):
     display_name: ConferenceDisplayName
     visibility: ConferenceVisibility
     registration_enabled: bool
+    start_date: date | None = None
+    end_date: date | None = None
+    location: ConferenceLocation = ""
     tracks: list[Track]
+
+    @field_validator("end_date")
+    @classmethod
+    def _validate_end_date(cls, v: date | None, info: ValidationInfo) -> date | None:
+        start_date = info.data["start_date"]
+        if v is None or start_date is None:
+            return v
+        if v < start_date:
+            raise ValueError("End date must be on or after start date.")
+        return v
 
 
 profile_meta = ProfileModel._meta

@@ -80,6 +80,7 @@ class TestListConferences:
                     "display_name": alpha.display_name,
                     "visibility": alpha.visibility,
                     "registration_enabled": False,
+                    "location": "",
                     "tracks": [
                         {
                             "uid": str(alpha_tracks[0].uid),
@@ -95,6 +96,7 @@ class TestListConferences:
                     "display_name": beta.display_name,
                     "visibility": beta.visibility,
                     "registration_enabled": True,
+                    "location": "",
                     "tracks": [
                         {
                             "uid": str(beta_tracks[0].uid),

@@ -51,6 +51,7 @@ class TestCreateTrack:
             "display_name": conference.display_name,
             "visibility": conference.visibility,
             "registration_enabled": False,
+            "location": "",
             "keywords": [],
             "tracks": [
                 {
@@ -174,6 +175,7 @@ class TestUpdateTrack:
             "display_name": track.conference.display_name,
             "visibility": track.conference.visibility,
             "registration_enabled": False,
+            "location": "",
             "keywords": [],
             "tracks": [
                 {
@@ -310,6 +312,7 @@ class TestDeleteTrack:
             "display_name": track.conference.display_name,
             "visibility": track.conference.visibility,
             "registration_enabled": False,
+            "location": "",
             "keywords": [],
             "tracks": [
                 {
@@ -421,6 +424,7 @@ class TestReorderTracks:
             "display_name": conference.display_name,
             "visibility": conference.visibility,
             "registration_enabled": False,
+            "location": "",
             "keywords": [],
             "tracks": [
                 {

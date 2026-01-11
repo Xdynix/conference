@@ -1,14 +1,22 @@
+from datetime import date
 from http import HTTPStatus
+from typing import Literal
 
 from asgiref.sync import sync_to_async
 from django.http import Http404
 from loguru import logger
 from ninja import Field, PatchDict, Schema
+from pydantic import ValidationInfo, field_validator
 
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, ConferenceVisibility
 from app.conference.services import ConferenceService, KeywordService
-from app.conference.types import ConferenceDisplayName, KeywordSetName, KeywordText
+from app.conference.types import (
+    ConferenceDisplayName,
+    ConferenceLocation,
+    KeywordSetName,
+    KeywordText,
+)
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
@@ -23,6 +31,23 @@ class ConferenceSchema(Schema):
     keyword_sets: list[KeywordSetName] = Field(max_length=50)
     visibility: ConferenceVisibility
     registration_enabled: bool
+    start_date: date | Literal[""]
+    end_date: date | Literal[""]
+    location: ConferenceLocation
+
+    @field_validator("end_date")
+    @classmethod
+    def _validate_end_date(
+        cls,
+        v: date | Literal[""],
+        info: ValidationInfo,
+    ) -> date | Literal[""]:
+        start_date = info.data["start_date"]
+        if v == "" or start_date == "":
+            return v
+        if v < start_date:
+            raise ValueError("End date must be on or after start date.")
+        return v
 
 
 @router.patch(
@@ -68,6 +93,9 @@ async def update_conference(
             registration_enabled=payload.get("registration_enabled"),
             keywords=keywords,
             keyword_sets=keyword_sets,
+            start_date=payload.get("start_date"),
+            end_date=payload.get("end_date"),
+            location=payload.get("location"),
         )
     except Conference.DoesNotExist as exc:
         raise Http404 from exc

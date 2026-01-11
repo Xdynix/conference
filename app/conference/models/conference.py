@@ -69,6 +69,35 @@ class Conference(TimeStampedModel):
             "When disabled, no new registrations can be created."
         ),
     )
+    start_date = models.DateField(
+        _("start date"),
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_(
+            "Start date of the conference. "
+            "For display purposes only; not enforced by the system."
+        ),
+    )
+    end_date = models.DateField(
+        _("end date"),
+        null=True,
+        blank=True,
+        default=None,
+        help_text=_(
+            "End date of the conference. "
+            "For display purposes only; not enforced by the system."
+        ),
+    )
+    location = models.CharField(
+        _("location"),
+        max_length=200,
+        blank=True,
+        help_text=_(
+            "Location of the conference (e.g., 'Cagliari, Italy'). "
+            "For display purposes only; not enforced by the system."
+        ),
+    )
 
     objects = ConferenceQuerySet.as_manager()
 
@@ -78,6 +107,16 @@ class Conference(TimeStampedModel):
         indexes = (
             models.Index(fields=("active", "visibility", "create_time")),
             models.Index(fields=("create_time",)),
+        )
+        constraints = (
+            models.CheckConstraint(
+                condition=(
+                    models.Q(end_date__isnull=True)
+                    | models.Q(start_date__isnull=True)
+                    | models.Q(end_date__gte=models.F("start_date"))
+                ),
+                name="valid_date_range",
+            ),
         )
 
     def __str__(self) -> str:

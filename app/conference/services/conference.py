@@ -1,6 +1,7 @@
 from collections import defaultdict
 from collections.abc import Collection, Mapping
-from typing import TypedDict
+from datetime import date
+from typing import Literal, TypedDict
 
 from django.contrib.auth.models import AnonymousUser
 from django.db import IntegrityError, transaction
@@ -50,6 +51,9 @@ class ConferenceService:
         keywords: Collection[Keyword],
         keyword_sets: Collection[KeywordSet],
         tracks: Collection[TrackData],
+        start_date: date | None = None,
+        end_date: date | None = None,
+        location: str = "",
     ) -> Conference:
         """Creates a new conference with associated keywords and tracks.
 
@@ -65,6 +69,9 @@ class ConferenceService:
                 display_name=display_name,
                 visibility=visibility,
                 registration_enabled=registration_enabled,
+                start_date=start_date,
+                end_date=end_date,
+                location=location,
             )
         except IntegrityError as exc:
             raise ConferenceNameConflict from exc
@@ -99,8 +106,15 @@ class ConferenceService:
         registration_enabled: bool | None = None,
         keywords: Collection[Keyword] | None = None,
         keyword_sets: Collection[KeywordSet] | None = None,
+        start_date: date | Literal[""] | None = None,
+        end_date: date | Literal[""] | None = None,
+        location: str | None = None,
     ) -> Conference:
         """Updates a conference's attributes.
+
+        For date fields (``start_date``, ``end_date``), pass an empty string to clear
+        the value (set to ``None``). Omit the parameter to leave the existing value
+        unchanged.
 
         Returns:
             The updated conference instance.
@@ -124,6 +138,18 @@ class ConferenceService:
             if registration_enabled is not None:
                 conference.registration_enabled = registration_enabled
                 update_fields.append("registration_enabled")
+
+            if start_date is not None:
+                conference.start_date = None if start_date == "" else start_date
+                update_fields.append("start_date")
+
+            if end_date is not None:
+                conference.end_date = None if end_date == "" else end_date
+                update_fields.append("end_date")
+
+            if location is not None:
+                conference.location = location
+                update_fields.append("location")
 
             keywords_provided = keywords is not None
             keyword_sets_provided = keyword_sets is not None

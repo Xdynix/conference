@@ -1,3 +1,4 @@
+from datetime import date
 from http import HTTPStatus
 from unittest.mock import MagicMock
 
@@ -45,6 +46,9 @@ class TestCreateConference:
                 "display_name": "Security Conf",
                 "visibility": ConferenceVisibility.PUBLIC,
                 "registration_enabled": True,
+                "start_date": "2026-09-24",
+                "end_date": "2026-09-27",
+                "location": "Cagliari, Italy",
                 "keywords": [keyword.text],
                 "keyword_sets": [keyword_set.name],
                 "tracks": [
@@ -66,6 +70,9 @@ class TestCreateConference:
         assert data["display_name"] == "Security Conf"
         assert data["visibility"] == ConferenceVisibility.PUBLIC
         assert data["registration_enabled"] is True
+        assert data["start_date"] == "2026-09-24"
+        assert data["end_date"] == "2026-09-27"
+        assert data["location"] == "Cagliari, Italy"
         assert data["keywords"] == ["AI", "Analysis"]
         [track_a, track_b] = data["tracks"]
         assert track_a["display_name"] == "Research Track"
@@ -79,6 +86,9 @@ class TestCreateConference:
         assert call_kwargs["display_name"] == "Security Conf"
         assert call_kwargs["visibility"] == ConferenceVisibility.PUBLIC
         assert call_kwargs["registration_enabled"] is True
+        assert call_kwargs["start_date"] == date(2026, 9, 24)
+        assert call_kwargs["end_date"] == date(2026, 9, 27)
+        assert call_kwargs["location"] == "Cagliari, Italy"
         assert list(call_kwargs["keywords"]) == [keyword]
         assert list(call_kwargs["keyword_sets"]) == [keyword_set]
         [call_kwargs_a, call_kwargs_b] = call_kwargs["tracks"]
@@ -156,6 +166,7 @@ class TestCreateConference:
             "display_name": "Minimal Conf",
             "visibility": ConferenceVisibility.ADMIN_ONLY,
             "registration_enabled": False,
+            "location": "",
             "keywords": [],
             "tracks": [],
         }
@@ -165,6 +176,9 @@ class TestCreateConference:
         assert call_kwargs["name"] == "minimal-conf"
         assert call_kwargs["visibility"] == ConferenceVisibility.ADMIN_ONLY
         assert call_kwargs["registration_enabled"] is False
+        assert call_kwargs["start_date"] is None
+        assert call_kwargs["end_date"] is None
+        assert call_kwargs["location"] == ""
         assert list(call_kwargs["keywords"]) == []
         assert list(call_kwargs["keyword_sets"]) == []
         assert list(call_kwargs["tracks"]) == []
@@ -295,3 +309,88 @@ class TestCreateConference:
         assert response.status_code == HTTPStatus.FORBIDDEN
 
         conference_service_create.assert_not_called()
+
+    def test_rejects_end_date_before_start_date(
+        self,
+        api_client: Client,
+        conference_service_create: MagicMock,
+        global_admin: User,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path,
+            data={
+                "name": "invalid-dates-conf",
+                "display_name": "Invalid Dates Conf",
+                "start_date": "2026-09-27",
+                "end_date": "2026-09-24",
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        [error] = data["details"]
+        assert error["type"] == "value_error"
+        assert error["loc"] == ["body", "payload", "end_date"]
+        assert "on or after start date" in error["msg"]
+
+        conference_service_create.assert_not_called()
+
+    def test_accepts_same_start_and_end_date(
+        self,
+        api_client: Client,
+        conference_service_create: MagicMock,
+        global_admin: User,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path,
+            data={
+                "name": "single-day-conf",
+                "display_name": "Single Day Conf",
+                "start_date": "2026-09-24",
+                "end_date": "2026-09-24",
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        data = response.json()
+        assert data["start_date"] == "2026-09-24"
+        assert data["end_date"] == "2026-09-24"
+
+        conference_service_create.assert_called_once()
+        call_kwargs = conference_service_create.call_args.kwargs
+        assert call_kwargs["start_date"] == date(2026, 9, 24)
+        assert call_kwargs["end_date"] == date(2026, 9, 24)
+
+    def test_creates_conference_with_partial_display_fields(
+        self,
+        api_client: Client,
+        conference_service_create: MagicMock,
+        global_admin: User,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path,
+            data={
+                "name": "partial-conf",
+                "display_name": "Partial Display Fields Conf",
+                "start_date": "2026-09-24",
+                "location": "Remote",
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        data = response.json()
+        assert data["start_date"] == "2026-09-24"
+        assert "end_date" not in data
+        assert data["location"] == "Remote"
+
+        conference_service_create.assert_called_once()
+        call_kwargs = conference_service_create.call_args.kwargs
+        assert call_kwargs["start_date"] == date(2026, 9, 24)
+        assert call_kwargs["end_date"] is None
+        assert call_kwargs["location"] == "Remote"
