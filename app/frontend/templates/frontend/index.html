@@ -1,1 +1,51 @@
-{% extends "frontend/layouts/base.html" %}
+{% extends "frontend/layouts/simple.html" %}
+
+{% block title %}Select Conference - {% endblock %}
+
+{% block content %}
+  <div x-data>
+    <h1 class="h4 mb-4 text-center">Select a conference</h1>
+
+    <template x-if="$store.conferences.loading">
+      <div class="text-center py-4">
+        <div class="spinner-border spinner-border-sm" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    </template>
+
+    <template
+      x-if="!$store.conferences.loading && $store.conferences.items.length === 0">
+      <div class="text-center text-muted py-4">
+        <p>No conferences available.</p>
+      </div>
+    </template>
+
+    <template x-if="!$store.conferences.loading && $store.conferences.items.length > 0">
+      <div class="d-grid gap-2">
+        <template x-for="conf in $store.conferences.items" :key="conf.name">
+          <a
+            :href="`/${conf.name}/`"
+            class="card card-body bg-body-tertiary text-decoration-none"
+          >
+            <div class="d-flex justify-content-between align-items-center gap-2">
+              <span class="fw-semibold" x-text="conf.name"></span>
+              <span class="d-flex align-items-center gap-2">
+                <span
+                  x-show="conf.visibility !== 'Public'"
+                  x-cloak
+                  class="badge bg-secondary"
+                  x-text="conf.visibility"
+                >
+                </span>
+                <i class="bi bi-chevron-right text-muted"></i>
+              </span>
+            </div>
+            {# TODO: Show formatted date range and location when backend adds these fields #}
+            {# <small class="text-muted" x-text="formatConferenceSubtitle(conf)"></small> #}
+          </a>
+        </template>
+      </div>
+    </template>
+  </div>
+{% endblock %}

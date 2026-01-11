@@ -11,6 +11,7 @@ function createCachedStore(key, initialState, fetcher) {
   return {
     ...initialState,
     ...(cachedValue || {}),
+    loading: !cachedValue,
 
     init() {
       this.load().catch((err) => {
@@ -19,9 +20,13 @@ function createCachedStore(key, initialState, fetcher) {
     },
 
     async load() {
-      const data = await fetcher();
-      Object.assign(this, data);
-      localStorage.setItem(cacheKey, JSON.stringify(data));
+      try {
+        const data = await fetcher();
+        Object.assign(this, data);
+        localStorage.setItem(cacheKey, JSON.stringify(data));
+      } finally {
+        this.loading = false;
+      }
     },
 
     clear() {
@@ -44,4 +49,15 @@ document.addEventListener("alpine:init", () => {
       window.location.reload();
     },
   });
+
+  Alpine.store("conferences", createCachedStore(
+    "conferences",
+    {items: []},
+    async () => {
+      const {data} = await api.get(APP.urls.conferences.list, {
+        params: {page_size: 100}
+      });
+      return {items: data.items};
+    }
+  ));
 });
