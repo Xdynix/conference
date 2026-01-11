@@ -51,6 +51,11 @@
       token: "{{ csrf_token }}",
       header: "{{ settings.CSRF_HEADER_NAME|escapejs }}",
     },
+    cfTurnstile: {
+      enabled: {{ settings.CF_TURNSTILE.enabled|yesno:"true,false" }},
+      siteKey: "{{ settings.CF_TURNSTILE.site_key|escapejs }}",
+      responseHeader: "{{ settings.CF_TURNSTILE.response_header_name|escapejs }}",
+    },
     params: JSON.parse(document.getElementById("app-params").textContent),
     urls: {
       session: {
