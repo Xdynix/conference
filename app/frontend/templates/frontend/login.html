@@ -66,8 +66,10 @@
       </div>
 
       <div class="text-center">
-        {# TODO: Add password-forgot URL when implemented #}
-        <a href="#" class="link-body-emphasis text-decoration-none">Forgot password?</a>
+        <a
+          href="{% url 'frontend:password-reset' %}"
+          class="link-body-emphasis text-decoration-none"
+        >Forgot password?</a>
         <span class="text-muted mx-2">&middot;</span>
         {# TODO: Add register URL when implemented #}
         <a href="#" class="link-body-emphasis text-decoration-none">Sign up</a>
@@ -92,13 +94,9 @@
         errors: {},
         loading: false,
 
-        clearErrors() {
-          this.errors = {};
-        },
-
         async submit() {
           if (this.loading) return;
-          this.clearErrors();
+          this.errors = {};
 
           if (!this.form.username || !this.form.password) {
             return;
