@@ -256,7 +256,7 @@
         },
 
         async submit() {
-          if (this.loading) return;
+          if (this.loading || !this.cfTurnstileReady()) return;
           this.errors = {};
 
           this.validateConfirmPassword();

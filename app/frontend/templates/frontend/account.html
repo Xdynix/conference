@@ -478,7 +478,7 @@
         },
 
         async submit() {
-          if (this.loading) return;
+          if (this.loading || !this.cfTurnstileReady()) return;
           this.errors = {};
           this.success = false;
           this.loading = true;

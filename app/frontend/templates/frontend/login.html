@@ -97,7 +97,7 @@
         loading: false,
 
         async submit() {
-          if (this.loading) return;
+          if (this.loading || !this.cfTurnstileReady()) return;
           this.errors = {};
 
           if (!this.form.username || !this.form.password) {
