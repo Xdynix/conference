@@ -5,10 +5,12 @@
    * Maps API validation errors to field-keyed error messages.
    *
    * Extracts the field name from the last element of `loc` (which has prefixes
-   * like "body", "payload"). For example:
-   *   [{loc: ["body", "payload", "username"], msg: "Required"}]
+   * like "body", "payload"). Multiple errors for the same field are joined with
+   * a space. For example:
+   *   [{loc: ["body", "payload", "password"], msg: "Too short."},
+   *    {loc: ["body", "payload", "password"], msg: "Too common."}]
    * becomes:
-   *   {username: "Required"}
+   *   {password: "Too short. Too common."}
    *
    * @param {Array<{loc: string[], msg: string}>} details - API error details array.
    * @returns {Object<string, string>} Field-keyed error messages.
@@ -17,7 +19,9 @@
     const result = {};
     for (const error of details || []) {
       const field = error.loc?.[error.loc.length - 1] || "_form";
-      if (!result[field]) {
+      if (result[field]) {
+        result[field] += " " + error.msg;
+      } else {
         result[field] = error.msg;
       }
     }

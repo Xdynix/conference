@@ -1,4 +1,5 @@
 {% extends "frontend/layouts/simple.html" %}
+{% load frontend_tags %}
 
 {% block title %}Account - {% endblock %}
 
@@ -36,29 +37,29 @@
     <li class="nav-item" role="presentation">
       <button
         class="nav-link"
-        id="login-tab"
+        id="identity-tab"
         data-bs-toggle="tab"
-        data-bs-target="#login-pane"
+        data-bs-target="#identity-pane"
         type="button"
         role="tab"
-        aria-controls="login-pane"
+        aria-controls="identity-pane"
         aria-selected="false"
       >
-        Login
+        Identity
       </button>
     </li>
     <li class="nav-item" role="presentation">
       <button
         class="nav-link"
-        id="security-tab"
+        id="password-tab"
         data-bs-toggle="tab"
-        data-bs-target="#security-pane"
+        data-bs-target="#password-pane"
         type="button"
         role="tab"
-        aria-controls="security-pane"
+        aria-controls="password-pane"
         aria-selected="false"
       >
-        Security
+        Password
       </button>
     </li>
   </ul>
@@ -184,11 +185,11 @@
 
     <div
       class="tab-pane fade"
-      id="login-pane"
+      id="identity-pane"
       role="tabpanel"
-      aria-labelledby="login-tab"
+      aria-labelledby="identity-tab"
       tabindex="0"
-      x-data="userForm()"
+      x-data="identityForm()"
     >
       {# Managed user: read-only view. This mirrors the backend check in app/core/api/user/update.py (update_current_user). #}
       <div x-show="$store.session.user?.managed === true" x-cloak>
@@ -265,7 +266,7 @@
           class="alert alert-success"
           role="alert"
         >
-          Login details updated successfully.
+          Identity updated successfully.
         </div>
 
         <div class="d-grid">
@@ -290,12 +291,61 @@
 
     <div
       class="tab-pane fade"
-      id="security-pane"
+      id="password-pane"
       role="tabpanel"
-      aria-labelledby="security-tab"
+      aria-labelledby="password-tab"
       tabindex="0"
+      x-data="passwordForm()"
     >
-      <!-- Security form: password change -->
+      <form @submit.prevent="submit()">
+        {% include "frontend/components/password-input.html" with id="old-password" label="Current password" model="form.oldPassword" error_key="old_password" autocomplete="current-password" %}
+
+        {% include "frontend/components/password-input.html" with id="new-password" label="New password" model="form.newPassword" error_key="new_password" autocomplete="new-password" wrapper_class="mb-1" blur="validateConfirmPassword()" %}
+
+        <ul class="form-text text-muted small mb-3">
+          {% password_help_texts as help_texts %}
+          {% for text in help_texts %}
+            <li>{{ text }}</li>
+          {% endfor %}
+        </ul>
+
+        {% include "frontend/components/password-input.html" with id="confirm-password" label="Confirm new password" model="form.confirmPassword" error_key="confirm_password" autocomplete="new-password" blur="validateConfirmPassword()" %}
+
+        <div
+          x-show="errors._form"
+          x-cloak
+          class="alert alert-danger"
+          role="alert"
+          x-text="errors._form"
+        ></div>
+
+        <div
+          x-show="success"
+          x-cloak
+          class="alert alert-success"
+          role="alert"
+        >
+          Password changed successfully.
+        </div>
+
+        <div class="d-grid">
+          <button
+            type="submit"
+            class="btn btn-primary"
+            :disabled="loading"
+          >
+            <span
+              x-show="loading"
+              x-cloak
+              class="spinner-border spinner-border-sm me-1"
+              role="status"
+            >
+              <span class="visually-hidden">Saving...</span>
+            </span>
+            Change password
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -385,7 +435,7 @@
       };
     }
 
-    function userForm() {
+    function identityForm() {
       const turnstile = cfTurnstileWidget({action: "update-user"});
 
       return {
@@ -456,7 +506,76 @@
             } else if (error.response?.status === 409) {
               this.errors._form = data?.message || "Username or email already exists.";
             } else if (error.response?.status === 400) {
-              this.errors._form = data?.message || "Unable to update login details.";
+              this.errors._form = data?.message || "Unable to update identity.";
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred. Please try again.";
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+
+    function passwordForm() {
+      return {
+        form: {
+          oldPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        },
+        errors: {},
+        loading: false,
+        success: false,
+
+        init() {
+          this.$watch("form.oldPassword", () => {
+            delete this.errors.old_password;
+            this.success = false;
+          });
+          this.$watch("form.newPassword", () => {
+            delete this.errors.new_password;
+            this.success = false;
+            this.validateConfirmPassword();
+          });
+          this.$watch("form.confirmPassword", () => {
+            delete this.errors.confirm_password;
+            this.success = false;
+          });
+        },
+
+        validateConfirmPassword() {
+          if (this.form.confirmPassword && this.form.newPassword !== this.form.confirmPassword) {
+            this.errors.confirm_password = "Passwords do not match.";
+          } else {
+            delete this.errors.confirm_password;
+          }
+        },
+
+        async submit() {
+          if (this.loading) return;
+          this.errors = {};
+          this.success = false;
+
+          this.validateConfirmPassword();
+          if (this.errors.confirm_password) return;
+
+          this.loading = true;
+
+          try {
+            await api.post(APP.urls.user.setPassword, {
+              old_password: this.form.oldPassword,
+              new_password: this.form.newPassword,
+            });
+
+            this.form.oldPassword = "";
+            this.form.newPassword = "";
+            this.form.confirmPassword = "";
+            this.success = true;
+          } catch (error) {
+            const data = error.response?.data;
+            if (error.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
             } else {
               this.errors._form = data?.message || "An unexpected error occurred. Please try again.";
             }
