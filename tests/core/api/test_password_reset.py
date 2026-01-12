@@ -135,6 +135,60 @@ class TestCreatePasswordReset:
 
         assert settings.CF_TURNSTILE_RESPONSE_HEADER_NAME in response.json()["message"]
 
+    def test_url_from_hardcoded_setting(
+        self,
+        settings: LazySettings,
+        api_client: Client,
+        user: User,
+        mock_create_token: MagicMock,
+        mock_cf_turnstile: MagicMock,  # noqa: ARG002
+    ) -> None:
+        settings.PASSWORD_RESET_PAGE_URL = "/custom/reset/"
+        settings.PASSWORD_RESET_PAGE_URL_NAME = "frontend:password-reset-confirm"
+        mock_create_token.return_value = PasswordResetToken()
+
+        api_client.post(self.path, data={"email": user.email})
+
+        mock_create_token.assert_called_once()
+        url = mock_create_token.call_args.kwargs["password_reset_page_url"]
+        assert url.endswith("/custom/reset/")
+
+    def test_url_from_reversed_name(
+        self,
+        settings: LazySettings,
+        api_client: Client,
+        user: User,
+        mock_create_token: MagicMock,
+        mock_cf_turnstile: MagicMock,  # noqa: ARG002
+    ) -> None:
+        settings.PASSWORD_RESET_PAGE_URL = ""
+        settings.PASSWORD_RESET_PAGE_URL_NAME = "frontend:password-reset-confirm"
+        mock_create_token.return_value = PasswordResetToken()
+
+        api_client.post(self.path, data={"email": user.email})
+
+        mock_create_token.assert_called_once()
+        url = mock_create_token.call_args.kwargs["password_reset_page_url"]
+        assert url.endswith("/password-reset/confirm/")
+
+    def test_url_fallback_to_core(
+        self,
+        settings: LazySettings,
+        api_client: Client,
+        user: User,
+        mock_create_token: MagicMock,
+        mock_cf_turnstile: MagicMock,  # noqa: ARG002
+    ) -> None:
+        settings.PASSWORD_RESET_PAGE_URL = ""
+        settings.PASSWORD_RESET_PAGE_URL_NAME = ""
+        mock_create_token.return_value = PasswordResetToken()
+
+        api_client.post(self.path, data={"email": user.email})
+
+        mock_create_token.assert_called_once()
+        url = mock_create_token.call_args.kwargs["password_reset_page_url"]
+        assert url.endswith(reverse("core:password-reset"))
+
 
 @pytest.mark.django_db
 class TestConsumePasswordReset:

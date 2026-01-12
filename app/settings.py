@@ -355,6 +355,12 @@ PASSWORD_RESET_TOKEN_RETENTION = config(
 )
 
 PASSWORD_RESET_PAGE_URL = config("PASSWORD_RESET_PAGE_URL", default="")
+
+PASSWORD_RESET_PAGE_URL_NAME = config(
+    "PASSWORD_RESET_PAGE_URL_NAME",
+    default="frontend:password-reset-confirm",
+)
+
 # TODO: Add prod check for the URL setting.
 
 # File Downloads

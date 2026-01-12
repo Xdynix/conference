@@ -15,6 +15,11 @@ urlpatterns = [
         name="password-reset",
     ),
     path(
+        "password-reset/confirm/",
+        public_view(template_name="frontend/password-reset-confirm.html"),
+        name="password-reset-confirm",
+    ),
+    path(
         "account/",
         protected_view(template_name="frontend/account.html"),
         name="account",
