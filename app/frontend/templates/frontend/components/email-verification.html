@@ -7,7 +7,7 @@ Requires the parent component to provide:
     - cfRequestConfig(): Returns axios config with Turnstile header
     - cfTurnstileReset(): Refreshes the Turnstile token for the next API call
   - `errors` object for displaying form submission errors (e.g., "email already taken")
-    in the verified state. The component accesses `errors.<error_key>`.
+    in the verified state. The component accesses `errors['<error_key>']`.
 
 The component uses its own `verifyErrors` object for internal verification flow errors.
 
@@ -139,10 +139,10 @@ States:
     </div>
     <div class="text-muted small mt-1">{{ save_hint|default:"Click Save to apply this change." }}</div>
     <div
-      x-show="errors.{{ error_key }}"
+      x-show="errors['{{ error_key }}']"
       x-cloak
       class="text-danger small mt-1"
-      x-text="errors.{{ error_key }}"
+      x-text="errors['{{ error_key }}']"
     ></div>
   </div>
 </div>

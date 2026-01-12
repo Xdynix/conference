@@ -71,8 +71,10 @@
           class="link-body-emphasis text-decoration-none"
         >Forgot password?</a>
         <span class="text-muted mx-2">&middot;</span>
-        {# TODO: Add register URL when implemented #}
-        <a href="#" class="link-body-emphasis text-decoration-none">Sign up</a>
+        <a
+          href="{% url 'frontend:sign-up' %}"
+          class="link-body-emphasis text-decoration-none"
+        >Sign up</a>
       </div>
     </form>
   </div>

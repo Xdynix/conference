@@ -24,4 +24,9 @@ urlpatterns = [
         protected_view(template_name="frontend/account.html"),
         name="account",
     ),
+    path(
+        "sign-up/",
+        public_view(template_name="frontend/sign-up.html"),
+        name="sign-up",
+    ),
 ]

@@ -81,6 +81,12 @@
         updateProfile: "{% url 'api-1.0.0:update-current-user-profile' %}",
         setPassword: "{% url 'api-1.0.0:set-current-user-password' %}",
       },
+      account: {
+        create: "{% url 'api-1.0.0:create-account' %}",
+      },
+      invitation: {
+        lookup: "{% url 'api-1.0.0:lookup-invitation' %}",
+      },
       emailVerification: {
         create: "{% url 'api-1.0.0:create-email-verification' %}",
         verify: "{% url 'api-1.0.0:verify-email-verification' %}",

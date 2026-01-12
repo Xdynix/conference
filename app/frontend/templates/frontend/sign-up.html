@@ -1,0 +1,317 @@
+{% extends "frontend/layouts/simple.html" %}
+{% load frontend_tags %}
+
+{% block title %}Sign Up - {% endblock %}
+
+{% block head %}
+  {% if cf_turnstile.enabled %}
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+  <div x-data="signUpForm()">
+    <h1 class="h4 mb-4 text-center">Sign up</h1>
+
+    <form @submit.prevent="submit()">
+      <fieldset class="border rounded p-3 mb-4">
+        <legend class="float-none w-auto px-2 fs-6 fw-semibold">Account</legend>
+
+        <div class="mb-3">
+          <label for="username" class="form-label">Username</label>
+          <input
+            id="username"
+            type="text"
+            class="form-control"
+            :class="{ 'is-invalid': errors.username }"
+            x-model="form.username"
+            autocomplete="username"
+            required
+          >
+          <div class="invalid-feedback" x-text="errors.username"></div>
+        </div>
+
+        {% include "frontend/components/email-verification.html" with id="email" label="Email" model="form.emailToken" error_key="email" required=True save_hint="Your verified email will be used for your account." %}
+
+        {% include "frontend/components/password-input.html" with id="password" label="Password" model="form.password" error_key="password" autocomplete="new-password" wrapper_class="mb-1" blur="validateConfirmPassword()" %}
+
+        <ul class="form-text text-muted small mb-3">
+          {% password_help_texts as help_texts %}
+          {% for text in help_texts %}
+            <li>{{ text }}</li>
+          {% endfor %}
+        </ul>
+
+        {% include "frontend/components/password-input.html" with id="confirm-password" label="Confirm password" model="form.confirmPassword" error_key="confirm_password" autocomplete="new-password" blur="validateConfirmPassword()" %}
+      </fieldset>
+
+      <fieldset class="border rounded p-3 mb-4">
+        <legend class="float-none w-auto px-2 fs-6 fw-semibold">Profile</legend>
+
+        <div class="mb-3">
+          <label for="given-name" class="form-label">
+            Given name
+            <i
+              class="bi bi-info-circle text-muted"
+              role="button"
+              tabindex="0"
+              data-bs-toggle="popover"
+              data-bs-trigger="focus"
+              data-bs-content="First/personal name"
+              onclick="event.preventDefault()"
+            ></i>
+          </label>
+          <input
+            id="given-name"
+            type="text"
+            class="form-control"
+            :class="{ 'is-invalid': errors['profile.given_name'] }"
+            x-model="form.profile.givenName"
+            autocomplete="given-name"
+            required
+          >
+          <div class="invalid-feedback" x-text="errors['profile.given_name']"></div>
+        </div>
+
+        <div class="mb-3">
+          <label for="family-name" class="form-label">
+            Family name
+            <i
+              class="bi bi-info-circle text-muted"
+              role="button"
+              tabindex="0"
+              data-bs-toggle="popover"
+              data-bs-trigger="focus"
+              data-bs-content="Last name/surname"
+              onclick="event.preventDefault()"
+            ></i>
+          </label>
+          <input
+            id="family-name"
+            type="text"
+            class="form-control"
+            :class="{ 'is-invalid': errors['profile.family_name'] }"
+            x-model="form.profile.familyName"
+            autocomplete="family-name"
+            required
+          >
+          <div class="invalid-feedback" x-text="errors['profile.family_name']"></div>
+        </div>
+
+        <div class="mb-3">
+          <label for="affiliation" class="form-label">Affiliation</label>
+          <input
+            id="affiliation"
+            type="text"
+            class="form-control"
+            :class="{ 'is-invalid': errors['profile.affiliation'] }"
+            x-model="form.profile.affiliation"
+            autocomplete="organization"
+            required
+          >
+          <div class="invalid-feedback" x-text="errors['profile.affiliation']"></div>
+          <small class="form-text text-muted">
+            e.g., <em>Google LLC</em> or
+            <em>School of Computing, Example University</em>
+          </small>
+        </div>
+
+        {% include "frontend/components/region-select.html" with id="region-code" label="Region" model="form.profile.regionCode" error_key="profile.region_code" required=True autocomplete="country-name" %}
+      </fieldset>
+
+      {% if cf_turnstile.enabled %}
+        <div class="mb-3 d-flex flex-column align-items-center">
+          <div x-ref="cf-turnstile"></div>
+          <small x-show="error" x-cloak class="text-danger mt-1">
+            Verification failed. Please try again.
+          </small>
+        </div>
+      {% endif %}
+
+      <div
+        x-show="errors._form"
+        x-cloak
+        class="alert alert-danger"
+        role="alert"
+        x-text="errors._form"
+      ></div>
+
+      <div class="d-grid mb-3">
+        <button
+          type="submit"
+          class="btn btn-primary"
+          :disabled="loading || !cfTurnstileReady()"
+        >
+          <span
+            x-show="loading"
+            x-cloak
+            class="spinner-border spinner-border-sm me-1"
+            role="status"
+          >
+            <span class="visually-hidden">Creating account...</span>
+          </span>
+          Create account
+        </button>
+      </div>
+
+      <div class="text-center">
+        <span class="text-muted">Already have an account?</span>
+        <a
+          href="{% url 'frontend:login' %}"
+          class="link-body-emphasis text-decoration-none"
+        >Log in</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function signUpForm() {
+      const turnstile = cfTurnstileWidget({action: "signup"});
+
+      return {
+        ...turnstile,
+
+        form: {
+          username: "",
+          emailToken: null,
+          password: "",
+          confirmPassword: "",
+          profile: {
+            givenName: "",
+            familyName: "",
+            affiliation: "",
+            regionCode: "",
+          },
+        },
+        invitation: null,
+        invitationToken: null,
+        errors: {},
+        loading: false,
+
+        async init() {
+          turnstile.init.call(this);
+          this.setupFieldWatchers();
+          await this.loadInvitation();
+        },
+
+        setupFieldWatchers() {
+          // Clear field errors when user edits the field.
+          // Username and email also clear _form since conflict errors appear there.
+          this.$watch("form.username", () => {
+            delete this.errors.username;
+            delete this.errors._form;
+          });
+          this.$watch("form.emailToken", () => {
+            delete this.errors.email;
+            delete this.errors._form;
+          });
+          this.$watch("form.password", () => {
+            delete this.errors.password;
+            this.validateConfirmPassword();
+          });
+          this.$watch("form.confirmPassword", () => delete this.errors.confirm_password);
+          this.$watch("form.profile.givenName", () => delete this.errors["profile.given_name"]);
+          this.$watch("form.profile.familyName", () => delete this.errors["profile.family_name"]);
+          this.$watch("form.profile.affiliation", () => delete this.errors["profile.affiliation"]);
+          this.$watch("form.profile.regionCode", () => delete this.errors["profile.region_code"]);
+        },
+
+        async loadInvitation() {
+          const hash = window.location.hash.slice(1);
+          if (!hash) return;
+
+          this.invitationToken = hash;
+
+          try {
+            const {data} = await api.post(APP.urls.invitation.lookup, {
+              invitation_token: hash,
+            });
+            this.invitation = data;
+            this.prefillFromInvitation(data);
+          } catch (error) {
+            // Invalid or expired invitation token; continue without prefill.
+            // Clear the token so it won't be submitted.
+            this.invitationToken = null;
+          }
+        },
+
+        prefillFromInvitation(data) {
+          // TODO: Consider bypassing email verification for invited users.
+          // The invitation email could serve as proof of email ownership.
+          this.form.profile.givenName = data.given_name || "";
+          this.form.profile.familyName = data.family_name || "";
+          this.form.profile.affiliation = data.affiliation || "";
+          this.form.profile.regionCode = data.region_code || "";
+        },
+
+        validateConfirmPassword() {
+          if (this.form.confirmPassword && this.form.password !== this.form.confirmPassword) {
+            this.errors.confirm_password = "Passwords do not match.";
+          } else {
+            delete this.errors.confirm_password;
+          }
+        },
+
+        async submit() {
+          if (this.loading) return;
+          this.errors = {};
+
+          this.validateConfirmPassword();
+          if (this.errors.confirm_password) return;
+
+          if (!this.form.emailToken) {
+            this.errors.email = "Please verify your email address.";
+            return;
+          }
+
+          this.loading = true;
+
+          const payload = {
+            username: this.form.username,
+            email: this.form.emailToken,
+            password: this.form.password,
+            profile: {
+              given_name: this.form.profile.givenName,
+              family_name: this.form.profile.familyName,
+              affiliation: this.form.profile.affiliation,
+              region_code: this.form.profile.regionCode,
+            },
+          };
+
+          if (this.invitationToken) {
+            payload.invitation_token = this.invitationToken;
+          }
+
+          try {
+            const {data} = await api.post(
+              APP.urls.account.create,
+              payload,
+              this.cfRequestConfig(),
+            );
+
+            this.$store.session.update(data);
+
+            // TODO: Redirect to `next` or conference preference page.
+            window.location.href = "{% url 'frontend:index' %}";
+          } catch (error) {
+            this.cfTurnstileReset();
+
+            const data = error.response?.data;
+            if (error.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
+            } else if (error.response?.status === 409) {
+              this.errors._form = data?.message || "Username or email already exists.";
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred. Please try again.";
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}

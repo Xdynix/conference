@@ -4,21 +4,29 @@
   /**
    * Maps API validation errors to field-keyed error messages.
    *
-   * Extracts the field name from the last element of `loc` (which has prefixes
-   * like "body", "payload"). Multiple errors for the same field are joined with
-   * a space. For example:
+   * Extracts the field path from `loc` after stripping common prefixes like "body" and
+   * "payload". Nested paths are joined with dots. Multiple errors for the same field
+   * are joined with a space. For example:
    *   [{loc: ["body", "payload", "password"], msg: "Too short."},
    *    {loc: ["body", "payload", "password"], msg: "Too common."}]
    * becomes:
    *   {password: "Too short. Too common."}
    *
+   * And nested fields:
+   *   [{loc: ["body", "payload", "profile", "given_name"], msg: "Required."}]
+   * becomes:
+   *   {"profile.given_name": "Required."}
+   *
    * @param {Array<{loc: string[], msg: string}>} details - API error details array.
    * @returns {Object<string, string>} Field-keyed error messages.
    */
   function mapErrors(details) {
+    const prefixes = new Set(["body", "payload"]);
     const result = {};
     for (const error of details || []) {
-      const field = error.loc?.[error.loc.length - 1] || "_form";
+      const loc = error.loc || [];
+      const fieldParts = loc.filter((part) => !prefixes.has(part));
+      const field = fieldParts.join(".") || "_form";
       if (result[field]) {
         result[field] += " " + error.msg;
       } else {

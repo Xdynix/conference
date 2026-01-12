@@ -84,8 +84,10 @@
 
         <template x-if="!$store.session.user">
           <div class="d-flex gap-2">
-            <!-- TODO: link to registration page -->
-            <a href="#" class="btn btn-outline-primary btn-sm" @click.prevent>
+            <a
+              href="{% url 'frontend:sign-up' %}"
+              class="btn btn-outline-primary btn-sm"
+            >
               Sign up
             </a>
             <a href="{% url 'frontend:login' %}" class="btn btn-primary btn-sm">

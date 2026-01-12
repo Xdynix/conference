@@ -25,7 +25,7 @@ Parameters:
       id="{{ id }}"
       type="text"
       class="form-control pe-4"
-      :class="{ 'is-invalid': errors.{{ error_key }} }"
+      :class="{ 'is-invalid': errors['{{ error_key }}'] }"
       :value="isOpen ? search : selectedName"
       @input="search = $event.target.value"
       @focus="open()"
@@ -77,7 +77,7 @@ Parameters:
       <span class="dropdown-item-text text-muted">No regions found</span>
     </div>
   </div>
-  <div class="invalid-feedback" x-text="errors.{{ error_key }}"></div>
+  <div class="invalid-feedback" x-text="errors['{{ error_key }}']"></div>
 </div>
 
 <script>
