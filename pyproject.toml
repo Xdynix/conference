@@ -129,6 +129,7 @@ omit = [
     "*/migrations/*",
     "*/wsgi.py",
     "*/asgi.py",
+    "app/frontend/templatetags/*",
     "app/patches.py",
 ]
 

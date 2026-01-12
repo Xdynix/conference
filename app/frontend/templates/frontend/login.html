@@ -1,9 +1,10 @@
 {% extends "frontend/layouts/simple.html" %}
+{% load frontend_tags %}
 
 {% block title %}Log In - {% endblock %}
 
 {% block head %}
-  {% if settings.CF_TURNSTILE.enabled %}
+  {% if cf_turnstile.enabled %}
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
   {% endif %}
 {% endblock %}
@@ -29,7 +30,7 @@
 
       {% include "frontend/components/password-input.html" with id="password" label="Password" model="form.password" error_key="password" autocomplete="current-password" %}
 
-      {% if settings.CF_TURNSTILE.enabled %}
+      {% if cf_turnstile.enabled %}
         <div class="mb-3 d-flex flex-column align-items-center">
           <div x-ref="cf-turnstile"></div>
           <small x-show="error" x-cloak class="text-danger mt-1">
@@ -117,7 +118,7 @@
 
             this.$store.session.update(data);
 
-            const next = new URLSearchParams(window.location.search).get("{{ redirect_field_name }}");
+            const next = new URLSearchParams(window.location.search).get("{% redirect_field_name %}");
             let safeNext = null;
             if (next) {
               try {

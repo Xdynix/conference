@@ -4,7 +4,7 @@
 {% block title %}Account - {% endblock %}
 
 {% block head %}
-  {% if settings.CF_TURNSTILE.enabled %}
+  {% if cf_turnstile.enabled %}
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
   {% endif %}
 {% endblock %}
@@ -243,7 +243,7 @@
           {% include "frontend/components/email-verification.html" with id="new-email" label="New email" model="form.emailToken" error_key="email" placeholder="Enter new email" %}
         </div>
 
-        {% if settings.CF_TURNSTILE.enabled %}
+        {% if cf_turnstile.enabled %}
           <div class="mb-3 d-flex flex-column align-items-center">
             <div x-ref="cf-turnstile"></div>
             <small x-show="error" x-cloak class="text-danger mt-1">

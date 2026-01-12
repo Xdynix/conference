@@ -1,23 +1,27 @@
+{% load frontend_tags %}
+{% branding as brand %}
 <nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom py-0 sticky-top">
   <div class="container-fluid ps-0">
     <div class="navbar-brand mb-0 py-0 d-flex align-items-center gap-2">
-      {% if settings.BRANDING.logo_url %}
+      {% if brand.logo_url %}
         <a
-          href="{{ settings.BRANDING.parent_url|default:'/' }}"
+          href="{{ brand.parent_url|default:'/' }}"
           class="d-flex align-items-center py-2 px-3"
         >
           <img
-            src="{{ settings.BRANDING.logo_url }}"
-            alt="{{ settings.BRANDING.logo_alt|default:'Logo' }}"
-            {% if settings.BRANDING.logo_height %}
-            height="{{ settings.BRANDING.logo_height }}"
+            src="{{ brand.logo_url }}"
+            alt="{{ brand.logo_alt|default:'Logo' }}"
+            {% if brand.logo_height %}
+            height="{{ brand.logo_height }}"
             {% else %}
             style="height: 1.5em"
             {% endif %}
           >
         </a>
       {% endif %}
-      <span class="{% if not settings.BRANDING.logo_url %}ps-3 py-2{% endif %}">Paper Submission</span>
+      <span
+        class="{% if not brand.logo_url %}ps-3 py-2{% endif %}"
+      >Paper Submission</span>
     </div>
 
     <div class="d-flex align-items-center gap-2">

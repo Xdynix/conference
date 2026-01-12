@@ -1,4 +1,4 @@
-{% load static %}
+{% load static frontend_tags %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,9 +18,10 @@
       document.documentElement.dataset.bsTheme = stored === 'auto' ? (prefersDark ? 'dark' : 'light') : stored;
     })();
   </script>
-  <title>{% block title %}{% endblock %}{{ settings.SITE_NAME }}</title>
-  {% if settings.BRANDING.favicon_url %}
-    <link rel="icon" href="{{ settings.BRANDING.favicon_url }}">
+  {% branding as brand %}
+  <title>{% block title %}{% endblock %}{% site_name %}</title>
+  {% if brand.favicon_url %}
+    <link rel="icon" href="{{ brand.favicon_url }}">
   {% endif %}
   <link
     rel="stylesheet"
@@ -58,12 +59,12 @@
   window.APP = {
     csrf: {
       token: "{{ csrf_token }}",
-      header: "{{ settings.CSRF_HEADER_NAME|escapejs }}",
+      header: "{% csrf_header_name %}",
     },
     cfTurnstile: {
-      enabled: {{ settings.CF_TURNSTILE.enabled|yesno:"true,false" }},
-      siteKey: "{{ settings.CF_TURNSTILE.site_key|escapejs }}",
-      responseHeader: "{{ settings.CF_TURNSTILE.response_header_name|escapejs }}",
+      enabled: {{ cf_turnstile.enabled|yesno:"true,false" }},
+      siteKey: "{{ cf_turnstile.site_key|escapejs }}",
+      responseHeader: "{{ cf_turnstile.response_header_name|escapejs }}",
     },
     params: JSON.parse(document.getElementById("app-params").textContent),
     urls: {
