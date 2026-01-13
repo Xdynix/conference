@@ -2,7 +2,6 @@ from http import HTTPStatus
 from typing import Any, cast
 
 import pytest
-from django.conf import LazySettings
 from django.core.mail import EmailMessage
 from django.test import Client
 from django.urls import reverse
@@ -53,11 +52,6 @@ class TestInvitationE2E:
     @classmethod
     def send_invitations_path(cls, conference_name: str) -> str:
         return reverse("api-1.0.0:send-invitations", args=[conference_name])
-
-    @pytest.fixture(autouse=True)
-    def invitation_page_urls(self, settings: LazySettings) -> None:
-        settings.INVITATION_ACCEPT_PAGE_URL = "https://example.com/accept"
-        settings.INVITATION_REJECT_PAGE_URL = "https://example.com/reject"
 
     @pytest.fixture(autouse=True)
     def mock_cf_turnstile(self, mock_cf_turnstile: None) -> None:

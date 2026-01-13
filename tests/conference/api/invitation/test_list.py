@@ -2,7 +2,6 @@ from http import HTTPStatus
 from unittest.mock import AsyncMock
 
 import pytest
-from django.conf import settings
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -102,8 +101,8 @@ class TestListInvitations:
                     ],
                     "email_send_count": 0,
                     "token": token2,
-                    "accept_url": f"{settings.INVITATION_ACCEPT_PAGE_URL}#{token2}",
-                    "reject_url": f"{settings.INVITATION_REJECT_PAGE_URL}#{token2}",
+                    "accept_url": f"http://testserver{reverse('frontend:invitation-accept')}#{token2}",
+                    "reject_url": f"http://testserver{reverse('frontend:invitation-reject')}#{token2}",
                 },
                 {
                     "uid": str(invitation1.uid),
@@ -121,8 +120,14 @@ class TestListInvitations:
                     "track_roles": [],
                     "email_send_count": 0,
                     "token": token1,
-                    "accept_url": f"{settings.INVITATION_ACCEPT_PAGE_URL}#{token1}",
-                    "reject_url": f"{settings.INVITATION_REJECT_PAGE_URL}#{token1}",
+                    "accept_url": (
+                        f"http://testserver{reverse('frontend:invitation-accept')}"
+                        f"#{token1}"
+                    ),
+                    "reject_url": (
+                        f"http://testserver{reverse('frontend:invitation-reject')}"
+                        f"#{token1}"
+                    ),
                 },
             ],
         }

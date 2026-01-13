@@ -2,8 +2,8 @@ from http import HTTPStatus
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from django.conf import settings
 from django.shortcuts import aget_object_or_404
+from django.urls import reverse
 from django.utils.translation import gettext as _
 from jinja2 import UndefinedError
 from loguru import logger
@@ -54,7 +54,7 @@ class PreviewInvitationEmailResponse(RenderedEmail, Schema):
     ),
 )
 async def preview_invitation_email(
-    request: AuthedHttpRequest,  # noqa: ARG001
+    request: AuthedHttpRequest,
     conference_name: str,  # noqa: ARG001
     payload: PreviewInvitationEmailRequest,
 ) -> RenderedEmail:
@@ -64,9 +64,15 @@ async def preview_invitation_email(
     sample context data including placeholder recipient information and sample
     accept/reject links.
     """
+    invitation_accept_page_url = request.build_absolute_uri(
+        reverse("frontend:invitation-accept")
+    )
+    invitation_reject_page_url = request.build_absolute_uri(
+        reverse("frontend:invitation-reject")
+    )
     sample_context = InvitationEmailContext.sample(
-        invitation_accept_page_url=settings.INVITATION_ACCEPT_PAGE_URL,
-        invitation_reject_page_url=settings.INVITATION_REJECT_PAGE_URL,
+        invitation_accept_page_url=invitation_accept_page_url,
+        invitation_reject_page_url=invitation_reject_page_url,
     )
 
     try:
@@ -133,11 +139,17 @@ async def send_invitations(
             message=message,
         )
 
+    invitation_accept_page_url = request.build_absolute_uri(
+        reverse("frontend:invitation-accept")
+    )
+    invitation_reject_page_url = request.build_absolute_uri(
+        reverse("frontend:invitation-reject")
+    )
     results = await sync_to_async(InvitationService.send_invitations)(
         list(requested_uids),
         template=payload,
-        invitation_accept_page_url=settings.INVITATION_ACCEPT_PAGE_URL,
-        invitation_reject_page_url=settings.INVITATION_REJECT_PAGE_URL,
+        invitation_accept_page_url=invitation_accept_page_url,
+        invitation_reject_page_url=invitation_reject_page_url,
         force_send_to_rejected=payload.force_send_to_rejected,
         force_send_to_recent=payload.force_send_to_recent,
     )

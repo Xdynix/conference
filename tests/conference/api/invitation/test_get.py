@@ -2,7 +2,6 @@ from http import HTTPStatus
 from unittest.mock import AsyncMock
 
 import pytest
-from django.conf import settings
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -99,8 +98,12 @@ class TestGetInvitation:
             ],
             "email_send_count": 0,
             "token": token,
-            "accept_url": f"{settings.INVITATION_ACCEPT_PAGE_URL}#{token}",
-            "reject_url": f"{settings.INVITATION_REJECT_PAGE_URL}#{token}",
+            "accept_url": (
+                f"http://testserver{reverse('frontend:invitation-accept')}#{token}"
+            ),
+            "reject_url": (
+                f"http://testserver{reverse('frontend:invitation-reject')}#{token}"
+            ),
         }
 
         mock_visible.assert_awaited_once_with(conference, conference_chair)

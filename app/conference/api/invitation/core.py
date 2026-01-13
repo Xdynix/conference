@@ -2,9 +2,9 @@ from collections import defaultdict
 from collections.abc import Collection
 from typing import Any, Protocol
 
-from django.conf import settings
 from django.db.models import CharField, Prefetch, QuerySet, Value
 from django.http import HttpRequest
+from django.urls import reverse
 from django.utils.translation import gettext as _
 from ninja import Router, Schema
 from pydantic import HttpUrl
@@ -114,13 +114,16 @@ async def validate_and_group_track_roles(
 
 def with_invitation_prefetch(
     queryset: QuerySet[Invitation],
-    request: HttpRequest,  # noqa: ARG001
+    request: HttpRequest,
 ) -> QuerySet[Invitation]:
     """Apply prefetch_related for invitation serialization to a queryset."""
 
-    # TODO: Replace with `reverse()` after implementing frontend page.
-    invitation_accept_page_url = settings.INVITATION_ACCEPT_PAGE_URL
-    invitation_reject_page_url = settings.INVITATION_REJECT_PAGE_URL
+    invitation_accept_page_url = request.build_absolute_uri(
+        reverse("frontend:invitation-accept")
+    )
+    invitation_reject_page_url = request.build_absolute_uri(
+        reverse("frontend:invitation-reject")
+    )
 
     return (
         queryset.select_related("conference", "invitee_user")

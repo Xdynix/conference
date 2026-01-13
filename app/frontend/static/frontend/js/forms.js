@@ -61,7 +61,22 @@
     target[last] = value;
   }
 
+  /**
+   * Extracts the URL hash fragment and optionally clears it from the address bar.
+   *
+   * @param {boolean} [clear=true] - Whether to clear the hash from the URL.
+   * @returns {string} The hash value without the leading "#", or empty string if none.
+   */
+  function extractUrlHash(clear = true) {
+    const hash = window.location.hash.slice(1);
+    if (hash && clear) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    return hash;
+  }
+
   window.mapErrors = mapErrors;
   window.getModelValue = getModelValue;
   window.setModelValue = setModelValue;
+  window.extractUrlHash = extractUrlHash;
 })();

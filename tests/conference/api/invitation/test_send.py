@@ -2,7 +2,6 @@ from http import HTTPStatus
 from unittest.mock import MagicMock
 
 import pytest
-from django.conf import LazySettings
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
@@ -24,12 +23,6 @@ from app.conference.services.invitation import (
     SendInvitationStatus,
 )
 from app.core.models import User
-
-
-@pytest.fixture(autouse=True)
-def invitation_page_urls(settings: LazySettings) -> None:
-    settings.INVITATION_ACCEPT_PAGE_URL = "https://example.com/accept"
-    settings.INVITATION_REJECT_PAGE_URL = "https://example.com/reject"
 
 
 @pytest.mark.django_db

@@ -220,7 +220,7 @@
         },
 
         async loadInvitation() {
-          const hash = window.location.hash.slice(1);
+          const hash = extractUrlHash();
           if (!hash) return;
 
           this.invitationToken = hash;

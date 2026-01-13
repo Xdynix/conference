@@ -411,16 +411,6 @@ INVITATION_EMAIL_INTERVAL = config(
     cast=seconds,
 )
 
-INVITATION_ACCEPT_PAGE_URL = config(
-    "INVITATION_ACCEPT_PAGE_URL",
-    default="https://example.com/accept",
-)  # TODO: Remove after implementing frontend page.
-
-INVITATION_REJECT_PAGE_URL = config(
-    "INVITATION_REJECT_PAGE_URL",
-    default="https://example.com/reject",
-)  # TODO: Remove after implementing frontend page.
-
 MAX_SUBMISSION_SIZE = 20 * 1024 * 1024
 
 ALLOWED_SUBMISSION_TYPES = {

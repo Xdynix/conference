@@ -1,0 +1,196 @@
+{% extends "frontend/layouts/simple.html" %}
+
+{% block title %}Accept Invitation - {% endblock %}
+
+{% block content %}
+  <div x-data="invitationAcceptPage()">
+    {# Loading State #}
+    <div x-show="state === 'loading'" class="text-center py-5">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="mt-3 text-muted">Loading invitation...</p>
+    </div>
+
+    {# Error State #}
+    <div x-show="state === 'error'" x-cloak>
+      <h1 class="h4 mb-4 text-center">Invitation Unavailable</h1>
+      <div class="alert alert-danger" role="alert" x-text="errorMessage"></div>
+      <p class="text-center text-muted">You may close this page.</p>
+    </div>
+
+    {# Unauthenticated State #}
+    <div x-show="state === 'unauthenticated'" x-cloak>
+      <h1 class="h4 mb-4 text-center">You're Invited</h1>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <p class="card-text mb-1">
+            <span class="text-muted">Conference:</span>
+            <strong x-text="invitation?.conference?.display_name"></strong>
+          </p>
+        </div>
+      </div>
+
+      <p class="text-center text-muted mb-4">
+        Sign in or create an account to accept this invitation.
+      </p>
+
+      <div class="d-grid gap-2" style="grid-template-columns: 1fr 1fr;">
+        <a :href="signInUrl()" class="btn btn-outline-primary">Sign In</a>
+        <a :href="signUpUrl()" class="btn btn-primary">Create Account</a>
+      </div>
+    </div>
+
+    {# Authenticated State #}
+    <div x-show="state === 'authenticated'" x-cloak>
+      <h1 class="h4 mb-4 text-center">You're Invited</h1>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <p class="card-text mb-1">
+            <span class="text-muted">Conference:</span>
+            <strong x-text="invitation?.conference?.display_name"></strong>
+          </p>
+        </div>
+      </div>
+
+      <p class="text-muted mb-2">Signed in as:</p>
+      <div class="card mb-4">
+        <div class="card-body py-2">
+          <span class="fw-medium" x-text="$store.session.user?.username"></span>
+          <br>
+          <small class="text-muted" x-text="$store.session.user?.email"></small>
+        </div>
+      </div>
+
+      <div
+        x-show="errors._form"
+        x-cloak
+        class="alert alert-danger"
+        role="alert"
+        x-text="errors._form"
+      ></div>
+
+      <div class="d-grid mb-3">
+        <button
+          type="button"
+          class="btn btn-primary"
+          :disabled="loading"
+          @click="accept()"
+        >
+          <span
+            x-show="loading"
+            x-cloak
+            class="spinner-border spinner-border-sm me-1"
+            role="status"
+          >
+            <span class="visually-hidden">Accepting...</span>
+          </span>
+          Accept Invitation
+        </button>
+      </div>
+
+      <div class="text-center">
+        <span class="text-muted">Not you?</span>
+        <a :href="signInUrl()" class="link-body-emphasis text-decoration-none">
+          Sign in with another account
+        </a>
+      </div>
+    </div>
+
+    {# Success State #}
+    <div x-show="state === 'success'" x-cloak>
+      <h1 class="h4 mb-4 text-center">Invitation Accepted</h1>
+
+      <div class="alert alert-success" role="alert">
+        You have successfully joined
+        <strong x-text="invitation?.conference?.display_name"></strong>.
+      </div>
+
+      <div class="d-grid">
+        {# TODO: Use conference home page. #}
+        <a href="{% url 'frontend:index' %}" class="btn btn-primary">
+          Go to Conference
+        </a>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function invitationAcceptPage() {
+      return {
+        state: "loading",
+        invitation: null,
+        token: null,
+        errorMessage: null,
+        errors: {},
+        loading: false,
+
+        async init() {
+          this.token = extractUrlHash();
+
+          if (!this.token) {
+            this.state = "error";
+            this.errorMessage = "No invitation token provided.";
+            return;
+          }
+
+          try {
+            const {data} = await api.post(APP.urls.invitation.lookup, {
+              invitation_token: this.token,
+            });
+            this.invitation = data;
+
+            if (data.state === "Accepted") {
+              this.state = "error";
+              this.errorMessage = "This invitation link is invalid or has already been used.";
+              return;
+            }
+
+            this.state = this.$store.session.user ? "authenticated" : "unauthenticated";
+          } catch {
+            this.state = "error";
+            this.errorMessage = "This invitation link is invalid or has already been used.";
+          }
+        },
+
+        signInUrl() {
+          const acceptPath = "{% url 'frontend:invitation-accept' %}";
+          const next = encodeURIComponent(`${acceptPath}#${this.token}`);
+          return `{% url 'frontend:login' %}?{{ redirect_field_name }}=${next}`;
+        },
+
+        signUpUrl() {
+          return `{% url 'frontend:sign-up' %}#${this.token}`;
+        },
+
+        async accept() {
+          if (this.loading) return;
+          this.errors = {};
+          this.loading = true;
+
+          try {
+            await api.post(APP.urls.invitation.redeem, {
+              invitation_token: this.token,
+            });
+            this.state = "success";
+          } catch (error) {
+            const data = error.response?.data;
+            if (error.response?.status === 409 || error.response?.status === 404) {
+              this.state = "error";
+              this.errorMessage = "This invitation link is invalid or has already been used.";
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred. Please try again.";
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}

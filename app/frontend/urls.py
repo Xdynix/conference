@@ -29,4 +29,14 @@ urlpatterns = [
         public_view(template_name="frontend/sign-up.html"),
         name="sign-up",
     ),
+    path(
+        "invitations/accept/",
+        public_view(template_name="frontend/invitation-accept.html"),
+        name="invitation-accept",
+    ),
+    path(
+        "invitations/reject/",
+        public_view(template_name="frontend/invitation-reject.html"),
+        name="invitation-reject",
+    ),
 ]
