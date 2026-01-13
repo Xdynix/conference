@@ -22,6 +22,15 @@
       <span
         class="{% if not brand.logo_url %}ps-3 py-2{% endif %}"
       >Paper Submission</span>
+      <span
+        x-data
+        x-cloak
+        x-show="$store.conference?.detail"
+        class="text-body-secondary"
+      >
+        <span class="mx-2">&middot;</span>
+        <span x-text="$store.conference?.detail?.name"></span>
+      </span>
     </div>
 
     <div class="d-flex align-items-center gap-2">

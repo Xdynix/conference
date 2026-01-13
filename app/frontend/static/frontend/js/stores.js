@@ -84,4 +84,38 @@ document.addEventListener("alpine:init", () => {
       return {items};
     }
   ));
+
+  const conferenceName = APP.params?.conference_name;
+  Alpine.store("conference", {
+    ...createCachedStore(
+      `conference.${conferenceName || "_"}`,
+      {detail: null, profile: null},
+      async () => {
+        if (!conferenceName) return {detail: null, profile: null};
+
+        const result = {detail: null, profile: null};
+
+        const [detailResult, profileResult] = await Promise.allSettled([
+          api.get(APP.urls.conference.get(conferenceName)),
+          api.get(APP.urls.conference.getProfile(conferenceName)),
+        ]);
+
+        if (detailResult.status === "fulfilled") {
+          result.detail = detailResult.value.data;
+        }
+        if (profileResult.status === "fulfilled") {
+          result.profile = profileResult.value.data;
+        }
+
+        return result;
+      }
+    ),
+  });
+
+  Alpine.effect(() => {
+    const name = Alpine.store("conference")?.detail?.name;
+    if (name && document.title.endsWith(APP.siteName)) {
+      document.title = document.title.replace(APP.siteName, name);
+    }
+  });
 });

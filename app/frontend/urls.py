@@ -35,4 +35,9 @@ urlpatterns = [
         public_view(template_name="frontend/invitation-reject.html"),
         name="invitation-reject",
     ),
+    path(
+        "<slug:conference_name>/",
+        public_view(template_name="frontend/conference/home.html"),
+        name="conference-home",
+    ),
 ]

@@ -2,6 +2,40 @@
   "use strict";
 
   /**
+   * Creates a URL builder function from a template with placeholders.
+   *
+   * Placeholders use the format `__PARAM_NAME__` (uppercase with double underscores).
+   * The returned function accepts positional arguments in the same order as paramNames.
+   *
+   * @param {string} template - URL template with placeholders.
+   * @param {...string} paramNames - Parameter names matching placeholders (in order).
+   * @returns {function(...string): string} Function that builds the URL.
+   *
+   * @example
+   * const getConference = urlTemplate(
+   *   "/api/v1/conferences/__CONFERENCE_NAME__/",
+   *   "conference_name"
+   * );
+   * getConference("icse-2025")  // "/api/v1/conferences/icse-2025/"
+   *
+   * @example
+   * const getPaper = urlTemplate(
+   *   "/api/v1/conferences/__CONFERENCE_NAME__/papers/__PAPER_UID__/",
+   *   "conference_name", "paper_uid"
+   * );
+   * getPaper("icse-2025", "abc-123")  // "/api/v1/conferences/icse-2025/papers/abc-123/"
+   */
+  function urlTemplate(template, ...paramNames) {
+    return (...values) => {
+      let url = template;
+      paramNames.forEach((name, i) => {
+        url = url.replace(`__${name.toUpperCase()}__`, encodeURIComponent(values[i]));
+      });
+      return url;
+    };
+  }
+
+  /**
    * Maps API validation errors to field-keyed error messages.
    *
    * Extracts the field path from `loc` after stripping common prefixes like "body" and
@@ -96,6 +130,7 @@
     return fallback;
   }
 
+  window.urlTemplate = urlTemplate;
   window.mapErrors = mapErrors;
   window.getModelValue = getModelValue;
   window.setModelValue = setModelValue;

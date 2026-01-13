@@ -37,7 +37,7 @@
   ></script>
   <script src="{% static 'frontend/vendor/axios/js/axios.min.js' %}" defer></script>
   <script src="{% static 'frontend/js/api.js' %}" defer></script>
-  <script src="{% static 'frontend/js/forms.js' %}" defer></script>
+  <script src="{% static 'frontend/js/utils.js' %}"></script>
   <script src="{% static 'frontend/js/stores.js' %}" defer></script>
   <script src="{% static 'frontend/js/cf-turnstile.js' %}" defer></script>
   <script src="{% static 'frontend/vendor/alpine/js/alpine.min.js' %}" defer></script>
@@ -67,6 +67,7 @@
       responseHeader: "{{ cf_turnstile.response_header_name|escapejs }}",
     },
     params: JSON.parse(document.getElementById("app-params").textContent),
+    siteName: "{% site_name %}",
     urls: {
       session: {
         get: "{% url 'api-1.0.0:get-session' %}",
@@ -75,6 +76,16 @@
       },
       conferences: {
         list: "{% url 'api-1.0.0:list-conferences' %}",
+      },
+      conference: {
+        get: urlTemplate(
+          "{% url 'api-1.0.0:get-conference' '__CONFERENCE_NAME__' %}",
+          "conference_name",
+        ),
+        getProfile: urlTemplate(
+          "{% url 'api-1.0.0:get-current-user-conference-profile' '__CONFERENCE_NAME__' %}",
+          "conference_name",
+        ),
       },
       user: {
         update: "{% url 'api-1.0.0:update-current-user' %}",
