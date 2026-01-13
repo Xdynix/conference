@@ -24,6 +24,7 @@ from app.conference.models import (
     Track,
     TrackRole,
     TrackRoleAssignment,
+    UserConferenceProfile,
 )
 from app.core.models import GlobalRole, User
 from app.infra.models import Mutex
@@ -538,10 +539,14 @@ class InvitationService:
 
     @classmethod
     def redeem_invitation(cls, invitation: Invitation, user: User) -> bool:
-        """Redeem an invitation by assigning roles to the user.
+        """Redeem an invitation by assigning roles and creating conference profile.
 
         The invitation becomes accepted if it is currently pending or previously
         rejected. Already accepted invitations remain unchanged.
+
+        When the invitation is accepted, this method also creates a conference profile
+        for the user if one does not already exist, populating it with the invitation's
+        ``desired_paper_count`` and ``interested_keywords``.
 
         Args:
             invitation: The invitation to redeem. Must be in ``PENDING`` or ``REJECTED``
@@ -605,6 +610,14 @@ class InvitationService:
                 track_role_assignments,
                 ignore_conflicts=True,
             )
+
+            profile, created = UserConferenceProfile.objects.get_or_create(
+                user=user,
+                conference=invitation.conference,
+                defaults={"desired_paper_count": invitation.desired_paper_count},
+            )
+            if created and invitation.interested_keywords.exists():
+                profile.interested_keywords.set(invitation.interested_keywords.all())
 
             return True
 

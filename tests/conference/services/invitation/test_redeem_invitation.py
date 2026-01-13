@@ -7,9 +7,11 @@ from app.conference.models import (
     ConferenceRole,
     ConferenceRoleAssignment,
     Invitation,
+    Keyword,
     Track,
     TrackRole,
     TrackRoleAssignment,
+    UserConferenceProfile,
 )
 from app.conference.services import InvitationService
 from app.core.models import User
@@ -237,3 +239,55 @@ class TestInvitationServiceRedeemInvitation:
             user=invitee,
             role=TrackRole.SECRETARY,
         ).exists()
+
+    def test_creates_conference_profile(
+        self,
+        conference: Conference,
+        invitation: Invitation,
+        invitee: User,
+    ) -> None:
+        update_object(invitation, desired_paper_count=10)
+
+        InvitationService.redeem_invitation(invitation, invitee)
+
+        profile = UserConferenceProfile.objects.get(user=invitee, conference=conference)
+        assert profile.desired_paper_count == 10
+
+    def test_creates_conference_profile_with_keywords(
+        self,
+        conference: Conference,
+        invitation: Invitation,
+        invitee: User,
+    ) -> None:
+        kw1 = Keyword.objects.create(text="machine-learning")
+        kw2 = Keyword.objects.create(text="deep-learning")
+        invitation.interested_keywords.set([kw1, kw2])
+
+        InvitationService.redeem_invitation(invitation, invitee)
+
+        profile = UserConferenceProfile.objects.get(user=invitee, conference=conference)
+        assert set(profile.interested_keywords.all()) == {kw1, kw2}
+
+    def test_does_not_overwrite_existing_profile(
+        self,
+        conference: Conference,
+        invitation: Invitation,
+        invitee: User,
+    ) -> None:
+        kw1 = Keyword.objects.create(text="existing-keyword")
+        kw2 = Keyword.objects.create(text="invitation-keyword")
+        existing_profile = UserConferenceProfile.objects.create(
+            user=invitee,
+            conference=conference,
+            desired_paper_count=20,
+        )
+        existing_profile.interested_keywords.set([kw1])
+
+        update_object(invitation, desired_paper_count=10)
+        invitation.interested_keywords.set([kw2])
+
+        InvitationService.redeem_invitation(invitation, invitee)
+
+        existing_profile.refresh_from_db()
+        assert existing_profile.desired_paper_count == 20
+        assert list(existing_profile.interested_keywords.all()) == [kw1]
