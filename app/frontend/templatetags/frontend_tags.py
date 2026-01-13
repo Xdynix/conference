@@ -10,6 +10,21 @@ from app.utils.enums import Region
 
 register = template.Library()
 
+# Valid ULID placeholders for URL templates. These are syntactically valid ULIDs with
+# near-zero timestamps that will never occur naturally. Must match ULID_PLACEHOLDERS in
+# utils.js.
+_ULID_PLACEHOLDERS = (
+    "00000000000000000000000001",
+    "00000000000000000000000002",
+    "00000000000000000000000003",
+)
+
+
+@register.simple_tag
+def ulid_placeholder(index: int) -> str:
+    """Return a ULID placeholder for URL templates. Index is 1-based."""
+    return _ULID_PLACEHOLDERS[index - 1]
+
 
 @register.simple_tag
 def regions_json() -> str:
