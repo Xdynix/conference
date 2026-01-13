@@ -73,3 +73,4 @@ class User(Schema):
             "Managed users cannot modify their username and email."
         )
     )
+    is_superuser: bool

@@ -39,6 +39,7 @@ def user_serialized(user: User) -> JsonValue:
         "username": user.username,
         "email": user.email,
         "managed": user.managed,
+        "is_superuser": user.is_superuser,
         "roles": [],
     }
 
