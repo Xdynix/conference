@@ -1,0 +1,74 @@
+<aside
+  class="d-flex flex-column flex-shrink-0 border-end bg-body-tertiary"
+  style="width: 250px;"
+  x-data
+>
+  <nav class="flex-grow-1 overflow-auto p-3">
+    <ul class="nav nav-pills flex-column">
+      <li class="nav-item">
+        <a
+          class="nav-link d-flex align-items-center gap-2"
+          :class="{'active': $store.sidebar?.active === 'home'}"
+          href="{% url 'frontend:conference-home' conference_name=params.conference_name %}"
+        >
+          <i class="bi-house"></i>
+          Home
+        </a>
+      </li>
+    </ul>
+    {# TODO: Add href when Submit Paper page is implemented #}
+    <a
+      class="btn btn-outline-primary d-flex align-items-center gap-2 my-3"
+      href="#"
+    >
+      <i class="bi-plus-circle"></i>
+      Submit Paper
+    </a>
+    <ul class="nav nav-pills flex-column">
+      {# TODO: Add href when My Papers page is implemented #}
+      <li class="nav-item">
+        <a
+          class="nav-link d-flex align-items-center gap-2"
+          :class="{'active': $store.sidebar?.active === 'my-papers'}"
+          href="#"
+        >
+          <i class="bi-file-earmark-text"></i>
+          My Papers
+        </a>
+      </li>
+      {# TODO: Add href when My Reviews page is implemented #}
+      <li class="nav-item">
+        <a
+          class="nav-link d-flex align-items-center gap-2"
+          :class="{'active': $store.sidebar?.active === 'my-reviews'}"
+          href="#"
+        >
+          <i class="bi-pencil-square"></i>
+          My Reviews
+        </a>
+      </li>
+    </ul>
+  </nav>
+  <div
+    x-cloak
+    x-show="$store.session?.user?.is_superuser"
+    class="p-3 border-top d-flex gap-2"
+  >
+    <a
+      href="{% url 'api-1.0.0:openapi-view' %}"
+      class="btn btn-sm btn-secondary d-flex align-items-center gap-1"
+      title="API Docs"
+    >
+      <i class="bi-file-code"></i>
+      API
+    </a>
+    <a
+      href="{% url 'admin:index' %}"
+      class="btn btn-sm btn-secondary d-flex align-items-center gap-1"
+      title="Django Admin"
+    >
+      <i class="bi-gear"></i>
+      Admin
+    </a>
+  </div>
+</aside>

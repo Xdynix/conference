@@ -44,9 +44,11 @@
   {% block head %}{% endblock %}
   {% block styles %}{% endblock %}
 </head>
-<body>
-{% include "frontend/components/navbar.html" %}
-{% block body %}{% endblock %}
+<body class="{% block body_class %}{% endblock %}">
+{% block body_wrapper %}
+  {% include "frontend/components/navbar.html" %}
+  {% block body %}{% endblock %}
+{% endblock %}
 {{ params|json_script:"app-params" }}
 <script>
   document.addEventListener("DOMContentLoaded", function () {

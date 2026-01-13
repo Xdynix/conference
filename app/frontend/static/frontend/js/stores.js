@@ -118,4 +118,11 @@ document.addEventListener("alpine:init", () => {
       document.title = document.title.replace(APP.siteName, name);
     }
   });
+
+  Alpine.store("sidebar", {
+    active: null,
+    setActive(key) {
+      this.active = key;
+    },
+  });
 });

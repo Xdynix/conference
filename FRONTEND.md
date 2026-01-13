@@ -52,7 +52,15 @@ Pages using this layout:
 
 Navbar with sidebar for conference-scoped pages. Sidebar provides role-based navigation.
 
-→ Example: `app/frontend/templates/frontend/layouts/app.html` (when implemented)
+Pages using this layout should set the active sidebar item via the store:
+
+```html
+
+<div x-data x-init="$store.sidebar.setActive('home')"></div>
+```
+
+→ Example: `app/frontend/templates/frontend/layouts/app.html`,
+`app/frontend/templates/frontend/conference/home.html`
 
 ## Views
 
