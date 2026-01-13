@@ -157,7 +157,7 @@
       <div class="text-center">
         <span class="text-muted">Already have an account?</span>
         <a
-          href="{% url 'frontend:login' %}"
+          :href="logInUrl"
           class="link-body-emphasis text-decoration-none"
         >Log in</a>
       </div>
@@ -190,6 +190,15 @@
         invitationToken: null,
         errors: {},
         loading: false,
+
+        get logInUrl() {
+          const params = new URLSearchParams(window.location.search);
+          const next = params.get("{% redirect_field_name %}");
+          if (next) {
+            return `{% url 'frontend:login' %}?{% redirect_field_name %}=${encodeURIComponent(next)}`;
+          }
+          return "{% url 'frontend:login' %}";
+        },
 
         async init() {
           turnstile.init.call(this);
@@ -294,8 +303,13 @@
 
             this.$store.session.update(data);
 
-            // TODO: Redirect to `next` or conference preference page.
-            window.location.href = "{% url 'frontend:index' %}";
+            if (this.invitation) {
+              // TODO: Redirect to conference profile page for confirmation.
+              window.location.href = "{% url 'frontend:index' %}";
+            } else {
+              const next = new URLSearchParams(window.location.search).get("{% redirect_field_name %}");
+              window.location.href = safeRedirectUrl(next, "{% url 'frontend:index' %}");
+            }
           } catch (error) {
             this.cfTurnstileReset();
 

@@ -75,8 +75,30 @@
     return hash;
   }
 
+  /**
+   * Returns a safe redirect URL, validating that it's same-origin.
+   *
+   * @param {string|null} next - The requested redirect URL.
+   * @param {string} fallback - The fallback URL if next is invalid or missing.
+   * @returns {string} A safe same-origin URL to redirect to.
+   */
+  function safeRedirectUrl(next, fallback) {
+    if (next) {
+      try {
+        const url = new URL(next, window.location.origin);
+        if (url.origin === window.location.origin) {
+          return url.pathname + url.search + url.hash;
+        }
+      } catch {
+        // Invalid URL, ignore.
+      }
+    }
+    return fallback;
+  }
+
   window.mapErrors = mapErrors;
   window.getModelValue = getModelValue;
   window.setModelValue = setModelValue;
   window.extractUrlHash = extractUrlHash;
+  window.safeRedirectUrl = safeRedirectUrl;
 })();

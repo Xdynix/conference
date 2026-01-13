@@ -85,12 +85,12 @@
         <template x-if="!$store.session.user">
           <div class="d-flex gap-2">
             <a
-              href="{% url 'frontend:signup' %}"
+              :href="signUpUrl()"
               class="btn btn-outline-primary btn-sm"
             >
               Sign up
             </a>
-            <a href="{% url 'frontend:login' %}" class="btn btn-primary btn-sm">
+            <a :href="logInUrl()" class="btn btn-primary btn-sm">
               Log in
             </a>
           </div>
@@ -140,6 +140,19 @@
   }
 
   function userMenu() {
+    function getNextParam() {
+      const params = new URLSearchParams(window.location.search);
+      const existing = params.get("{% redirect_field_name %}");
+      if (existing) return existing;
+
+      return window.location.pathname + window.location.search;
+    }
+
+    function buildAuthUrl(base) {
+      const next = getNextParam();
+      return `${base}?{% redirect_field_name %}=${encodeURIComponent(next)}`;
+    }
+
     return {
       displayName() {
         const user = this.$store.session.user;
@@ -149,6 +162,14 @@
           return [profile.given_name, profile.family_name].filter(Boolean).join(" ");
         }
         return user.username;
+      },
+
+      signUpUrl() {
+        return buildAuthUrl("{% url 'frontend:signup' %}");
+      },
+
+      logInUrl() {
+        return buildAuthUrl("{% url 'frontend:login' %}");
       },
 
       logout() {
