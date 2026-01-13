@@ -2,7 +2,7 @@ from collections import defaultdict
 from collections.abc import Collection
 from typing import Any, Protocol
 
-from django.db.models import CharField, Prefetch, QuerySet, Value
+from django.db.models import CharField, Exists, OuterRef, Prefetch, QuerySet, Value
 from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.translation import gettext as _
@@ -13,6 +13,7 @@ from ulid import ULID
 from app.conference.models import Invitation, InvitationTrackRoleEntry, Track, TrackRole
 from app.conference.services import InvitationService
 from app.conference.types import Invitation as InvitationSchema
+from app.core.models import User
 
 router = Router(tags=["Invitation"], exclude_none=True)
 
@@ -135,6 +136,9 @@ def with_invitation_prefetch(
             invitation_reject_page_url=Value(
                 invitation_reject_page_url,
                 output_field=CharField(),
+            ),
+            has_existing_account=Exists(
+                User.objects.active().filter(email__iexact=OuterRef("invitee_email"))
             ),
         )
         .prefetch_related(

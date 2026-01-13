@@ -55,6 +55,7 @@ class TestLookupInvitation:
                 "name": conference.name,
                 "display_name": conference.display_name,
             },
+            "has_existing_account": False,
             "token": token,
             "accept_url": (
                 f"http://testserver{reverse('frontend:invitation-accept')}#{token}"
@@ -73,6 +74,69 @@ class TestLookupInvitation:
 
         response = api_client.post(self.path, data={"invitation_token": token})
         assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_has_existing_account_true_when_active_user_exists(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        email = faker.email()
+        User.objects.create_user(username=faker.user_name(), email=email)
+        invitation = Invitation.objects.create(
+            conference=conference,
+            invitee_email=email,
+        )
+        token = InvitationService.get_invitation_token(invitation)
+
+        response = api_client.post(self.path, data={"invitation_token": token})
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["has_existing_account"] is True
+
+    def test_has_existing_account_false_when_user_inactive(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        email = faker.email()
+        User.objects.create_user(
+            username=faker.user_name(),
+            email=email,
+            is_active=False,
+        )
+        invitation = Invitation.objects.create(
+            conference=conference,
+            invitee_email=email,
+        )
+        token = InvitationService.get_invitation_token(invitation)
+
+        response = api_client.post(self.path, data={"invitation_token": token})
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["has_existing_account"] is False
+
+    def test_has_existing_account_case_insensitive(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        User.objects.create_user(
+            username=faker.user_name(),
+            email="John.Doe@Example.COM",
+        )
+        invitation = Invitation.objects.create(
+            conference=conference,
+            invitee_email="john.doe@example.com",
+        )
+        token = InvitationService.get_invitation_token(invitation)
+
+        response = api_client.post(self.path, data={"invitation_token": token})
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["has_existing_account"] is True
 
 
 @pytest.mark.django_db

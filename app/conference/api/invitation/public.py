@@ -37,6 +37,7 @@ class InvitationSummary(InvitationUrlsMixin, UserConferenceProfile, Profile):
     uid: ULID
     state: Invitation.State
     invitee_email: EmailStr
+    has_existing_account: bool
     conference: ConferenceSummary
 
     @staticmethod

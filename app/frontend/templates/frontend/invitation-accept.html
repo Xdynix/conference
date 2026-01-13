@@ -29,17 +29,58 @@
             <span class="text-muted">Conference:</span>
             <strong x-text="invitation?.conference?.display_name"></strong>
           </p>
+          <p class="card-text mb-0">
+            <span class="text-muted">Sent to:</span>
+            <strong x-text="invitation?.invitee_email"></strong>
+          </p>
         </div>
       </div>
 
-      <p class="text-center text-muted mb-4">
-        Sign in or create an account to accept this invitation.
-      </p>
+      {# Has existing account #}
+      <template x-if="invitation?.has_existing_account">
+        <div>
+          <p class="text-center text-muted mb-4">
+            An account with this email exists. Log in to continue.
+          </p>
 
-      <div class="d-grid gap-2" style="grid-template-columns: 1fr 1fr;">
-        <a :href="signInUrl()" class="btn btn-outline-primary">Sign In</a>
-        <a :href="signUpUrl()" class="btn btn-primary">Create Account</a>
-      </div>
+          <div class="d-grid mb-3">
+            <a :href="logInUrl()" class="btn btn-primary">Log In</a>
+          </div>
+
+          <div class="text-center">
+            <a
+              href="{% url 'frontend:password-reset' %}"
+              class="link-body-emphasis text-decoration-none"
+            >Forgot password?</a>
+            <span class="text-muted mx-2">&middot;</span>
+            <a
+              :href="signUpUrl()"
+              class="link-body-emphasis text-decoration-none"
+            >Use a different account</a>
+          </div>
+        </div>
+      </template>
+
+      {# No existing account #}
+      <template x-if="!invitation?.has_existing_account">
+        <div>
+          <p class="text-center text-muted mb-4">
+            Sign up to accept this invitation.
+          </p>
+
+          <div class="d-grid mb-3">
+            <a :href="signUpUrl()" class="btn btn-primary">Sign Up</a>
+          </div>
+
+          <div class="text-center">
+            <span class="text-muted">Already have an account?</span>
+            <a
+              :href="logInUrl()"
+              class="link-body-emphasis text-decoration-none"
+            >Log in</a>
+          </div>
+        </div>
+      </template>
     </div>
 
     {# Authenticated State #}
@@ -55,7 +96,7 @@
         </div>
       </div>
 
-      <p class="text-muted mb-2">Signed in as:</p>
+      <p class="text-muted mb-2">Logged in as:</p>
       <div class="card mb-4">
         <div class="card-body py-2">
           <span class="fw-medium" x-text="$store.session.user?.username"></span>
@@ -93,8 +134,8 @@
 
       <div class="text-center">
         <span class="text-muted">Not you?</span>
-        <a :href="signInUrl()" class="link-body-emphasis text-decoration-none">
-          Sign in with another account
+        <a :href="logInUrl()" class="link-body-emphasis text-decoration-none">
+          Use a different account
         </a>
       </div>
     </div>
@@ -158,7 +199,7 @@
           }
         },
 
-        signInUrl() {
+        logInUrl() {
           const acceptPath = "{% url 'frontend:invitation-accept' %}";
           const next = encodeURIComponent(`${acceptPath}#${this.token}`);
           return `{% url 'frontend:login' %}?{{ redirect_field_name }}=${next}`;
