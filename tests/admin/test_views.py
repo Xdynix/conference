@@ -29,8 +29,8 @@ class TestMedia:
         client.force_login(user)
 
         response = client.get("/media/test.txt")
-
         assert response.status_code == HTTPStatus.OK
+
         assert b"".join(response.streaming_content) == b"test content"  # type: ignore[attr-defined]
 
     @pytest.mark.parametrize(
@@ -41,7 +41,7 @@ class TestMedia:
             {"is_active": False, "is_superuser": True},
         ],
     )
-    def test_non_superuser_redirects_to_admin_login(
+    def test_reject_non_superuser(
         self,
         faker: Faker,
         client: Client,
@@ -52,19 +52,15 @@ class TestMedia:
         client.force_login(user)
 
         response = client.get("/media/test.txt", follow=False)
+        assert not HTTPStatus(response.status_code).is_success
 
-        assert response.status_code == HTTPStatus.FOUND
-        assert "/admin/login/" in response.url  # type: ignore[attr-defined]
-
-    def test_unauthenticated_redirects_to_admin_login(
+    def test_reject_unauthenticated(
         self,
         client: Client,
         media_file: Path,  # noqa: ARG002
     ) -> None:
         response = client.get("/media/test.txt", follow=False)
-
-        assert response.status_code == HTTPStatus.FOUND
-        assert "/admin/login/" in response.url  # type: ignore[attr-defined]
+        assert not HTTPStatus(response.status_code).is_success
 
     def test_path_traversal_forbidden(
         self,
@@ -76,7 +72,6 @@ class TestMedia:
         client.force_login(user)
 
         response = client.get("/media/../etc/passwd")
-
         assert response.status_code == HTTPStatus.FORBIDDEN
 
     def test_file_not_found(
@@ -89,7 +84,6 @@ class TestMedia:
         client.force_login(user)
 
         response = client.get("/media/nonexistent.txt")
-
         assert response.status_code == HTTPStatus.NOT_FOUND
 
     def test_directory_not_served(
@@ -104,7 +98,6 @@ class TestMedia:
         client.force_login(user)
 
         response = client.get("/media/subdir")
-
         assert response.status_code == HTTPStatus.NOT_FOUND
 
     def test_non_get_method_not_allowed(
@@ -117,7 +110,6 @@ class TestMedia:
         client.force_login(user)
 
         response = client.post("/media/test.txt")
-
         assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
 
     def test_nested_file_served(
@@ -133,6 +125,6 @@ class TestMedia:
         client.force_login(user)
 
         response = client.get("/media/uploads/2024/document.pdf")
-
         assert response.status_code == HTTPStatus.OK
+
         assert b"".join(response.streaming_content) == b"PDF content"  # type: ignore[attr-defined]

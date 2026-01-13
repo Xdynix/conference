@@ -1,7 +1,9 @@
 from typing import override
 
+from django.conf import settings
 from django.contrib.admin import AdminSite as DefaultAdminSite
-from django.http.request import HttpRequest
+from django.core.exceptions import PermissionDenied
+from django.http import HttpRequest, HttpResponse
 from django.utils.translation import gettext_lazy as _
 
 
@@ -23,12 +25,24 @@ class AdminSite(DefaultAdminSite):
         return _("{site_name} Admin").format(site_name=settings.SITE_NAME)
 
     @override
+    def login(
+        self,
+        request: HttpRequest,
+        extra_context: dict[str, object] | None = None,
+    ) -> HttpResponse:
+        if settings.ADMIN_LOGIN_DENY_UNAUTHORIZED:
+            raise PermissionDenied
+
+        return super().login(request, extra_context=extra_context)
+
+    @override
     def has_permission(self, request: HttpRequest) -> bool:
         # Restrict admin site to superusers only. Django admin is difficult to secure
         # with fine-grained permissions, and features like autocomplete search can leak
         # data through unprotected queries.
         user = request.user
-        return bool(user.is_active and user.is_superuser)
+        has_permission = bool(user.is_active and user.is_superuser)
+        if not has_permission and settings.ADMIN_LOGIN_DENY_UNAUTHORIZED:
+            raise PermissionDenied
 
-
-# TODO: Integrate Cloudflare Turnstile with admin login view.
+        return has_permission

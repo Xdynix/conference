@@ -270,6 +270,12 @@ SITE_NAME = config("SITE_NAME", default="Django")
 
 FAVICON_TEXT = config("FAVICON_TEXT", default="💡")
 
+ADMIN_LOGIN_DENY_UNAUTHORIZED = config(
+    "ADMIN_LOGIN_DENY_UNAUTHORIZED",
+    default=True,
+    cast=bool,
+)
+
 # Infra
 
 MUTEX_RETENTION = config("MUTEX_RETENTION", default=7, cast=days)
