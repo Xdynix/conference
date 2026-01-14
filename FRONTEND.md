@@ -52,11 +52,41 @@ Pages using this layout:
 
 Navbar with sidebar for conference-scoped pages. Sidebar provides role-based navigation.
 
-Pages using this layout should set the active sidebar item via the store:
+Pages using this layout must set the active sidebar item and breadcrumb via stores:
 
 ```html
+<div x-data x-init="
+  $store.sidebar.setActive('home');
+  $store.breadcrumb.set([{label: 'Home'}]);
+"></div>
+```
 
-<div x-data x-init="$store.sidebar.setActive('home')"></div>
+**Breadcrumb rules:**
+
+- Each top-level sidebar item is its own breadcrumb root (no `Home >` prefix on every
+  page).
+- Last item (current page) has no `url` property.
+- Ancestor items include `url` for navigation.
+
+```javascript
+// Top-level page
+$store.breadcrumb.set([{label: 'My Papers'}]);
+
+// Nested page
+$store.breadcrumb.set([
+  {label: 'My Papers', url: APP.urls.pages.myPapers(APP.params.conference_name)},
+  {label: 'PAPER-2000'}
+]);
+
+// Deep page
+$store.breadcrumb.set([
+  {label: 'My Papers', url: APP.urls.pages.myPapers(APP.params.conference_name)},
+  {
+    label: 'PAPER-2000',
+    url: APP.urls.pages.paper(APP.params.conference_name, 'PAPER-2000')
+  },
+  {label: 'Reviews'}
+]);
 ```
 
 → Example: `app/frontend/templates/frontend/layouts/app.html`,

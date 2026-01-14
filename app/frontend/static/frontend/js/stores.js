@@ -125,4 +125,11 @@ document.addEventListener("alpine:init", () => {
       this.active = key;
     },
   });
+
+  Alpine.store("breadcrumb", {
+    items: [],
+    set(items) {
+      this.items = items;
+    },
+  });
 });

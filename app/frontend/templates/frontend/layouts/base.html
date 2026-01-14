@@ -111,6 +111,12 @@
         create: "{% url 'api-1.0.0:create-password-reset' %}",
         consume: "{% url 'api-1.0.0:consume-password-reset' %}",
       },
+      pages: {
+        conferenceHome: urlTemplate(
+          "{% url 'frontend:conference-home' '__CONFERENCE_NAME__' %}",
+          "conference_name",
+        ),
+      },
     },
   };
 </script>
