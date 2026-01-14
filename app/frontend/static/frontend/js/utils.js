@@ -161,10 +161,22 @@
     return fallback;
   }
 
+  /**
+   * Looks up an enum label by its value.
+   *
+   * @param {Object} enumObj - Enum object from APP.enums (e.g., APP.enums.InvitationState).
+   * @param {string} value - The enum value to look up.
+   * @returns {string|undefined} The label for the value, or undefined if not found.
+   */
+  function enumLabel(enumObj, value) {
+    return Object.values(enumObj).find((e) => e.value === value)?.label;
+  }
+
   window.urlTemplate = urlTemplate;
   window.mapErrors = mapErrors;
   window.getModelValue = getModelValue;
   window.setModelValue = setModelValue;
   window.extractUrlHash = extractUrlHash;
   window.safeRedirectUrl = safeRedirectUrl;
+  window.enumLabel = enumLabel;
 })();

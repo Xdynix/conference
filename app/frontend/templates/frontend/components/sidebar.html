@@ -1,7 +1,7 @@
 <aside
   class="d-flex flex-column flex-shrink-0 border-end bg-body-tertiary"
   style="width: 250px;"
-  x-data
+  x-data="sidebar()"
 >
   <nav class="flex-grow-1 overflow-auto p-3">
     <ul class="nav nav-pills flex-column">
@@ -37,7 +37,7 @@
         </a>
       </li>
       {# TODO: Add href when My Reviews page is implemented #}
-      <li class="nav-item">
+      <li class="nav-item" x-show="canReview" x-cloak>
         <a
           class="nav-link d-flex align-items-center gap-2"
           :class="{'active': $store.sidebar?.active === 'my-reviews'}"
@@ -49,26 +49,45 @@
       </li>
     </ul>
   </nav>
-  <div
-    x-cloak
-    x-show="$store.session?.user?.is_superuser"
-    class="p-3 border-top d-flex gap-2"
-  >
-    <a
-      href="{% url 'api-1.0.0:openapi-view' %}"
-      class="btn btn-sm btn-secondary d-flex align-items-center gap-1"
-      title="API Docs"
-    >
-      <i class="bi-file-code"></i>
-      API
-    </a>
-    <a
-      href="{% url 'admin:index' %}"
-      class="btn btn-sm btn-secondary d-flex align-items-center gap-1"
-      title="Django Admin"
-    >
-      <i class="bi-gear"></i>
-      Admin
-    </a>
-  </div>
+  <template x-if="$store.session?.user?.is_superuser">
+    <div class="p-3 border-top d-flex gap-2">
+      <a
+        href="{% url 'api-1.0.0:openapi-view' %}"
+        class="btn btn-sm btn-secondary d-flex align-items-center gap-1"
+        title="API Docs"
+      >
+        <i class="bi-file-code"></i>
+        API
+      </a>
+      <a
+        href="{% url 'admin:index' %}"
+        class="btn btn-sm btn-secondary d-flex align-items-center gap-1"
+        title="Django Admin"
+      >
+        <i class="bi-gear"></i>
+        Admin
+      </a>
+    </div>
+  </template>
 </aside>
+<script>
+  function sidebar() {
+    const enums = APP.enums;
+    return {
+      get canReview() {
+        const user = this.$store.session?.user;
+        const profile = this.$store.conference?.profile;
+
+        if (user?.is_superuser) return true;
+
+        if (user?.roles?.includes(enums.GlobalRole.ADMIN.value)) return true;
+
+        const confReviewers = enums.ConferenceRole._collections.reviewers;
+        if (profile?.conference_roles?.some(r => confReviewers.includes(r))) return true;
+
+        const trackReviewers = enums.TrackRole._collections.reviewers;
+        return !!profile?.track_roles?.some(tr => trackReviewers.includes(tr.role));
+      },
+    };
+  }
+</script>

@@ -301,6 +301,31 @@ def config(_: Any) -> dict[str, Any]:
 
 → Example: `app/frontend/context_processors.py`
 
+## Enums
+
+Python enums are exported to `window.APP.enums` with `value` and `label` for each
+member. To add a new enum, add it to `enums_json()` in
+`app/frontend/templatetags/frontend_tags.py`. Enums with collection methods (e.g.,
+`ConferenceRole.admins()`) can export them via the `collections` parameter.
+
+```javascript
+// Compare against API response
+if (data.state === APP.enums.InvitationState.ACCEPTED.value) { ...
+}
+
+// Display label (lookup by value)
+<span x-text="enumLabel(APP.enums.InvitationState, item.state)"></span>
+
+// Check membership in a collection
+APP.enums.ConferenceRole._collections.admins.includes(user.role)
+```
+
+→ Implementation: `app/frontend/templatetags/frontend_tags.py` (`_enum_to_dict`,
+`enums_json`), `app/frontend/static/frontend/js/utils.js` (`enumLabel`)
+
+→ Usage: `app/frontend/templates/frontend/index.html`,
+`app/frontend/templates/frontend/invitation-accept.html`
+
 ## Dark Mode
 
 - Stored in `localStorage` with values: `light`, `dark`, `auto`.
@@ -383,3 +408,7 @@ Inline scripts are not linted. Extract complex logic to `.js` files for linting.
 - Use `x-cloak` to hide Alpine-controlled elements until initialization.
 - Use `:key` with `x-for` loops for correct reactivity.
 - Prefer `@mousedown.prevent` over `@click` when blur timing matters.
+- Never use `x-show` on the same element as `d-flex` or other Bootstrap display
+  utilities (`d-block`, `d-grid`, etc.). Bootstrap uses `!important` which overrides
+  Alpine's inline `display: none`. Use `x-if` with `<template>` instead, or put `x-show`
+  on a parent/wrapper.

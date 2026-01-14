@@ -186,7 +186,7 @@
             });
             this.invitation = data;
 
-            if (data.state === "Accepted") {
+            if (data.state === APP.enums.InvitationState.ACCEPTED.value) {
               this.state = "error";
               this.errorMessage = "This invitation link is invalid or has already been used.";
               return;

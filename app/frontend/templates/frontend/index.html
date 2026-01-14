@@ -40,10 +40,10 @@
               </div>
               <span class="d-flex align-items-center gap-2">
                 <span
-                  x-show="conf.visibility !== 'Public'"
+                  x-show="conf.visibility !== APP.enums.ConferenceVisibility.PUBLIC.value"
                   x-cloak
                   class="badge bg-secondary"
-                  x-text="conf.visibility"
+                  x-text="enumLabel(APP.enums.ConferenceVisibility, conf.visibility)"
                 >
                 </span>
                 <i class="bi bi-chevron-right text-muted"></i>

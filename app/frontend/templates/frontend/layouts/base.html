@@ -68,6 +68,7 @@
       siteKey: "{{ cf_turnstile.site_key|escapejs }}",
       responseHeader: "{{ cf_turnstile.response_header_name|escapejs }}",
     },
+    enums: {% enums_json %},
     params: JSON.parse(document.getElementById("app-params").textContent),
     siteName: "{% site_name %}",
     urls: {

@@ -1,14 +1,37 @@
 import json
+from collections.abc import Iterable
+from enum import Enum
 from typing import Any
 
 from django import template
 from django.conf import settings
 from django.contrib.auth.password_validation import password_validators_help_texts
+from django.utils.safestring import SafeString, mark_safe
 
 from app.frontend.views import ProtectedView
 from app.utils.enums import Region
 
 register = template.Library()
+
+
+def _enum_to_dict(
+    enum_class: type[Enum],
+    collections: Iterable[str] = (),
+) -> dict[str, Any]:
+    """Convert an enum to a dict with value and label for each member.
+
+    Works with both StrEnum (value used as label) and TextChoices (has .label).
+    Optionally includes collections (class methods that return sequences of members).
+    """
+    result: dict[str, Any] = {}
+    for member in enum_class:
+        label = getattr(member, "label", member.value)
+        result[member.name] = {"value": member.value, "label": str(label)}
+    result["_collections"] = {
+        name: [m.value for m in getattr(enum_class, name)()] for name in collections
+    }
+    return result
+
 
 # Valid ULID placeholders for URL templates. These are syntactically valid ULIDs with
 # near-zero timestamps that will never occur naturally. Must match ULID_PLACEHOLDERS in
@@ -61,3 +84,33 @@ def csrf_header_name() -> str:
 @register.simple_tag
 def redirect_field_name() -> Any:
     return ProtectedView.redirect_field_name
+
+
+@register.simple_tag
+def enums_json() -> SafeString:
+    """Export enums to frontend as JSON with value and label for each member."""
+    from app.conference.models import (
+        ConferenceRole,
+        ConferenceVisibility,
+        Invitation,
+        TrackRole,
+    )
+    from app.core.models import GlobalRole
+
+    return mark_safe(  # noqa: S308
+        json.dumps(
+            {
+                "ConferenceRole": _enum_to_dict(
+                    ConferenceRole,
+                    collections=["admins", "reviewers"],
+                ),
+                "ConferenceVisibility": _enum_to_dict(ConferenceVisibility),
+                "GlobalRole": _enum_to_dict(GlobalRole),
+                "InvitationState": _enum_to_dict(Invitation.State),
+                "TrackRole": _enum_to_dict(
+                    TrackRole,
+                    collections=["admins", "reviewers"],
+                ),
+            }
+        )
+    )
