@@ -71,8 +71,8 @@
                         </template>
                         <span
                           class="badge"
-                          :class="track.submissions_enabled ? 'text-bg-success' : 'text-bg-secondary'"
-                          x-text="track.submissions_enabled ? 'Submissions Open' : 'Submissions Closed'"
+                          :class="track.accepts_submissions ? 'text-bg-success' : 'text-bg-secondary'"
+                          x-text="track.accepts_submissions ? 'Submissions Open' : 'Submissions Closed'"
                         ></span>
                       </span>
                     </li>

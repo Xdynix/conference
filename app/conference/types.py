@@ -142,6 +142,7 @@ class Track(Schema):
     display_name: TrackDisplayName
     visibility: TrackVisibility
     submissions_enabled: bool
+    accepts_submissions: bool
 
 
 ieee_ecopyright_config_model_meta = IEEEeCopyrightConfigModel._meta

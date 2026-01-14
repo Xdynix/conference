@@ -108,6 +108,27 @@ class TestTrack:
         track = Track(conference=conference, display_name="Machine Learning")
         assert str(track) == "CBPK-2020 - Machine Learning"
 
+    @pytest.mark.parametrize(
+        ("submissions_enabled", "has_pool", "expected"),
+        [
+            (True, True, True),
+            (True, False, False),
+            (False, True, False),
+            (False, False, False),
+        ],
+    )
+    def test_accepts_submissions(
+        self,
+        submissions_enabled: bool,
+        has_pool: bool,
+        expected: bool,
+    ) -> None:
+        track = Track(
+            submissions_enabled=submissions_enabled,
+            code_pool_id=1 if has_pool else None,
+        )
+        assert track.accepts_submissions is expected
+
     @pytest.mark.django_db
     def test_protect_pool(self, conference: Conference) -> None:
         pool = CodePool.objects.create(

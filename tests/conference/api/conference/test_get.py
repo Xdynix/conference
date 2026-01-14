@@ -65,6 +65,7 @@ class TestGetConference:
                     "display_name": track.display_name,
                     "visibility": track.visibility,
                     "submissions_enabled": False,
+                    "accepts_submissions": False,
                     "ieee_ecopyright_required": False,
                 },
             ],

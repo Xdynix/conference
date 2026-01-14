@@ -273,3 +273,12 @@ class Track(TimeStampedModel, ULIDModel):
 
     def __str__(self) -> str:
         return f"{self.conference} - {self.display_name}"
+
+    @property
+    def accepts_submissions(self) -> bool:
+        """Whether the track can actually accept submissions.
+
+        Unlike ``submissions_enabled`` (admin's intent), this reflects readiness:
+        submissions require a code pool to allocate paper codes.
+        """
+        return self.submissions_enabled and self.code_pool_id is not None
