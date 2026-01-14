@@ -31,7 +31,7 @@
           <div class="invalid-feedback" x-text="errors.username"></div>
         </div>
 
-        {% include "frontend/components/email-verification.html" with id="email" label="Email" model="form.emailToken" error_key="email" required=True save_hint="Your verified email will be used for your account." %}
+        {% include "frontend/components/email-verification.html" with id="email" label="Email" model="form.emailToken" error_key="email" required=True save_hint="Your verified email will be used for your account." pre_verified_email="invitation.invitee_email" pre_verified_token="invitation.verified_email_token" %}
 
         {% include "frontend/components/password-input.html" with id="password" label="Password" model="form.password" error_key="password" autocomplete="new-password" wrapper_class="mb-1" blur="validateConfirmPassword()" %}
 
@@ -248,8 +248,6 @@
         },
 
         prefillFromInvitation(data) {
-          // TODO: Consider bypassing email verification for invited users.
-          // The invitation email could serve as proof of email ownership.
           this.form.profile.givenName = data.given_name || "";
           this.form.profile.familyName = data.family_name || "";
           this.form.profile.affiliation = data.affiliation || "";

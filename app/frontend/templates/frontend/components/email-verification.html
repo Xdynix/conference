@@ -25,6 +25,8 @@ Parameters:
   - required: Whether the field is required (default: false)
   - placeholder: Placeholder text for email input (default: "Enter email")
   - save_hint: Hint text shown after verification (default: "Click Save to apply this change.")
+  - pre_verified_email: Path to parent data for pre-verified email, e.g. "invitation.invitee_email" (optional)
+  - pre_verified_token: Path to parent data for pre-verified token, e.g. "invitation.verified_email_token" (optional)
 
 States:
   - idle: Initial state, empty email input with "Send Code" button
@@ -33,7 +35,10 @@ States:
   - verified: Success, token obtained and bound to model
 {% endcomment %}
 
-<div class="mb-3" x-data="emailVerification('{{ model }}')">
+<div
+  class="mb-3"
+  x-data="emailVerification('{{ model }}', '{{ pre_verified_email|default:"" }}', '{{ pre_verified_token|default:"" }}')"
+>
   <label for="{{ id }}" class="form-label">{{ label }}</label>
 
   {# Step: idle/input - enter email and request code #}
@@ -137,7 +142,9 @@ States:
         Change
       </button>
     </div>
-    <div class="text-muted small mt-1">{{ save_hint|default:"Click Save to apply this change." }}</div>
+    <div
+      class="text-muted small mt-1"
+    >{{ save_hint|default:"Click Save to apply this change." }}</div>
     <div
       x-show="errors['{{ error_key }}']"
       x-cloak
@@ -148,7 +155,7 @@ States:
 </div>
 
 <script>
-  function emailVerification(modelPath) {
+  function emailVerification(modelPath, preVerifiedEmailPath, preVerifiedTokenPath) {
     return {
       step: "idle", // idle, input, pending, verified
       email: "",
@@ -156,8 +163,28 @@ States:
       verifiedToken: null,
       loading: false,
       verifyErrors: {},
+      preVerifiedApplied: false,
 
       init() {
+        // Watch for pre-verified email/token from parent (e.g., from invitation lookup).
+        // When both are present and component is idle, set verified state immediately.
+        // Only apply once; if user clicks "Change", they can verify a different email.
+        if (preVerifiedEmailPath && preVerifiedTokenPath) {
+          this.$watch(
+            () => [getModelValue(this, preVerifiedEmailPath), getModelValue(this, preVerifiedTokenPath)],
+            ([email, token]) => {
+              if (email && token && this.step === "idle" && !this.preVerifiedApplied) {
+                this.preVerifiedApplied = true;
+                this.email = email;
+                this.verifiedToken = token;
+                setModelValue(this, modelPath, token);
+                this.step = "verified";
+              }
+            },
+            {immediate: true},
+          );
+        }
+
         // Reset component when model is cleared externally (e.g., after successful form submit).
         this.$watch(modelPath, (value) => {
           if (value === null && this.step === "verified") {

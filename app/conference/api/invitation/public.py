@@ -20,6 +20,7 @@ from app.conference.types import (
 from app.core.auth import is_authenticated
 from app.core.types import AuthedHttpRequest, EmailStr, HttpRequest
 from app.ninja.errors import ErrorResponse
+from app.verikit.services import EmailVerificationService
 
 from .core import InvitationUrlsMixin, prefetch_invitation, router
 
@@ -39,10 +40,23 @@ class InvitationSummary(InvitationUrlsMixin, UserConferenceProfile, Profile):
     invitee_email: EmailStr
     has_existing_account: bool
     conference: ConferenceSummary
+    verified_email_token: str | None = None
 
     @staticmethod
     def resolve_interested_keywords(invitation: Invitation) -> list[str]:
         return [keyword.text for keyword in invitation.interested_keywords.all()]
+
+    @staticmethod
+    def resolve_verified_email_token(invitation: Invitation) -> str | None:
+        # Clicking an invitation link is equivalent proof of email access as clicking a
+        # verification code link. If the link is leaked, an attacker could claim the
+        # email during signup, but the legitimate owner can always recover via password
+        # reset (which uses a separate token flow). The 30-min token expiry limits the
+        # window. This tradeoff is acceptable for the UX improvement of skipping email
+        # verification when signing up via invitation.
+        if invitation.state == Invitation.State.ACCEPTED:
+            return None
+        return EmailVerificationService.issue_token(invitation.invitee_email)
 
 
 @router.post(

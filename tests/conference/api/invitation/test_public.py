@@ -13,7 +13,8 @@ from ulid import ULID
 from app.conference.models import Conference, Invitation
 from app.conference.services import InvitationService
 from app.core.models import User
-from tests.helpers import approx_now
+from app.verikit.services import EmailVerificationService
+from tests.helpers import any_str, approx_now
 
 
 @pytest.mark.django_db
@@ -56,6 +57,7 @@ class TestLookupInvitation:
                 "display_name": conference.display_name,
             },
             "has_existing_account": False,
+            "verified_email_token": any_str,
             "token": token,
             "accept_url": (
                 f"http://testserver{reverse('frontend:invitation-accept')}#{token}"
@@ -137,6 +139,44 @@ class TestLookupInvitation:
         assert response.status_code == HTTPStatus.OK
 
         assert response.json()["has_existing_account"] is True
+
+    def test_verified_email_token_is_valid(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        invitation = Invitation.objects.create(
+            conference=conference,
+            invitee_email=faker.email(),
+        )
+        token = InvitationService.get_invitation_token(invitation)
+
+        response = api_client.post(self.path, data={"invitation_token": token})
+        assert response.status_code == HTTPStatus.OK
+
+        verified_email_token = response.json()["verified_email_token"]
+        verified_email = EmailVerificationService.verify_token(verified_email_token)
+        assert verified_email is not None
+        assert verified_email.lower() == invitation.invitee_email.lower()
+
+    def test_verified_email_token_excluded_when_accepted(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        invitation = Invitation.objects.create(
+            conference=conference,
+            invitee_email=faker.email(),
+            accept_time=timezone.now(),
+        )
+        token = InvitationService.get_invitation_token(invitation)
+
+        response = api_client.post(self.path, data={"invitation_token": token})
+        assert response.status_code == HTTPStatus.OK
+
+        assert "verified_email_token" not in response.json()
 
 
 @pytest.mark.django_db
