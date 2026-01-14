@@ -59,37 +59,9 @@
   {{ block.super }}
   <script>
     function conferenceIndex() {
-      const sameMonthYear = (a, b) =>
-        a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear();
-
-      const fmtDay = new Intl.DateTimeFormat("en-US", {day: "numeric"});
-      const fmtMonthYear = new Intl.DateTimeFormat("en-US", {
-        month: "long",
-        year: "numeric"
-      });
-      const fmtFull = new Intl.DateTimeFormat("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
-
-      const formatRange = (start, end) => {
-        if (start && end) {
-          if (sameMonthYear(start, end)) {
-            return `${fmtDay.format(start)}-${fmtDay.format(end)} ${fmtMonthYear.format(start)}`;
-          }
-          return `${fmtFull.format(start)} - ${fmtFull.format(end)}`;
-        }
-        if (start) return fmtFull.format(start);
-        if (end) return fmtFull.format(end);
-        return "";
-      };
-
       return {
         formatConferenceSubtitle(conf) {
-          const start = conf.start_date ? new Date(conf.start_date) : null;
-          const end = conf.end_date ? new Date(conf.end_date) : null;
-          const datePart = formatRange(start, end);
+          const datePart = formatDateRange(conf.start_date, conf.end_date);
           const location = (conf.location || "").trim();
           return [datePart, location].filter(Boolean).join(", ");
         },

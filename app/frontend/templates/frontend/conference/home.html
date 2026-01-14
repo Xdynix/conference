@@ -6,5 +6,96 @@
   <div x-data x-init="
     $store.sidebar.setActive('home');
     $store.breadcrumb.set([{label: 'Home'}]);
-  "></div>
+  ">
+    <template x-if="$store.conference.loading">
+      <div class="text-center py-5">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="!$store.conference.loading && !$store.conference.detail">
+      <div class="text-center py-5">
+        <p class="text-muted mb-0">Conference not found.</p>
+      </div>
+    </template>
+
+    <template x-if="!$store.conference.loading && $store.conference.detail">
+      <div>
+        <header class="mb-4 text-center">
+          <h1 class="h3 mb-1" x-text="$store.conference.detail.display_name"></h1>
+          <p class="text-muted mb-2" x-text="conferenceSubtitle()"></p>
+          <div class="d-flex flex-wrap gap-2 justify-content-center">
+            <span
+              class="badge"
+              :class="$store.conference.detail.registration_enabled ? 'text-bg-success' : 'text-bg-secondary'"
+              x-text="$store.conference.detail.registration_enabled ? 'Registration Open' : 'Registration Closed'"
+            ></span>
+            <template
+              x-if="$store.conference.detail.visibility !== APP.enums.ConferenceVisibility.PUBLIC.value"
+            >
+              <span
+                class="badge text-bg-secondary"
+                x-text="enumLabel(APP.enums.ConferenceVisibility, $store.conference.detail.visibility)"
+              ></span>
+            </template>
+          </div>
+        </header>
+
+        <div class="row justify-content-center">
+          <div class="col-lg-8 col-xl-6">
+            <template x-if="$store.conference.detail.tracks.length === 0">
+              <p class="text-muted text-center">No tracks available.</p>
+            </template>
+            <template x-if="$store.conference.detail.tracks.length > 0">
+              <section>
+                <h2 class="small text-muted text-uppercase mb-2">Tracks</h2>
+                <ul class="list-unstyled mb-0 border-top">
+                  <template
+                    x-for="track in $store.conference.detail.tracks"
+                    :key="track.uid"
+                  >
+                    <li
+                      class="d-flex justify-content-between align-items-center py-2 border-bottom"
+                    >
+                      <span x-text="track.display_name"></span>
+                      <span class="d-flex gap-2">
+                        <template
+                          x-if="track.visibility !== APP.enums.TrackVisibility.PUBLIC.value"
+                        >
+                          <span
+                            class="badge text-bg-secondary"
+                            x-text="enumLabel(APP.enums.TrackVisibility, track.visibility)"
+                          ></span>
+                        </template>
+                        <span
+                          class="badge"
+                          :class="track.submissions_enabled ? 'text-bg-success' : 'text-bg-secondary'"
+                          x-text="track.submissions_enabled ? 'Submissions Open' : 'Submissions Closed'"
+                        ></span>
+                      </span>
+                    </li>
+                  </template>
+                </ul>
+              </section>
+            </template>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function conferenceSubtitle() {
+      const detail = Alpine.store("conference").detail;
+      if (!detail) return "";
+      const datePart = formatDateRange(detail.start_date, detail.end_date);
+      const location = (detail.location || "").trim();
+      return [datePart, location].filter(Boolean).join(" · ");
+    }
+  </script>
 {% endblock %}

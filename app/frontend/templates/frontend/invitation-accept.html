@@ -150,8 +150,10 @@
       </div>
 
       <div class="d-grid">
-        {# TODO: Use conference home page. #}
-        <a href="{% url 'frontend:index' %}" class="btn btn-primary">
+        <a
+          :href="APP.urls.pages.conferenceHome(invitation?.conference?.name)"
+          class="btn btn-primary"
+        >
           Go to Conference
         </a>
       </div>

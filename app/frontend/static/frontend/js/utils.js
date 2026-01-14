@@ -172,6 +172,47 @@
     return Object.values(enumObj).find((e) => e.value === value)?.label;
   }
 
+  const dateFmt = {
+    day: new Intl.DateTimeFormat("en-US", {day: "numeric"}),
+    monthYear: new Intl.DateTimeFormat("en-US", {month: "long", year: "numeric"}),
+    full: new Intl.DateTimeFormat("en-US", {
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    }),
+  };
+
+  /**
+   * Formats a date range for display.
+   *
+   * Handles various cases:
+   * - Same month/year: "11-13 January 2026"
+   * - Different months: "11 Jan 2026 - 13 Feb 2026"
+   * - Only start or end date: "11 Jan 2026"
+   * - No dates: ""
+   *
+   * @param {string|null} startStr - ISO date string for start date.
+   * @param {string|null} endStr - ISO date string for end date.
+   * @returns {string} Formatted date range.
+   */
+  function formatDateRange(startStr, endStr) {
+    const start = startStr ? new Date(startStr) : null;
+    const end = endStr ? new Date(endStr) : null;
+
+    if (start && end) {
+      const sameMonthYear =
+        start.getMonth() === end.getMonth() &&
+        start.getFullYear() === end.getFullYear();
+      if (sameMonthYear) {
+        return `${dateFmt.day.format(start)}-${dateFmt.day.format(end)} ${dateFmt.monthYear.format(start)}`;
+      }
+      return `${dateFmt.full.format(start)} - ${dateFmt.full.format(end)}`;
+    }
+    if (start) return dateFmt.full.format(start);
+    if (end) return dateFmt.full.format(end);
+    return "";
+  }
+
   window.urlTemplate = urlTemplate;
   window.mapErrors = mapErrors;
   window.getModelValue = getModelValue;
@@ -179,4 +220,5 @@
   window.extractUrlHash = extractUrlHash;
   window.safeRedirectUrl = safeRedirectUrl;
   window.enumLabel = enumLabel;
+  window.formatDateRange = formatDateRange;
 })();

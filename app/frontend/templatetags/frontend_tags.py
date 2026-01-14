@@ -94,6 +94,7 @@ def enums_json() -> SafeString:
         ConferenceVisibility,
         Invitation,
         TrackRole,
+        TrackVisibility,
     )
     from app.core.models import GlobalRole
 
@@ -111,6 +112,7 @@ def enums_json() -> SafeString:
                     TrackRole,
                     collections=["admins", "reviewers"],
                 ),
+                "TrackVisibility": _enum_to_dict(TrackVisibility),
             }
         )
     )
