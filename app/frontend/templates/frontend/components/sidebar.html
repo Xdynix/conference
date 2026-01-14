@@ -48,6 +48,35 @@
         </a>
       </li>
     </ul>
+    <template x-if="hasAdminRole">
+      <div>
+        <hr class="my-3">
+        <ul class="nav nav-pills flex-column">
+          {# TODO: Add href when Papers management page is implemented #}
+          <li class="nav-item">
+            <a
+              class="nav-link d-flex align-items-center gap-2"
+              :class="{'active': $store.sidebar?.active === 'papers'}"
+              href="#"
+            >
+              <i class="bi-folder"></i>
+              Papers
+            </a>
+          </li>
+          {# TODO: Add href when Reviews management page is implemented #}
+          <li class="nav-item">
+            <a
+              class="nav-link d-flex align-items-center gap-2"
+              :class="{'active': $store.sidebar?.active === 'reviews'}"
+              href="#"
+            >
+              <i class="bi-clipboard-check"></i>
+              Reviews
+            </a>
+          </li>
+        </ul>
+      </div>
+    </template>
   </nav>
   <template x-if="$store.session?.user?.is_superuser">
     <div class="p-3 border-top d-flex gap-2">
@@ -87,6 +116,21 @@
 
         const trackReviewers = enums.TrackRole._collections.reviewers;
         return !!profile?.track_roles?.some(tr => trackReviewers.includes(tr.role));
+      },
+
+      get hasAdminRole() {
+        const user = this.$store.session?.user;
+        const profile = this.$store.conference?.profile;
+
+        if (user?.is_superuser) return true;
+
+        if (user?.roles?.includes(enums.GlobalRole.ADMIN.value)) return true;
+
+        const confAdmins = enums.ConferenceRole._collections.admins;
+        if (profile?.conference_roles?.some(r => confAdmins.includes(r))) return true;
+
+        const trackAdmins = enums.TrackRole._collections.admins;
+        return !!profile?.track_roles?.some(tr => trackAdmins.includes(tr.role));
       },
     };
   }
