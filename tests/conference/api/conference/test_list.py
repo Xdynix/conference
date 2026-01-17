@@ -81,6 +81,8 @@ class TestListConferences:
                     "visibility": alpha.visibility,
                     "registration_enabled": False,
                     "location": "",
+                    "paper_submission_instructions": "",
+                    "paper_final_instructions": "",
                     "tracks": [
                         {
                             "uid": str(alpha_tracks[0].uid),
@@ -98,6 +100,8 @@ class TestListConferences:
                     "visibility": beta.visibility,
                     "registration_enabled": True,
                     "location": "",
+                    "paper_submission_instructions": "",
+                    "paper_final_instructions": "",
                     "tracks": [
                         {
                             "uid": str(beta_tracks[0].uid),

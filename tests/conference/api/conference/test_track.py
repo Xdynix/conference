@@ -52,6 +52,10 @@ class TestCreateTrack:
             "visibility": conference.visibility,
             "registration_enabled": False,
             "location": "",
+            "paper_submission_instructions": "",
+            "paper_submission_instructions_html": "",
+            "paper_final_instructions": "",
+            "paper_final_instructions_html": "",
             "keywords": [],
             "tracks": [
                 {
@@ -178,6 +182,10 @@ class TestUpdateTrack:
             "visibility": track.conference.visibility,
             "registration_enabled": False,
             "location": "",
+            "paper_submission_instructions": "",
+            "paper_submission_instructions_html": "",
+            "paper_final_instructions": "",
+            "paper_final_instructions_html": "",
             "keywords": [],
             "tracks": [
                 {
@@ -316,6 +324,10 @@ class TestDeleteTrack:
             "visibility": track.conference.visibility,
             "registration_enabled": False,
             "location": "",
+            "paper_submission_instructions": "",
+            "paper_submission_instructions_html": "",
+            "paper_final_instructions": "",
+            "paper_final_instructions_html": "",
             "keywords": [],
             "tracks": [
                 {
@@ -429,6 +441,10 @@ class TestReorderTracks:
             "visibility": conference.visibility,
             "registration_enabled": False,
             "location": "",
+            "paper_submission_instructions": "",
+            "paper_submission_instructions_html": "",
+            "paper_final_instructions": "",
+            "paper_final_instructions_html": "",
             "keywords": [],
             "tracks": [
                 {

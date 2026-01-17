@@ -221,3 +221,37 @@ class TestConferenceServiceCreateConference:
         assert db_conference.start_date == start_date
         assert db_conference.end_date is None
         assert db_conference.location == "Remote"
+
+    def test_creates_conference_with_paper_instructions(self, faker: Faker) -> None:
+        conference = ConferenceService.create_conference(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+            visibility=ConferenceVisibility.PUBLIC,
+            registration_enabled=False,
+            keywords=[],
+            keyword_sets=[],
+            tracks=[],
+            paper_submission_instructions="**Submit as PDF**",
+            paper_final_instructions="Use the template",
+        )
+
+        db_conference = Conference.objects.get(pk=conference.pk)
+        assert db_conference.paper_submission_instructions == "**Submit as PDF**"
+        assert db_conference.paper_final_instructions == "Use the template"
+
+    def test_creates_conference_with_empty_paper_instructions_by_default(
+        self, faker: Faker
+    ) -> None:
+        conference = ConferenceService.create_conference(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+            visibility=ConferenceVisibility.PUBLIC,
+            registration_enabled=False,
+            keywords=[],
+            keyword_sets=[],
+            tracks=[],
+        )
+
+        db_conference = Conference.objects.get(pk=conference.pk)
+        assert db_conference.paper_submission_instructions == ""
+        assert db_conference.paper_final_instructions == ""

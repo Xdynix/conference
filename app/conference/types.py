@@ -231,6 +231,8 @@ class Conference(Schema):
     end_date: date | None = None
     location: ConferenceLocation = ""
     tracks: list[Track]
+    paper_submission_instructions: str = Field("", max_length=10_000)
+    paper_final_instructions: str = Field("", max_length=10_000)
 
     @field_validator("end_date")
     @classmethod

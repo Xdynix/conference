@@ -34,6 +34,8 @@ class ConferenceSchema(Schema):
     start_date: date | Literal[""]
     end_date: date | Literal[""]
     location: ConferenceLocation
+    paper_submission_instructions: str = Field(max_length=10_000)
+    paper_final_instructions: str = Field(max_length=10_000)
 
     @field_validator("end_date")
     @classmethod
@@ -96,6 +98,8 @@ async def update_conference(
             start_date=payload.get("start_date"),
             end_date=payload.get("end_date"),
             location=payload.get("location"),
+            paper_submission_instructions=payload.get("paper_submission_instructions"),
+            paper_final_instructions=payload.get("paper_final_instructions"),
         )
     except Conference.DoesNotExist as exc:
         raise Http404 from exc

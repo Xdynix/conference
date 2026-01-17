@@ -54,6 +54,8 @@ class ConferenceService:
         start_date: date | None = None,
         end_date: date | None = None,
         location: str = "",
+        paper_submission_instructions: str = "",
+        paper_final_instructions: str = "",
     ) -> Conference:
         """Creates a new conference with associated keywords and tracks.
 
@@ -72,6 +74,8 @@ class ConferenceService:
                 start_date=start_date,
                 end_date=end_date,
                 location=location,
+                paper_submission_instructions=paper_submission_instructions,
+                paper_final_instructions=paper_final_instructions,
             )
         except IntegrityError as exc:
             raise ConferenceNameConflict from exc
@@ -109,6 +113,8 @@ class ConferenceService:
         start_date: date | Literal[""] | None = None,
         end_date: date | Literal[""] | None = None,
         location: str | None = None,
+        paper_submission_instructions: str | None = None,
+        paper_final_instructions: str | None = None,
     ) -> Conference:
         """Updates a conference's attributes.
 
@@ -150,6 +156,14 @@ class ConferenceService:
             if location is not None:
                 conference.location = location
                 update_fields.append("location")
+
+            if paper_submission_instructions is not None:
+                conference.paper_submission_instructions = paper_submission_instructions
+                update_fields.append("paper_submission_instructions")
+
+            if paper_final_instructions is not None:
+                conference.paper_final_instructions = paper_final_instructions
+                update_fields.append("paper_final_instructions")
 
             keywords_provided = keywords is not None
             keyword_sets_provided = keyword_sets is not None

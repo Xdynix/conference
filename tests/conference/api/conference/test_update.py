@@ -46,6 +46,8 @@ class TestUpdateConference:
                 "start_date": "2026-09-24",
                 "end_date": "2026-09-27",
                 "location": "Cagliari, Italy",
+                "paper_submission_instructions": "New Instructions",
+                "paper_final_instructions": "New Instructions",
                 "keywords": [keyword.text],
                 "keyword_sets": [keyword_set.name],
             },
@@ -60,6 +62,10 @@ class TestUpdateConference:
         assert data["start_date"] == "2026-09-24"
         assert data["end_date"] == "2026-09-27"
         assert data["location"] == "Cagliari, Italy"
+        assert data["paper_submission_instructions"] == "New Instructions"
+        assert data["paper_final_instructions"] == "New Instructions"
+        assert "New Instructions" in data["paper_submission_instructions_html"]
+        assert "New Instructions" in data["paper_final_instructions_html"]
         assert data["keywords"] == ["AI", "Security"]
         assert data["tracks"] == []
 
@@ -71,6 +77,8 @@ class TestUpdateConference:
             start_date=date(2026, 9, 24),
             end_date=date(2026, 9, 27),
             location="Cagliari, Italy",
+            paper_submission_instructions="New Instructions",
+            paper_final_instructions="New Instructions",
             keywords=[keyword],
             keyword_sets=[keyword_set],
         )
@@ -100,6 +108,8 @@ class TestUpdateConference:
             start_date=None,
             end_date=None,
             location=None,
+            paper_submission_instructions=None,
+            paper_final_instructions=None,
         )
 
     def test_empty_payload(
@@ -127,6 +137,8 @@ class TestUpdateConference:
             start_date=None,
             end_date=None,
             location=None,
+            paper_submission_instructions=None,
+            paper_final_instructions=None,
         )
 
     def test_conference_chair_can_update(

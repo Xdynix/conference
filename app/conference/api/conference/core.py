@@ -39,6 +39,8 @@ class ConferenceResponse(ConferenceSchema):
 class ConferenceDetailResponse(ConferenceResponse):
     keywords: list[str]
     ieee_ecopyright_config: IEEEeCopyrightConfigSchema | None = None
+    paper_submission_instructions_html: str
+    paper_final_instructions_html: str
 
     @staticmethod
     def resolve_keywords(conference: Conference) -> list[str]:

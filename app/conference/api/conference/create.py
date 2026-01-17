@@ -72,6 +72,8 @@ async def create_conference(
             start_date=payload.start_date,
             end_date=payload.end_date,
             location=payload.location,
+            paper_submission_instructions=payload.paper_submission_instructions,
+            paper_final_instructions=payload.paper_final_instructions,
             keywords=keywords,
             keyword_sets=keyword_sets,
             tracks=[

@@ -5,6 +5,7 @@ from django.db.models import F
 from django.utils.translation import gettext_lazy as _
 
 from app.infra.models import Mutex
+from app.utils.markdown import render as render_markdown
 from app.utils.models import TimeStampedModel, ULIDModel
 
 from .keyword import Keyword
@@ -98,6 +99,22 @@ class Conference(TimeStampedModel):
             "For display purposes only; not enforced by the system."
         ),
     )
+    paper_submission_instructions = models.TextField(
+        _("paper submission instructions"),
+        blank=True,
+        help_text=_(
+            "Instructions shown above the paper submission file upload. "
+            "Supports Markdown formatting. For display purposes only."
+        ),
+    )
+    paper_final_instructions = models.TextField(
+        _("paper final instructions"),
+        blank=True,
+        help_text=_(
+            "Instructions shown above the final (camera-ready) file upload. "
+            "Supports Markdown formatting. For display purposes only."
+        ),
+    )
 
     objects = ConferenceQuerySet.as_manager()
 
@@ -121,6 +138,14 @@ class Conference(TimeStampedModel):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def paper_submission_instructions_html(self) -> str:
+        return render_markdown(self.paper_submission_instructions)
+
+    @property
+    def paper_final_instructions_html(self) -> str:
+        return render_markdown(self.paper_final_instructions)
 
 
 class CodePool(TimeStampedModel, ULIDModel):

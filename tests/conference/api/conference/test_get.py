@@ -58,6 +58,10 @@ class TestGetConference:
             "visibility": conference.visibility,
             "registration_enabled": False,
             "location": "",
+            "paper_submission_instructions": "",
+            "paper_submission_instructions_html": "",
+            "paper_final_instructions": "",
+            "paper_final_instructions_html": "",
             "keywords": ["ai", "cloud", "security"],
             "tracks": [
                 {

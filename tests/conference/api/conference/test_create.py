@@ -49,6 +49,8 @@ class TestCreateConference:
                 "start_date": "2026-09-24",
                 "end_date": "2026-09-27",
                 "location": "Cagliari, Italy",
+                "paper_submission_instructions": "**PDF Only**",
+                "paper_final_instructions": "**Word Only**",
                 "keywords": [keyword.text],
                 "keyword_sets": [keyword_set.name],
                 "tracks": [
@@ -73,6 +75,10 @@ class TestCreateConference:
         assert data["start_date"] == "2026-09-24"
         assert data["end_date"] == "2026-09-27"
         assert data["location"] == "Cagliari, Italy"
+        assert data["paper_submission_instructions"] == "**PDF Only**"
+        assert data["paper_final_instructions"] == "**Word Only**"
+        assert "<strong>PDF Only</strong>" in data["paper_submission_instructions_html"]
+        assert "<strong>Word Only</strong>" in data["paper_final_instructions_html"]
         assert data["keywords"] == ["AI", "Analysis"]
         [track_a, track_b] = data["tracks"]
         assert track_a["display_name"] == "Research Track"
@@ -89,6 +95,8 @@ class TestCreateConference:
         assert call_kwargs["start_date"] == date(2026, 9, 24)
         assert call_kwargs["end_date"] == date(2026, 9, 27)
         assert call_kwargs["location"] == "Cagliari, Italy"
+        assert call_kwargs["paper_submission_instructions"] == "**PDF Only**"
+        assert call_kwargs["paper_final_instructions"] == "**Word Only**"
         assert list(call_kwargs["keywords"]) == [keyword]
         assert list(call_kwargs["keyword_sets"]) == [keyword_set]
         [call_kwargs_a, call_kwargs_b] = call_kwargs["tracks"]
@@ -167,6 +175,10 @@ class TestCreateConference:
             "visibility": ConferenceVisibility.ADMIN_ONLY,
             "registration_enabled": False,
             "location": "",
+            "paper_submission_instructions": "",
+            "paper_submission_instructions_html": "",
+            "paper_final_instructions": "",
+            "paper_final_instructions_html": "",
             "keywords": [],
             "tracks": [],
         }

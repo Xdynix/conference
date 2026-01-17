@@ -214,3 +214,49 @@ class TestConferenceServiceUpdateConference:
         assert updated.start_date == db_updated.start_date == date(2026, 9, 24)
         assert updated.end_date == db_updated.end_date == date(2026, 9, 27)
         assert updated.location == db_updated.location == "Cagliari, Italy"
+
+    def test_update_paper_instructions(self, conference: Conference) -> None:
+        updated = ConferenceService.update_conference(
+            name=conference.name,
+            paper_submission_instructions="**PDF only**",
+            paper_final_instructions="Use template",
+        )
+
+        db_updated = Conference.objects.get(pk=conference.pk)
+        assert (
+            updated.paper_submission_instructions
+            == db_updated.paper_submission_instructions
+            == "**PDF only**"
+        )
+        assert (
+            updated.paper_final_instructions
+            == db_updated.paper_final_instructions
+            == "Use template"
+        )
+
+    def test_omit_paper_instructions_preserves_existing(
+        self, conference: Conference
+    ) -> None:
+        update_object(
+            conference,
+            paper_submission_instructions="Original submission",
+            paper_final_instructions="Original final",
+        )
+
+        updated = ConferenceService.update_conference(
+            name=conference.name,
+            display_name="Updated Name",
+        )
+
+        db_updated = Conference.objects.get(pk=conference.pk)
+        assert updated.display_name == "Updated Name"
+        assert (
+            updated.paper_submission_instructions
+            == db_updated.paper_submission_instructions
+            == "Original submission"
+        )
+        assert (
+            updated.paper_final_instructions
+            == db_updated.paper_final_instructions
+            == "Original final"
+        )
