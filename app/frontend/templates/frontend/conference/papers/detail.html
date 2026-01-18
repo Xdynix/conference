@@ -1,0 +1,82 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}{{ params.paper_code }} - {% endblock %}
+
+{% block content %}
+  <div x-data="paperDetail()" x-init="
+    $store.sidebar.setActive('my-papers');
+    $store.breadcrumb.set([
+      {label: 'My Papers', url: '{% url 'frontend:paper-list' conference_name=params.conference_name %}'},
+      {label: '{{ params.paper_code }}'}
+    ]);
+  ">
+    <h1 class="h3 mb-4" x-text="headerText">Paper</h1>
+
+    <template x-if="$store.conference.loading || loading">
+      <div class="text-center py-5">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="!$store.conference.loading && !$store.conference.detail">
+      <div class="text-center py-5">
+        <p class="text-muted mb-0">Conference not found.</p>
+      </div>
+    </template>
+
+    <template x-if="$store.conference.detail && !loading && error">
+      <div class="text-center py-5">
+        <p class="text-muted mb-0">Paper not found.</p>
+      </div>
+    </template>
+
+    <template x-if="$store.conference.detail && !loading && !error && paper">
+      <div>
+        {# TODO: Implement paper detail/edit #}
+        <pre x-text="JSON.stringify({mode, paper}, null, 2)"></pre>
+      </div>
+    </template>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function paperDetail() {
+      return {
+        paper: null,
+        loading: true,
+        error: null,
+
+        get mode() {
+          if (!this.paper) return null;
+          if (this.paper.state === APP.enums.PaperState.DRAFT.value) return 'edit';
+          return 'view';
+        },
+
+        get headerText() {
+          if (!this.paper) return 'Paper';
+          const action = this.mode === 'edit' ? 'Edit' : 'View';
+          return `${action} Paper: ${this.paper.code}`;
+        },
+
+        async init() {
+          try {
+            const url = APP.urls.myPapers.get(
+              APP.params.conference_name,
+              APP.params.paper_code,
+            );
+            const {data} = await api.get(url);
+            this.paper = data;
+          } catch (e) {
+            this.error = e;
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}

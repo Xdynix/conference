@@ -90,6 +90,17 @@
           "conference_name",
         ),
       },
+      myPapers: {
+        list: urlTemplate(
+          "{% url 'api-1.0.0:list-my-papers' '__CONFERENCE_NAME__' %}",
+          "conference_name",
+        ),
+        get: urlTemplate(
+          "{% url 'api-1.0.0:get-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
+      },
       user: {
         update: "{% url 'api-1.0.0:update-current-user' %}",
         updateProfile: "{% url 'api-1.0.0:update-current-user-profile' %}",

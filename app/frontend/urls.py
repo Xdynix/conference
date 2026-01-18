@@ -40,4 +40,19 @@ urlpatterns = [
         public_view(template_name="frontend/conference/home.html"),
         name="conference-home",
     ),
+    path(
+        "<slug:conference_name>/papers/",
+        protected_view(template_name="frontend/conference/papers/list.html"),
+        name="paper-list",
+    ),
+    path(
+        "<slug:conference_name>/papers/new/",
+        protected_view(template_name="frontend/conference/papers/new.html"),
+        name="paper-new",
+    ),
+    path(
+        "<slug:conference_name>/papers/<slug:paper_code>/",
+        protected_view(template_name="frontend/conference/papers/detail.html"),
+        name="paper-detail",
+    ),
 ]

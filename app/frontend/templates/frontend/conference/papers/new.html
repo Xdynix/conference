@@ -1,0 +1,36 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}New Paper - {% endblock %}
+
+{% block content %}
+  <div x-data x-init="
+    $store.sidebar.setActive('my-papers');
+    $store.breadcrumb.set([
+      {label: 'My Papers', url: '{% url 'frontend:paper-list' conference_name=params.conference_name %}'},
+      {label: 'New Paper'}
+    ]);
+  ">
+    <h1 class="h3 mb-4">New Paper</h1>
+
+    <template x-if="$store.conference.loading">
+      <div class="text-center py-5">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="!$store.conference.loading && !$store.conference.detail">
+      <div class="text-center py-5">
+        <p class="text-muted mb-0">Conference not found.</p>
+      </div>
+    </template>
+
+    <template x-if="!$store.conference.loading && $store.conference.detail">
+      <div>
+        {# TODO: Implement paper create form #}
+        <pre x-text="JSON.stringify($store.conference.detail, null, 2)"></pre>
+      </div>
+    </template>
+  </div>
+{% endblock %}

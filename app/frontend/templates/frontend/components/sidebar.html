@@ -16,21 +16,19 @@
         </a>
       </li>
     </ul>
-    {# TODO: Add href when Submit Paper page is implemented #}
     <a
       class="btn btn-outline-primary d-flex align-items-center gap-2 my-3"
-      href="#"
+      href="{% url 'frontend:paper-new' conference_name=params.conference_name %}"
     >
       <i class="bi-plus-circle"></i>
       Submit Paper
     </a>
     <ul class="nav nav-pills flex-column">
-      {# TODO: Add href when My Papers page is implemented #}
       <li class="nav-item">
         <a
           class="nav-link d-flex align-items-center gap-2"
           :class="{'active': $store.sidebar?.active === 'my-papers'}"
-          href="#"
+          href="{% url 'frontend:paper-list' conference_name=params.conference_name %}"
         >
           <i class="bi-file-earmark-text"></i>
           My Papers

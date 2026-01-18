@@ -93,6 +93,7 @@ def enums_json() -> SafeString:
         ConferenceRole,
         ConferenceVisibility,
         Invitation,
+        PaperState,
         TrackRole,
         TrackVisibility,
     )
@@ -108,6 +109,7 @@ def enums_json() -> SafeString:
                 "ConferenceVisibility": _enum_to_dict(ConferenceVisibility),
                 "GlobalRole": _enum_to_dict(GlobalRole),
                 "InvitationState": _enum_to_dict(Invitation.State),
+                "PaperState": _enum_to_dict(PaperState),
                 "TrackRole": _enum_to_dict(
                     TrackRole,
                     collections=["admins", "reviewers"],
