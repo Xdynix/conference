@@ -79,7 +79,7 @@
         "conferences",
         {items: []},
         async () => {
-          const {data} = await api.get(APP.urls.conferences.list, {
+          const {data} = await api.get(APP.urls.conference.list, {
             params: {page_size: 100}
           });
           const items = [...data.items].sort((a, b) => {
@@ -137,8 +137,8 @@
 
     Alpine.effect(() => {
       const name = Alpine.store("conference")?.detail?.name;
-      if (name && document.title.endsWith(APP.siteName)) {
-        document.title = document.title.replace(APP.siteName, name);
+      if (name && document.title.endsWith(APP.config.siteName)) {
+        document.title = document.title.replace(APP.config.siteName, name);
       }
     });
 

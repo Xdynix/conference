@@ -110,11 +110,14 @@ path("account/", protected_view(template_name="frontend/account.html"))
 
 ## State Management
 
-| Data Type             | Location     | Example                      |
-|-----------------------|--------------|------------------------------|
-| Static config         | `window.APP` | CSRF, URLs, feature flags    |
-| Reactive shared state | Alpine store | Session, theme               |
-| Component-local state | `x-data`     | Form fields, loading, errors |
+| Data Type             | Location     | Example                        |
+|-----------------------|--------------|--------------------------------|
+| Static config         | `APP.config` | CSRF, upload limits, site name |
+| Enum definitions      | `APP.enums`  | PaperState, ConferenceRole     |
+| Page parameters       | `APP.params` | conference_name, paper_code    |
+| API URLs              | `APP.urls`   | session.get, myPaper.create    |
+| Reactive shared state | Alpine store | Session, theme, conference     |
+| Component-local state | `x-data`     | Form fields, loading, errors   |
 
 → Example: `app/frontend/static/frontend/js/stores.js`
 
@@ -305,6 +308,13 @@ URLs are rendered into `window.APP.urls` by Django, grouped by resource:
 
 ```javascript
 window.APP = {
+  config: {
+    csrf: {token: "...", header: "X-CSRFToken"},
+    siteName: "Conference System",
+    upload: {submission: {maxSize: 20971520, allowedTypes: [...]}, ...},
+  },
+  enums: {PaperState: {...}, ...},
+  params: {conference_name: "icse-2025", ...},
   urls: {
     session: {
       get: "{% url 'api-1.0.0:get-session' %}",

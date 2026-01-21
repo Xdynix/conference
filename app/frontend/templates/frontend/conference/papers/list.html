@@ -57,7 +57,7 @@
 
         async init() {
           try {
-            const url = APP.urls.myPapers.list(APP.params.conference_name);
+            const url = APP.urls.myPaper.list(APP.params.conference_name);
             const {data} = await api.get(url);
             this.papers = data.items;
           } catch (e) {

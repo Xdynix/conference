@@ -101,6 +101,27 @@ def set_exception_handlers(api: NinjaAPI) -> None:
     def handle_validation_error(
         exc: ValidationError | type[ValidationError],
     ) -> ExcHandlerReturn:
+        # TODO: Clean up Pydantic error details before returning to clients.
+        #
+        # Current issues with exc.errors:
+        #
+        # 1. Union types add internal type names to `loc`:
+        #    Schema: `email: EmailStr | Literal[""]`
+        #    Loc: ["body", "payload", "email", "function-after[normalize_email(), ...]"]
+        #    Loc: ["body", "payload", "email", "literal['']"]
+        #
+        # 2. Union alternatives produce multiple errors for one field:
+        #    Msgs: "value is not a valid email address: ..."
+        #          "Input should be ''"
+        #
+        # 3. Verbose prefixes in messages:
+        #    Msg: "value is not a valid email address: The part after the @-sign..."
+        #
+        # Suggested fix: Transform exc.errors to:
+        # - Filter loc parts containing "[" or "|" (internal type descriptors)
+        # - Skip unhelpful messages like "Input should be '...'"
+        # - Strip verbose prefixes from email validation messages
+        # - Deduplicate errors for the same field path
         exc = cast(ValidationError, exc)
         message = _("Invalid payload.")
         return HTTPStatus.UNPROCESSABLE_ENTITY, ErrorResponse(

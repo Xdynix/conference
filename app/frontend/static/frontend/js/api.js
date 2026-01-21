@@ -1,8 +1,8 @@
 (function () {
   "use strict";
 
-  if (!window.APP?.csrf?.token || !window.APP?.csrf?.header) {
-    throw new Error("APP.csrf not configured.");
+  if (!window.APP?.config?.csrf?.token || !window.APP?.config?.csrf?.header) {
+    throw new Error("APP.config.csrf not configured.");
   }
 
   const SAFE_METHODS = ["get", "head", "options"];
@@ -20,7 +20,7 @@
     if (!SAFE_METHODS.includes(config.method?.toLowerCase())) {
       pendingMutations++;
     }
-    config.headers[APP.csrf.header] = APP.csrf.token;
+    config.headers[APP.config.csrf.header] = APP.config.csrf.token;
     return config;
   });
 

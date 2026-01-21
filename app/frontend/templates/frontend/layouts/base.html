@@ -80,28 +80,28 @@
 </script>
 <script>
   window.APP = {
-    csrf: {
-      token: "{{ csrf_token }}",
-      header: "{% csrf_header_name %}",
-    },
-    cfTurnstile: {
-      enabled: {{ cf_turnstile.enabled|yesno:"true,false" }},
-      siteKey: "{{ cf_turnstile.site_key|escapejs }}",
-      responseHeader: "{{ cf_turnstile.response_header_name|escapejs }}",
+    config: {
+      csrf: {
+        token: "{{ csrf_token }}",
+        header: "{% csrf_header_name %}",
+      },
+      cfTurnstile: {
+        enabled: {{ cf_turnstile.enabled|yesno:"true,false" }},
+        siteKey: "{{ cf_turnstile.site_key|escapejs }}",
+        responseHeader: "{{ cf_turnstile.response_header_name|escapejs }}",
+      },
+      siteName: "{% site_name %}",
     },
     enums: {% enums_json %},
     params: JSON.parse(document.getElementById("app-params").textContent),
-    siteName: "{% site_name %}",
     urls: {
       session: {
         get: "{% url 'api-1.0.0:get-session' %}",
         create: "{% url 'api-1.0.0:create-session' %}",
         delete: "{% url 'api-1.0.0:delete-session' %}",
       },
-      conferences: {
-        list: "{% url 'api-1.0.0:list-conferences' %}",
-      },
       conference: {
+        list: "{% url 'api-1.0.0:list-conferences' %}",
         get: urlTemplate(
           "{% url 'api-1.0.0:get-conference' '__CONFERENCE_NAME__' %}",
           "conference_name",
@@ -111,7 +111,7 @@
           "conference_name",
         ),
       },
-      myPapers: {
+      myPaper: {
         list: urlTemplate(
           "{% url 'api-1.0.0:list-my-papers' '__CONFERENCE_NAME__' %}",
           "conference_name",

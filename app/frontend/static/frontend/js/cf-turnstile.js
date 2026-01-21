@@ -32,7 +32,7 @@
       },
 
       isEnabled() {
-        return APP.cfTurnstile.enabled;
+        return APP.config.cfTurnstile.enabled;
       },
 
       init() {
@@ -52,7 +52,7 @@
         }
 
         this.widgetId = turnstile.render(container, {
-          sitekey: APP.cfTurnstile.siteKey,
+          sitekey: APP.config.cfTurnstile.siteKey,
           action,
           callback: (token) => {
             this.token = token;
@@ -88,7 +88,7 @@
         }
         return {
           headers: {
-            [APP.cfTurnstile.responseHeader]: this.token,
+            [APP.config.cfTurnstile.responseHeader]: this.token,
           },
         };
       },
