@@ -5,12 +5,13 @@ reference actual files in the codebase.
 
 ## Technology Stack
 
-| Layer         | Technology      |
-|---------------|-----------------|
-| CSS Framework | Bootstrap 5.3+  |
-| Reactivity    | Alpine.js 3     |
-| Icons         | Bootstrap Icons |
-| HTTP Client   | axios           |
+| Layer             | Technology      |
+|-------------------|-----------------|
+| CSS Framework     | Bootstrap 5.3+  |
+| Reactivity        | Alpine.js 3     |
+| Icons             | Bootstrap Icons |
+| HTTP Client       | axios           |
+| Searchable Select | Tom Select      |
 
 All frontend dependencies are downloaded locally and served via Django's static files
 system. No npm, bundlers, or build steps are used.
@@ -55,6 +56,7 @@ Navbar with sidebar for conference-scoped pages. Sidebar provides role-based nav
 Pages using this layout must set the active sidebar item and breadcrumb via stores:
 
 ```html
+
 <div x-data x-init="
   $store.sidebar.setActive('home');
   $store.breadcrumb.set([{label: 'Home'}]);
@@ -213,10 +215,10 @@ Components are Django template includes with parameters:
 {% include "frontend/components/region-select.html" with id="region-code" label="Region" model="form.regionCode" error_key="region_code" required=True autocomplete="country-name" %}
 ```
 
+<!-- markdownlint-enable MD013 -->
+
 The `model` parameter uses camelCase (path to form field), while `error_key` uses
 snake_case (matches API error `loc`).
-
-<!-- markdownlint-enable MD013 -->
 
 Document parameters in a comment block at the top of the component file.
 
@@ -224,36 +226,69 @@ Document parameters in a comment block at the top of the component file.
 
 ### Component Data via Template Tags
 
-When a component needs data that shouldn't be in the global context processor, use a
-template tag:
+When a component needs static data, use a template tag to render JSON into a script tag:
 
 ```python
 # templatetags/frontend_tags.py
 @register.simple_tag
-def regions_json() -> str:
-    return json.dumps([[r.name, r.value] for r in Region])
+def regions_json() -> SafeString:
+    regions = [[r.name, r.value] for r in Region]
+    return mark_safe(json.dumps(regions))
 ```
 
 ```html
+<!-- In base.html -->
+<script type="application/json" id="app-regions">{% regions_json %}</script>
+
 <!-- In component -->
-{% load frontend_tags %}
-<div x-data="regionSelect({% regions_json %})">
+const regions = JSON.parse(document.getElementById('app-regions').textContent);
 ```
 
 → Example: `app/frontend/templatetags/frontend_tags.py`
 
-### Searchable Dropdown
+### Searchable Dropdown (Tom Select)
 
-For selecting from a large static list (e.g., regions):
+Use Tom Select for searchable dropdowns with large option lists (e.g., regions).
+Initialize inline with Alpine's `x-init`:
 
-- Text input that filters options as user types
-- Dropdown list with filtered results
-- Keyboard navigation: arrows to move, Enter to select, Escape to close
-- `@blur` closes dropdown; `@mousedown.prevent` on options ensures selection before blur
-- Hidden input holds the selected value for form submission
-- Optional `autocomplete` attribute (default: `off`)
+```html
+<select
+  id="region-code"
+  class="form-select"
+  x-init="
+    const regions = JSON.parse(document.getElementById('app-regions').textContent);
+    $el._ts = new TomSelect($el, {
+      options: regions.map(r => ({value: r[0], text: r[1]})),
+      maxOptions: null,
+      onChange: (v) => { form.regionCode = v; }
+    });
+    if (form.regionCode) $el._ts.setValue(form.regionCode, true);
+    $watch('form.regionCode', (v) => {
+      if ($el._ts.getValue() !== (v || '')) $el._ts.setValue(v || '', true);
+    });
+  "
+  x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.region_code)"
+  required
+>
+  <option value="">Select region...</option>
+</select>
+<div
+  class="invalid-feedback"
+  :class="{ 'd-block': errors.region_code }"
+  x-text="errors.region_code"
+></div>
+```
 
-→ Example: `app/frontend/templates/frontend/components/region-select.html`
+**Key points:**
+
+- `class="form-select"` prevents style flash before Tom Select initializes
+- `maxOptions: null` shows all options (default limits to 50)
+- `$watch` syncs external model changes to Tom Select
+- `x-effect` toggles `is-invalid` on the wrapper for Bootstrap validation styling
+- Error feedback needs `d-block` class since Tom Select breaks Bootstrap's sibling
+  selector
+
+→ Example: `app/frontend/templates/frontend/account.html`
 
 ### Password Input
 

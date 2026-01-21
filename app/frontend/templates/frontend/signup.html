@@ -116,7 +116,34 @@
           </small>
         </div>
 
-        {% include "frontend/components/region-select.html" with id="region-code" label="Region" model="form.profile.regionCode" error_key="profile.region_code" required=True autocomplete="country-name" %}
+        <div class="mb-3">
+          <label for="region-code" class="form-label">Region</label>
+          <select
+            id="region-code"
+            class="form-select"
+            x-init="
+              const regions = JSON.parse(document.getElementById('app-regions').textContent);
+              $el._ts = new TomSelect($el, {
+                options: regions.map(r => ({value: r[0], text: r[1]})),
+                maxOptions: null,
+                onChange: (v) => { form.profile.regionCode = v; }
+              });
+              if (form.profile.regionCode) $el._ts.setValue(form.profile.regionCode, true);
+              $watch('form.profile.regionCode', (v) => {
+                if ($el._ts.getValue() !== (v || '')) $el._ts.setValue(v || '', true);
+              });
+            "
+            x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors['profile.region_code'])"
+            required
+          >
+            <option value="">Select region...</option>
+          </select>
+          <div
+            class="invalid-feedback"
+            :class="{ 'd-block': errors['profile.region_code'] }"
+            x-text="errors['profile.region_code']"
+          ></div>
+        </div>
       </fieldset>
 
       {% if cf_turnstile.enabled %}

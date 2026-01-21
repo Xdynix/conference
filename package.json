@@ -3,7 +3,8 @@
     "@types/alpinejs": "^3.13.11",
     "@types/axios": "^0.9.36",
     "@types/bootstrap": "^5.2.10",
-    "@types/cloudflare-turnstile": "^0.2.2"
+    "@types/cloudflare-turnstile": "^0.2.2",
+    "tom-select": "^2.4.3"
   },
   "commitlint": {
     "extends": [

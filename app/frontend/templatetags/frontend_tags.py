@@ -50,9 +50,10 @@ def ulid_placeholder(index: int) -> str:
 
 
 @register.simple_tag
-def regions_json() -> str:
+def regions_json() -> SafeString:
+    """Return regions as JSON for use in script tags."""
     regions = [[r.name, r.value] for r in Region]
-    return json.dumps(regions)
+    return mark_safe(json.dumps(regions))  # noqa: S308
 
 
 @register.simple_tag
