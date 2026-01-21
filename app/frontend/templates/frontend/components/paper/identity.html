@@ -6,79 +6,89 @@ This component expects the parent to provide:
   - form: Object with track (ULID) and title fields (for create/edit)
   - paper: Paper object (for edit/view, contains track and title)
   - errors: Object for displaying validation errors
+  - availableTracks: Array of tracks (for create mode)
 
 Modes:
   - create: Track dropdown (required), title input
   - edit: Track badge (read-only), title input
-  - view: Track badge, title heading
+  - view: Track badge, title heading (wrapped in card)
 {% endcomment %}
 
-<div class="card mb-4">
-  <div class="card-header">Basic Info</div>
-  <div class="card-body">
-    {# Conference name (read-only) #}
-    <div class="mb-3">
-      <label class="form-label text-muted">Conference</label>
-      <div
-        class="form-control-plaintext"
-        x-text="$store.conference.detail?.display_name"
-      ></div>
+<div>
+  <template x-if="mode === 'create' || mode === 'edit'">
+    <div class="mb-4">
+      <div class="mb-3">
+        <label class="form-label text-muted">Conference</label>
+        <div
+          class="form-control-plaintext"
+          x-text="$store.conference.detail?.display_name"
+        ></div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label text-muted">Track</label>
+        <template x-if="mode === 'create'">
+          <div>
+            <select
+              id="track"
+              class="form-select"
+              :class="{ 'is-invalid': errors['track'] }"
+              x-model="form.track"
+              required
+            >
+              <option value="">Select a track...</option>
+              <template x-for="t in availableTracks" :key="t.uid">
+                <option :value="t.uid" x-text="t.display_name"></option>
+              </template>
+            </select>
+            <div class="invalid-feedback" x-text="errors['track']"></div>
+            <small class="text-muted">Track cannot be changed after paper is created.</small>
+          </div>
+        </template>
+        <template x-if="mode === 'edit'">
+          <div class="form-control-plaintext" x-text="paper?.track?.display_name"></div>
+        </template>
+      </div>
+
+      <div class="mb-3">
+        <label for="title" class="form-label text-muted">
+          Title <span class="text-danger">*</span>
+        </label>
+        <input
+          id="title"
+          type="text"
+          class="form-control"
+          :class="{ 'is-invalid': errors['title'] }"
+          x-model="form.title"
+          required
+        >
+        <div class="invalid-feedback" x-text="errors['title']"></div>
+      </div>
     </div>
+  </template>
 
-    {# Track: dropdown for create, read-only for edit/view #}
-    <div class="mb-3">
-      <label class="form-label text-muted">Track</label>
-
-      {# Create mode: track dropdown #}
-      <template x-if="mode === 'create'">
-        <div>
-          <select
-            id="track"
-            class="form-select"
-            :class="{ 'is-invalid': errors['track'] }"
-            x-model="form.track"
-            required
-          >
-            <option value="">Select a track...</option>
-            <template x-for="t in availableTracks" :key="t.uid">
-              <option :value="t.uid" x-text="t.display_name"></option>
-            </template>
-          </select>
-          <div class="invalid-feedback" x-text="errors['track']"></div>
+  <template x-if="mode === 'view'">
+    <div class="card mb-4">
+      <div class="card-header">Basic Info</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label text-muted">Conference</label>
+          <div
+            class="form-control-plaintext"
+            x-text="$store.conference.detail?.display_name"
+          ></div>
         </div>
-      </template>
 
-      {# Edit/View mode: read-only text #}
-      <template x-if="mode === 'edit' || mode === 'view'">
-        <div class="form-control-plaintext" x-text="paper?.track?.display_name"></div>
-      </template>
-    </div>
-
-    {# Title: input for create/edit, heading for view #}
-    <div class="mb-3">
-      <template x-if="mode === 'create' || mode === 'edit'">
-        <div>
-          <label for="title" class="form-label text-muted">
-            Title <span class="text-danger">*</span>
-          </label>
-          <input
-            id="title"
-            type="text"
-            class="form-control"
-            :class="{ 'is-invalid': errors['title'] }"
-            x-model="form.title"
-            required
-          >
-          <div class="invalid-feedback" x-text="errors['title']"></div>
+        <div class="mb-3">
+          <label class="form-label text-muted">Track</label>
+          <div class="form-control-plaintext" x-text="paper?.track?.display_name"></div>
         </div>
-      </template>
 
-      <template x-if="mode === 'view'">
         <div>
           <label class="form-label text-muted">Title</label>
           <div class="form-control-plaintext" x-text="paper?.title"></div>
         </div>
-      </template>
+      </div>
     </div>
-  </div>
+  </template>
 </div>

@@ -12,31 +12,34 @@
   ">
     <h1 class="h3 mb-4" x-text="headerText">Paper</h1>
 
-    <template x-if="$store.conference.loading || loading">
-      <div class="text-center py-5">
-        <div class="spinner-border" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
+    <div x-show="$store.conference.loading || loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
       </div>
-    </template>
+    </div>
 
-    <template x-if="!$store.conference.loading && !$store.conference.detail">
-      <div class="text-center py-5">
-        <p class="text-muted mb-0">Conference not found.</p>
-      </div>
-    </template>
+    <div
+      x-show="!$store.conference.loading && !$store.conference.detail"
+      x-cloak
+      class="text-center py-5"
+    >
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
 
-    <template x-if="$store.conference.detail && !loading && error">
-      <div class="text-center py-5">
-        <p class="text-muted mb-0">Paper not found.</p>
-      </div>
-    </template>
+    <div
+      x-show="$store.conference.detail && !loading && error"
+      x-cloak
+      class="text-center py-5"
+    >
+      <p class="text-muted mb-0">Paper not found.</p>
+    </div>
 
-    <template x-if="$store.conference.detail && !loading && !error && paper">
+    <div x-show="$store.conference.detail && !loading && !error && paper" x-cloak>
       <div class="row">
         {# Form column #}
         <div class="col-xl-8 order-xl-1 order-2">
           {% include "frontend/components/paper/identity.html" %}
+          {% include "frontend/components/paper/authors.html" %}
         </div>
 
         {# Actions sidebar #}
@@ -53,7 +56,7 @@
           </div>
         </div>
       </div>
-    </template>
+    </div>
   </div>
 {% endblock %}
 
@@ -62,10 +65,12 @@
   <script>
     function paperDetail() {
       return {
+        ...paperAuthors(),
         paper: null,
         form: {
           track: "",
           title: "",
+          authors: [],
         },
         errors: {},
         loading: true,
@@ -87,6 +92,17 @@
           if (!this.paper) return;
           this.form.track = this.paper.track?.uid || "";
           this.form.title = this.paper.title || "";
+
+          // Populate authors from API response (snake_case to camelCase)
+          this.form.authors = (this.paper.authors || []).map(a => ({
+            givenName: a.given_name || "",
+            familyName: a.family_name || "",
+            affiliation: a.affiliation || "",
+            regionCode: a.region_code || "",
+            email: a.email || "",
+          }));
+          const corrIndex = (this.paper.authors || []).findIndex(a => a.corresponding);
+          this.correspondingIndex = corrIndex >= 0 ? corrIndex : 0;
         },
 
         async init() {

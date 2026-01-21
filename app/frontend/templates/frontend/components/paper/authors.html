@@ -1,0 +1,294 @@
+{% comment %}
+Paper authors section: author cards with add/remove/reorder.
+
+This component expects the parent to spread paperAuthors() and provide:
+  - mode: 'create' | 'edit' | 'view'
+  - form.authors: Array of author objects
+  - paper: Paper object (for view mode, contains authors array)
+  - errors: Object for displaying validation errors
+
+Usage in parent component:
+  function paperCreate() {
+    return {
+      ...paperAuthors(),
+      form: { authors: [], ... },
+      // page-specific properties
+    };
+  }
+
+Provides:
+  - correspondingIndex: Index of corresponding author
+  - createEmptyAuthor(): Returns empty author object
+  - addAuthor(): Add new author
+  - removeAuthor(index): Remove author at index
+  - moveAuthorUp(index): Move author up
+  - moveAuthorDown(index): Move author down
+{% endcomment %}
+
+<div>
+  <template x-if="mode === 'create' || mode === 'edit'">
+    <div>
+      <div class="d-flex justify-content-end mb-3">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          @click="addAuthor()"
+        >
+          <i class="bi bi-plus"></i> Add Author
+        </button>
+      </div>
+
+      <template x-if="form.authors.length === 0">
+        <p class="text-muted">
+          No authors added yet. Click "Add Author" to add one.
+        </p>
+      </template>
+
+      <template x-for="(author, index) in form.authors" :key="index">
+        <div class="card mb-3">
+          <div
+            class="card-header py-2 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-3">
+              <span class="fw-medium">Author <span x-text="index + 1"></span></span>
+              <div class="form-check mb-0">
+                <input
+                  type="radio"
+                  class="form-check-input"
+                  name="corresponding"
+                  :id="'corresponding-' + index"
+                  :value="index"
+                  x-model.number="correspondingIndex"
+                >
+                <label
+                  class="form-check-label small"
+                  :for="'corresponding-' + index"
+                >Corresponding</label>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                :class="{ 'invisible': index === 0 }"
+                @click="moveAuthorUp(index)"
+                title="Move up"
+              >
+                <i class="bi bi-arrow-up"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                :class="{ 'invisible': index === form.authors.length - 1 }"
+                @click="moveAuthorDown(index)"
+                title="Move down"
+              >
+                <i class="bi bi-arrow-down"></i>
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger"
+                @click="removeAuthor(index)"
+                title="Remove author"
+              >
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="card-body py-3">
+            <div class="row g-2 mb-2">
+              <div class="col-md-6">
+                <label
+                  :for="'author-' + index + '-given-name'"
+                  class="form-label small mb-1"
+                >
+                  Given name
+                </label>
+                <input
+                  type="text"
+                  class="form-control form-control-sm"
+                  :id="'author-' + index + '-given-name'"
+                  x-model="author.givenName"
+                  placeholder="First/personal name"
+                >
+              </div>
+              <div class="col-md-6">
+                <label
+                  :for="'author-' + index + '-family-name'"
+                  class="form-label small mb-1"
+                >
+                  Family name
+                </label>
+                <input
+                  type="text"
+                  class="form-control form-control-sm"
+                  :id="'author-' + index + '-family-name'"
+                  x-model="author.familyName"
+                  placeholder="Last name/surname"
+                >
+              </div>
+            </div>
+
+            <div class="mb-2">
+              <label
+                :for="'author-' + index + '-affiliation'"
+                class="form-label small mb-1"
+              >
+                Affiliation
+              </label>
+              <input
+                type="text"
+                class="form-control form-control-sm"
+                :id="'author-' + index + '-affiliation'"
+                x-model="author.affiliation"
+                placeholder="e.g., Google LLC or School of Computing, Example University"
+              >
+            </div>
+
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label
+                  :for="'author-' + index + '-region'"
+                  class="form-label small mb-1"
+                >
+                  Region
+                </label>
+                <select
+                  class="form-select form-select-sm"
+                  :id="'author-' + index + '-region'"
+                  x-init="
+                      const regions = JSON.parse(document.getElementById('app-regions').textContent);
+                      $el._ts = new TomSelect($el, {
+                        options: regions.map(r => ({value: r[0], text: r[1]})),
+                        maxOptions: null,
+                        allowEmptyOption: true,
+                        onChange: (v) => { author.regionCode = v; }
+                      });
+                      if (author.regionCode) $el._ts.setValue(author.regionCode, true);
+                      $watch('author.regionCode', (v) => {
+                        if ($el._ts.getValue() !== (v || '')) $el._ts.setValue(v || '', true);
+                      });
+                    "
+                >
+                  <option value="">Select...</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label
+                  :for="'author-' + index + '-email'"
+                  class="form-label small mb-1"
+                >
+                  Email
+                </label>
+                <input
+                  type="email"
+                  class="form-control form-control-sm"
+                  :id="'author-' + index + '-email'"
+                  x-model="author.email"
+                  placeholder="email@example.com"
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="errors['authors']">
+        <div class="alert alert-danger py-2" x-text="errors['authors']"></div>
+      </template>
+    </div>
+  </template>
+
+  <template x-if="mode === 'view'">
+    <div class="card">
+      <div class="card-header">Authors</div>
+      <div class="card-body">
+        <template x-if="!paper?.authors?.length">
+          <p class="text-muted mb-0">No authors listed.</p>
+        </template>
+
+        <template x-for="(author, index) in paper?.authors || []" :key="index">
+          <div
+            class="d-flex align-items-start mb-2"
+            :class="{ 'mb-0': index === paper.authors.length - 1 }"
+          >
+            <div class="me-2 text-muted" x-text="(index + 1) + '.'"></div>
+            <div>
+              <span
+                x-text="[author.given_name, author.family_name].filter(Boolean).join(' ') || '(No name)'"
+              ></span>
+              <span x-show="author.corresponding" class="badge text-bg-primary ms-1">Corresponding</span>
+              <div
+                class="small text-muted"
+                x-show="author.affiliation"
+                x-text="author.affiliation"
+              ></div>
+              <div class="small text-muted" x-show="author.email">
+                <i class="bi bi-envelope"></i>
+                <span x-text="author.email"></span>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </template>
+</div>
+
+<script>
+  function paperAuthors() {
+    return {
+      correspondingIndex: 0,
+
+      createEmptyAuthor() {
+        return {
+          givenName: "",
+          familyName: "",
+          affiliation: "",
+          regionCode: "",
+          email: "",
+        };
+      },
+
+      addAuthor() {
+        this.form.authors.push(this.createEmptyAuthor());
+        if (this.form.authors.length === 1) {
+          this.correspondingIndex = 0;
+        }
+      },
+
+      removeAuthor(index) {
+        this.form.authors.splice(index, 1);
+        if (this.form.authors.length === 0) {
+          this.correspondingIndex = 0;
+        } else if (this.correspondingIndex === index) {
+          this.correspondingIndex = 0;
+        } else if (this.correspondingIndex > index) {
+          this.correspondingIndex--;
+        }
+      },
+
+      moveAuthorUp(index) {
+        if (index === 0) return;
+        [this.form.authors[index], this.form.authors[index - 1]] =
+          [this.form.authors[index - 1], this.form.authors[index]];
+        if (this.correspondingIndex === index) {
+          this.correspondingIndex = index - 1;
+        } else if (this.correspondingIndex === index - 1) {
+          this.correspondingIndex = index;
+        }
+      },
+
+      moveAuthorDown(index) {
+        if (this.form.authors.length - 1 === index) return;
+        [this.form.authors[index], this.form.authors[index + 1]] =
+          [this.form.authors[index + 1], this.form.authors[index]];
+        if (this.correspondingIndex === index) {
+          this.correspondingIndex = index + 1;
+        } else if (this.correspondingIndex === index + 1) {
+          this.correspondingIndex = index;
+        }
+      },
+    };
+  }
+</script>

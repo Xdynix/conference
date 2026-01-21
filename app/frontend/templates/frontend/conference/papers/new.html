@@ -12,25 +12,25 @@
   ">
     <h1 class="h3 mb-4">New Paper</h1>
 
-    <template x-if="$store.conference.loading">
-      <div class="text-center py-5">
-        <div class="spinner-border" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
+    <div x-show="$store.conference.loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
       </div>
-    </template>
+    </div>
 
-    <template x-if="!$store.conference.loading && !$store.conference.detail">
-      <div class="text-center py-5">
-        <p class="text-muted mb-0">Conference not found.</p>
-      </div>
-    </template>
+    <div
+      x-show="!$store.conference.loading && !$store.conference.detail"
+      x-cloak
+      class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
 
-    <template x-if="!$store.conference.loading && $store.conference.detail">
+    <div x-show="!$store.conference.loading && $store.conference.detail" x-cloak>
       <div class="row">
         {# Form column #}
         <div class="col-xl-8 order-xl-1 order-2">
           {% include "frontend/components/paper/identity.html" %}
+          {% include "frontend/components/paper/authors.html" %}
         </div>
 
         {# Actions sidebar #}
@@ -46,7 +46,7 @@
           </div>
         </div>
       </div>
-    </template>
+    </div>
   </div>
 {% endblock %}
 
@@ -55,11 +55,13 @@
   <script>
     function paperCreate() {
       return {
+        ...paperAuthors(),
         mode: 'create',
         paper: null,
         form: {
           track: "",
           title: "",
+          authors: [],
         },
         errors: {},
 
