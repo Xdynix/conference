@@ -16,6 +16,11 @@
           color: var(--bs-body-color) !important;
           caret-color: var(--bs-body-color) !important;
       }
+
+      /* Tom Select: patch for multi-select pills background. */
+      .ts-wrapper.multi .ts-control > .item {
+          background-color: var(--bs-secondary-bg) !important;
+      }
   </style>
   <script>
     {# The navbar theme switcher depends on Alpine, so set a default theme here to avoid a light-then-dark flash before Alpine loads. #}

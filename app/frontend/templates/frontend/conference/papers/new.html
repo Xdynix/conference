@@ -31,6 +31,7 @@
         <div class="col-xl-8 order-xl-1 order-2">
           {% include "frontend/components/paper/identity.html" %}
           {% include "frontend/components/paper/authors.html" %}
+          {% include "frontend/components/paper/content.html" %}
         </div>
 
         {# Actions sidebar #}
@@ -61,6 +62,9 @@
         form: {
           track: "",
           title: "",
+          abstract: "",
+          contribution: "",
+          keywords: [],
           authors: [],
         },
         errors: {},

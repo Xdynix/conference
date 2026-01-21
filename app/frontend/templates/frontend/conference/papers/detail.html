@@ -40,6 +40,7 @@
         <div class="col-xl-8 order-xl-1 order-2">
           {% include "frontend/components/paper/identity.html" %}
           {% include "frontend/components/paper/authors.html" %}
+          {% include "frontend/components/paper/content.html" %}
         </div>
 
         {# Actions sidebar #}
@@ -70,6 +71,9 @@
         form: {
           track: "",
           title: "",
+          abstract: "",
+          contribution: "",
+          keywords: [],
           authors: [],
         },
         errors: {},
@@ -92,6 +96,9 @@
           if (!this.paper) return;
           this.form.track = this.paper.track?.uid || "";
           this.form.title = this.paper.title || "";
+          this.form.abstract = this.paper.abstract || "";
+          this.form.contribution = this.paper.contribution || "";
+          this.form.keywords = this.paper.keywords || [];
 
           // Populate authors from API response (snake_case to camelCase)
           this.form.authors = (this.paper.authors || []).map(a => ({
