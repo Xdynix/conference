@@ -3,7 +3,7 @@
 {% block title %}New Paper - {% endblock %}
 
 {% block content %}
-  <div x-data x-init="
+  <div x-data="paperCreate()" x-init="
     $store.sidebar.setActive('my-papers');
     $store.breadcrumb.set([
       {label: 'My Papers', url: '{% url 'frontend:paper-list' conference_name=params.conference_name %}'},
@@ -27,10 +27,47 @@
     </template>
 
     <template x-if="!$store.conference.loading && $store.conference.detail">
-      <div>
-        {# TODO: Implement paper create form #}
-        <pre x-text="JSON.stringify($store.conference.detail, null, 2)"></pre>
+      <div class="row">
+        {# Form column #}
+        <div class="col-xl-8 order-xl-1 order-2">
+          {% include "frontend/components/paper/identity.html" %}
+        </div>
+
+        {# Actions sidebar #}
+        <div class="col-xl-4 order-xl-2 order-1 mb-4 mb-xl-0">
+          <div class="card">
+            <div class="card-body">
+              {# TODO: Create Draft button #}
+              <pre
+                class="small text-muted mb-0"
+                x-text="JSON.stringify({mode, form}, null, 2)"
+              ></pre>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
   </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function paperCreate() {
+      return {
+        mode: 'create',
+        paper: null,
+        form: {
+          track: "",
+          title: "",
+        },
+        errors: {},
+
+        get availableTracks() {
+          const tracks = this.$store.conference.detail?.tracks || [];
+          return tracks.filter(t => t.accepts_submissions);
+        },
+      };
+    }
+  </script>
 {% endblock %}

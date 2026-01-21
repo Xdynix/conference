@@ -33,9 +33,25 @@
     </template>
 
     <template x-if="$store.conference.detail && !loading && !error && paper">
-      <div>
-        {# TODO: Implement paper detail/edit #}
-        <pre x-text="JSON.stringify({mode, paper}, null, 2)"></pre>
+      <div class="row">
+        {# Form column #}
+        <div class="col-xl-8 order-xl-1 order-2">
+          {% include "frontend/components/paper/identity.html" %}
+        </div>
+
+        {# Actions sidebar #}
+        <div class="col-xl-4 order-xl-2 order-1 mb-4 mb-xl-0">
+          <div class="card">
+            <div class="card-body">
+              {# TODO: Action buttons #}
+              {# TODO: Submit checklist (edit mode only) #}
+              <pre
+                class="small text-muted mb-0"
+                x-text="JSON.stringify({mode, form, paper}, null, 2)"
+              ></pre>
+            </div>
+          </div>
+        </div>
       </div>
     </template>
   </div>
@@ -47,6 +63,11 @@
     function paperDetail() {
       return {
         paper: null,
+        form: {
+          track: "",
+          title: "",
+        },
+        errors: {},
         loading: true,
         error: null,
 
@@ -62,6 +83,12 @@
           return `${action} Paper: ${this.paper.code}`;
         },
 
+        populateForm() {
+          if (!this.paper) return;
+          this.form.track = this.paper.track?.uid || "";
+          this.form.title = this.paper.title || "";
+        },
+
         async init() {
           try {
             const url = APP.urls.myPapers.get(
@@ -70,6 +97,7 @@
             );
             const {data} = await api.get(url);
             this.paper = data;
+            this.populateForm();
           } catch (e) {
             this.error = e;
           } finally {
