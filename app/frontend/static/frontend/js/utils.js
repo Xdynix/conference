@@ -70,32 +70,58 @@
    * Maps API validation errors to field-keyed error messages.
    *
    * Extracts the field path from `loc` after stripping common prefixes like "body" and
-   * "payload". Nested paths are joined with dots. Multiple errors for the same field
-   * are joined with a space. For example:
+   * "payload", and filtering out Pydantic internal type descriptors. Nested paths are
+   * joined with dots. Multiple errors for the same field are joined with a space.
+   *
+   * For example:
    *   [{loc: ["body", "payload", "password"], msg: "Too short."},
    *    {loc: ["body", "payload", "password"], msg: "Too common."}]
    * becomes:
    *   {password: "Too short. Too common."}
    *
-   * And nested fields:
-   *   [{loc: ["body", "payload", "profile", "given_name"], msg: "Required."}]
+   * Nested fields with array indices:
+   *   [{loc: ["body", "payload", "authors", 0, "given_name"], msg: "Required."}]
    * becomes:
-   *   {"profile.given_name": "Required."}
+   *   {"authors.0.given_name": "Required."}
    *
-   * @param {Array<{loc: string[], msg: string}>} details - API error details array.
+   * Pydantic type descriptors are filtered:
+   *   [{loc: ["body", "payload", "email", "literal['']"], msg: "..."}]
+   * becomes:
+   *   {"email": "..."}
+   *
+   * @param {Array<{loc: (string|number)[], msg: string}>} details - API error details.
    * @returns {Object<string, string>} Field-keyed error messages.
    */
   function mapErrors(details) {
     const prefixes = new Set(["body", "payload"]);
+    // Skip unhelpful messages from Pydantic union type alternatives.
+    const skipPatterns = [/^Input should be '.*'$/];
+
     const result = {};
     for (const error of details || []) {
       const loc = error.loc || [];
-      const fieldParts = loc.filter((part) => !prefixes.has(part));
+
+      const fieldParts = loc.filter((part) => {
+        if (typeof part === "number") return true;
+        if (prefixes.has(part)) return false;
+        // Filter out Pydantic internal type descriptors (contain brackets or pipes).
+        if (part.includes("[") || part.includes("|")) return false;
+        return true;
+      });
       const field = fieldParts.join(".") || "_form";
+
+      let msg = error.msg;
+      // Skip unhelpful messages.
+      if (skipPatterns.some((p) => p.test(msg))) continue;
+      // Clean up verbose email validation prefix.
+      if (field.endsWith(".email") || field === "email") {
+        msg = msg.replace(/^value is not a valid email address:\s*/i, "");
+      }
+
       if (result[field]) {
-        result[field] += " " + error.msg;
+        result[field] += " " + msg;
       } else {
-        result[field] = error.msg;
+        result[field] = msg;
       }
     }
     return result;

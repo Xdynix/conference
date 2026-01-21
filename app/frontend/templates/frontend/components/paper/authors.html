@@ -107,10 +107,15 @@ Provides:
                 <input
                   type="text"
                   class="form-control form-control-sm"
+                  :class="{ 'is-invalid': errors['authors.' + index + '.given_name'] }"
                   :id="'author-' + index + '-given-name'"
                   x-model="author.givenName"
                   placeholder="First/personal name"
                 >
+                <div
+                  class="invalid-feedback"
+                  x-text="errors['authors.' + index + '.given_name']"
+                ></div>
               </div>
               <div class="col-md-6">
                 <label
@@ -122,10 +127,15 @@ Provides:
                 <input
                   type="text"
                   class="form-control form-control-sm"
+                  :class="{ 'is-invalid': errors['authors.' + index + '.family_name'] }"
                   :id="'author-' + index + '-family-name'"
                   x-model="author.familyName"
                   placeholder="Last name/surname"
                 >
+                <div
+                  class="invalid-feedback"
+                  x-text="errors['authors.' + index + '.family_name']"
+                ></div>
               </div>
             </div>
 
@@ -139,10 +149,15 @@ Provides:
               <input
                 type="text"
                 class="form-control form-control-sm"
+                :class="{ 'is-invalid': errors['authors.' + index + '.affiliation'] }"
                 :id="'author-' + index + '-affiliation'"
                 x-model="author.affiliation"
                 placeholder="e.g., Google LLC or School of Computing, Example University"
               >
+              <div
+                class="invalid-feedback"
+                x-text="errors['authors.' + index + '.affiliation']"
+              ></div>
             </div>
 
             <div class="row g-2">
@@ -169,9 +184,15 @@ Provides:
                         if ($el._ts.getValue() !== (v || '')) $el._ts.setValue(v || '', true);
                       });
                     "
+                  x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors['authors.' + index + '.region_code'])"
                 >
                   <option value="">Select...</option>
                 </select>
+                <div
+                  class="invalid-feedback"
+                  :class="{ 'd-block': errors['authors.' + index + '.region_code'] }"
+                  x-text="errors['authors.' + index + '.region_code']"
+                ></div>
               </div>
               <div class="col-md-6">
                 <label
@@ -183,10 +204,15 @@ Provides:
                 <input
                   type="email"
                   class="form-control form-control-sm"
+                  :class="{ 'is-invalid': errors['authors.' + index + '.email'] }"
                   :id="'author-' + index + '-email'"
                   x-model="author.email"
                   placeholder="email@example.com"
                 >
+                <div
+                  class="invalid-feedback"
+                  x-text="errors['authors.' + index + '.email']"
+                ></div>
               </div>
             </div>
           </div>

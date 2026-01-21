@@ -116,6 +116,10 @@
           "{% url 'api-1.0.0:list-my-papers' '__CONFERENCE_NAME__' %}",
           "conference_name",
         ),
+        create: urlTemplate(
+          "{% url 'api-1.0.0:create-draft' '__CONFERENCE_NAME__' %}",
+          "conference_name",
+        ),
         get: urlTemplate(
           "{% url 'api-1.0.0:get-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
           "conference_name",
@@ -147,6 +151,11 @@
         conferenceHome: urlTemplate(
           "{% url 'frontend:conference-home' '__CONFERENCE_NAME__' %}",
           "conference_name",
+        ),
+        paperDetail: urlTemplate(
+          "{% url 'frontend:paper-detail' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
         ),
       },
     },
