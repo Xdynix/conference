@@ -1,7 +1,10 @@
 """Populate the database with dummy data for development testing."""
 
+import datetime
 from decimal import Decimal
+from pathlib import Path
 
+from django.core.files.base import ContentFile
 from django.utils import timezone
 from loguru import logger
 
@@ -15,11 +18,13 @@ from app.conference.models import (
     Invitation,
     InvitationConferenceRoleEntry,
     InvitationTrackRoleEntry,
+    Keyword,
     Paper,
     PaperAuthor,
     PaperDecision,
     PaperDecisionState,
     PaperState,
+    PaperSubmission,
     Payment,
     PaymentCurrency,
     PaymentItem,
@@ -43,14 +48,17 @@ LOG_DEPTH = 1
 logger = logger.opt(colors=True, depth=LOG_DEPTH)
 
 PASSWORD = "password"  # noqa: S105
+TEST_DATA_DIR = Path(__file__).parent.parent / "tests" / "data"
 
 
 def run() -> None:
     logger.info("Seeding database with dummy data...")
     users = seed_users()
-    conference, tracks = seed_conference()
+    keywords = seed_keywords()
+    conference, tracks = seed_conference(keywords)
     seed_roles(users, conference, tracks)
-    seed_papers(users, conference, tracks)
+    seed_papers(users, conference, tracks, keywords)
+    seed_paper_submissions(users, conference)
     seed_reviews(users, conference)
     seed_registrations(users, conference)
     seed_payments(conference)
@@ -108,12 +116,70 @@ def seed_users() -> dict[str, User]:
         role=GlobalRole.ADMIN,
     )
 
+    superuser, created = User.objects.get_or_create(
+        username="superuser",
+        defaults={
+            "email": "superuser@example.com",
+            "is_active": True,
+            "is_staff": True,
+            "is_superuser": True,
+        },
+    )
+    if created:
+        superuser.set_password(PASSWORD)
+        superuser.save()
+        Profile.objects.create(
+            user=superuser,
+            given_name="Super",
+            family_name="User",
+            affiliation="Example University",
+            region_code="US",
+        )
+        logger.info("    Created superuser: <green>superuser</>")
+    else:
+        logger.info("    Superuser already exists: <yellow>superuser</>")
+    users["superuser"] = superuser
+
     return users
 
 
-def seed_conference() -> tuple[Conference, dict[str, Track]]:
+def seed_keywords() -> dict[str, Keyword]:
+    logger.info("Seeding keywords...")
+    keywords: dict[str, Keyword] = {}
+
+    keyword_texts = [
+        "Machine Learning",
+        "Deep Learning",
+        "Natural Language Processing",
+        "Computer Vision",
+        "Reinforcement Learning",
+        "Neural Networks",
+        "Data Mining",
+        "Big Data",
+        "Cloud Computing",
+        "Distributed Systems",
+        "Software Engineering",
+        "Security",
+    ]
+
+    for text in keyword_texts:
+        keyword, created = Keyword.objects.get_or_create(text=text)
+        key = text.lower().replace(" ", "-")
+        keywords[key] = keyword
+        if created:
+            logger.info(f"    Created keyword: <green>{text}</>")
+        else:
+            logger.info(f"    Keyword already exists: <yellow>{text}</>")
+
+    return keywords
+
+
+def seed_conference(
+    keywords: dict[str, Keyword],
+) -> tuple[Conference, dict[str, Track]]:
     logger.info("Seeding conference and tracks...")
 
+    today = datetime.date.today()
     conference, created = Conference.objects.get_or_create(
         name="TEST-1000",
         defaults={
@@ -121,6 +187,25 @@ def seed_conference() -> tuple[Conference, dict[str, Track]]:
             "active": True,
             "visibility": ConferenceVisibility.PUBLIC,
             "registration_enabled": True,
+            "start_date": today + datetime.timedelta(days=60),
+            "end_date": today + datetime.timedelta(days=63),
+            "location": "Tokyo, Japan",
+            "paper_submission_instructions": (
+                "## Submission Guidelines\n\n"
+                "Please submit your paper in **PDF format** with the following:\n\n"
+                "- Maximum 10 pages (excluding references)\n"
+                "- Use the provided LaTeX or Word template\n"
+                "- Double-blind review: remove author names and affiliations\n"
+                "- Ensure all figures and tables are readable\n"
+            ),
+            "paper_final_instructions": (
+                "## Camera-Ready Guidelines\n\n"
+                "Congratulations on your paper acceptance! Please prepare:\n\n"
+                "1. **Source files**: ZIP archive with LaTeX/Word source\n"
+                "2. **PDF**: Final formatted PDF (max 12 pages)\n"
+                "3. Include author names and affiliations\n"
+                "4. Address all reviewer comments\n"
+            ),
         },
     )
     if created:
@@ -128,9 +213,20 @@ def seed_conference() -> tuple[Conference, dict[str, Track]]:
     else:
         logger.info(f"    Conference already exists: <yellow>{conference.name}</>")
 
+    conference_keywords = [
+        keywords["machine-learning"],
+        keywords["deep-learning"],
+        keywords["natural-language-processing"],
+        keywords["computer-vision"],
+        keywords["software-engineering"],
+        keywords["security"],
+    ]
+    conference.keywords.set(conference_keywords)
+    logger.info(f"    Bound {len(conference_keywords)} keywords to conference")
+
     code_pool, _ = CodePool.objects.get_or_create(
         conference=conference,
-        prefix="TEST-",
+        prefix="TP-",
         defaults={"name": "Main Pool"},
     )
 
@@ -226,6 +322,7 @@ def seed_papers(
     users: dict[str, User],
     conference: Conference,
     tracks: dict[str, Track],
+    keywords: dict[str, Keyword],
 ) -> None:
     logger.info("Seeding papers...")
 
@@ -234,10 +331,22 @@ def seed_papers(
     chair = users["conf-chair"]
     now = timezone.now()
 
+    paper_keyword_specs: dict[str, list[str]] = {
+        "TP-001": ["machine-learning", "deep-learning"],
+        "TP-002": ["natural-language-processing", "machine-learning"],
+        "TP-003": ["computer-vision", "deep-learning", "neural-networks"],
+        "TP-004": ["machine-learning", "data-mining"],
+        "TP-005": ["reinforcement-learning", "neural-networks"],
+        "TP-006": ["cloud-computing", "distributed-systems"],
+        "TP-007": ["software-engineering", "security"],
+        "TP-009": ["big-data", "cloud-computing"],
+        "TP-010": ["machine-learning", "software-engineering"],
+    }
+
     paper_specs = [
         # (code, title, state, track, owner, withdrawn, announced, decided_state)
         (
-            "TEST-001",
+            "TP-001",
             "Draft Paper Example",
             PaperState.DRAFT,
             "track-a",
@@ -247,7 +356,7 @@ def seed_papers(
             None,
         ),
         (
-            "TEST-002",
+            "TP-002",
             "Submitted Paper Example",
             PaperState.SUBMITTED,
             "track-a",
@@ -257,7 +366,7 @@ def seed_papers(
             None,
         ),
         (
-            "TEST-003",
+            "TP-003",
             "Paper Under Review",
             PaperState.UNDER_REVIEW,
             "track-a",
@@ -267,7 +376,7 @@ def seed_papers(
             None,
         ),
         (
-            "TEST-004",
+            "TP-004",
             "Accepted Paper (Announced)",
             PaperState.ACCEPTED,
             "track-a",
@@ -277,7 +386,7 @@ def seed_papers(
             PaperDecisionState.ACCEPTED,
         ),
         (
-            "TEST-005",
+            "TP-005",
             "Accepted Paper (Not Announced)",
             PaperState.ACCEPTED,
             "track-a",
@@ -287,7 +396,7 @@ def seed_papers(
             PaperDecisionState.ACCEPTED,
         ),
         (
-            "TEST-006",
+            "TP-006",
             "Rejected Paper",
             PaperState.REJECTED,
             "track-a",
@@ -297,7 +406,7 @@ def seed_papers(
             PaperDecisionState.REJECTED,
         ),
         (
-            "TEST-007",
+            "TP-007",
             "Accepted with Revision Needed",
             PaperState.ACCEPTED_REVISION_NEEDED,
             "track-a",
@@ -307,7 +416,7 @@ def seed_papers(
             PaperDecisionState.ACCEPTED_REVISION_NEEDED,
         ),
         (
-            "TEST-008",
+            "TP-008",
             "Withdrawn Paper",
             PaperState.SUBMITTED,
             "track-a",
@@ -318,7 +427,7 @@ def seed_papers(
         ),
         # Track B papers
         (
-            "TEST-009",
+            "TP-009",
             "Track B Submitted Paper",
             PaperState.SUBMITTED,
             "track-b",
@@ -328,7 +437,7 @@ def seed_papers(
             None,
         ),
         (
-            "TEST-010",
+            "TP-010",
             "Track B Accepted Paper",
             PaperState.ACCEPTED,
             "track-b",
@@ -339,7 +448,7 @@ def seed_papers(
         ),
         # Paper by another author (for isolation testing)
         (
-            "TEST-011",
+            "TP-011",
             "Another Author Draft",
             PaperState.DRAFT,
             "track-a",
@@ -349,7 +458,7 @@ def seed_papers(
             None,
         ),
         (
-            "TEST-012",
+            "TP-012",
             "Another Author Submitted",
             PaperState.SUBMITTED,
             "track-a",
@@ -417,8 +526,68 @@ def seed_papers(
                     state=decided_state,
                     note=f"Decision note for {code}",
                 )
+
+            if code in paper_keyword_specs:
+                paper_kws = [keywords[k] for k in paper_keyword_specs[code]]
+                paper.keywords.set(paper_kws)
+                logger.info(f"        Bound {len(paper_kws)} keywords")
         else:
             logger.info(f"    Paper already exists: <yellow>{code}</>")
+
+
+def seed_paper_submissions(
+    users: dict[str, User],
+    conference: Conference,
+) -> None:
+    logger.info("Seeding paper submissions...")
+
+    author = users["author"]
+    sample_pdf = TEST_DATA_DIR / "sample.pdf"
+    sample_docx = TEST_DATA_DIR / "sample.docx"
+
+    submission_specs = [
+        # (paper_code, file_path, revisions)
+        ("TP-002", sample_pdf, [0]),
+        ("TP-003", sample_pdf, [0]),
+        ("TP-004", sample_pdf, [0, 1]),  # Multiple revisions
+        ("TP-009", sample_docx, [0]),
+    ]
+
+    for paper_code, file_path, revisions in submission_specs:
+        paper = Paper.objects.filter(
+            conference=conference,
+            code=paper_code,
+        ).first()
+        if not paper:
+            continue
+
+        for revision in revisions:
+            existing = PaperSubmission.objects.filter(
+                paper=paper,
+                revision=revision,
+            ).exists()
+            if existing:
+                logger.info(
+                    f"    Submission already exists: <yellow>{paper_code}</> "
+                    f"rev{revision}"
+                )
+                continue
+
+            file_content = file_path.read_bytes()
+            submission = PaperSubmission(
+                paper=paper,
+                revision=revision,
+                uploader=author,
+            )
+            submission.file.save(
+                file_path.name,
+                ContentFile(file_content),
+                save=True,
+            )
+            logger.info(
+                f"    Created submission: <green>{paper_code}</> "
+                f"rev{revision} ({file_path.name})"
+            )
 
 
 def seed_reviews(
@@ -447,49 +616,49 @@ def seed_reviews(
     review_specs = [
         # (paper_code, reviewer, state, assignment_level, scores)
         (
-            "TEST-002",
+            "TP-002",
             conf_reviewer,
             ReviewState.PENDING,
             ReviewAssignmentLevel.CONFERENCE,
             None,
         ),
         (
-            "TEST-003",
+            "TP-003",
             conf_reviewer,
             ReviewState.ACCEPTED,
             ReviewAssignmentLevel.CONFERENCE,
             None,
         ),
         (
-            "TEST-003",
+            "TP-003",
             track_a_reviewer,
             ReviewState.SUBMITTED,
             ReviewAssignmentLevel.TRACK,
             True,
         ),
         (
-            "TEST-004",
+            "TP-004",
             conf_reviewer,
             ReviewState.SUBMITTED,
             ReviewAssignmentLevel.CONFERENCE,
             True,
         ),
         (
-            "TEST-004",
+            "TP-004",
             track_a_reviewer,
             ReviewState.SUBMITTED,
             ReviewAssignmentLevel.TRACK,
             True,
         ),
         (
-            "TEST-006",
+            "TP-006",
             conf_reviewer,
             ReviewState.SUBMITTED,
             ReviewAssignmentLevel.CONFERENCE,
             True,
         ),
         (
-            "TEST-009",
+            "TP-009",
             conf_reviewer,
             ReviewState.PENDING,
             ReviewAssignmentLevel.CONFERENCE,
@@ -540,7 +709,7 @@ def seed_reviews(
                 f"by {reviewer.username}"
             )
 
-    paper = papers.filter(code="TEST-002").first()
+    paper = papers.filter(code="TP-002").first()
     if paper:
         Review.objects.get_or_create(
             paper=paper,
@@ -573,7 +742,7 @@ def seed_registrations(
 
     accepted_paper = Paper.objects.filter(
         conference=conference,
-        code="TEST-004",
+        code="TP-004",
     ).first()
 
     registration_specs = [
