@@ -1,5 +1,29 @@
 {% load frontend_tags %}
 {% branding as brand %}
+<template x-data="impersonationBanner()" x-if="$store.session.impersonating">
+  <div
+    class="bg-warning text-dark py-2 px-3 d-flex align-items-center justify-content-center gap-2 small"
+  >
+    <i class="bi-exclamation-triangle-fill"></i>
+    <span>
+      Viewing as
+      <strong x-text="$store.session.user?.username"></strong>
+    </span>
+    <button
+      type="button"
+      class="btn btn-dark btn-sm py-0 px-2"
+      :disabled="loading"
+      @click="revert()"
+    >
+      <span
+        x-show="loading"
+        class="spinner-border spinner-border-sm me-1"
+        style="width: 0.75rem; height: 0.75rem;"
+      ></span>
+      Revert
+    </button>
+  </div>
+</template>
 <nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom py-0 sticky-top">
   <div class="container-fluid ps-0">
     <div class="navbar-brand mb-0 py-0 d-flex align-items-center gap-2">
@@ -61,6 +85,47 @@
             </li>
           </template>
         </ul>
+      </div>
+
+      <div
+        x-data="impersonationControl()"
+        x-cloak
+        x-show="$store.session.user?.is_superuser"
+        class="dropdown"
+      >
+        <button
+          class="btn btn-link nav-link px-2"
+          type="button"
+          data-bs-toggle="dropdown"
+          data-bs-auto-close="outside"
+          aria-expanded="false"
+          aria-label="Impersonate user"
+        ><i class="bi-person-badge"></i></button>
+        <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 400px;">
+          <div class="mb-2 text-muted small">Impersonate user</div>
+          <select
+            x-ref="userSelect"
+            class="form-select"
+            placeholder="Search users..."
+          ></select>
+          <button
+            type="button"
+            class="btn btn-warning btn-sm w-100 mt-2"
+            :disabled="!selectedUser || loading"
+            @click="impersonate()"
+          >
+            <span
+              x-show="loading"
+              class="spinner-border spinner-border-sm me-1"
+            ></span>
+            Impersonate
+          </button>
+          <div
+            x-show="error"
+            x-text="error"
+            class="text-danger small mt-2"
+          ></div>
+        </div>
       </div>
 
       <div x-data="userMenu()" x-cloak>
@@ -183,6 +248,89 @@
 
       logout() {
         this.$store.session.logout();
+      },
+    };
+  }
+
+  function impersonationBanner() {
+    return {
+      loading: false,
+
+      async revert() {
+        if (this.loading) return;
+        this.loading = true;
+
+        try {
+          const {data} = await api.post(APP.urls.session.revert);
+          this.$store.session.update(data);
+          window.location.reload();
+        } catch {
+          this.loading = false;
+        }
+      },
+    };
+  }
+
+  function impersonationControl() {
+    return {
+      selectedUser: null,
+      loading: false,
+      error: null,
+      _ts: null,
+
+      init() {
+        this._ts = new TomSelect(this.$refs.userSelect, {
+          valueField: "username",
+          labelField: "username",
+          placeholder: "Search users...",
+          loadThrottle: 300,
+          score: () => () => 1,
+          load: async (query, callback) => {
+            if (!query.length) return callback();
+            try {
+              const {data} = await api.get(APP.urls.users.list, {
+                params: {search: query, page_size: 10},
+              });
+              callback(data.items.filter((u) => !u.is_superuser));
+            } catch {
+              callback();
+            }
+          },
+          render: {
+            option: (data, escape) => {
+              return `<div>
+                <div>${escape(data.username)}</div>
+                <div class="text-muted small">${escape(data.email || "")}</div>
+              </div>`;
+            },
+            item: (data, escape) => {
+              return `<div>${escape(data.username)}</div>`;
+            },
+          },
+          onChange: (value) => {
+            this.selectedUser = value || null;
+            this.error = null;
+          },
+        });
+      },
+
+      async impersonate() {
+        if (this.loading || !this.selectedUser) return;
+        this.loading = true;
+        this.error = null;
+
+        try {
+          const {data} = await api.post(APP.urls.session.assume, {
+            impersonated: this.selectedUser
+          });
+          this.$store.session.update(data);
+          this._ts.clear();
+          window.location.reload();
+        } catch (err) {
+          this.error = err.response?.data?.message || "Failed to impersonate user.";
+        } finally {
+          this.loading = false;
+        }
       },
     };
   }

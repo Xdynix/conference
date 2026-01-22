@@ -100,6 +100,11 @@
         get: "{% url 'api-1.0.0:get-session' %}",
         create: "{% url 'api-1.0.0:create-session' %}",
         delete: "{% url 'api-1.0.0:delete-session' %}",
+        assume: "{% url 'api-1.0.0:assume-session' %}",
+        revert: "{% url 'api-1.0.0:revert-session' %}",
+      },
+      users: {
+        list: "{% url 'api-1.0.0:list-users' %}",
       },
       conference: {
         list: "{% url 'api-1.0.0:list-conferences' %}",
