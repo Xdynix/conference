@@ -102,6 +102,33 @@ When adding new features, choose the appropriate app based on responsibility:
 - Django's built-in user fields keep their framework names (`is_active`,
   `is_authenticated`, `is_superuser`, etc.) as the sole exception.
 
+### API Naming and URL Resolution
+
+The project uses a customized Django Ninja setup (`app/ninja/core.py`) that converts
+function names to kebab-case for URL names:
+
+- **Function naming**: Use `snake_case` for API view functions (e.g., `submit_my_paper`,
+  `get_my_paper`, `create_draft`).
+- **URL name generation**: Functions are automatically converted to kebab-case URL names
+  (e.g., `submit_my_paper` → `api-1.0.0:submit-my-paper`).
+- **Looking up URL names**: To find the URL name for an endpoint, check the function
+  name in the API module and convert underscores to hyphens.
+
+**Frontend URL configuration** (`frontend/layouts/base.html`):
+
+- API URLs are exposed via `APP.urls` using `urlTemplate()` for dynamic segments.
+- Page URLs are under `APP.urls.pages`.
+- Example: `APP.urls.myPaper.submit(conference_name, paper_code)` generates the URL for
+  the `submit-my-paper` endpoint.
+
+**Finding endpoint URL names**:
+
+1. Locate the API function in `app/conference/api/` (or relevant app).
+2. Note the function name (e.g., `delete_my_paper`).
+3. The URL name is `api-1.0.0:{function-name-in-kebab-case}` (e.g.,
+   `api-1.0.0:delete-my-paper`).
+4. Test files in `tests/conference/api/` often have helper methods showing URL patterns.
+
 ### Async-First Design
 
 - Prefer async views, API endpoints, and background tasks.

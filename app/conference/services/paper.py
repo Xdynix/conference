@@ -270,6 +270,8 @@ class PaperService:
             if paper.state != PaperState.DRAFT:
                 raise PaperStateError(_("Paper must be in Draft state to submit."))
 
+            # Validation logic mirrored by frontend checklist in
+            # frontend/templates/frontend/conference/papers/detail.html:submitChecks
             errors: list[dict[str, str]] = []
             if not paper.title:
                 errors.append({"title": _("Title is required.")})

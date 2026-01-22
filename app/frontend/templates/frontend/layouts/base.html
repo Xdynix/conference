@@ -126,6 +126,31 @@
           "conference_name",
           "paper_code",
         ),
+        update: urlTemplate(
+          "{% url 'api-1.0.0:update-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
+        delete: urlTemplate(
+          "{% url 'api-1.0.0:delete-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
+        submit: urlTemplate(
+          "{% url 'api-1.0.0:submit-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
+        unsubmit: urlTemplate(
+          "{% url 'api-1.0.0:unsubmit-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
+        withdraw: urlTemplate(
+          "{% url 'api-1.0.0:withdraw-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
         createSubmission: urlTemplate(
           "{% url 'api-1.0.0:create-my-submission' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
           "conference_name",
@@ -156,6 +181,10 @@
       pages: {
         conferenceHome: urlTemplate(
           "{% url 'frontend:conference-home' '__CONFERENCE_NAME__' %}",
+          "conference_name",
+        ),
+        paperList: urlTemplate(
+          "{% url 'frontend:paper-list' '__CONFERENCE_NAME__' %}",
           "conference_name",
         ),
         paperDetail: urlTemplate(

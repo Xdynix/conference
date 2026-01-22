@@ -10,7 +10,15 @@
       {label: '{{ params.paper_code }}'}
     ]);
   ">
-    <h1 class="h3 mb-4" x-text="headerText">Paper</h1>
+    <h1 class="h3 mb-4 d-flex align-items-center">
+      <span x-text="headerText">Paper</span>
+      <span
+        x-show="paper"
+        class="badge ms-2 fs-6"
+        :class="stateClass"
+        x-text="stateLabel"
+      ></span>
+    </h1>
 
     <div x-show="$store.conference.loading || loading" class="text-center py-5">
       <div class="spinner-border" role="status">
@@ -35,25 +43,158 @@
     </div>
 
     <div x-show="$store.conference.detail && !loading && !error && paper" x-cloak>
+      {# Submit confirmation modal #}
+      <div class="modal fade" id="submitModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Submit for Review</h5>
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+              ></button>
+            </div>
+            <div class="modal-body">
+              <p>Are you sure you want to submit this paper for review?</p>
+              <p class="mb-0 small text-muted">After submission:</p>
+              <ul class="small text-muted mb-0">
+                <li>You will need to unsubmit to make changes</li>
+                <li>Your paper may move to review at any time</li>
+                <li>Once under review, no further changes are possible</li>
+              </ul>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="btn btn-success"
+                @click="submitForReview()"
+                :disabled="submitting"
+              >
+                <span
+                  x-show="submitting"
+                  class="spinner-border spinner-border-sm me-1"
+                ></span>
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="row">
         {# Form column #}
         <div class="col-xl-8 order-xl-1 order-2">
-          {% include "frontend/components/paper/identity.html" %}
-          {% include "frontend/components/paper/authors.html" %}
-          {% include "frontend/components/paper/content.html" %}
-          {% include "frontend/components/paper/submission-file.html" %}
+          <form id="paper-form" @submit.prevent="saveDraft()">
+            {% include "frontend/components/paper/identity.html" %}
+            {% include "frontend/components/paper/authors.html" %}
+            {% include "frontend/components/paper/content.html" %}
+            {% include "frontend/components/paper/submission-file.html" %}
+          </form>
         </div>
 
         {# Actions sidebar #}
         <div class="col-xl-4 order-xl-2 order-1 mb-4 mb-xl-0">
-          <div class="card">
+          <div class="card position-sticky" style="top: 1rem;">
             <div class="card-body">
-              {# TODO: Action buttons #}
-              {# TODO: Submit checklist (edit mode only) #}
-              <pre
-                class="small text-muted mb-0"
-                x-text="JSON.stringify({mode, form, paper}, null, 2)"
-              ></pre>
+              {# Edit mode actions #}
+              <template x-if="mode === 'edit'">
+                <div>
+                  <div
+                    x-show="errors._form"
+                    x-cloak
+                    class="alert alert-danger small mb-2"
+                    x-text="errors._form"
+                  ></div>
+
+                  <div class="d-grid gap-2">
+                    <button
+                      type="submit"
+                      form="paper-form"
+                      class="btn btn-primary"
+                      :disabled="saving"
+                    >
+                      <span
+                        x-show="saving"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
+                      Save Draft
+                    </button>
+                    <template x-if="!isDirty">
+                      <button
+                        type="button"
+                        class="btn btn-success"
+                        data-bs-toggle="modal"
+                        data-bs-target="#submitModal"
+                        :disabled="!canSubmit"
+                      >
+                        Submit for Review
+                      </button>
+                    </template>
+                    <template x-if="isDirty">
+                      <div class="text-muted small text-center py-2">
+                        Save changes before submitting
+                      </div>
+                    </template>
+                  </div>
+
+                  {# Submit error #}
+                  <div
+                    x-show="submitError"
+                    x-cloak
+                    class="alert alert-danger small mt-2 mb-0"
+                    x-text="submitError"
+                  ></div>
+
+                  {# Validation checklist #}
+                  <div class="mt-3">
+                    <small class="text-muted d-block mb-2">
+                      Submission requirements:
+                    </small>
+                    <ul class="list-unstyled mb-0 small">
+                      <template x-for="check in submitChecks" :key="check.label">
+                        <li :class="check.passed ? 'text-success' : 'text-danger'">
+                          <span x-text="check.passed ? '✓' : '✗'"></span>
+                          <span x-text="check.label"></span>
+                          <small
+                            x-show="!check.passed && check.detail"
+                            class="text-muted ms-1"
+                            x-text="'(' + check.detail + ')'"
+                          ></small>
+                        </li>
+                      </template>
+                    </ul>
+                  </div>
+
+                  <hr class="my-3">
+
+                  <div class="d-grid">
+                    <button
+                      type="button"
+                      class="btn btn-outline-danger btn-sm"
+                      @click="deletePaper()"
+                      :disabled="deleting"
+                    >
+                      <span
+                        x-show="deleting"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
+                      Delete Paper
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+              {# View mode actions (placeholder for later) #}
+              <template x-if="mode === 'view'">
+                <div class="text-muted small">
+                  View mode actions coming soon.
+                </div>
+              </template>
             </div>
           </div>
         </div>
@@ -80,6 +221,11 @@
         errors: {},
         loading: true,
         error: null,
+        saving: false,
+        submitting: false,
+        deleting: false,
+        isDirty: false,
+        submitError: null,
 
         get mode() {
           if (!this.paper) return null;
@@ -91,6 +237,75 @@
           if (!this.paper) return 'Paper';
           const action = this.mode === 'edit' ? 'Edit' : 'View';
           return `${action} Paper: ${this.paper.code}`;
+        },
+
+        get stateClass() {
+          if (!this.paper) return '';
+          const state = this.paper.state;
+          const classes = {
+            [APP.enums.PaperState.DRAFT.value]: 'text-bg-secondary',
+            [APP.enums.PaperState.SUBMITTED.value]: 'text-bg-primary',
+            [APP.enums.PaperState.UNDER_REVIEW.value]: 'text-bg-info',
+            [APP.enums.PaperState.ACCEPTED.value]: 'text-bg-success',
+            [APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value]: 'text-bg-warning',
+            [APP.enums.PaperState.REJECTED.value]: 'text-bg-danger',
+            "Withdrawn": 'text-bg-dark',
+          };
+          return classes[state] || 'text-bg-secondary';
+        },
+
+        get stateLabel() {
+          if (!this.paper) return '';
+          if (this.paper.state === 'Withdrawn') return 'Withdrawn';
+          return enumLabel(APP.enums.PaperState, this.paper.state);
+        },
+
+        {# Mirrors backend validation in app/conference/services/paper.py:submit_paper() #}
+        get submitChecks() {
+          const p = this.paper;
+          if (!p) return [];
+
+          const authors = p.authors || [];
+          const requiredFields = ['given_name', 'family_name', 'affiliation', 'region_code', 'email'];
+
+          const incompleteAuthors = authors
+            .map((a, i) => {
+              const missing = requiredFields.filter(f => !a[f]);
+              return missing.length > 0 ? {index: i, missing} : null;
+            })
+            .filter(Boolean);
+
+          const correspondingCount = authors.filter(a => a.corresponding).length;
+
+          return [
+            {label: 'Title', passed: !!p.title},
+            {
+              label: 'Authors',
+              passed: authors.length > 0 && incompleteAuthors.length === 0,
+              detail: authors.length === 0
+                ? 'Add at least one author'
+                : incompleteAuthors.length > 0
+                  ? `${authors.length - incompleteAuthors.length} of ${authors.length} complete`
+                  : null
+            },
+            {
+              label: 'Corresponding author',
+              passed: correspondingCount === 1,
+              detail: correspondingCount === 0
+                ? 'Select one'
+                : correspondingCount > 1
+                  ? 'Only one allowed'
+                  : null
+            },
+            {label: 'Abstract', passed: !!p.abstract},
+            {label: 'Contribution', passed: !!p.contribution},
+            {label: 'Keywords', passed: (p.keywords?.length || 0) > 0},
+            {label: 'Submission file', passed: !!p.submission},
+          ];
+        },
+
+        get canSubmit() {
+          return !this.isDirty && this.submitChecks.every(c => c.passed);
         },
 
         populateForm() {
@@ -113,6 +328,23 @@
           this.correspondingIndex = corrIndex >= 0 ? corrIndex : 0;
         },
 
+        buildPayload() {
+          return {
+            title: this.form.title,
+            abstract: this.form.abstract,
+            contribution: this.form.contribution,
+            keywords: this.form.keywords,
+            authors: this.form.authors.map((a, i) => ({
+              given_name: a.givenName,
+              family_name: a.familyName,
+              affiliation: a.affiliation,
+              region_code: a.regionCode,
+              email: a.email,
+              corresponding: i === this.correspondingIndex,
+            })),
+          };
+        },
+
         async init() {
           try {
             const url = APP.urls.myPaper.get(
@@ -122,6 +354,12 @@
             const {data} = await api.get(url);
             this.paper = data;
             this.populateForm();
+            this.$nextTick(() => {
+              this.isDirty = false;
+              this.$watch('form', () => {
+                this.isDirty = true;
+              }, {deep: true});
+            });
           } catch (e) {
             this.error = e;
           } finally {
@@ -141,6 +379,67 @@
             onUploadProgress: onProgress,
           });
           this.paper = data;
+        },
+
+        async saveDraft() {
+          if (this.saving) return;
+          this.errors = {};
+          this.saving = true;
+
+          try {
+            const url = APP.urls.myPaper.update(
+              APP.params.conference_name,
+              this.paper.code,
+            );
+            const {data} = await api.patch(url, this.buildPayload());
+            this.paper = data;
+            this.isDirty = false;
+          } catch (error) {
+            const resp = error.response?.data;
+            if (error.response?.status === 422 && resp?.details?.length) {
+              this.errors = mapErrors(resp.details);
+            } else {
+              this.errors._form = resp?.message || 'Failed to save draft.';
+            }
+          } finally {
+            this.saving = false;
+          }
+        },
+
+        async submitForReview() {
+          if (this.submitting) return;
+          this.submitting = true;
+          this.submitError = null;
+          try {
+            const url = APP.urls.myPaper.submit(
+              APP.params.conference_name,
+              this.paper.code,
+            );
+            const {data} = await api.post(url);
+            this.paper = data;
+          } catch (e) {
+            this.submitError = e.response?.data?.message || 'Failed to submit paper.';
+          } finally {
+            this.submitting = false;
+            bootstrap.Modal.getInstance(document.getElementById('submitModal'))?.hide();
+          }
+        },
+
+        async deletePaper() {
+          if (this.deleting) return;
+          if (!confirm('Delete this paper? This cannot be undone.')) return;
+          this.deleting = true;
+          try {
+            const url = APP.urls.myPaper.delete(
+              APP.params.conference_name,
+              this.paper.code,
+            );
+            await api.delete(url);
+            window.location.href = APP.urls.pages.paperList(APP.params.conference_name);
+          } catch (e) {
+            alert(e.response?.data?.message || 'Failed to delete paper.');
+            this.deleting = false;
+          }
         },
       };
     }
