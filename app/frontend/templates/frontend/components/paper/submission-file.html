@@ -1,0 +1,151 @@
+{% comment %}
+Submission file upload and display component.
+
+This component manages upload UI state and delegates the actual upload to a parent-
+provided handler. This keeps the component reusable and decouples it from API knowledge.
+
+Expects from parent scope:
+  - mode: 'create' | 'edit' | 'view'
+  - paper: Paper object with submission field
+  - uploadSubmission(file, onProgress): async function to perform the upload
+
+The onUpload handler receives:
+  - file: File object to upload
+  - onProgress: callback with ProgressEvent for progress bar updates
+
+The component is hidden in 'create' mode (no paper exists yet).
+{% endcomment %}
+
+<div>
+  <template x-if="mode === 'edit'">
+    <div
+      class="mb-4"
+      x-data="fileUpload({
+        config: APP.config.upload.submission,
+        onUpload: (file, onProgress) => uploadSubmission(file, onProgress),
+      })"
+    >
+      <label class="form-label text-muted">Submission file</label>
+
+      <div
+        class="alert alert-info mb-3"
+        x-show="$store.conference.detail?.paper_submission_instructions_html"
+        x-html="$store.conference.detail?.paper_submission_instructions_html"
+      ></div>
+
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <template x-if="paper?.submission">
+          <a
+            class="btn btn-outline-secondary btn-sm"
+            :href="paper.submission.download_url"
+            :download="paper.submission.display_name"
+            target="_blank"
+          >
+            <i class="bi bi-file-earmark-text me-1"></i>
+            <span x-text="paper.submission.display_name"></span>
+          </a>
+        </template>
+
+        <label
+          class="btn btn-outline-primary btn-sm mb-0"
+          for="submission-file"
+          :class="{'disabled': uploading}"
+        >
+          <i class="bi bi-upload me-1"></i>
+          <span x-text="paper?.submission ? 'Replace' : 'Upload'"></span>
+        </label>
+        <input
+          type="file"
+          id="submission-file"
+          class="d-none"
+          :accept="config.allowedTypes.join(',')"
+          @change="upload($event.target.files[0]); $event.target.value = ''"
+          :disabled="uploading"
+        >
+
+        <span class="text-success small" x-show="uploadSuccess" x-cloak>
+          <i class="bi bi-check-circle me-1"></i>Uploaded
+        </span>
+      </div>
+
+      <div class="form-text">
+        <span
+          x-text="config.allowedTypes.map(t => t.slice(1).toUpperCase()).join(', ')"
+        ></span>.
+        Maximum <span x-text="formatFileSize(config.maxSize)"></span>.
+      </div>
+
+      <div class="progress mt-2" x-show="uploading" x-cloak style="height: 4px;">
+        <div class="progress-bar" :style="`width: ${uploadProgress}%`"></div>
+      </div>
+
+      <div
+        class="text-danger small mt-2"
+        x-show="uploadError"
+        x-cloak
+        x-text="uploadError"
+      ></div>
+    </div>
+  </template>
+
+  <template x-if="mode === 'view'">
+    <div class="card mb-4">
+      <div class="card-header">Submission File</div>
+      <div class="card-body">
+        <template x-if="paper?.submission">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-file-earmark-text"></i>
+            <a
+              :href="paper.submission.download_url"
+              target="_blank"
+              x-text="paper.submission.display_name"
+            ></a>
+          </div>
+        </template>
+        <template x-if="!paper?.submission">
+          <p class="text-muted mb-0">No submission file uploaded.</p>
+        </template>
+      </div>
+    </div>
+  </template>
+
+</div>
+
+<script>
+  function fileUpload({config, onUpload}) {
+    return {
+      config,
+      uploading: false,
+      uploadProgress: 0,
+      uploadError: null,
+      uploadSuccess: false,
+
+      async upload(file) {
+        if (!file || this.uploading) return;
+
+        const error = validateFile(file, this.config);
+        if (error) {
+          this.uploadError = error;
+          this.uploadSuccess = false;
+          return;
+        }
+
+        this.uploading = true;
+        this.uploadError = null;
+        this.uploadSuccess = false;
+        this.uploadProgress = 0;
+
+        try {
+          await onUpload(file, (e) => {
+            this.uploadProgress = Math.round((e.loaded / e.total) * 100);
+          });
+          this.uploadSuccess = true;
+        } catch (err) {
+          this.uploadError = err.response?.data?.message || "Upload failed.";
+        } finally {
+          this.uploading = false;
+        }
+      },
+    };
+  }
+</script>

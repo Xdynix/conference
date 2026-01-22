@@ -91,6 +91,7 @@
         responseHeader: "{{ cf_turnstile.response_header_name|escapejs }}",
       },
       siteName: "{% site_name %}",
+      upload: {% upload_config_json %},
     },
     enums: {% enums_json %},
     params: JSON.parse(document.getElementById("app-params").textContent),
@@ -122,6 +123,11 @@
         ),
         get: urlTemplate(
           "{% url 'api-1.0.0:get-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
+        createSubmission: urlTemplate(
+          "{% url 'api-1.0.0:create-my-submission' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
           "conference_name",
           "paper_code",
         ),

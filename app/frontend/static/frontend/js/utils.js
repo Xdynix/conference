@@ -239,6 +239,44 @@
     return "";
   }
 
+  /**
+   * Formats a file size in bytes to a human-readable string.
+   *
+   * @param {number} bytes - File size in bytes.
+   * @returns {string} Formatted size (e.g., "1.5 MB", "500 KB").
+   */
+  function formatFileSize(bytes) {
+    if (bytes === 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    const size = bytes / Math.pow(1024, i);
+    return (i === 0 ? size : size.toFixed(1).replace(/\.0$/, "")) + " " + units[i];
+  }
+
+  /**
+   * Validates a file against upload constraints.
+   *
+   * @param {File} file - The file to validate.
+   * @param {{maxSize: number, allowedTypes: string[]}} config - Upload config
+   *   from APP.config.upload (e.g., APP.config.upload.submission).
+   * @returns {string|null} Error message if invalid, null if valid.
+   */
+  function validateFile(file, config) {
+    const {maxSize, allowedTypes} = config;
+
+    if (file.size > maxSize) {
+      return `File too large. Maximum size is ${formatFileSize(maxSize)}.`;
+    }
+
+    const ext = "." + file.name.split(".").pop().toLowerCase();
+    if (!allowedTypes.includes(ext)) {
+      const types = allowedTypes.map((t) => t.slice(1).toUpperCase()).join(", ");
+      return `Invalid file type. Allowed: ${types}.`;
+    }
+
+    return null;
+  }
+
   window.urlTemplate = urlTemplate;
   window.mapErrors = mapErrors;
   window.getModelValue = getModelValue;
@@ -247,4 +285,6 @@
   window.safeRedirectUrl = safeRedirectUrl;
   window.enumLabel = enumLabel;
   window.formatDateRange = formatDateRange;
+  window.formatFileSize = formatFileSize;
+  window.validateFile = validateFile;
 })();

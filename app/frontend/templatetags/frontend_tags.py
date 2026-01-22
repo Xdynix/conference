@@ -8,6 +8,15 @@ from django.conf import settings
 from django.contrib.auth.password_validation import password_validators_help_texts
 from django.utils.safestring import SafeString, mark_safe
 
+from app.conference.models import (
+    ConferenceRole,
+    ConferenceVisibility,
+    Invitation,
+    PaperState,
+    TrackRole,
+    TrackVisibility,
+)
+from app.core.models import GlobalRole
 from app.frontend.views import ProtectedView
 from app.utils.enums import Region
 
@@ -87,18 +96,43 @@ def redirect_field_name() -> Any:
     return ProtectedView.redirect_field_name
 
 
+def _extract_extensions(mime_type_map: dict[str, list[str]]) -> list[str]:
+    """Extract unique extensions from a MIME type mapping."""
+    return sorted({ext for exts in mime_type_map.values() for ext in exts})
+
+
+@register.simple_tag
+def upload_config_json() -> SafeString:
+    """Return upload configuration as JSON for client-side validation."""
+    return mark_safe(  # noqa: S308
+        json.dumps(
+            {
+                "submission": {
+                    "maxSize": settings.MAX_SUBMISSION_SIZE,
+                    "allowedTypes": _extract_extensions(
+                        settings.ALLOWED_SUBMISSION_TYPES
+                    ),
+                },
+                "finalSource": {
+                    "maxSize": settings.MAX_FINAL_SOURCE_SIZE,
+                    "allowedTypes": _extract_extensions(
+                        settings.ALLOWED_FINAL_SOURCE_TYPES
+                    ),
+                },
+                "finalViewable": {
+                    "maxSize": settings.MAX_FINAL_VIEWABLE_SIZE,
+                    "allowedTypes": _extract_extensions(
+                        settings.ALLOWED_FINAL_VIEWABLE_TYPES
+                    ),
+                },
+            }
+        )
+    )
+
+
 @register.simple_tag
 def enums_json() -> SafeString:
     """Export enums to frontend as JSON with value and label for each member."""
-    from app.conference.models import (
-        ConferenceRole,
-        ConferenceVisibility,
-        Invitation,
-        PaperState,
-        TrackRole,
-        TrackVisibility,
-    )
-    from app.core.models import GlobalRole
 
     return mark_safe(  # noqa: S308
         json.dumps(

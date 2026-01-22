@@ -41,6 +41,7 @@
           {% include "frontend/components/paper/identity.html" %}
           {% include "frontend/components/paper/authors.html" %}
           {% include "frontend/components/paper/content.html" %}
+          {% include "frontend/components/paper/submission-file.html" %}
         </div>
 
         {# Actions sidebar #}
@@ -126,6 +127,20 @@
           } finally {
             this.loading = false;
           }
+        },
+
+        async uploadSubmission(file, onProgress) {
+          const formData = new FormData();
+          formData.append("file", file);
+          const url = APP.urls.myPaper.createSubmission(
+            APP.params.conference_name,
+            this.paper.code,
+          );
+          const {data} = await api.post(url, formData, {
+            headers: {"Content-Type": "multipart/form-data"},
+            onUploadProgress: onProgress,
+          });
+          this.paper = data;
         },
       };
     }
