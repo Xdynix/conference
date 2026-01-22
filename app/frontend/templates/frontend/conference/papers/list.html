@@ -29,18 +29,51 @@
       </div>
     </template>
 
-    <template
-      x-if="$store.conference.detail && !loading && !error && papers.length === 0"
-    >
-      <p class="text-muted">No papers yet.</p>
-    </template>
-
-    <template
-      x-if="$store.conference.detail && !loading && !error && papers.length > 0"
-    >
+    <template x-if="$store.conference.detail && !loading && !error">
       <div>
-        {# TODO: Implement paper list with cards layout #}
-        <pre x-text="JSON.stringify(papers, null, 2)"></pre>
+        <template x-if="papers.length === 0">
+          <p class="text-muted">No papers yet. Submit your first paper.</p>
+        </template>
+
+        <template x-if="papers.length > 0">
+          <div class="row">
+            <div class="col-xl-8 col-xxl-6 mx-auto d-flex flex-column gap-3">
+              <template x-for="paper in papers" :key="paper.uid">
+                <div class="card">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <span
+                        class="font-monospace text-muted"
+                        x-text="paper.code"
+                      ></span>
+                      <span
+                        class="badge"
+                        :class="stateClass(paper.state)"
+                        x-text="stateLabel(paper.state)"
+                      ></span>
+                    </div>
+                    <h5 class="card-title mb-2" x-text="paper.title || 'Untitled'"></h5>
+                    <p
+                      class="text-muted small mb-0"
+                      x-text="paper.track?.display_name"
+                    ></p>
+                  </div>
+                  <div
+                    class="card-footer bg-transparent d-flex justify-content-between align-items-center"
+                  >
+                    <small class="text-muted">
+                      Created <span x-text="formatDate(paper.create_time)"></span>
+                    </small>
+                    <a
+                      :href="APP.urls.pages.paperDetail(APP.params.conference_name, paper.code)"
+                      class="stretched-link"
+                    >View</a>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
       </div>
     </template>
   </div>
@@ -54,6 +87,33 @@
         papers: [],
         loading: true,
         error: null,
+
+        stateClass(state) {
+          const classes = {
+            [APP.enums.PaperState.DRAFT.value]: 'text-bg-secondary',
+            [APP.enums.PaperState.SUBMITTED.value]: 'text-bg-primary',
+            [APP.enums.PaperState.UNDER_REVIEW.value]: 'text-bg-info',
+            [APP.enums.PaperState.ACCEPTED.value]: 'text-bg-success',
+            [APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value]: 'text-bg-warning',
+            [APP.enums.PaperState.REJECTED.value]: 'text-bg-danger',
+            "Withdrawn": 'text-bg-dark',
+          };
+          return classes[state] || 'text-bg-secondary';
+        },
+
+        stateLabel(state) {
+          if (state === 'Withdrawn') return 'Withdrawn';
+          return enumLabel(APP.enums.PaperState, state);
+        },
+
+        formatDate(isoString) {
+          if (!isoString) return '';
+          return new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          }).format(new Date(isoString));
+        },
 
         async init() {
           try {
