@@ -189,10 +189,140 @@
                 </div>
               </template>
 
-              {# View mode actions (placeholder for later) #}
-              <template x-if="mode === 'view'">
+              {# View mode actions: SUBMITTED state #}
+              <template
+                x-if="mode === 'view' && paper.state === APP.enums.PaperState.SUBMITTED.value"
+              >
+                <div>
+                  <p class="small fw-medium mb-2">
+                    Your paper has been submitted and is awaiting reviewer assignment.
+                  </p>
+                  <p class="small text-muted mb-3">
+                    You may unsubmit it now to make changes and resubmit later.
+                    Once reviewers are assigned, changes will no longer be possible.
+                  </p>
+
+                  <div class="d-grid">
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary"
+                      @click="unsubmitPaper()"
+                      :disabled="unsubmitting"
+                    >
+                      <span
+                        x-show="unsubmitting"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
+                      Unsubmit
+                    </button>
+                  </div>
+
+                  <hr class="my-3">
+
+                  <div class="d-grid">
+                    <button
+                      type="button"
+                      class="btn btn-outline-danger btn-sm"
+                      @click="deletePaper()"
+                      :disabled="deleting"
+                    >
+                      <span
+                        x-show="deleting"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
+                      Delete Paper
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+              {# View mode actions: UNDER_REVIEW state #}
+              <template
+                x-if="mode === 'view' && paper.state === APP.enums.PaperState.UNDER_REVIEW.value"
+              >
+                <div>
+                  <p class="small fw-medium mb-2">
+                    Your paper is currently under review.
+                  </p>
+                  <p class="small text-muted mb-0">
+                    Reviewers have been assigned,
+                    and changes are no longer possible at this stage.
+                  </p>
+                </div>
+              </template>
+
+              {# View mode actions: REJECTED state #}
+              <template
+                x-if="mode === 'view' && paper.state === APP.enums.PaperState.REJECTED.value"
+              >
+                <div>
+                  <p class="small fw-medium mb-2">
+                    Your paper was not accepted for this conference.
+                  </p>
+                  <p class="small text-muted mb-0">
+                    Thank you for your submission.
+                  </p>
+                </div>
+              </template>
+
+              {# View mode actions: WITHDRAWN state #}
+              <template x-if="mode === 'view' && paper.state === 'Withdrawn'">
+                <div>
+                  <p class="small fw-medium mb-2">
+                    This paper has been withdrawn.
+                  </p>
+                  <p class="small text-muted mb-0">
+                    Thank you for your submission.
+                  </p>
+                </div>
+              </template>
+
+              {# View mode actions: other states (placeholder for later) #}
+              <template
+                x-if="mode === 'view' && ![
+                  APP.enums.PaperState.SUBMITTED.value,
+                  APP.enums.PaperState.UNDER_REVIEW.value,
+                  APP.enums.PaperState.REJECTED.value,
+                  'Withdrawn',
+                ].includes(paper.state)"
+              >
                 <div class="text-muted small">
                   View mode actions coming soon.
+                </div>
+              </template>
+
+              {# Shared withdraw section - collapsible danger zone #}
+              <template x-if="canWithdraw">
+                <div>
+                  <hr class="my-3">
+                  <button
+                    type="button"
+                    class="btn btn-link btn-sm text-danger p-0 text-decoration-none"
+                    @click="dangerZoneOpen = !dangerZoneOpen"
+                  >
+                    <span x-text="dangerZoneOpen ? '▼' : '▶'"></span>
+                    Danger zone
+                  </button>
+                  <div x-show="dangerZoneOpen" x-cloak class="mt-2">
+                    <p class="small text-danger mb-2">
+                      Withdrawing will remove your paper from the review process.<br>
+                      <b>This action is permanent and cannot be undone.</b>
+                    </p>
+                    <div class="d-grid">
+                      <button
+                        type="button"
+                        class="btn btn-outline-danger btn-sm"
+                        @click="withdrawPaper()"
+                        :disabled="withdrawing"
+                      >
+                        <span
+                          x-show="withdrawing"
+                          class="spinner-border spinner-border-sm me-1"
+                        ></span>
+                        Withdraw
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </template>
             </div>
@@ -223,9 +353,12 @@
         error: null,
         saving: false,
         submitting: false,
+        unsubmitting: false,
+        withdrawing: false,
         deleting: false,
         isDirty: false,
         submitError: null,
+        dangerZoneOpen: false,
 
         get mode() {
           if (!this.paper) return null;
@@ -258,6 +391,17 @@
           if (!this.paper) return '';
           if (this.paper.state === 'Withdrawn') return 'Withdrawn';
           return enumLabel(APP.enums.PaperState, this.paper.state);
+        },
+
+        get canWithdraw() {
+          if (!this.paper || this.mode !== 'view') return false;
+          const state = this.paper.state;
+          const allowed = [
+            APP.enums.PaperState.UNDER_REVIEW.value,
+            APP.enums.PaperState.ACCEPTED.value,
+            APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value,
+          ];
+          return allowed.includes(state);
         },
 
         {# Mirrors backend validation in app/conference/services/paper.py:submit_paper() #}
@@ -422,6 +566,47 @@
           } finally {
             this.submitting = false;
             bootstrap.Modal.getInstance(document.getElementById('submitModal'))?.hide();
+          }
+        },
+
+        async unsubmitPaper() {
+          if (this.unsubmitting) return;
+          if (!confirm('Return this paper to draft? You can resubmit when ready.')) return;
+          this.unsubmitting = true;
+          try {
+            const url = APP.urls.myPaper.unsubmit(
+              APP.params.conference_name,
+              this.paper.code,
+            );
+            const {data} = await api.post(url);
+            this.paper = data;
+            this.populateForm();
+            this.$nextTick(() => {
+              this.isDirty = false;
+            });
+          } catch (e) {
+            alert(e.response?.data?.message || 'Failed to unsubmit paper.');
+          } finally {
+            this.unsubmitting = false;
+          }
+        },
+
+        async withdrawPaper() {
+          if (this.withdrawing) return;
+          if (!confirm('Withdraw this paper? This cannot be undone.')) return;
+          this.withdrawing = true;
+          try {
+            const url = APP.urls.myPaper.withdraw(
+              APP.params.conference_name,
+              this.paper.code,
+            );
+            const {data} = await api.post(url);
+            this.paper = data;
+            this.dangerZoneOpen = false;
+          } catch (e) {
+            alert(e.response?.data?.message || 'Failed to withdraw paper.');
+          } finally {
+            this.withdrawing = false;
           }
         },
 
