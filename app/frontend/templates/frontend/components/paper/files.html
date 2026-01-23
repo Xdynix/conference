@@ -1,12 +1,17 @@
 {% comment %}
-Submission file upload and display component.
+Paper files component.
+
+Edit mode: submission file upload.
+View mode: all files download (submission + final).
+
+Final version upload is handled by a separate modal in the detail page, not here.
 
 This component manages upload UI state and delegates the actual upload to a parent-
 provided handler. This keeps the component reusable and decouples it from API knowledge.
 
 Expects from parent scope:
   - mode: 'create' | 'edit' | 'view'
-  - paper: Paper object with submission field
+  - paper: Paper object with submission and final file fields
   - uploadSubmission(file, onProgress): async function to perform the upload
 
 The onUpload handler receives:
@@ -90,20 +95,49 @@ The component is hidden in 'create' mode (no paper exists yet).
 
   <template x-if="mode === 'view'">
     <div class="card mb-4">
-      <div class="card-header">Submission File</div>
+      <div class="card-header">Files</div>
       <div class="card-body">
-        <template x-if="paper?.submission">
-          <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-file-earmark-text"></i>
-            <a
-              :href="paper.submission.download_url"
-              target="_blank"
-              x-text="paper.submission.display_name"
-            ></a>
+        {# Submission file #}
+        <div class="mb-3">
+          <div class="small text-muted mb-1">Submission</div>
+          <template x-if="paper?.submission">
+            <div class="d-flex align-items-center gap-2">
+              <i class="bi bi-file-earmark-text"></i>
+              <a
+                :href="paper.submission.download_url"
+                target="_blank"
+                x-text="paper.submission.display_name"
+              ></a>
+            </div>
+          </template>
+          <template x-if="!paper?.submission">
+            <span class="text-muted">No file uploaded.</span>
+          </template>
+        </div>
+
+        {# Final files #}
+        <template x-if="paper?.final">
+          <div>
+            <div class="small text-muted mb-1">Final Version</div>
+            <div class="d-flex flex-column gap-1">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-file-earmark-zip"></i>
+                <a
+                  :href="paper.final.download_url"
+                  target="_blank"
+                  x-text="paper.final.display_name"
+                ></a>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-file-earmark-pdf"></i>
+                <a
+                  :href="paper.final.viewable_download_url"
+                  target="_blank"
+                  x-text="paper.final.viewable_display_name"
+                ></a>
+              </div>
+            </div>
           </div>
-        </template>
-        <template x-if="!paper?.submission">
-          <p class="text-muted mb-0">No submission file uploaded.</p>
         </template>
       </div>
     </div>
