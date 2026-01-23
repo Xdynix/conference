@@ -55,4 +55,9 @@ urlpatterns = [
         protected_view(template_name="frontend/conference/papers/detail.html"),
         name="paper-detail",
     ),
+    path(
+        "<slug:conference_name>/papers/<slug:paper_code>/feedback/",
+        protected_view(template_name="frontend/conference/papers/feedback.html"),
+        name="paper-feedback",
+    ),
 ]

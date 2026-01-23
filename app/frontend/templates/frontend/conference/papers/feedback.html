@@ -1,0 +1,120 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Feedback - {{ params.paper_code }} - {% endblock %}
+
+{% block content %}
+  <div x-data="paperFeedback()" x-init="
+    $store.sidebar.setActive('my-papers');
+    $store.breadcrumb.set([
+      {label: 'My Papers', url: '{% url 'frontend:paper-list' conference_name=params.conference_name %}'},
+      {label: '{{ params.paper_code }}', url: '{% url 'frontend:paper-detail' conference_name=params.conference_name paper_code=params.paper_code %}'},
+      {label: 'Feedback'}
+    ]);
+  ">
+    <div class="mb-4">
+      <a
+        href="{% url 'frontend:paper-detail' conference_name=params.conference_name paper_code=params.paper_code %}"
+        class="text-decoration-none"
+      >
+        <i class="bi bi-arrow-left me-1"></i>Back to paper
+      </a>
+    </div>
+
+    <div x-show="loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div x-show="!loading && error" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0" x-text="error"></p>
+    </div>
+
+    <div x-show="!loading && !error" x-cloak>
+      <div class="row">
+        <div class="col-xl-8 col-xxl-6 mx-auto">
+          <h1 class="h3 mb-2">Reviewer Feedback</h1>
+          <p class="text-muted mb-4">
+            <span class="font-monospace" x-text="paper?.code"></span>
+            <span class="mx-1">·</span>
+            <span x-text="paper?.title || 'Untitled'"></span>
+          </p>
+
+          <div
+            x-show="isAccepted"
+            class="alert alert-info small mb-4"
+          >
+            Please review the feedback and address any required revisions
+            before uploading your final version.
+          </div>
+
+          <template x-if="feedbacks.length === 0">
+            <div class="text-center py-5">
+              <p class="text-muted mb-0">No feedback available yet.</p>
+            </div>
+          </template>
+
+          <div class="d-flex flex-column gap-3">
+            <template x-for="(feedback, index) in feedbacks" :key="index">
+              <div class="card">
+                <div class="card-header">
+                  <span class="fw-medium">
+                    Reviewer <span x-text="index + 1"></span>
+                  </span>
+                </div>
+                <div class="card-body">
+                  <div style="white-space: pre-wrap;" x-text="feedback"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function paperFeedback() {
+      return {
+        paper: null,
+        feedbacks: [],
+        loading: true,
+        error: null,
+
+        get isAccepted() {
+          const state = this.paper?.state;
+          return state === APP.enums.PaperState.ACCEPTED.value
+            || state === APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value;
+        },
+
+        async init() {
+          try {
+            const [paperRes, feedbacksRes] = await Promise.all([
+              api.get(APP.urls.myPaper.get(
+                APP.params.conference_name,
+                APP.params.paper_code,
+              )),
+              api.get(APP.urls.myPaper.listFeedbacks(
+                APP.params.conference_name,
+                APP.params.paper_code,
+              )),
+            ]);
+            this.paper = paperRes.data;
+            this.feedbacks = feedbacksRes.data;
+          } catch (e) {
+            if (e.response?.status === 404) {
+              this.error = 'Paper not found.';
+            } else {
+              this.error = e.response?.data?.message || 'Failed to load feedback.';
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}

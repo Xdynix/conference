@@ -166,6 +166,11 @@
           "conference_name",
           "paper_code",
         ),
+        listFeedbacks: urlTemplate(
+          "{% url 'api-1.0.0:list-my-paper-feedbacks' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
       },
       user: {
         update: "{% url 'api-1.0.0:update-current-user' %}",
@@ -191,10 +196,6 @@
       pages: {
         conferenceHome: urlTemplate(
           "{% url 'frontend:conference-home' '__CONFERENCE_NAME__' %}",
-          "conference_name",
-        ),
-        paperList: urlTemplate(
-          "{% url 'frontend:paper-list' '__CONFERENCE_NAME__' %}",
           "conference_name",
         ),
         paperDetail: urlTemplate(

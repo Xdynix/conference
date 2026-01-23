@@ -451,13 +451,12 @@
                   </p>
 
                   <div class="d-grid gap-2">
-                    <button
-                      type="button"
+                    <a
+                      href="{% url 'frontend:paper-feedback' conference_name=params.conference_name paper_code=params.paper_code %}"
                       class="btn btn-outline-primary btn-sm"
-                      {# TODO: navigate to feedback page #}
                     >
                       View Feedback
-                    </button>
+                    </a>
                     <button
                       type="button"
                       class="btn btn-primary btn-sm"
@@ -885,7 +884,7 @@
               this.paper.code,
             );
             await api.delete(url);
-            window.location.href = APP.urls.pages.paperList(APP.params.conference_name);
+            window.location.href = "{% url 'frontend:paper-list' conference_name=params.conference_name %}";
           } catch (e) {
             alert(e.response?.data?.message || 'Failed to delete paper.');
             this.deleting = false;
