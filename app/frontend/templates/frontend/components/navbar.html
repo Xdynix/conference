@@ -53,7 +53,11 @@
         class="text-body-secondary"
       >
         <span class="mx-2">&middot;</span>
-        <span x-text="$store.conference?.detail?.name"></span>
+        <a
+          :href="APP.urls.pages.conferenceHome(APP.params.conference_name)"
+          class="text-body-secondary text-decoration-none"
+          x-text="$store.conference?.detail?.name"
+        ></a>
       </span>
     </div>
 

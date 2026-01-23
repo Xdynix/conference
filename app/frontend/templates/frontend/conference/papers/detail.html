@@ -280,7 +280,7 @@
                         x-show="saving"
                         class="spinner-border spinner-border-sm me-1"
                       ></span>
-                      Save Draft
+                      <span x-text="saved ? 'Saved!' : 'Save Draft'"></span>
                     </button>
                     <template x-if="!isDirty">
                       <button
@@ -537,6 +537,7 @@
         loading: true,
         error: null,
         saving: false,
+        saved: false,
         submitting: false,
         unsubmitting: false,
         withdrawing: false,
@@ -731,6 +732,8 @@
             const {data} = await api.patch(url, this.buildPayload());
             this.paper = data;
             this.isDirty = false;
+            this.saved = true;
+            setTimeout(() => this.saved = false, 2000);
           } catch (error) {
             const resp = error.response?.data;
             if (error.response?.status === 422 && resp?.details?.length) {
