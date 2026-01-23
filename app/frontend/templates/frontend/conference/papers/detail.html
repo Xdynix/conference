@@ -277,17 +277,44 @@
                 </div>
               </template>
 
-              {# View mode actions: other states (placeholder for later) #}
+              {# View mode actions: ACCEPTED / ACCEPTED_REVISION_NEEDED states #}
               <template
-                x-if="mode === 'view' && ![
-                  APP.enums.PaperState.SUBMITTED.value,
-                  APP.enums.PaperState.UNDER_REVIEW.value,
-                  APP.enums.PaperState.REJECTED.value,
-                  'Withdrawn',
+                x-if="mode === 'view' && [
+                  APP.enums.PaperState.ACCEPTED.value,
+                  APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value,
                 ].includes(paper.state)"
               >
-                <div class="text-muted small">
-                  View mode actions coming soon.
+                <div>
+                  <p class="small fw-medium mb-2">
+                    Congratulations! Your paper has been accepted.
+                  </p>
+                  <p class="small text-muted mb-3">
+                    Please review the feedback and upload your final version.
+                  </p>
+
+                  <div class="d-grid gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary btn-sm"
+                      @click="/* TODO: navigate to feedback page */"
+                    >
+                      View Feedback
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-primary btn-sm"
+                      @click="/* TODO: open final upload modal */"
+                    >
+                      Upload Final Version
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      @click="/* TODO: open eCopyright form */"
+                    >
+                      eCopyright
+                    </button>
+                  </div>
                 </div>
               </template>
 
@@ -301,11 +328,11 @@
                     @click="dangerZoneOpen = !dangerZoneOpen"
                   >
                     <span x-text="dangerZoneOpen ? '▼' : '▶'"></span>
-                    Danger zone
+                    Need to withdraw this paper?
                   </button>
                   <div x-show="dangerZoneOpen" x-cloak class="mt-2">
                     <p class="small text-danger mb-2">
-                      Withdrawing will remove your paper from the review process.<br>
+                      Withdrawing will remove your paper from consideration.<br>
                       <b>This action is permanent and cannot be undone.</b>
                     </p>
                     <div class="d-grid">
