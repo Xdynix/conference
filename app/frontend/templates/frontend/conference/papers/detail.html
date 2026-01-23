@@ -43,6 +43,19 @@
     </div>
 
     <div x-show="$store.conference.detail && !loading && !error && paper" x-cloak>
+      {# Return from IEEE eCopyright alert #}
+      <template x-if="showEcopyrightReturnAlert">
+        <div class="alert alert-success alert-dismissible mb-4">
+          Thanks for submitting your IEEE eCopyright form.
+          <button
+            type="button"
+            class="btn-close"
+            data-bs-dismiss="alert"
+            aria-label="Close"
+          ></button>
+        </div>
+      </template>
+
       {# Submit confirmation modal #}
       <div class="modal fade" id="submitModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -200,7 +213,7 @@
                   ></div>
 
                   {# Revision limit warning #}
-                  <template x-if="paper.final_revision_remaining === 1">
+                  <template x-if="paper?.final_revision_remaining === 1">
                     <div class="small text-muted">
                       <i class="bi bi-exclamation-triangle me-1"></i>
                       You can only upload final version once.
@@ -446,9 +459,13 @@
                   <p class="small fw-medium mb-2">
                     Congratulations! Your paper has been accepted.
                   </p>
-                  <p class="small text-muted mb-3">
+                  <p class="small text-muted mb-2">
                     Please review the feedback and upload your final version.
                   </p>
+                  <p x-show="showEcopyright" x-cloak class="small text-muted mb-3">
+                    Please complete IEEE eCopyright if you haven't.
+                  </p>
+                  <p x-show="!showEcopyright" x-cloak class="mb-1"></p>
 
                   <div class="d-grid gap-2">
                     <a
@@ -465,13 +482,39 @@
                     >
                       Upload Final Version
                     </button>
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary btn-sm"
-                      {# TODO: open eCopyright form #}
-                    >
-                      eCopyright
-                    </button>
+                    <template x-if="showEcopyright">
+                      <form
+                        action="https://ecopyright.ieee.org/ECTT/IntroPage.jsp"
+                        method="post"
+                        accept-charset="UTF-8"
+                      >
+                        <input
+                          type="hidden"
+                          name="PubTitle"
+                          :value="$store.conference.detail?.ieee_ecopyright_config?.publication_title"
+                        >
+                        <input type="hidden" name="ArtTitle" :value="paper.title">
+                        <input type="hidden" name="AuthName" :value="ecopyAuthNames">
+                        <input type="hidden" name="ArtId" :value="paper.code">
+                        <input
+                          type="hidden"
+                          name="ArtSource"
+                          :value="$store.conference.detail?.ieee_ecopyright_config?.article_source"
+                        >
+                        <input type="hidden" name="AuthEmail" :value="ecopyAuthEmails">
+                        <input
+                          type="hidden"
+                          name="rtrnurl"
+                          value="{% url 'frontend:paper-detail' conference_name=params.conference_name paper_code=params.paper_code %}?from=ieee_ecopyright"
+                        >
+                        <button
+                          type="submit"
+                          class="btn btn-outline-secondary btn-sm w-100"
+                        >
+                          Complete IEEE eCopyright
+                        </button>
+                      </form>
+                    </template>
                   </div>
                 </div>
               </template>
@@ -545,6 +588,7 @@
         isDirty: false,
         submitError: null,
         dangerZoneOpen: false,
+        showEcopyrightReturnAlert: new URLSearchParams(window.location.search).get('from') === 'ieee_ecopyright',
         finalUpload: {
           sourceFile: null,
           viewableFile: null,
@@ -596,6 +640,27 @@
             APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value,
           ];
           return allowed.includes(state);
+        },
+
+        get showEcopyright() {
+          if (!this.paper?.track?.uid) return false;
+          const tracks = this.$store.conference.detail?.tracks || [];
+          const track = tracks.find(t => t.uid === this.paper.track.uid);
+          return track?.ieee_ecopyright_required || false;
+        },
+
+        get ecopyAuthNames() {
+          return (this.paper?.authors || [])
+            .map(a => `${a.given_name || ''} ${a.family_name || ''}`.trim())
+            .filter(Boolean)
+            .join(',');
+        },
+
+        get ecopyAuthEmails() {
+          return (this.paper?.authors || [])
+            .map(a => a.email)
+            .filter(Boolean)
+            .join(',');
         },
 
         {# Mirrors backend validation in app/conference/services/paper.py:submit_paper() #}
