@@ -161,6 +161,11 @@
           "conference_name",
           "paper_code",
         ),
+        createFinal: urlTemplate(
+          "{% url 'api-1.0.0:create-my-final' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
       },
       user: {
         update: "{% url 'api-1.0.0:update-current-user' %}",

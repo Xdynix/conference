@@ -86,6 +86,164 @@
         </div>
       </div>
 
+      {# Final upload modal #}
+      <div
+        class="modal fade"
+        id="final-upload-modal"
+        tabindex="-1"
+        aria-hidden="true"
+        data-bs-backdrop="static"
+        data-bs-keyboard="false"
+      >
+        <div class="modal-dialog">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title">Upload Final Version</h5>
+              <button
+                type="button"
+                class="btn-close"
+                data-bs-dismiss="modal"
+                aria-label="Close"
+                x-show="!finalUpload.uploading"
+              ></button>
+            </div>
+            <div class="modal-body">
+              {# Success state #}
+              <template x-if="finalUpload.success">
+                <div class="text-center">
+                  <div class="text-success mb-3">
+                    <i class="bi bi-check-circle fs-1"></i>
+                  </div>
+                  <p class="fw-medium mb-0">
+                    Final version uploaded successfully.
+                  </p>
+                </div>
+              </template>
+
+              {# Upload form #}
+              <template x-if="!finalUpload.success">
+                <div>
+                  {# Instructions #}
+                  <div
+                    class="alert alert-info small"
+                    x-show="$store.conference.detail?.paper_final_instructions_html"
+                    x-html="$store.conference.detail?.paper_final_instructions_html"
+                  ></div>
+
+                  {# Source file #}
+                  <div class="mb-3">
+                    <label class="form-label" for="final-source-file">
+                      Source file <span class="text-danger">*</span>
+                    </label>
+                    <input
+                      type="file"
+                      class="form-control"
+                      id="final-source-file"
+                      :accept="APP.config.upload.finalSource.allowedTypes.join(',')"
+                      @change="finalUpload.sourceFile = $event.target.files[0]"
+                      :disabled="finalUpload.uploading"
+                    >
+                    <div class="form-text">
+                      <span
+                        x-text="APP.config.upload.finalSource.allowedTypes.map(t => t.slice(1).toUpperCase()).join(', ')"
+                      ></span>.
+                      Maximum
+                      <span
+                        x-text="formatFileSize(APP.config.upload.finalSource.maxSize)"
+                      ></span>.
+                    </div>
+                  </div>
+
+                  {# Viewable file #}
+                  <div class="mb-3">
+                    <label class="form-label" for="final-viewable-file">
+                      Viewable file
+                    </label>
+                    <input
+                      type="file"
+                      class="form-control"
+                      id="final-viewable-file"
+                      :accept="APP.config.upload.finalViewable.allowedTypes.join(',')"
+                      @change="finalUpload.viewableFile = $event.target.files[0]"
+                      :disabled="finalUpload.uploading"
+                    >
+                    <div class="form-text">
+                      <span
+                        x-text="APP.config.upload.finalViewable.allowedTypes.map(t => t.slice(1).toUpperCase()).join(', ')"
+                      ></span>.
+                      Maximum
+                      <span
+                        x-text="formatFileSize(APP.config.upload.finalViewable.maxSize)"
+                      ></span>.
+                    </div>
+                  </div>
+
+                  {# Progress bar #}
+                  <div
+                    class="progress mb-3"
+                    x-show="finalUpload.uploading"
+                    x-cloak
+                    style="height: 4px;"
+                  >
+                    <div
+                      class="progress-bar"
+                      :style="`width: ${finalUpload.progress}%`"
+                    ></div>
+                  </div>
+
+                  {# Error message #}
+                  <div
+                    class="alert alert-danger small mb-3"
+                    x-show="finalUpload.error"
+                    x-cloak
+                    x-text="finalUpload.error"
+                  ></div>
+
+                  {# Revision limit warning #}
+                  <template x-if="paper.final_revision_remaining === 1">
+                    <div class="small text-muted">
+                      <i class="bi bi-exclamation-triangle me-1"></i>
+                      You can only upload final version once.
+                    </div>
+                  </template>
+                </div>
+              </template>
+            </div>
+            <div class="modal-footer">
+              <template x-if="finalUpload.success">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                  Done
+                </button>
+              </template>
+              <template x-if="!finalUpload.success">
+                <div class="d-flex gap-2">
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                    :disabled="finalUpload.uploading"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    @click="uploadFinal()"
+                    :disabled="finalUpload.uploading || !finalUpload.sourceFile || paper.final_revision_remaining === 0"
+                  >
+                    <span
+                      x-show="finalUpload.uploading"
+                      class="spinner-border spinner-border-sm me-1"
+                    ></span>
+                    Upload
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="row">
         {# Form column #}
         <div class="col-xl-8 order-xl-1 order-2">
@@ -296,21 +454,22 @@
                     <button
                       type="button"
                       class="btn btn-outline-primary btn-sm"
-                      @click="/* TODO: navigate to feedback page */"
+                      {# TODO: navigate to feedback page #}
                     >
                       View Feedback
                     </button>
                     <button
                       type="button"
                       class="btn btn-primary btn-sm"
-                      @click="/* TODO: open final upload modal */"
+                      @click="openFinalUploadModal()"
+                      :disabled="paper.final_revision_remaining === 0"
                     >
                       Upload Final Version
                     </button>
                     <button
                       type="button"
                       class="btn btn-outline-secondary btn-sm"
-                      @click="/* TODO: open eCopyright form */"
+                      {# TODO: open eCopyright form #}
                     >
                       eCopyright
                     </button>
@@ -386,6 +545,14 @@
         isDirty: false,
         submitError: null,
         dangerZoneOpen: false,
+        finalUpload: {
+          sourceFile: null,
+          viewableFile: null,
+          uploading: false,
+          progress: 0,
+          error: null,
+          success: false,
+        },
 
         get mode() {
           if (!this.paper) return null;
@@ -634,6 +801,77 @@
             alert(e.response?.data?.message || 'Failed to withdraw paper.');
           } finally {
             this.withdrawing = false;
+          }
+        },
+
+        openFinalUploadModal() {
+          this.finalUpload = {
+            sourceFile: null,
+            viewableFile: null,
+            uploading: false,
+            progress: 0,
+            error: null,
+            success: false,
+          };
+
+          const sourceInput = document.getElementById('final-source-file');
+          const viewableInput = document.getElementById('final-viewable-file');
+          if (sourceInput) sourceInput.value = '';
+          if (viewableInput) viewableInput.value = '';
+
+          new bootstrap.Modal(document.getElementById('final-upload-modal')).show();
+        },
+
+        async uploadFinal() {
+          if (this.finalUpload.uploading) return;
+
+          const sourceError = validateFile(
+            this.finalUpload.sourceFile,
+            APP.config.upload.finalSource
+          );
+          if (sourceError) {
+            this.finalUpload.error = `Source file: ${sourceError}`;
+            return;
+          }
+
+          if (this.finalUpload.viewableFile) {
+            const viewableError = validateFile(
+              this.finalUpload.viewableFile,
+              APP.config.upload.finalViewable
+            );
+            if (viewableError) {
+              this.finalUpload.error = `Viewable file: ${viewableError}`;
+              return;
+            }
+          }
+
+          this.finalUpload.uploading = true;
+          this.finalUpload.error = null;
+          this.finalUpload.progress = 0;
+
+          try {
+            const formData = new FormData();
+            formData.append('source_file', this.finalUpload.sourceFile);
+            if (this.finalUpload.viewableFile) {
+              formData.append('viewable_file', this.finalUpload.viewableFile);
+            }
+
+            const url = APP.urls.myPaper.createFinal(
+              APP.params.conference_name,
+              this.paper.code,
+            );
+            const {data} = await api.post(url, formData, {
+              headers: {'Content-Type': 'multipart/form-data'},
+              onUploadProgress: (e) => {
+                this.finalUpload.progress = Math.round((e.loaded / e.total) * 100);
+              },
+            });
+            this.paper = data;
+            this.finalUpload.success = true;
+          } catch (e) {
+            this.finalUpload.error = e.response?.data?.message || 'Failed to upload final version.';
+          } finally {
+            this.finalUpload.uploading = false;
           }
         },
 
