@@ -1,7 +1,7 @@
 <aside
   class="d-flex flex-column flex-shrink-0 border-end bg-body-tertiary"
   style="width: 250px;"
-  x-data="sidebar()"
+  x-data
 >
   <nav class="flex-grow-1 overflow-auto p-3">
     <ul class="nav nav-pills flex-column">
@@ -35,7 +35,7 @@
         </a>
       </li>
       {# TODO: Add href when My Reviews page is implemented #}
-      <li class="nav-item" x-show="canReview" x-cloak>
+      <li class="nav-item" x-show="$store.permissions.canReview" x-cloak>
         <a
           class="nav-link d-flex align-items-center gap-2"
           :class="{'active': $store.sidebar?.active === 'my-reviews'}"
@@ -45,8 +45,18 @@
           My Reviews
         </a>
       </li>
+      <li class="nav-item" x-show="$store.permissions.canReview" x-cloak>
+        <a
+          class="nav-link d-flex align-items-center gap-2"
+          :class="{'active': $store.sidebar?.active === 'review-preferences'}"
+          href="{% url 'frontend:review-preferences' conference_name=params.conference_name %}"
+        >
+          <i class="bi-sliders"></i>
+          Review Preferences
+        </a>
+      </li>
     </ul>
-    <template x-if="hasAdminRole">
+    <template x-if="$store.permissions.hasAdminRole">
       <div>
         <hr class="my-3">
         <ul class="nav nav-pills flex-column">
@@ -97,39 +107,3 @@
     </div>
   </template>
 </aside>
-<script>
-  function sidebar() {
-    const enums = APP.enums;
-    return {
-      get canReview() {
-        const user = this.$store.session?.user;
-        const profile = this.$store.conference?.profile;
-
-        if (user?.is_superuser) return true;
-
-        if (user?.roles?.includes(enums.GlobalRole.ADMIN.value)) return true;
-
-        const confReviewers = enums.ConferenceRole._collections.reviewers;
-        if (profile?.conference_roles?.some(r => confReviewers.includes(r))) return true;
-
-        const trackReviewers = enums.TrackRole._collections.reviewers;
-        return !!profile?.track_roles?.some(tr => trackReviewers.includes(tr.role));
-      },
-
-      get hasAdminRole() {
-        const user = this.$store.session?.user;
-        const profile = this.$store.conference?.profile;
-
-        if (user?.is_superuser) return true;
-
-        if (user?.roles?.includes(enums.GlobalRole.ADMIN.value)) return true;
-
-        const confAdmins = enums.ConferenceRole._collections.admins;
-        if (profile?.conference_roles?.some(r => confAdmins.includes(r))) return true;
-
-        const trackAdmins = enums.TrackRole._collections.admins;
-        return !!profile?.track_roles?.some(tr => trackAdmins.includes(tr.role));
-      },
-    };
-  }
-</script>

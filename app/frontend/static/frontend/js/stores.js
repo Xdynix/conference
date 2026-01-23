@@ -109,30 +109,33 @@
     );
 
     const conferenceName = APP.params?.conference_name;
-    Alpine.store("conference", {
-      ...createCachedStore(
-        `${CONFERENCE_CACHE_PREFIX}${conferenceName || "_"}`,
-        {detail: null, profile: null},
-        async () => {
-          if (!conferenceName) return {detail: null, profile: null};
+    Alpine.store("conference", createCachedStore(
+      `${CONFERENCE_CACHE_PREFIX}${conferenceName || "_"}`,
+      {detail: null, profile: null},
+      async () => {
+        if (!conferenceName) return {detail: null, profile: null};
 
-          const result = {detail: null, profile: null};
+        const result = {detail: null, profile: null};
 
-          const [detailResult, profileResult] = await Promise.allSettled([
-            api.get(APP.urls.conference.get(conferenceName)),
-            api.get(APP.urls.conference.getProfile(conferenceName)),
-          ]);
+        const [detailResult, profileResult] = await Promise.allSettled([
+          api.get(APP.urls.conference.get(conferenceName)),
+          api.get(APP.urls.conference.getProfile(conferenceName)),
+        ]);
 
-          if (detailResult.status === "fulfilled") {
-            result.detail = detailResult.value.data;
-          }
-          if (profileResult.status === "fulfilled") {
-            result.profile = profileResult.value.data;
-          }
-
-          return result;
+        if (detailResult.status === "fulfilled") {
+          result.detail = detailResult.value.data;
         }
-      ),
+        if (profileResult.status === "fulfilled") {
+          result.profile = profileResult.value.data;
+        }
+
+        return result;
+      }
+    ));
+
+    Alpine.store("permissions", {
+      canReview: false,
+      hasAdminRole: false,
     });
 
     Alpine.effect(() => {
@@ -140,6 +143,45 @@
       if (name && document.title.endsWith(APP.config.siteName)) {
         document.title = document.title.replace(APP.config.siteName, name);
       }
+    });
+
+    Alpine.effect(() => {
+      const enums = APP.enums;
+      const user = Alpine.store("session")?.user;
+      const profile = Alpine.store("conference")?.profile;
+      const permissions = Alpine.store("permissions");
+
+      let canReview;
+      if (user?.is_superuser) {
+        canReview = true;
+      } else if (user?.roles?.includes(enums.GlobalRole.ADMIN.value)) {
+        canReview = true;
+      } else {
+        const confReviewers = enums.ConferenceRole._collections.reviewers;
+        if (profile?.conference_roles?.some((r) => confReviewers.includes(r))) {
+          canReview = true;
+        } else {
+          const trackReviewers = enums.TrackRole._collections.reviewers;
+          canReview = !!profile?.track_roles?.some((tr) => trackReviewers.includes(tr.role));
+        }
+      }
+      permissions.canReview = canReview;
+
+      let hasAdminRole;
+      if (user?.is_superuser) {
+        hasAdminRole = true;
+      } else if (user?.roles?.includes(enums.GlobalRole.ADMIN.value)) {
+        hasAdminRole = true;
+      } else {
+        const confAdmins = enums.ConferenceRole._collections.admins;
+        if (profile?.conference_roles?.some((r) => confAdmins.includes(r))) {
+          hasAdminRole = true;
+        } else {
+          const trackAdmins = enums.TrackRole._collections.admins;
+          hasAdminRole = !!profile?.track_roles?.some((tr) => trackAdmins.includes(tr.role));
+        }
+      }
+      permissions.hasAdminRole = hasAdminRole;
     });
 
     Alpine.store("sidebar", {

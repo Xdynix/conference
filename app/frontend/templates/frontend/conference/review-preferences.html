@@ -1,0 +1,193 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Review Preferences - {% endblock %}
+
+{% block content %}
+  <div x-data="reviewPreferencesPage()" x-init="
+    $store.sidebar.setActive('review-preferences');
+    $store.breadcrumb.set([{label: 'Review Preferences'}]);
+  ">
+    <div class="row justify-content-center">
+      <div class="col-lg-6">
+        <h1 class="h3 mb-4">Review Preferences</h1>
+
+        <template x-if="$store.conference.loading">
+          <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        </template>
+
+        <template x-if="!$store.conference.loading && !$store.conference.detail">
+          <div class="text-center py-5">
+            <p class="text-muted mb-0">Conference not found.</p>
+          </div>
+        </template>
+
+        <template x-if="$store.conference.detail && !$store.permissions.canReview">
+          <div class="alert alert-info" role="alert">
+            Review preferences are available for users with reviewer permissions.
+          </div>
+        </template>
+
+        <template x-if="$store.conference.detail && $store.permissions.canReview">
+          <form @submit.prevent="submit()">
+            <div class="mb-3">
+              <label for="desired-paper-count" class="form-label">
+                Desired paper count
+              </label>
+              <input
+                id="desired-paper-count"
+                type="number"
+                class="form-control"
+                :class="{ 'is-invalid': errors.desired_paper_count }"
+                x-model.number="form.desiredPaperCount"
+                min="0"
+              >
+              <div class="invalid-feedback" x-text="errors.desired_paper_count"></div>
+            </div>
+
+            <div class="mb-3">
+              <label for="interested-keywords" class="form-label">
+                Interested keywords
+              </label>
+              <select
+                id="interested-keywords"
+                class="form-select"
+                multiple
+                x-init="
+                  const buildOptions = () => {
+                    const confKeywords = $store.conference.detail?.keywords || [];
+                    const profileKeywords = form.interestedKeywords || [];
+                    return [...new Set([...confKeywords, ...profileKeywords])].sort();
+                  };
+                  $el._ts = new TomSelect($el, {
+                    options: buildOptions().map(k => ({value: k, text: k})),
+                    items: form.interestedKeywords || [],
+                    maxOptions: null,
+                    plugins: ['remove_button'],
+                    /* Use splice instead of assignment to preserve array reference for Alpine reactivity. */
+                    onChange: (v) => { form.interestedKeywords.splice(0, form.interestedKeywords.length, ...v); }
+                  });
+                  $watch('$store.conference.detail', () => {
+                    const opts = buildOptions();
+                    $el._ts.clearOptions();
+                    $el._ts.addOptions(opts.map(k => ({value: k, text: k})));
+                  });
+                  $watch('form.interestedKeywords', (v) => {
+                    const current = $el._ts.getValue();
+                    const newVal = v || [];
+                    if (JSON.stringify([...current].sort()) !== JSON.stringify([...newVal].sort())) {
+                      $el._ts.setValue(newVal, true);
+                    }
+                  });
+                "
+                x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.interested_keywords)"
+              ></select>
+              <div
+                class="invalid-feedback"
+                :class="{ 'd-block': errors.interested_keywords }"
+                x-text="errors.interested_keywords"
+              ></div>
+            </div>
+
+            <div
+              x-show="errors._form"
+              x-cloak
+              class="alert alert-danger"
+              role="alert"
+              x-text="errors._form"
+            ></div>
+
+            <div
+              x-show="success"
+              x-cloak
+              class="alert alert-success"
+              role="alert"
+            >
+              Preferences saved successfully.
+            </div>
+
+            <div class="d-grid">
+              <button
+                type="submit"
+                class="btn btn-primary"
+                :disabled="loading"
+              >
+                <span
+                  x-show="loading"
+                  x-cloak
+                  class="spinner-border spinner-border-sm me-1"
+                  role="status"
+                >
+                  <span class="visually-hidden">Saving...</span>
+                </span>
+                Save
+              </button>
+            </div>
+          </form>
+        </template>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function reviewPreferencesPage() {
+      return {
+        form: {
+          desiredPaperCount: 0,
+          interestedKeywords: [],
+        },
+        errors: {},
+        loading: false,
+        success: false,
+
+        init() {
+          this.populateFromStore();
+          this.$watch("$store.conference.profile", () => this.populateFromStore());
+          this.$watch("form", () => {
+            this.success = false;
+            this.errors = {};
+          }, {deep: true});
+        },
+
+        populateFromStore() {
+          const profile = this.$store.conference.profile;
+          this.form.desiredPaperCount = profile?.desired_paper_count ?? 0;
+          this.form.interestedKeywords = [...(profile?.interested_keywords || [])];
+        },
+
+        async submit() {
+          if (this.loading) return;
+          this.errors = {};
+          this.success = false;
+          this.loading = true;
+
+          try {
+            const {data} = await api.patch("{% url 'api-1.0.0:update-current-user-conference-profile' conference_name=params.conference_name %}", {
+              desired_paper_count: this.form.desiredPaperCount,
+              interested_keywords: this.form.interestedKeywords,
+            });
+
+            this.$store.conference.profile = data;
+            this.$store.conference.save();
+            this.success = true;
+          } catch (error) {
+            const data = error.response?.data;
+            if (error.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred. Please try again.";
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}

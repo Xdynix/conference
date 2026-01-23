@@ -60,4 +60,9 @@ urlpatterns = [
         protected_view(template_name="frontend/conference/papers/feedback.html"),
         name="paper-feedback",
     ),
+    path(
+        "<slug:conference_name>/review-preferences/",
+        protected_view(template_name="frontend/conference/review-preferences.html"),
+        name="review-preferences",
+    ),
 ]
