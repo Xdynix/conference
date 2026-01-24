@@ -34,12 +34,11 @@
           My Papers
         </a>
       </li>
-      {# TODO: Add href when My Reviews page is implemented #}
       <li class="nav-item" x-show="$store.permissions.canReview" x-cloak>
         <a
           class="nav-link d-flex align-items-center gap-2"
           :class="{'active': $store.sidebar?.active === 'my-reviews'}"
-          href="#"
+          href="{% url 'frontend:review-list' conference_name=params.conference_name %}"
         >
           <i class="bi-pencil-square"></i>
           My Reviews

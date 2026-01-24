@@ -1,0 +1,42 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Review - {% endblock %}
+
+{% block content %}
+  <div x-data x-init="
+    $store.sidebar.setActive('my-reviews');
+    $store.breadcrumb.set([
+      {label: 'My Reviews', url: '{% url 'frontend:review-list' conference_name=params.conference_name %}'},
+      {label: 'Review'}
+    ]);
+  ">
+    <h1 class="h3 mb-4">Review</h1>
+
+    <template x-if="$store.conference.loading">
+      <div class="text-center py-5">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="!$store.conference.loading && !$store.conference.detail">
+      <div class="text-center py-5">
+        <p class="text-muted mb-0">Conference not found.</p>
+      </div>
+    </template>
+
+    <template x-if="$store.conference.detail && !$store.permissions.canReview">
+      <div class="alert alert-info" role="alert">
+        Reviews are available for users with reviewer permissions.
+      </div>
+    </template>
+
+    <template x-if="$store.conference.detail && $store.permissions.canReview">
+      <div>
+        {# TODO #}
+        <p class="text-muted">Review detail page - to be implemented.</p>
+      </div>
+    </template>
+  </div>
+{% endblock %}

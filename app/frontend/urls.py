@@ -65,4 +65,14 @@ urlpatterns = [
         protected_view(template_name="frontend/conference/review-preferences.html"),
         name="review-preferences",
     ),
+    path(
+        "<slug:conference_name>/reviews/",
+        protected_view(template_name="frontend/conference/reviews/list.html"),
+        name="review-list",
+    ),
+    path(
+        "<slug:conference_name>/reviews/<ulid:review_uid>/",
+        protected_view(template_name="frontend/conference/reviews/detail.html"),
+        name="review-detail",
+    ),
 ]

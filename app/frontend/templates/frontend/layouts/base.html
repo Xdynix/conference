@@ -203,6 +203,11 @@
           "conference_name",
           "paper_code",
         ),
+        reviewDetail: urlTemplate(
+          "{% url 'frontend:review-detail' '__CONFERENCE_NAME__' '00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
       },
     },
   };
