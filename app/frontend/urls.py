@@ -1,5 +1,6 @@
 from django.urls import path
 
+import app.url_converters  # noqa: F401
 from app.frontend import views
 
 public_view = views.PublicView.as_view
