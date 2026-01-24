@@ -13,6 +13,7 @@ from app.conference.models import (
     ConferenceVisibility,
     Invitation,
     PaperState,
+    ReviewState,
     TrackRole,
     TrackVisibility,
 )
@@ -145,6 +146,7 @@ def enums_json() -> SafeString:
                 "GlobalRole": _enum_to_dict(GlobalRole),
                 "InvitationState": _enum_to_dict(Invitation.State),
                 "PaperState": _enum_to_dict(PaperState),
+                "ReviewState": _enum_to_dict(ReviewState),
                 "TrackRole": _enum_to_dict(
                     TrackRole,
                     collections=["admins", "reviewers"],

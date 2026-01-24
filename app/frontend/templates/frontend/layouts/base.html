@@ -172,6 +172,18 @@
           "paper_code",
         ),
       },
+      myReview: {
+        accept: urlTemplate(
+          "{% url 'api-1.0.0:accept-review' '__CONFERENCE_NAME__' '00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+        decline: urlTemplate(
+          "{% url 'api-1.0.0:decline-review' '__CONFERENCE_NAME__' '00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+      },
       user: {
         update: "{% url 'api-1.0.0:update-current-user' %}",
         updateProfile: "{% url 'api-1.0.0:update-current-user-profile' %}",

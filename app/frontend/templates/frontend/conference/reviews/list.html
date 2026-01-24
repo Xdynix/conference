@@ -3,38 +3,394 @@
 {% block title %}My Reviews - {% endblock %}
 
 {% block content %}
-  <div x-data x-init="
+  <div x-data="reviewList()" x-init="
     $store.sidebar.setActive('my-reviews');
     $store.breadcrumb.set([{label: 'My Reviews'}]);
   ">
-    <h1 class="h3 mb-4">My Reviews</h1>
+    <div class="row justify-content-center">
+      <div class="col-xl-8 col-xxl-6">
+        <h1 class="h3 mb-4">My Reviews</h1>
 
-    <template x-if="$store.conference.loading">
-      <div class="text-center py-5">
-        <div class="spinner-border" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
-      </div>
-    </template>
-
-    <template x-if="!$store.conference.loading && !$store.conference.detail">
-      <div class="text-center py-5">
-        <p class="text-muted mb-0">Conference not found.</p>
-      </div>
-    </template>
-
-    <template x-if="$store.conference.detail">
-      <div>
-        <div x-show="!$store.permissions.canReview">
-          <div class="alert alert-info" role="alert">
-            Reviews are available for users with reviewer permissions.
+        <template x-if="$store.conference.loading">
+          <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </div>
           </div>
-        </div>
-        <div x-show="$store.permissions.canReview" x-cloak>
-          {# TODO #}
-          <p class="text-muted">Review list page - to be implemented.</p>
-        </div>
+        </template>
+
+        <template x-if="!$store.conference.loading && !$store.conference.detail">
+          <div class="text-center py-5">
+            <p class="text-muted mb-0">Conference not found.</p>
+          </div>
+        </template>
+
+        <template x-if="!$store.conference.loading && $store.conference.detail">
+          <div>
+            <div x-show="!$store.permissions.canReview">
+              <div class="alert alert-info" role="alert">
+                Reviews are available for users with reviewer permissions.
+              </div>
+            </div>
+
+            <div x-show="$store.permissions.canReview" x-cloak>
+              <div x-show="loading" class="text-center py-5">
+                <div class="spinner-border" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
+
+              <div x-show="!loading && error" x-cloak class="text-center py-5">
+                <p class="text-muted mb-0">Failed to load reviews.</p>
+              </div>
+
+              <div x-show="!loading && !error" x-cloak>
+                <template x-if="reviews.length === 0">
+                  <p class="text-muted">No reviews assigned yet.</p>
+                </template>
+
+                <template x-if="reviews.length > 0">
+                  <div class="d-flex flex-column gap-4">
+                    {# Pending Section #}
+                    <template x-if="pending.length > 0">
+                      <div>
+                        <h2
+                          class="h6 text-muted mb-3 d-flex align-items-center"
+                          role="button"
+                          @click="collapsed.pending = !collapsed.pending"
+                        >
+                          <i
+                            class="bi me-2"
+                            :class="collapsed.pending ? 'bi-chevron-right' : 'bi-chevron-down'"
+                          ></i>
+                          Pending Assignment
+                          <span
+                            class="badge text-bg-secondary ms-1"
+                            x-text="pending.length"
+                          ></span>
+                        </h2>
+                        <div x-show="!collapsed.pending">
+                          <div class="d-flex flex-column gap-3">
+                            <template x-for="review in pending" :key="review.uid">
+                              <div class="card">
+                                <div class="card-body">
+                                  <div
+                                    class="d-flex justify-content-between align-items-start mb-1"
+                                  >
+                                  <span
+                                    class="font-monospace text-muted small"
+                                    x-text="review.paper.code"
+                                  ></span>
+                                    <span class="badge text-bg-warning">Pending</span>
+                                  </div>
+                                  <h5
+                                    class="card-title mb-2"
+                                    x-text="review.paper.title"
+                                  ></h5>
+                                  <p class="text-muted small mb-3">
+                                  <span
+                                    x-text="review.paper.track?.display_name"
+                                  ></span>
+                                    <span class="mx-1">&middot;</span>
+                                    Assigned
+                                    <span
+                                      x-text="formatDate(review.create_time)"
+                                    ></span>
+                                  </p>
+                                  <div
+                                    class="d-flex justify-content-between align-items-center"
+                                  >
+                                    <a
+                                      x-show="review.paper.submission"
+                                      :href="review.paper.submission?.download_url"
+                                      class="btn btn-sm btn-outline-secondary"
+                                      target="_blank"
+                                    >
+                                      <i class="bi-file-earmark-text me-1"></i>
+                                      Download Paper
+                                    </a>
+                                    <span x-show="!review.paper.submission"></span>
+                                    <div class="d-flex gap-2">
+                                      <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-secondary"
+                                        @click="declineReview(review)"
+                                      >Decline</button>
+                                      <button
+                                        type="button"
+                                        class="btn btn-sm btn-primary"
+                                        @click="acceptReview(review)"
+                                      >Accept</button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+
+                    {# In Progress Section #}
+                    <template x-if="accepted.length > 0">
+                      <div class="border-top pt-4">
+                        <h2
+                          class="h6 text-muted mb-3 d-flex align-items-center"
+                          role="button"
+                          @click="collapsed.accepted = !collapsed.accepted"
+                        >
+                          <i
+                            class="bi me-2"
+                            :class="collapsed.accepted ? 'bi-chevron-right' : 'bi-chevron-down'"
+                          ></i>
+                          In Progress
+                          <span
+                            class="badge text-bg-secondary ms-1"
+                            x-text="accepted.length"
+                          ></span>
+                        </h2>
+                        <div x-show="!collapsed.accepted">
+                          <div class="d-flex flex-column gap-3">
+                            <template x-for="review in accepted" :key="review.uid">
+                              <div class="card">
+                                <div class="card-body">
+                                  <div
+                                    class="d-flex justify-content-between align-items-start mb-1"
+                                  >
+                                  <span
+                                    class="font-monospace text-muted small"
+                                    x-text="review.paper.code"
+                                  ></span>
+                                    <span class="badge text-bg-info">In Progress</span>
+                                  </div>
+                                  <h5
+                                    class="card-title mb-2"
+                                    x-text="review.paper.title"
+                                  ></h5>
+                                  <p
+                                    class="text-muted small mb-3"
+                                    x-text="review.paper.track?.display_name"
+                                  ></p>
+                                  <div class="d-flex justify-content-end">
+                                    <a
+                                      :href="APP.urls.pages.reviewDetail(APP.params.conference_name, review.uid)"
+                                      class="btn btn-sm btn-primary"
+                                    >
+                                      Continue
+                                      <i class="bi-arrow-right ms-1"></i>
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+
+                    {# Submitted Section #}
+                    <template x-if="submitted.length > 0">
+                      <div class="border-top pt-4">
+                        <h2
+                          class="h6 text-muted mb-3 d-flex align-items-center"
+                          role="button"
+                          @click="collapsed.submitted = !collapsed.submitted"
+                        >
+                          <i
+                            class="bi me-2"
+                            :class="collapsed.submitted ? 'bi-chevron-right' : 'bi-chevron-down'"
+                          ></i>
+                          Submitted
+                          <span
+                            class="badge text-bg-secondary ms-1"
+                            x-text="submitted.length"
+                          ></span>
+                        </h2>
+                        <div x-show="!collapsed.submitted">
+                          <div class="d-flex flex-column gap-3">
+                            <template x-for="review in submitted" :key="review.uid">
+                              <div class="card">
+                                <div class="card-body">
+                                  <div
+                                    class="d-flex justify-content-between align-items-start mb-1"
+                                  >
+                                  <span
+                                    class="font-monospace text-muted small"
+                                    x-text="review.paper.code"
+                                  ></span>
+                                    <span class="badge text-bg-success">Submitted</span>
+                                  </div>
+                                  <h5
+                                    class="card-title mb-2"
+                                    x-text="review.paper.title"
+                                  ></h5>
+                                  <p class="text-muted small mb-3">
+                                  <span
+                                    x-text="review.paper.track?.display_name"
+                                  ></span>
+                                    <span class="mx-1">&middot;</span>
+                                    Submitted
+                                    <span
+                                      x-text="formatDate(review.submit_time)"
+                                    ></span>
+                                  </p>
+                                  <div class="d-flex justify-content-end">
+                                    <a
+                                      :href="APP.urls.pages.reviewDetail(APP.params.conference_name, review.uid)"
+                                      class="btn btn-sm btn-outline-primary"
+                                    >
+                                      View
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+
+                    {# Declined Section #}
+                    <template x-if="declined.length > 0">
+                      <div class="border-top pt-4">
+                        <h2
+                          class="h6 text-muted mb-3 d-flex align-items-center"
+                          role="button"
+                          @click="collapsed.declined = !collapsed.declined"
+                        >
+                          <i
+                            class="bi me-2"
+                            :class="collapsed.declined ? 'bi-chevron-right' : 'bi-chevron-down'"
+                          ></i>
+                          Declined
+                          <span
+                            class="badge text-bg-secondary ms-1"
+                            x-text="declined.length"
+                          ></span>
+                        </h2>
+                        <div x-show="!collapsed.declined">
+                          <div class="d-flex flex-column gap-3">
+                            <template x-for="review in declined" :key="review.uid">
+                              <div class="card bg-body-tertiary">
+                                <div class="card-body">
+                                  <div
+                                    class="d-flex justify-content-between align-items-start mb-1"
+                                  >
+                                  <span
+                                    class="font-monospace text-muted small"
+                                    x-text="review.paper.code"
+                                  ></span>
+                                    <span
+                                      class="badge text-bg-secondary"
+                                    >Declined</span>
+                                  </div>
+                                  <h5
+                                    class="card-title mb-2 text-muted"
+                                    x-text="review.paper.title"
+                                  ></h5>
+                                  <p
+                                    class="text-muted small mb-0"
+                                    x-text="review.paper.track?.display_name"
+                                  ></p>
+                                </div>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
-    </template>
+    </div>
   </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function reviewList() {
+      return {
+        reviews: [],
+        loading: true,
+        error: null,
+        collapsed: {
+          pending: false,
+          accepted: false,
+          submitted: true,
+          declined: true,
+        },
+
+        get pending() {
+          return this.reviews.filter(r => r.state === APP.enums.ReviewState.PENDING.value);
+        },
+
+        get accepted() {
+          return this.reviews.filter(r => r.state === APP.enums.ReviewState.ACCEPTED.value);
+        },
+
+        get submitted() {
+          return this.reviews.filter(r => r.state === APP.enums.ReviewState.SUBMITTED.value);
+        },
+
+        get declined() {
+          return this.reviews.filter(r => r.state === APP.enums.ReviewState.DECLINED.value);
+        },
+
+        formatDate(isoString) {
+          if (!isoString) return '';
+          return new Intl.DateTimeFormat('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          }).format(new Date(isoString));
+        },
+
+        async init() {
+          try {
+            const url = "{% url 'api-1.0.0:list-my-reviews' conference_name=params.conference_name %}";
+            const {data} = await api.get(url);
+            this.reviews = data;
+          } catch (e) {
+            this.error = e;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async acceptReview(review) {
+          if (review._loading) return;
+          review._loading = true;
+
+          try {
+            const url = APP.urls.myReview.accept(APP.params.conference_name, review.uid);
+            await api.post(url);
+            review.state = APP.enums.ReviewState.ACCEPTED.value;
+          } finally {
+            review._loading = false;
+          }
+        },
+
+        async declineReview(review) {
+          if (review._loading) return;
+          if (!confirm('Decline this review assignment?')) {
+            return;
+          }
+          review._loading = true;
+
+          try {
+            const url = APP.urls.myReview.decline(APP.params.conference_name, review.uid);
+            await api.post(url);
+            review.state = APP.enums.ReviewState.DECLINED.value;
+          } finally {
+            review._loading = false;
+          }
+        },
+      };
+    }
+  </script>
 {% endblock %}
