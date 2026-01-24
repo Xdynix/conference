@@ -14,7 +14,7 @@ The component uses its own `verifyErrors` object for internal verification flow 
 Example parent setup:
   <div x-data="{ ...cfTurnstileWidget({ action: 'signup' }), form: { email_token: null }, errors: {} }">
     {% include "frontend/components/email-verification.html" with ... %}
-    <div x-ref="cf-turnstile"></div>
+    <div x-ref="cfTurnstile"></div>
   </div>
 
 Parameters:
@@ -61,11 +61,7 @@ States:
         :disabled="loading || !email || !cfTurnstileReady()"
         @click="sendCode()"
       >
-        <span
-          x-show="loading"
-          x-cloak
-          class="spinner-border spinner-border-sm me-1"
-        ></span>
+        <span x-show="loading" x-cloak class="spinner-border spinner-border-sm me-1"></span>
         Send Code
       </button>
     </div>
@@ -114,19 +110,11 @@ States:
         :disabled="loading || !code || !cfTurnstileReady()"
         @click="verifyCode()"
       >
-        <span
-          x-show="loading"
-          x-cloak
-          class="spinner-border spinner-border-sm me-1"
-        ></span>
+        <span x-show="loading" x-cloak class="spinner-border spinner-border-sm me-1"></span>
         Verify
       </button>
     </div>
-    <div
-      class="invalid-feedback"
-      :class="{ 'd-block': verifyErrors.code }"
-      x-text="verifyErrors.code"
-    ></div>
+    <div class="invalid-feedback" :class="{ 'd-block': verifyErrors.code }" x-text="verifyErrors.code"></div>
   </div>
 
   {# Step: verified - show confirmation #}
@@ -134,17 +122,13 @@ States:
     <div class="d-flex align-items-center gap-2">
       <i class="bi bi-check-circle-fill text-success"></i>
       <span x-text="email"></span>
-      <button
-        type="button"
-        class="btn btn-link p-0 text-secondary text-decoration-none small"
-        @click="clearForm()"
-      >
+      <button type="button" class="btn btn-link p-0 text-secondary text-decoration-none small" @click="clearForm()">
         Change
       </button>
     </div>
-    <div
-      class="text-muted small mt-1"
-    >{{ save_hint|default:"Click Save to apply this change." }}</div>
+    <div class="text-muted small mt-1">
+      {{ save_hint|default:"Click Save to apply this change." }}
+    </div>
     <div
       x-show="errors['{{ error_key }}']"
       x-cloak

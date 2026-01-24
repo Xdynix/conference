@@ -48,15 +48,13 @@
           </div>
 
           <div class="text-center">
-            <a
-              href="{% url 'frontend:password-reset' %}"
-              class="link-body-emphasis text-decoration-none"
-            >Forgot password?</a>
+            <a href="{% url 'frontend:password-reset' %}" class="link-body-emphasis text-decoration-none">
+              Forgot password?
+            </a>
             <span class="text-muted mx-2">&middot;</span>
-            <a
-              :href="signUpUrl()"
-              class="link-body-emphasis text-decoration-none"
-            >Use a different account</a>
+            <a :href="signUpUrl()" class="link-body-emphasis text-decoration-none">
+              Use a different account
+            </a>
           </div>
         </div>
       </template>
@@ -69,15 +67,16 @@
           </p>
 
           <div class="d-grid mb-3">
-            <a :href="signUpUrl()" class="btn btn-primary">Sign Up</a>
+            <a :href="signUpUrl()" class="btn btn-primary">
+              Sign Up
+            </a>
           </div>
 
           <div class="text-center">
             <span class="text-muted">Already have an account?</span>
-            <a
-              :href="logInUrl()"
-              class="link-body-emphasis text-decoration-none"
-            >Log in</a>
+            <a :href="logInUrl()" class="link-body-emphasis text-decoration-none">
+              Log in
+            </a>
           </div>
         </div>
       </template>
@@ -114,18 +113,8 @@
       ></div>
 
       <div class="d-grid mb-3">
-        <button
-          type="button"
-          class="btn btn-primary"
-          :disabled="loading"
-          @click="accept()"
-        >
-          <span
-            x-show="loading"
-            x-cloak
-            class="spinner-border spinner-border-sm me-1"
-            role="status"
-          >
+        <button type="button" class="btn btn-primary" :disabled="loading" @click="accept()">
+          <span x-show="loading" x-cloak class="spinner-border spinner-border-sm me-1" role="status">
             <span class="visually-hidden">Accepting...</span>
           </span>
           Accept Invitation

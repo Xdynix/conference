@@ -42,37 +42,23 @@
                 <template x-for="paper in papers" :key="paper.uid">
                   <div class="card">
                     <div class="card-body">
-                      <div
-                        class="d-flex justify-content-between align-items-start mb-2">
-                      <span
-                        class="font-monospace text-muted"
-                        x-text="paper.code"
-                      ></span>
-                        <span
-                          class="badge"
-                          :class="stateClass(paper.state)"
-                          x-text="stateLabel(paper.state)"
-                        ></span>
+                      <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="font-monospace text-muted" x-text="paper.code"></span>
+                        <span class="badge" :class="stateClass(paper.state)" x-text="stateLabel(paper.state)"></span>
                       </div>
-                      <h5
-                        class="card-title mb-2"
-                        x-text="paper.title || 'Untitled'"
-                      ></h5>
-                      <p
-                        class="text-muted small mb-0"
-                        x-text="paper.track?.display_name"
-                      ></p>
+                      <h5 class="card-title mb-2" x-text="paper.title || 'Untitled'"></h5>
+                      <p class="text-muted small mb-0" x-text="paper.track?.display_name"></p>
                     </div>
-                    <div
-                      class="card-footer bg-transparent d-flex justify-content-between align-items-center"
-                    >
+                    <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
                       <small class="text-muted">
                         Created <span x-text="formatDate(paper.create_time)"></span>
                       </small>
                       <a
                         :href="APP.urls.pages.paperDetail(APP.params.conference_name, paper.code)"
                         class="stretched-link"
-                      >View</a>
+                      >
+                        View
+                      </a>
                     </div>
                   </div>
                 </template>

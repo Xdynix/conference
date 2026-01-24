@@ -11,11 +11,9 @@
 
 {% block content %}
   <div class="d-flex align-items-center gap-2 mb-4">
-    <a
-      href="javascript:history.back()"
-      class="text-secondary"
-      aria-label="Go back"
-    ><i class="bi bi-arrow-left"></i></a>
+    <a href="javascript:history.back()" class="text-secondary" aria-label="Go back">
+      <i class="bi bi-arrow-left"></i>
+    </a>
     <h1 class="h4 mb-0">Account</h1>
   </div>
 
@@ -166,11 +164,7 @@
           >
             <option value="">Select region...</option>
           </select>
-          <div
-            class="invalid-feedback"
-            :class="{ 'd-block': errors.region_code }"
-            x-text="errors.region_code"
-          ></div>
+          <div class="invalid-feedback" :class="{ 'd-block': errors.region_code }" x-text="errors.region_code"></div>
         </div>
 
         <div
@@ -181,27 +175,13 @@
           x-text="errors._form"
         ></div>
 
-        <div
-          x-show="success"
-          x-cloak
-          class="alert alert-success"
-          role="alert"
-        >
+        <div x-show="success" x-cloak class="alert alert-success" role="alert">
           Profile updated successfully.
         </div>
 
         <div class="d-grid">
-          <button
-            type="submit"
-            class="btn btn-primary"
-            :disabled="loading"
-          >
-            <span
-              x-show="loading"
-              x-cloak
-              class="spinner-border spinner-border-sm me-1"
-              role="status"
-            >
+          <button type="submit" class="btn btn-primary" :disabled="loading">
+            <span x-show="loading" x-cloak class="spinner-border spinner-border-sm me-1" role="status">
               <span class="visually-hidden">Saving...</span>
             </span>
             Save
@@ -226,29 +206,21 @@
 
         <div class="mb-3">
           <label class="form-label">Username</label>
-          <div
-            class="form-control-plaintext"
-            x-text="$store.session.user?.username || '—'"
-          ></div>
+          <div class="form-control-plaintext" x-text="$store.session.user?.username || '—'"></div>
         </div>
 
         <div class="mb-3">
           <label class="form-label">Email</label>
-          <div
-            class="form-control-plaintext"
-            x-text="$store.session.user?.email || '—'"
-          ></div>
+          <div class="form-control-plaintext" x-text="$store.session.user?.email || '—'"></div>
         </div>
       </div>
 
       {# Regular user: editable form #}
-      <form
-        x-show="$store.session.user?.managed === false"
-        x-cloak
-        @submit.prevent="submit()"
-      >
+      <form x-show="$store.session.user?.managed === false" x-cloak @submit.prevent="submit()">
         <div class="mb-3">
-          <label for="username" class="form-label">Username</label>
+          <label for="username" class="form-label">
+            Username
+          </label>
           <input
             id="username"
             type="text"
@@ -259,6 +231,9 @@
             required
           >
           <div class="invalid-feedback" x-text="errors.username"></div>
+          <small class="form-text text-muted">
+            150 characters or fewer. Unicode letters, digits, and @/./+/-/_ only.
+          </small>
         </div>
 
         <div class="border rounded p-3 mb-3 bg-body-tertiary">
@@ -272,42 +247,22 @@
 
         {% if cf_turnstile.enabled %}
           <div class="mb-3 d-flex flex-column align-items-center">
-            <div x-ref="cf-turnstile"></div>
+            <div x-ref="cfTurnstile"></div>
             <small x-show="error" x-cloak class="text-danger mt-1">
               Verification failed. Please try again.
             </small>
           </div>
         {% endif %}
 
-        <div
-          x-show="errors._form"
-          x-cloak
-          class="alert alert-danger"
-          role="alert"
-          x-text="errors._form"
-        ></div>
+        <div x-show="errors._form" x-cloak class="alert alert-danger" role="alert" x-text="errors._form"></div>
 
-        <div
-          x-show="success"
-          x-cloak
-          class="alert alert-success"
-          role="alert"
-        >
+        <div x-show="success" x-cloak class="alert alert-success" role="alert">
           Identity updated successfully.
         </div>
 
         <div class="d-grid">
-          <button
-            type="submit"
-            class="btn btn-primary"
-            :disabled="loading || !hasChanges()"
-          >
-            <span
-              x-show="loading"
-              x-cloak
-              class="spinner-border spinner-border-sm me-1"
-              role="status"
-            >
+          <button type="submit" class="btn btn-primary" :disabled="loading || !hasChanges()">
+            <span x-show="loading" x-cloak class="spinner-border spinner-border-sm me-1" role="status">
               <span class="visually-hidden">Saving...</span>
             </span>
             Save
@@ -338,35 +293,15 @@
 
         {% include "frontend/components/password-input.html" with id="confirm-password" label="Confirm new password" model="form.confirmPassword" error_key="confirm_password" autocomplete="new-password" blur="validateConfirmPassword()" %}
 
-        <div
-          x-show="errors._form"
-          x-cloak
-          class="alert alert-danger"
-          role="alert"
-          x-text="errors._form"
-        ></div>
+        <div x-show="errors._form" x-cloak class="alert alert-danger" role="alert" x-text="errors._form"></div>
 
-        <div
-          x-show="success"
-          x-cloak
-          class="alert alert-success"
-          role="alert"
-        >
+        <div x-show="success" x-cloak class="alert alert-success" role="alert">
           Password changed successfully.
         </div>
 
         <div class="d-grid">
-          <button
-            type="submit"
-            class="btn btn-primary"
-            :disabled="loading"
-          >
-            <span
-              x-show="loading"
-              x-cloak
-              class="spinner-border spinner-border-sm me-1"
-              role="status"
-            >
+          <button type="submit" class="btn btn-primary" :disabled="loading">
+            <span x-show="loading" x-cloak class="spinner-border spinner-border-sm me-1" role="status">
               <span class="visually-hidden">Saving...</span>
             </span>
             Change password

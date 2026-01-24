@@ -27,111 +27,81 @@
 
         <template x-if="$store.conference.detail">
           <div>
-            <div x-show="!$store.permissions.canReview">
-              <div class="alert alert-info" role="alert">
-                Review preferences are available for users with reviewer permissions.
-              </div>
-            </div>
-            <div x-show="$store.permissions.canReview" x-cloak>
-              <form @submit.prevent="submit()">
-                <div class="mb-3">
-                  <label for="desired-paper-count" class="form-label">
-                    Desired paper count
-                  </label>
-                  <input
-                    id="desired-paper-count"
-                    type="number"
-                    class="form-control"
-                    :class="{ 'is-invalid': errors.desired_paper_count }"
-                    x-model.number="form.desiredPaperCount"
-                    min="0"
-                  >
-                  <div
-                    class="invalid-feedback"
-                    x-text="errors.desired_paper_count"
-                  ></div>
-                </div>
-
-                <div class="mb-3">
-                  <label for="interested-keywords" class="form-label">
-                    Interested keywords
-                  </label>
-                  <select
-                    id="interested-keywords"
-                    class="form-select"
-                    multiple
-                    x-init="
-                  const buildOptions = () => {
-                    const confKeywords = $store.conference.detail?.keywords || [];
-                    const profileKeywords = form.interestedKeywords || [];
-                    return [...new Set([...confKeywords, ...profileKeywords])].sort();
-                  };
-                  $el._ts = new TomSelect($el, {
-                    options: buildOptions().map(k => ({value: k, text: k})),
-                    items: form.interestedKeywords || [],
-                    maxOptions: null,
-                    plugins: ['remove_button'],
-                    /* Use splice instead of assignment to preserve array reference for Alpine reactivity. */
-                    onChange: (v) => { form.interestedKeywords.splice(0, form.interestedKeywords.length, ...v); }
-                  });
-                  $watch('$store.conference.detail', () => {
-                    const opts = buildOptions();
-                    $el._ts.clearOptions();
-                    $el._ts.addOptions(opts.map(k => ({value: k, text: k})));
-                  });
-                  $watch('form.interestedKeywords', (v) => {
-                    const current = $el._ts.getValue();
-                    const newVal = v || [];
-                    if (JSON.stringify([...current].sort()) !== JSON.stringify([...newVal].sort())) {
-                      $el._ts.setValue(newVal, true);
-                    }
-                  });
-                "
-                    x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.interested_keywords)"
-                  ></select>
-                  <div
-                    class="invalid-feedback"
-                    :class="{ 'd-block': errors.interested_keywords }"
-                    x-text="errors.interested_keywords"
-                  ></div>
-                </div>
-
-                <div
-                  x-show="errors._form"
-                  x-cloak
-                  class="alert alert-danger"
-                  role="alert"
-                  x-text="errors._form"
-                ></div>
-
-                <div
-                  x-show="success"
-                  x-cloak
-                  class="alert alert-success"
-                  role="alert"
+            <form @submit.prevent="submit()">
+              <div class="mb-3">
+                <label for="desired-paper-count" class="form-label">
+                  Desired paper count
+                </label>
+                <input
+                  id="desired-paper-count"
+                  type="number"
+                  class="form-control"
+                  :class="{ 'is-invalid': errors.desired_paper_count }"
+                  x-model.number="form.desiredPaperCount"
+                  min="0"
                 >
-                  Preferences saved successfully.
-                </div>
+                <div class="invalid-feedback" x-text="errors.desired_paper_count"></div>
+              </div>
 
-                <div class="d-grid">
-                  <button
-                    type="submit"
-                    class="btn btn-primary"
-                    :disabled="loading"
-                  >
-                    <span
-                      x-show="loading"
-                      x-cloak
-                      class="spinner-border spinner-border-sm me-1"
-                      role="status"
-                    >
-                      <span class="visually-hidden">Saving...</span>
-                    </span>
-                    Save
-                  </button>
-                </div>
-              </form>
-            </div>
+              <div class="mb-3">
+                <label for="interested-keywords" class="form-label">
+                  Interested keywords
+                </label>
+                <select
+                  id="interested-keywords"
+                  class="form-select"
+                  multiple
+                  x-init="
+                    const buildOptions = () => {
+                      const confKeywords = $store.conference.detail?.keywords || [];
+                      const profileKeywords = form.interestedKeywords || [];
+                      return [...new Set([...confKeywords, ...profileKeywords])].sort();
+                    };
+                    $el._ts = new TomSelect($el, {
+                      options: buildOptions().map(k => ({value: k, text: k})),
+                      items: form.interestedKeywords || [],
+                      maxOptions: null,
+                      plugins: ['remove_button'],
+                      /* Use splice instead of assignment to preserve array reference for Alpine reactivity. */
+                      onChange: (v) => { form.interestedKeywords.splice(0, form.interestedKeywords.length, ...v); }
+                    });
+                    $watch('$store.conference.detail', () => {
+                      const opts = buildOptions();
+                      $el._ts.clearOptions();
+                      $el._ts.addOptions(opts.map(k => ({value: k, text: k})));
+                    });
+                    $watch('form.interestedKeywords', (v) => {
+                      const current = $el._ts.getValue();
+                      const newVal = v || [];
+                      if (JSON.stringify([...current].sort()) !== JSON.stringify([...newVal].sort())) {
+                        $el._ts.setValue(newVal, true);
+                      }
+                    });
+                  "
+                  x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.interested_keywords)"
+                ></select>
+                <div
+                  class="invalid-feedback"
+                  :class="{ 'd-block': errors.interested_keywords }"
+                  x-text="errors.interested_keywords"
+                ></div>
+              </div>
+
+              <div x-show="errors._form" x-cloak class="alert alert-danger" role="alert" x-text="errors._form"></div>
+
+              <div x-show="success" x-cloak class="alert alert-success" role="alert">
+                Preferences saved successfully.
+              </div>
+
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary" :disabled="loading">
+                  <span x-show="loading" x-cloak class="spinner-border spinner-border-sm me-1" role="status">
+                    <span class="visually-hidden">Saving...</span>
+                  </span>
+                  Save
+                </button>
+              </div>
+            </form>
           </div>
         </template>
       </div>

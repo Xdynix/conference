@@ -18,18 +18,11 @@
       </div>
     </div>
 
-    <div
-      x-show="!$store.conference.loading && !$store.conference.detail"
-      x-cloak
-      class="text-center py-5">
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
       <p class="text-muted mb-0">Conference not found.</p>
     </div>
 
-    <form
-      x-show="!$store.conference.loading && $store.conference.detail"
-      x-cloak
-      @submit.prevent="submit()"
-    >
+    <form x-show="!$store.conference.loading && $store.conference.detail" x-cloak @submit.prevent="submit()">
       <div class="col-xl-8">
         {% include "frontend/components/paper/identity.html" %}
         {% include "frontend/components/paper/authors.html" %}
@@ -41,10 +34,7 @@
 
         <div class="d-grid">
           <button type="submit" class="btn btn-primary" :disabled="loading">
-            <span
-              x-show="loading"
-              class="spinner-border spinner-border-sm me-1"
-            ></span>
+            <span x-show="loading" class="spinner-border spinner-border-sm me-1"></span>
             Save & Continue
           </button>
         </div>

@@ -6,8 +6,8 @@ View mode: all files download (submission + final).
 
 Final version upload is handled by a separate modal in the detail page, not here.
 
-This component manages upload UI state and delegates the actual upload to a parent-
-provided handler. This keeps the component reusable and decouples it from API knowledge.
+This component manages upload UI state and delegates the actual upload to a parent-provided handler.
+This keeps the component reusable and decouples it from API knowledge.
 
 Expects from parent scope:
   - mode: 'create' | 'edit' | 'view'
@@ -40,22 +40,13 @@ The component is hidden in 'create' mode (no paper exists yet).
 
       <div class="d-flex align-items-center gap-2 flex-wrap">
         <template x-if="paper?.submission">
-          <a
-            class="btn btn-outline-secondary btn-sm"
-            :href="paper.submission.download_url"
-            :download="paper.submission.display_name"
-            target="_blank"
-          >
+          <a class="btn btn-outline-secondary btn-sm" :href="paper.submission.download_url" target="_blank">
             <i class="bi bi-file-earmark-text me-1"></i>
             <span x-text="paper.submission.display_name"></span>
           </a>
         </template>
 
-        <label
-          class="btn btn-outline-primary btn-sm mb-0"
-          for="submission-file"
-          :class="{'disabled': uploading}"
-        >
+        <label class="btn btn-outline-primary btn-sm mb-0" for="submission-file" :class="{'disabled': uploading}">
           <i class="bi bi-upload me-1"></i>
           <span x-text="paper?.submission ? 'Replace' : 'Upload'"></span>
         </label>
@@ -74,9 +65,7 @@ The component is hidden in 'create' mode (no paper exists yet).
       </div>
 
       <div class="form-text">
-        <span
-          x-text="config.allowedTypes.map(t => t.slice(1).toUpperCase()).join(', ')"
-        ></span>.
+        <span x-text="config.allowedTypes.map(t => t.slice(1).toUpperCase()).join(', ')"></span>.
         Maximum <span x-text="formatFileSize(config.maxSize)"></span>.
       </div>
 
@@ -84,12 +73,7 @@ The component is hidden in 'create' mode (no paper exists yet).
         <div class="progress-bar" :style="`width: ${uploadProgress}%`"></div>
       </div>
 
-      <div
-        class="text-danger small mt-2"
-        x-show="uploadError"
-        x-cloak
-        x-text="uploadError"
-      ></div>
+      <div class="text-danger small mt-2" x-show="uploadError" x-cloak x-text="uploadError"></div>
     </div>
   </template>
 
@@ -103,11 +87,7 @@ The component is hidden in 'create' mode (no paper exists yet).
           <template x-if="paper?.submission">
             <div class="d-flex align-items-center gap-2">
               <i class="bi bi-file-earmark-text"></i>
-              <a
-                :href="paper.submission.download_url"
-                target="_blank"
-                x-text="paper.submission.display_name"
-              ></a>
+              <a :href="paper.submission.download_url" target="_blank" x-text="paper.submission.display_name"></a>
             </div>
           </template>
           <template x-if="!paper?.submission">
@@ -122,11 +102,7 @@ The component is hidden in 'create' mode (no paper exists yet).
             <div class="d-flex flex-column gap-1">
               <div class="d-flex align-items-center gap-2">
                 <i class="bi bi-file-earmark-zip"></i>
-                <a
-                  :href="paper.final.download_url"
-                  target="_blank"
-                  x-text="paper.final.display_name"
-                ></a>
+                <a :href="paper.final.download_url" target="_blank" x-text="paper.final.display_name"></a>
               </div>
               <template x-if="paper.final.viewable_download_url">
                 <div class="d-flex align-items-center gap-2">

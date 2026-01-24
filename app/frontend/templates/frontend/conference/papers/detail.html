@@ -12,12 +12,7 @@
   ">
     <h1 class="h3 mb-4 d-flex align-items-center">
       <span x-text="headerText">Paper</span>
-      <span
-        x-show="paper"
-        class="badge ms-2 fs-6"
-        :class="stateClass"
-        x-text="stateLabel"
-      ></span>
+      <span x-show="paper" class="badge ms-2 fs-6" :class="stateClass" x-text="stateLabel"></span>
     </h1>
 
     <div x-show="$store.conference.loading || loading" class="text-center py-5">
@@ -26,19 +21,11 @@
       </div>
     </div>
 
-    <div
-      x-show="!$store.conference.loading && !$store.conference.detail"
-      x-cloak
-      class="text-center py-5"
-    >
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
       <p class="text-muted mb-0">Conference not found.</p>
     </div>
 
-    <div
-      x-show="$store.conference.detail && !loading && error"
-      x-cloak
-      class="text-center py-5"
-    >
+    <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
       <p class="text-muted mb-0">Paper not found.</p>
     </div>
 
@@ -47,12 +34,7 @@
       <template x-if="showEcopyrightReturnAlert">
         <div class="alert alert-success alert-dismissible mb-4">
           Thanks for submitting your IEEE eCopyright form.
-          <button
-            type="button"
-            class="btn-close"
-            data-bs-dismiss="alert"
-            aria-label="Close"
-          ></button>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
         </div>
       </template>
 
@@ -62,12 +44,7 @@
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title">Submit for Review</h5>
-              <button
-                type="button"
-                class="btn-close"
-                data-bs-dismiss="modal"
-                aria-label="Close"
-              ></button>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
               <p>Are you sure you want to submit this paper for review?</p>
@@ -82,16 +59,8 @@
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
                 Cancel
               </button>
-              <button
-                type="button"
-                class="btn btn-success"
-                @click="submitForReview()"
-                :disabled="submitting"
-              >
-                <span
-                  x-show="submitting"
-                  class="spinner-border spinner-border-sm me-1"
-                ></span>
+              <button type="button" class="btn btn-success" @click="submitForReview()" :disabled="submitting">
+                <span x-show="submitting" class="spinner-border spinner-border-sm me-1"></span>
                 Submit
               </button>
             </div>
@@ -161,9 +130,7 @@
                         x-text="APP.config.upload.finalSource.allowedTypes.map(t => t.slice(1).toUpperCase()).join(', ')"
                       ></span>.
                       Maximum
-                      <span
-                        x-text="formatFileSize(APP.config.upload.finalSource.maxSize)"
-                      ></span>.
+                      <span x-text="formatFileSize(APP.config.upload.finalSource.maxSize)"></span>.
                     </div>
                   </div>
 
@@ -185,9 +152,7 @@
                         x-text="APP.config.upload.finalViewable.allowedTypes.map(t => t.slice(1).toUpperCase()).join(', ')"
                       ></span>.
                       Maximum
-                      <span
-                        x-text="formatFileSize(APP.config.upload.finalViewable.maxSize)"
-                      ></span>.
+                      <span x-text="formatFileSize(APP.config.upload.finalViewable.maxSize)"></span>.
                     </div>
                   </div>
 
@@ -198,10 +163,7 @@
                     x-cloak
                     style="height: 4px;"
                   >
-                    <div
-                      class="progress-bar"
-                      :style="`width: ${finalUpload.progress}%`"
-                    ></div>
+                    <div class="progress-bar" :style="`width: ${finalUpload.progress}%`"></div>
                   </div>
 
                   {# Error message #}
@@ -244,10 +206,7 @@
                     @click="uploadFinal()"
                     :disabled="finalUpload.uploading || !finalUpload.sourceFile || paper.final_revision_remaining === 0"
                   >
-                    <span
-                      x-show="finalUpload.uploading"
-                      class="spinner-border spinner-border-sm me-1"
-                    ></span>
+                    <span x-show="finalUpload.uploading" class="spinner-border spinner-border-sm me-1"></span>
                     Upload
                   </button>
                 </div>
@@ -275,24 +234,11 @@
               {# Edit mode actions #}
               <template x-if="mode === 'edit'">
                 <div>
-                  <div
-                    x-show="errors._form"
-                    x-cloak
-                    class="alert alert-danger small mb-2"
-                    x-text="errors._form"
-                  ></div>
+                  <div x-show="errors._form" x-cloak class="alert alert-danger small mb-2" x-text="errors._form"></div>
 
                   <div class="d-grid gap-2">
-                    <button
-                      type="submit"
-                      form="paper-form"
-                      class="btn btn-primary"
-                      :disabled="saving"
-                    >
-                      <span
-                        x-show="saving"
-                        class="spinner-border spinner-border-sm me-1"
-                      ></span>
+                    <button type="submit" form="paper-form" class="btn btn-primary" :disabled="saving">
+                      <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
                       <span x-text="saved ? 'Saved!' : 'Save Draft'"></span>
                     </button>
                     <template x-if="!isDirty">
@@ -350,10 +296,7 @@
                       @click="deletePaper()"
                       :disabled="deleting"
                     >
-                      <span
-                        x-show="deleting"
-                        class="spinner-border spinner-border-sm me-1"
-                      ></span>
+                      <span x-show="deleting" class="spinner-border spinner-border-sm me-1"></span>
                       Delete Paper
                     </button>
                   </div>
@@ -361,9 +304,7 @@
               </template>
 
               {# View mode actions: SUBMITTED state #}
-              <template
-                x-if="mode === 'view' && paper.state === APP.enums.PaperState.SUBMITTED.value"
-              >
+              <template x-if="mode === 'view' && paper.state === APP.enums.PaperState.SUBMITTED.value">
                 <div>
                   <p class="small fw-medium mb-2">
                     Your paper has been submitted and is awaiting reviewer assignment.
@@ -380,10 +321,7 @@
                       @click="unsubmitPaper()"
                       :disabled="unsubmitting"
                     >
-                      <span
-                        x-show="unsubmitting"
-                        class="spinner-border spinner-border-sm me-1"
-                      ></span>
+                      <span x-show="unsubmitting" class="spinner-border spinner-border-sm me-1"></span>
                       Unsubmit
                     </button>
                   </div>
@@ -397,10 +335,7 @@
                       @click="deletePaper()"
                       :disabled="deleting"
                     >
-                      <span
-                        x-show="deleting"
-                        class="spinner-border spinner-border-sm me-1"
-                      ></span>
+                      <span x-show="deleting" class="spinner-border spinner-border-sm me-1"></span>
                       Delete Paper
                     </button>
                   </div>
@@ -408,9 +343,7 @@
               </template>
 
               {# View mode actions: UNDER_REVIEW state #}
-              <template
-                x-if="mode === 'view' && paper.state === APP.enums.PaperState.UNDER_REVIEW.value"
-              >
+              <template x-if="mode === 'view' && paper.state === APP.enums.PaperState.UNDER_REVIEW.value">
                 <div>
                   <p class="small fw-medium mb-2">
                     Your paper is currently under review.
@@ -423,9 +356,7 @@
               </template>
 
               {# View mode actions: REJECTED state #}
-              <template
-                x-if="mode === 'view' && paper.state === APP.enums.PaperState.REJECTED.value"
-              >
+              <template x-if="mode === 'view' && paper.state === APP.enums.PaperState.REJECTED.value">
                 <div>
                   <p class="small fw-medium mb-2">
                     Your paper was not accepted for this conference.
@@ -543,10 +474,7 @@
                         @click="withdrawPaper()"
                         :disabled="withdrawing"
                       >
-                        <span
-                          x-show="withdrawing"
-                          class="spinner-border spinner-border-sm me-1"
-                        ></span>
+                        <span x-show="withdrawing" class="spinner-border spinner-border-sm me-1"></span>
                         Withdraw
                       </button>
                     </div>

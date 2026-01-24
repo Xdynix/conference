@@ -29,6 +29,9 @@
             required
           >
           <div class="invalid-feedback" x-text="errors.username"></div>
+          <small class="form-text text-muted">
+            150 characters or fewer. Unicode letters, digits, and @/./+/-/_ only.
+          </small>
         </div>
 
         {% include "frontend/components/email-verification.html" with id="email" label="Email" model="form.emailToken" error_key="email" required=True save_hint="Your verified email will be used for your account." pre_verified_email="invitation.invitee_email" pre_verified_token="invitation.verified_email_token" %}
@@ -99,7 +102,9 @@
         </div>
 
         <div class="mb-3">
-          <label for="affiliation" class="form-label">Affiliation</label>
+          <label for="affiliation" class="form-label">
+            Affiliation
+          </label>
           <input
             id="affiliation"
             type="text"
@@ -111,8 +116,7 @@
           >
           <div class="invalid-feedback" x-text="errors['profile.affiliation']"></div>
           <small class="form-text text-muted">
-            e.g., <em>Google LLC</em> or
-            <em>School of Computing, Example University</em>
+            e.g., <em>Google LLC</em> or <em>School of Computing, Example University</em>
           </small>
         </div>
 
@@ -148,33 +152,18 @@
 
       {% if cf_turnstile.enabled %}
         <div class="mb-3 d-flex flex-column align-items-center">
-          <div x-ref="cf-turnstile"></div>
+          <div x-ref="cfTurnstile"></div>
           <small x-show="error" x-cloak class="text-danger mt-1">
             Verification failed. Please try again.
           </small>
         </div>
       {% endif %}
 
-      <div
-        x-show="errors._form"
-        x-cloak
-        class="alert alert-danger"
-        role="alert"
-        x-text="errors._form"
-      ></div>
+      <div x-show="errors._form" x-cloak class="alert alert-danger" role="alert" x-text="errors._form"></div>
 
       <div class="d-grid mb-3">
-        <button
-          type="submit"
-          class="btn btn-primary"
-          :disabled="loading || !cfTurnstileReady()"
-        >
-          <span
-            x-show="loading"
-            x-cloak
-            class="spinner-border spinner-border-sm me-1"
-            role="status"
-          >
+        <button type="submit" class="btn btn-primary" :disabled="loading || !cfTurnstileReady()">
+          <span x-show="loading" x-cloak class="spinner-border spinner-border-sm me-1" role="status">
             <span class="visually-hidden">Creating account...</span>
           </span>
           Create account
@@ -183,10 +172,9 @@
 
       <div class="text-center">
         <span class="text-muted">Already have an account?</span>
-        <a
-          :href="logInUrl"
-          class="link-body-emphasis text-decoration-none"
-        >Log in</a>
+        <a :href="logInUrl" class="link-body-emphasis text-decoration-none">
+          Log in
+        </a>
       </div>
     </form>
   </div>

@@ -32,33 +32,18 @@
 
       {% if cf_turnstile.enabled %}
         <div class="mb-3 d-flex flex-column align-items-center">
-          <div x-ref="cf-turnstile"></div>
+          <div x-ref="cfTurnstile"></div>
           <small x-show="error" x-cloak class="text-danger mt-1">
             Verification failed. Please try again.
           </small>
         </div>
       {% endif %}
 
-      <div
-        x-show="errors._form"
-        x-cloak
-        class="alert alert-danger"
-        role="alert"
-        x-text="errors._form"
-      ></div>
+      <div x-show="errors._form" x-cloak class="alert alert-danger" role="alert" x-text="errors._form"></div>
 
       <div class="d-grid mb-3">
-        <button
-          type="submit"
-          class="btn btn-primary"
-          :disabled="loading || !cfTurnstileReady()"
-        >
-          <span
-            x-show="loading"
-            x-cloak
-            class="spinner-border spinner-border-sm me-1"
-            role="status"
-          >
+        <button type="submit" class="btn btn-primary" :disabled="loading || !cfTurnstileReady()">
+          <span x-show="loading" x-cloak class="spinner-border spinner-border-sm me-1" role="status">
             <span class="visually-hidden">Logging in...</span>
           </span>
           Log in
@@ -66,15 +51,13 @@
       </div>
 
       <div class="text-center">
-        <a
-          href="{% url 'frontend:password-reset' %}"
-          class="link-body-emphasis text-decoration-none"
-        >Forgot password?</a>
+        <a href="{% url 'frontend:password-reset' %}" class="link-body-emphasis text-decoration-none">
+          Forgot password?
+        </a>
         <span class="text-muted mx-2">&middot;</span>
-        <a
-          :href="signUpUrl"
-          class="link-body-emphasis text-decoration-none"
-        >Sign up</a>
+        <a :href="signUpUrl" class="link-body-emphasis text-decoration-none">
+          Sign up
+        </a>
       </div>
     </form>
   </div>

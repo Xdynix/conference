@@ -7,21 +7,21 @@
    * When Turnstile is disabled or not configured, the component becomes a no-op that
    * immediately reports ready with no token required.
    *
-   * Requires a container element with x-ref matching the `ref` option (default:"cf-turnstile").
+   * Requires a container element with x-ref matching the `ref` option (default:"cfTurnstile").
    * The Turnstile widget will be rendered inside this container.
    *
    * @param {object} [options={}] - Configuration options.
    * @param {string} [options.action=''] - Action name for Turnstile analytics.
-   * @param {string} [options.ref='cf-turnstile'] - Alpine x-ref name for the widget container.
+   * @param {string} [options.ref='cfTurnstile'] - Alpine x-ref name for the widget container.
    * @returns {object} Alpine.js component data object.
    *
    * @example
    * <div x-data="cfTurnstileWidget({ action: 'login' })">
-   *   <div x-ref="cf-turnstile"></div>
+   *   <div x-ref="cfTurnstile"></div>
    *   <button :disabled="!cfTurnstileReady()" @click="submit()">Submit</button>
    * </div>
    */
-  function cfTurnstileWidget({action = "", ref = "cf-turnstile"} = {}) {
+  function cfTurnstileWidget({action = "", ref = "cfTurnstile"} = {}) {
     return {
       token: "",
       error: "",

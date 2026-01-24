@@ -6,21 +6,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="dark light">
   <style>
-      /* Alpine: hide elements until initialized. */
-      [x-cloak] {
-          display: none !important;
-      }
+    {# Alpine: hide elements until initialized. #}
+    [x-cloak] {
+        display: none !important;
+    }
 
-      /* Tom Select: match text color to regular form inputs. */
-      .ts-wrapper, .ts-wrapper * {
-          color: var(--bs-body-color) !important;
-          caret-color: var(--bs-body-color) !important;
-      }
+    {# Tom Select: match text color to regular form inputs. #}
+    .ts-wrapper, .ts-wrapper * {
+        color: var(--bs-body-color) !important;
+        caret-color: var(--bs-body-color) !important;
+    }
 
-      /* Tom Select: patch for multi-select pills background. */
-      .ts-wrapper.multi .ts-control > .item {
-          background-color: var(--bs-secondary-bg) !important;
-      }
+    {# Tom Select: patch for multi-select pills background. #}
+    .ts-wrapper.multi .ts-control > .item {
+        background-color: var(--bs-secondary-bg) !important;
+    }
   </style>
   <script>
     {# The navbar theme switcher depends on Alpine, so set a default theme here to avoid a light-then-dark flash before Alpine loads. #}
@@ -35,31 +35,16 @@
   {% if brand.favicon_url %}
     <link rel="icon" href="{{ brand.favicon_url }}">
   {% endif %}
-  <link
-    rel="stylesheet"
-    href="{% static 'frontend/vendor/bootstrap/css/bootstrap.min.css' %}"
-  >
-  <link
-    rel="stylesheet"
-    href="{% static 'frontend/vendor/bootstrap-icons/bootstrap-icons.min.css' %}"
-  >
-  <link
-    rel="stylesheet"
-    href="{% static 'frontend/vendor/tom-select/css/tom-select.bootstrap5.min.css' %}"
-  >
-  <script
-    src="{% static 'frontend/vendor/bootstrap/js/bootstrap.bundle.min.js' %}"
-    defer
-  ></script>
+  <link rel="stylesheet" href="{% static 'frontend/vendor/bootstrap/css/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'frontend/vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% static 'frontend/vendor/tom-select/css/tom-select.bootstrap5.min.css' %}">
+  <script src="{% static 'frontend/vendor/bootstrap/js/bootstrap.bundle.min.js' %}" defer></script>
   <script src="{% static 'frontend/vendor/axios/js/axios.min.js' %}" defer></script>
   <script src="{% static 'frontend/js/api.js' %}" defer></script>
   <script src="{% static 'frontend/js/utils.js' %}"></script>
   <script src="{% static 'frontend/js/stores.js' %}" defer></script>
   <script src="{% static 'frontend/js/cf-turnstile.js' %}" defer></script>
-  <script
-    src="{% static 'frontend/vendor/tom-select/js/tom-select.complete.min.js' %}"
-    defer
-  ></script>
+  <script src="{% static 'frontend/vendor/tom-select/js/tom-select.complete.min.js' %}" defer></script>
   <script src="{% static 'frontend/vendor/alpine/js/alpine.min.js' %}" defer></script>
   {% block head %}{% endblock %}
   {% block styles %}{% endblock %}
