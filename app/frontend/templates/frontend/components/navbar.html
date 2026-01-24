@@ -267,6 +267,8 @@
         try {
           const {data} = await api.post(APP.urls.session.revert);
           this.$store.session.update(data);
+          this.$store.conference.profile = null;
+          this.$store.conference.save();
           window.location.reload();
         } catch {
           this.loading = false;
@@ -328,6 +330,8 @@
             impersonated: this.selectedUser
           });
           this.$store.session.update(data);
+          this.$store.conference.profile = null;
+          this.$store.conference.save();
           this._ts.clear();
           window.location.reload();
         } catch (err) {

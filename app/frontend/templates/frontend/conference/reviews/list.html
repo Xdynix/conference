@@ -23,16 +23,17 @@
       </div>
     </template>
 
-    <template x-if="$store.conference.detail && !$store.permissions.canReview">
-      <div class="alert alert-info" role="alert">
-        Reviews are available for users with reviewer permissions.
-      </div>
-    </template>
-
-    <template x-if="$store.conference.detail && $store.permissions.canReview">
+    <template x-if="$store.conference.detail">
       <div>
-        {# TODO #}
-        <p class="text-muted">Review list page - to be implemented.</p>
+        <div x-show="!$store.permissions.canReview">
+          <div class="alert alert-info" role="alert">
+            Reviews are available for users with reviewer permissions.
+          </div>
+        </div>
+        <div x-show="$store.permissions.canReview" x-cloak>
+          {# TODO #}
+          <p class="text-muted">Review list page - to be implemented.</p>
+        </div>
       </div>
     </template>
   </div>

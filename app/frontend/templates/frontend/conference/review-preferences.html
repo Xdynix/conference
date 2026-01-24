@@ -25,38 +25,42 @@
           </div>
         </template>
 
-        <template x-if="$store.conference.detail && !$store.permissions.canReview">
-          <div class="alert alert-info" role="alert">
-            Review preferences are available for users with reviewer permissions.
-          </div>
-        </template>
-
-        <template x-if="$store.conference.detail && $store.permissions.canReview">
-          <form @submit.prevent="submit()">
-            <div class="mb-3">
-              <label for="desired-paper-count" class="form-label">
-                Desired paper count
-              </label>
-              <input
-                id="desired-paper-count"
-                type="number"
-                class="form-control"
-                :class="{ 'is-invalid': errors.desired_paper_count }"
-                x-model.number="form.desiredPaperCount"
-                min="0"
-              >
-              <div class="invalid-feedback" x-text="errors.desired_paper_count"></div>
+        <template x-if="$store.conference.detail">
+          <div>
+            <div x-show="!$store.permissions.canReview">
+              <div class="alert alert-info" role="alert">
+                Review preferences are available for users with reviewer permissions.
+              </div>
             </div>
+            <div x-show="$store.permissions.canReview" x-cloak>
+              <form @submit.prevent="submit()">
+                <div class="mb-3">
+                  <label for="desired-paper-count" class="form-label">
+                    Desired paper count
+                  </label>
+                  <input
+                    id="desired-paper-count"
+                    type="number"
+                    class="form-control"
+                    :class="{ 'is-invalid': errors.desired_paper_count }"
+                    x-model.number="form.desiredPaperCount"
+                    min="0"
+                  >
+                  <div
+                    class="invalid-feedback"
+                    x-text="errors.desired_paper_count"
+                  ></div>
+                </div>
 
-            <div class="mb-3">
-              <label for="interested-keywords" class="form-label">
-                Interested keywords
-              </label>
-              <select
-                id="interested-keywords"
-                class="form-select"
-                multiple
-                x-init="
+                <div class="mb-3">
+                  <label for="interested-keywords" class="form-label">
+                    Interested keywords
+                  </label>
+                  <select
+                    id="interested-keywords"
+                    class="form-select"
+                    multiple
+                    x-init="
                   const buildOptions = () => {
                     const confKeywords = $store.conference.detail?.keywords || [];
                     const profileKeywords = form.interestedKeywords || [];
@@ -83,50 +87,52 @@
                     }
                   });
                 "
-                x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.interested_keywords)"
-              ></select>
-              <div
-                class="invalid-feedback"
-                :class="{ 'd-block': errors.interested_keywords }"
-                x-text="errors.interested_keywords"
-              ></div>
-            </div>
+                    x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.interested_keywords)"
+                  ></select>
+                  <div
+                    class="invalid-feedback"
+                    :class="{ 'd-block': errors.interested_keywords }"
+                    x-text="errors.interested_keywords"
+                  ></div>
+                </div>
 
-            <div
-              x-show="errors._form"
-              x-cloak
-              class="alert alert-danger"
-              role="alert"
-              x-text="errors._form"
-            ></div>
-
-            <div
-              x-show="success"
-              x-cloak
-              class="alert alert-success"
-              role="alert"
-            >
-              Preferences saved successfully.
-            </div>
-
-            <div class="d-grid">
-              <button
-                type="submit"
-                class="btn btn-primary"
-                :disabled="loading"
-              >
-                <span
-                  x-show="loading"
+                <div
+                  x-show="errors._form"
                   x-cloak
-                  class="spinner-border spinner-border-sm me-1"
-                  role="status"
+                  class="alert alert-danger"
+                  role="alert"
+                  x-text="errors._form"
+                ></div>
+
+                <div
+                  x-show="success"
+                  x-cloak
+                  class="alert alert-success"
+                  role="alert"
                 >
-                  <span class="visually-hidden">Saving...</span>
-                </span>
-                Save
-              </button>
+                  Preferences saved successfully.
+                </div>
+
+                <div class="d-grid">
+                  <button
+                    type="submit"
+                    class="btn btn-primary"
+                    :disabled="loading"
+                  >
+                    <span
+                      x-show="loading"
+                      x-cloak
+                      class="spinner-border spinner-border-sm me-1"
+                      role="status"
+                    >
+                      <span class="visually-hidden">Saving...</span>
+                    </span>
+                    Save
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
+          </div>
         </template>
       </div>
     </div>
