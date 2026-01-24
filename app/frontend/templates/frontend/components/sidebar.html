@@ -34,6 +34,17 @@
           My Papers
         </a>
       </li>
+      {# TODO: Add href when My Registrations page is implemented #}
+      <li class="nav-item">
+        <a
+          class="nav-link d-flex align-items-center gap-2"
+          :class="{'active': $store.sidebar?.active === 'my-registrations'}"
+          href="#"
+        >
+          <i class="bi-ticket-perforated"></i>
+          My Registrations
+        </a>
+      </li>
       <li class="nav-item" x-show="$store.permissions.canReview" x-cloak>
         <a
           class="nav-link d-flex align-items-center gap-2"
@@ -63,22 +74,62 @@
           <li class="nav-item">
             <a
               class="nav-link d-flex align-items-center gap-2"
-              :class="{'active': $store.sidebar?.active === 'papers'}"
+              :class="{'active': $store.sidebar?.active === 'admin-papers'}"
               href="#"
             >
               <i class="bi-folder"></i>
               Papers
             </a>
           </li>
-          {# TODO: Add href when Reviews management page is implemented #}
+          {# TODO: Add href when Registrations management page is implemented #}
+          <li class="nav-item" x-show="$store.permissions.isConferenceAdmin" x-cloak>
+            <a
+              class="nav-link d-flex align-items-center gap-2"
+              :class="{'active': $store.sidebar?.active === 'admin-registrations'}"
+              href="#"
+            >
+              <i class="bi-people"></i>
+              Registrations
+            </a>
+          </li>
+          {# TODO: Add href when Payments page is implemented #}
+          <li class="nav-item" x-show="$store.permissions.isConferenceAdmin" x-cloak>
+            <a
+              class="nav-link d-flex align-items-center gap-2"
+              :class="{'active': $store.sidebar?.active === 'admin-payments'}"
+              href="#"
+            >
+              <i class="bi-credit-card"></i>
+              Payments
+            </a>
+          </li>
+          {# TODO: Add href when Members page is implemented #}
           <li class="nav-item">
             <a
               class="nav-link d-flex align-items-center gap-2"
-              :class="{'active': $store.sidebar?.active === 'reviews'}"
+              :class="{'active': $store.sidebar?.active === 'admin-members'}"
               href="#"
             >
-              <i class="bi-clipboard-check"></i>
-              Reviews
+              <i class="bi-person-badge"></i>
+              Members
+            </a>
+          </li>
+        </ul>
+      </div>
+    </template>
+    <template x-if="$store.permissions.isChairRole">
+      <div>
+        <hr class="my-3">
+        <ul class="nav nav-pills flex-column">
+          {# TODO: Add href when Settings page is implemented #}
+          <li class="nav-item">
+            <a
+              class="nav-link d-flex align-items-center gap-2"
+              :class="{'active': $store.sidebar?.active === 'admin-settings'}"
+              href="#"
+            >
+              <i class="bi-gear"></i>
+              Settings
             </a>
           </li>
         </ul>

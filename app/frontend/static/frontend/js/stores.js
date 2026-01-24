@@ -136,6 +136,8 @@
     Alpine.store("permissions", {
       canReview: false,
       hasAdminRole: false,
+      isConferenceAdmin: false,
+      isChairRole: false,
     });
 
     Alpine.effect(() => {
@@ -151,37 +153,28 @@
       const profile = Alpine.store("conference")?.profile;
       const permissions = Alpine.store("permissions");
 
-      let canReview;
-      if (user?.is_superuser) {
-        canReview = true;
-      } else if (user?.roles?.includes(enums.GlobalRole.ADMIN.value)) {
-        canReview = true;
-      } else {
-        const confReviewers = enums.ConferenceRole._collections.reviewers;
-        if (profile?.conference_roles?.some((r) => confReviewers.includes(r))) {
-          canReview = true;
-        } else {
-          const trackReviewers = enums.TrackRole._collections.reviewers;
-          canReview = !!profile?.track_roles?.some((tr) => trackReviewers.includes(tr.role));
-        }
-      }
-      permissions.canReview = canReview;
+      const isSuperuserOrGlobalAdmin =
+        user?.is_superuser || user?.roles?.includes(enums.GlobalRole.ADMIN.value);
 
-      let hasAdminRole;
-      if (user?.is_superuser) {
-        hasAdminRole = true;
-      } else if (user?.roles?.includes(enums.GlobalRole.ADMIN.value)) {
-        hasAdminRole = true;
-      } else {
-        const confAdmins = enums.ConferenceRole._collections.admins;
-        if (profile?.conference_roles?.some((r) => confAdmins.includes(r))) {
-          hasAdminRole = true;
-        } else {
-          const trackAdmins = enums.TrackRole._collections.admins;
-          hasAdminRole = !!profile?.track_roles?.some((tr) => trackAdmins.includes(tr.role));
-        }
-      }
-      permissions.hasAdminRole = hasAdminRole;
+      const hasConferenceRole = (roles) =>
+        profile?.conference_roles?.some((r) => roles.includes(r));
+
+      const hasTrackRole = (roles) =>
+        profile?.track_roles?.some((tr) => roles.includes(tr.role));
+
+      permissions.canReview = isSuperuserOrGlobalAdmin
+        || hasConferenceRole(enums.ConferenceRole._collections.reviewers)
+        || hasTrackRole(enums.TrackRole._collections.reviewers);
+
+      permissions.hasAdminRole = isSuperuserOrGlobalAdmin
+        || hasConferenceRole(enums.ConferenceRole._collections.admins)
+        || hasTrackRole(enums.TrackRole._collections.admins);
+
+      permissions.isConferenceAdmin = isSuperuserOrGlobalAdmin
+        || hasConferenceRole(enums.ConferenceRole._collections.admins);
+
+      permissions.isChairRole = isSuperuserOrGlobalAdmin
+        || hasConferenceRole([enums.ConferenceRole.CHAIR.value]);
     });
 
     Alpine.store("sidebar", {
