@@ -41,7 +41,8 @@
 
           if (this.token) {
             try {
-              await api.post(APP.urls.invitation.reject, {
+              const url = "{% url 'api-1.0.0:reject-invitation' %}";
+              await api.post(url, {
                 invitation_token: this.token,
               });
             } catch {

@@ -21,11 +21,11 @@ Keywords handling:
         <textarea
           id="abstract"
           class="form-control"
-          :class="{ 'is-invalid': errors['abstract'] }"
+          :class="{ 'is-invalid': errors.abstract }"
           x-model="form.abstract"
           rows="6"
         ></textarea>
-        <div class="invalid-feedback" x-text="errors['abstract']"></div>
+        <div class="invalid-feedback" x-text="errors.abstract"></div>
       </div>
 
       <div class="mb-3">
@@ -33,11 +33,11 @@ Keywords handling:
         <textarea
           id="contribution"
           class="form-control"
-          :class="{ 'is-invalid': errors['contribution'] }"
+          :class="{ 'is-invalid': errors.contribution }"
           x-model="form.contribution"
           rows="4"
         ></textarea>
-        <div class="invalid-feedback" x-text="errors['contribution']"></div>
+        <div class="invalid-feedback" x-text="errors.contribution"></div>
       </div>
 
       <div class="mb-3">
@@ -73,12 +73,12 @@ Keywords handling:
               }
             });
           "
-          x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors['keywords'])"
+          x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.keywords)"
         ></select>
         <div
           class="invalid-feedback"
-          :class="{ 'd-block': errors['keywords'] }"
-          x-text="errors['keywords']"
+          :class="{ 'd-block': errors.keywords }"
+          x-text="errors.keywords"
         ></div>
       </div>
     </div>

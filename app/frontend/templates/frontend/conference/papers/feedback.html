@@ -93,14 +93,8 @@
         async init() {
           try {
             const [paperRes, feedbacksRes] = await Promise.all([
-              api.get(APP.urls.myPaper.get(
-                APP.params.conference_name,
-                APP.params.paper_code,
-              )),
-              api.get(APP.urls.myPaper.listFeedbacks(
-                APP.params.conference_name,
-                APP.params.paper_code,
-              )),
+              api.get("{% url 'api-1.0.0:get-my-paper' conference_name=params.conference_name paper_code=params.paper_code %}"),
+              api.get("{% url 'api-1.0.0:list-my-paper-feedbacks' conference_name=params.conference_name paper_code=params.paper_code %}"),
             ]);
             this.paper = paperRes.data;
             this.feedbacks = feedbacksRes.data;

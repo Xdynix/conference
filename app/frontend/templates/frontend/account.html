@@ -439,7 +439,8 @@
           this.loading = true;
 
           try {
-            const {data} = await api.patch(APP.urls.user.updateProfile, {
+            const url = "{% url 'api-1.0.0:update-current-user-profile' %}";
+            const {data} = await api.patch(url, {
               given_name: this.form.givenName,
               family_name: this.form.familyName,
               affiliation: this.form.affiliation,
@@ -519,7 +520,8 @@
           }
 
           try {
-            const {data} = await api.patch(APP.urls.user.update, payload);
+            const url = "{% url 'api-1.0.0:update-current-user' %}";
+            const {data} = await api.patch(url, payload);
 
             this.$store.session.user = data;
             this.$store.session.save();
@@ -591,7 +593,8 @@
           this.loading = true;
 
           try {
-            await api.post(APP.urls.user.setPassword, {
+            const url = "{% url 'api-1.0.0:set-current-user-password' %}";
+            await api.post(url, {
               old_password: this.form.oldPassword,
               new_password: this.form.newPassword,
             });

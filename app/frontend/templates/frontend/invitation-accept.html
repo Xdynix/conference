@@ -183,7 +183,8 @@
           }
 
           try {
-            const {data} = await api.post(APP.urls.invitation.lookup, {
+            const url = "{% url 'api-1.0.0:lookup-invitation' %}";
+            const {data} = await api.post(url, {
               invitation_token: this.token,
             });
             this.invitation = data;
@@ -217,7 +218,8 @@
           this.loading = true;
 
           try {
-            await api.post(APP.urls.invitation.redeem, {
+            const url = "{% url 'api-1.0.0:redeem-invitation' %}";
+            await api.post(url, {
               invitation_token: this.token,
             });
             this.state = "success";

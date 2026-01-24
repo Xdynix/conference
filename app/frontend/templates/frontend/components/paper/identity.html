@@ -32,7 +32,7 @@ Modes:
             <select
               id="track"
               class="form-select"
-              :class="{ 'is-invalid': errors['track'] }"
+              :class="{ 'is-invalid': errors.track }"
               x-model="form.track"
               required
             >
@@ -41,7 +41,7 @@ Modes:
                 <option :value="t.uid" x-text="t.display_name"></option>
               </template>
             </select>
-            <div class="invalid-feedback" x-text="errors['track']"></div>
+            <div class="invalid-feedback" x-text="errors.track"></div>
             <small class="text-muted">Track cannot be changed after paper is created.</small>
           </div>
         </template>
@@ -58,11 +58,11 @@ Modes:
           id="title"
           type="text"
           class="form-control"
-          :class="{ 'is-invalid': errors['title'] }"
+          :class="{ 'is-invalid': errors.title }"
           x-model="form.title"
           required
         >
-        <div class="invalid-feedback" x-text="errors['title']"></div>
+        <div class="invalid-feedback" x-text="errors.title"></div>
       </div>
     </div>
   </template>

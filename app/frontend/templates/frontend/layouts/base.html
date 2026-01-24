@@ -98,125 +98,43 @@
     urls: {
       session: {
         get: "{% url 'api-1.0.0:get-session' %}",
-        create: "{% url 'api-1.0.0:create-session' %}",
         delete: "{% url 'api-1.0.0:delete-session' %}",
-        assume: "{% url 'api-1.0.0:assume-session' %}",
-        revert: "{% url 'api-1.0.0:revert-session' %}",
-      },
-      users: {
-        list: "{% url 'api-1.0.0:list-users' %}",
       },
       conference: {
         list: "{% url 'api-1.0.0:list-conferences' %}",
         get: urlTemplate(
-          "{% url 'api-1.0.0:get-conference' '__CONFERENCE_NAME__' %}",
+          "{% url 'api-1.0.0:get-conference' conference_name='__CONFERENCE_NAME__' %}",
           "conference_name",
         ),
         getProfile: urlTemplate(
-          "{% url 'api-1.0.0:get-current-user-conference-profile' '__CONFERENCE_NAME__' %}",
+          "{% url 'api-1.0.0:get-current-user-conference-profile' conference_name='__CONFERENCE_NAME__' %}",
           "conference_name",
-        ),
-      },
-      myPaper: {
-        list: urlTemplate(
-          "{% url 'api-1.0.0:list-my-papers' '__CONFERENCE_NAME__' %}",
-          "conference_name",
-        ),
-        create: urlTemplate(
-          "{% url 'api-1.0.0:create-draft' '__CONFERENCE_NAME__' %}",
-          "conference_name",
-        ),
-        get: urlTemplate(
-          "{% url 'api-1.0.0:get-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
-          "conference_name",
-          "paper_code",
-        ),
-        update: urlTemplate(
-          "{% url 'api-1.0.0:update-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
-          "conference_name",
-          "paper_code",
-        ),
-        delete: urlTemplate(
-          "{% url 'api-1.0.0:delete-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
-          "conference_name",
-          "paper_code",
-        ),
-        submit: urlTemplate(
-          "{% url 'api-1.0.0:submit-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
-          "conference_name",
-          "paper_code",
-        ),
-        unsubmit: urlTemplate(
-          "{% url 'api-1.0.0:unsubmit-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
-          "conference_name",
-          "paper_code",
-        ),
-        withdraw: urlTemplate(
-          "{% url 'api-1.0.0:withdraw-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
-          "conference_name",
-          "paper_code",
-        ),
-        createSubmission: urlTemplate(
-          "{% url 'api-1.0.0:create-my-submission' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
-          "conference_name",
-          "paper_code",
-        ),
-        createFinal: urlTemplate(
-          "{% url 'api-1.0.0:create-my-final' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
-          "conference_name",
-          "paper_code",
-        ),
-        listFeedbacks: urlTemplate(
-          "{% url 'api-1.0.0:list-my-paper-feedbacks' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
-          "conference_name",
-          "paper_code",
         ),
       },
       myReview: {
         accept: urlTemplate(
-          "{% url 'api-1.0.0:accept-review' '__CONFERENCE_NAME__' '00000000000000000000000001' %}",
+          "{% url 'api-1.0.0:accept-review' conference_name='__CONFERENCE_NAME__' review_uid='00000000000000000000000001' %}",
           "conference_name",
           "ulid",
         ),
         decline: urlTemplate(
-          "{% url 'api-1.0.0:decline-review' '__CONFERENCE_NAME__' '00000000000000000000000001' %}",
+          "{% url 'api-1.0.0:decline-review' conference_name='__CONFERENCE_NAME__' review_uid='00000000000000000000000001' %}",
           "conference_name",
           "ulid",
         ),
       },
-      user: {
-        update: "{% url 'api-1.0.0:update-current-user' %}",
-        updateProfile: "{% url 'api-1.0.0:update-current-user-profile' %}",
-        setPassword: "{% url 'api-1.0.0:set-current-user-password' %}",
-      },
-      account: {
-        create: "{% url 'api-1.0.0:create-account' %}",
-      },
-      invitation: {
-        lookup: "{% url 'api-1.0.0:lookup-invitation' %}",
-        redeem: "{% url 'api-1.0.0:redeem-invitation' %}",
-        reject: "{% url 'api-1.0.0:reject-invitation' %}",
-      },
-      emailVerification: {
-        create: "{% url 'api-1.0.0:create-email-verification' %}",
-        verify: "{% url 'api-1.0.0:verify-email-verification' %}",
-      },
-      passwordReset: {
-        create: "{% url 'api-1.0.0:create-password-reset' %}",
-        consume: "{% url 'api-1.0.0:consume-password-reset' %}",
-      },
       pages: {
         conferenceHome: urlTemplate(
-          "{% url 'frontend:conference-home' '__CONFERENCE_NAME__' %}",
+          "{% url 'frontend:conference-home' conference_name='__CONFERENCE_NAME__' %}",
           "conference_name",
         ),
         paperDetail: urlTemplate(
-          "{% url 'frontend:paper-detail' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+          "{% url 'frontend:paper-detail' conference_name='__CONFERENCE_NAME__' paper_code='__PAPER_CODE__' %}",
           "conference_name",
           "paper_code",
         ),
         reviewDetail: urlTemplate(
-          "{% url 'frontend:review-detail' '__CONFERENCE_NAME__' '00000000000000000000000001' %}",
+          "{% url 'frontend:review-detail' conference_name='__CONFERENCE_NAME__' review_uid='00000000000000000000000001' %}",
           "conference_name",
           "ulid",
         ),

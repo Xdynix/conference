@@ -304,6 +304,10 @@ Password field with show/hide toggle:
 
 ## URL Configuration
 
+Prefer `{% url %}` in templates when the URL can be built server-side. Use
+`window.APP.urls` only for dynamic cases that need runtime parameters or when building
+URLs from data not available to the template.
+
 URLs are rendered into `window.APP.urls` by Django, grouped by resource:
 
 ```javascript

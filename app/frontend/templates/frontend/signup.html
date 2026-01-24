@@ -262,7 +262,8 @@
           this.invitationToken = hash;
 
           try {
-            const {data} = await api.post(APP.urls.invitation.lookup, {
+            const url = "{% url 'api-1.0.0:lookup-invitation' %}";
+            const {data} = await api.post(url, {
               invitation_token: hash,
             });
             this.invitation = data;
@@ -321,7 +322,7 @@
 
           try {
             const {data} = await api.post(
-              APP.urls.account.create,
+              "{% url 'api-1.0.0:create-account' %}",
               payload,
               this.cfRequestConfig(),
             );

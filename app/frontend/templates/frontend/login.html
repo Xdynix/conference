@@ -117,7 +117,7 @@
 
           try {
             const {data} = await api.post(
-              APP.urls.session.create,
+              "{% url 'api-1.0.0:create-session' %}",
               {
                 username: this.form.username,
                 password: this.form.password,

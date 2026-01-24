@@ -265,7 +265,8 @@
         this.loading = true;
 
         try {
-          const {data} = await api.post(APP.urls.session.revert);
+          const url = "{% url 'api-1.0.0:revert-session' %}";
+          const {data} = await api.post(url);
           this.$store.session.update(data);
           this.$store.conference.profile = null;
           this.$store.conference.save();
@@ -294,7 +295,8 @@
           load: async (query, callback) => {
             if (!query.length) return callback();
             try {
-              const {data} = await api.get(APP.urls.users.list, {
+              const url = "{% url 'api-1.0.0:list-users' %}";
+              const {data} = await api.get(url, {
                 params: {search: query, page_size: 10},
               });
               callback(data.items.filter((u) => !u.is_superuser));
@@ -326,7 +328,8 @@
         this.error = null;
 
         try {
-          const {data} = await api.post(APP.urls.session.assume, {
+          const url = "{% url 'api-1.0.0:assume-session' %}";
+          const {data} = await api.post(url, {
             impersonated: this.selectedUser
           });
           this.$store.session.update(data);

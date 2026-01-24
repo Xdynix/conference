@@ -205,7 +205,7 @@ States:
 
         try {
           await api.post(
-            APP.urls.emailVerification.create,
+            "{% url 'api-1.0.0:create-email-verification' %}",
             {email: this.email},
             this.cfRequestConfig(),
           );
@@ -243,7 +243,7 @@ States:
 
         try {
           const {data} = await api.post(
-            APP.urls.emailVerification.verify,
+            "{% url 'api-1.0.0:verify-email-verification' %}",
             {email: this.email, code: this.code},
             this.cfRequestConfig(),
           );

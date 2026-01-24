@@ -57,7 +57,7 @@
       </template>
 
       {# Submit confirmation modal #}
-      <div class="modal fade" id="submitModal" tabindex="-1" aria-hidden="true">
+      <div class="modal fade" id="submit-modal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
           <div class="modal-content">
             <div class="modal-header">
@@ -300,7 +300,7 @@
                         type="button"
                         class="btn btn-success"
                         data-bs-toggle="modal"
-                        data-bs-target="#submitModal"
+                        data-bs-target="#submit-modal"
                         :disabled="!canSubmit"
                       >
                         Submit for Review
@@ -750,10 +750,7 @@
 
         async init() {
           try {
-            const url = APP.urls.myPaper.get(
-              APP.params.conference_name,
-              APP.params.paper_code,
-            );
+            const url = "{% url 'api-1.0.0:get-my-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
             const {data} = await api.get(url);
             this.paper = data;
             this.populateForm();
@@ -773,10 +770,7 @@
         async uploadSubmission(file, onProgress) {
           const formData = new FormData();
           formData.append("file", file);
-          const url = APP.urls.myPaper.createSubmission(
-            APP.params.conference_name,
-            this.paper.code,
-          );
+          const url = "{% url 'api-1.0.0:create-my-submission' conference_name=params.conference_name paper_code=params.paper_code %}";
           const {data} = await api.post(url, formData, {
             headers: {"Content-Type": "multipart/form-data"},
             onUploadProgress: onProgress,
@@ -790,10 +784,7 @@
           this.saving = true;
 
           try {
-            const url = APP.urls.myPaper.update(
-              APP.params.conference_name,
-              this.paper.code,
-            );
+            const url = "{% url 'api-1.0.0:update-my-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
             const {data} = await api.patch(url, this.buildPayload());
             this.paper = data;
             this.isDirty = false;
@@ -816,17 +807,14 @@
           this.submitting = true;
           this.submitError = null;
           try {
-            const url = APP.urls.myPaper.submit(
-              APP.params.conference_name,
-              this.paper.code,
-            );
+            const url = "{% url 'api-1.0.0:submit-my-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
             const {data} = await api.post(url);
             this.paper = data;
           } catch (e) {
             this.submitError = e.response?.data?.message || 'Failed to submit paper.';
           } finally {
             this.submitting = false;
-            bootstrap.Modal.getInstance(document.getElementById('submitModal'))?.hide();
+            bootstrap.Modal.getInstance(document.getElementById('submit-modal'))?.hide();
           }
         },
 
@@ -835,10 +823,7 @@
           if (!confirm('Return this paper to draft? You can resubmit when ready.')) return;
           this.unsubmitting = true;
           try {
-            const url = APP.urls.myPaper.unsubmit(
-              APP.params.conference_name,
-              this.paper.code,
-            );
+            const url = "{% url 'api-1.0.0:unsubmit-my-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
             const {data} = await api.post(url);
             this.paper = data;
             this.populateForm();
@@ -857,10 +842,7 @@
           if (!confirm('Withdraw this paper? This cannot be undone.')) return;
           this.withdrawing = true;
           try {
-            const url = APP.urls.myPaper.withdraw(
-              APP.params.conference_name,
-              this.paper.code,
-            );
+            const url = "{% url 'api-1.0.0:withdraw-my-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
             const {data} = await api.post(url);
             this.paper = data;
             this.dangerZoneOpen = false;
@@ -923,10 +905,7 @@
               formData.append('viewable_file', this.finalUpload.viewableFile);
             }
 
-            const url = APP.urls.myPaper.createFinal(
-              APP.params.conference_name,
-              this.paper.code,
-            );
+            const url = "{% url 'api-1.0.0:create-my-final' conference_name=params.conference_name paper_code=params.paper_code %}";
             const {data} = await api.post(url, formData, {
               headers: {'Content-Type': 'multipart/form-data'},
               onUploadProgress: (e) => {
@@ -947,10 +926,7 @@
           if (!confirm('Delete this paper? This cannot be undone.')) return;
           this.deleting = true;
           try {
-            const url = APP.urls.myPaper.delete(
-              APP.params.conference_name,
-              this.paper.code,
-            );
+            const url = "{% url 'api-1.0.0:delete-my-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
             await api.delete(url);
             window.location.href = "{% url 'frontend:paper-list' conference_name=params.conference_name %}";
           } catch (e) {
