@@ -24,6 +24,11 @@ from app.core.models import User
 
 router = Router(tags=["Conference"], exclude_none=True)
 
+# TODO: Add a `/conferences/{name}/my-dashboard` endpoint to return user-specific stats
+#  and action items (e.g., pending review count, in-progress review count, upcoming
+#  deadlines). This avoids requiring the frontend to call `list-my-reviews` on every
+#  page load just to display sidebar badges.
+
 
 class TrackSchema(BaseTrackSchema):
     ieee_ecopyright_required: bool
