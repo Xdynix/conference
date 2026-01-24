@@ -101,6 +101,8 @@ class TestAssignReview:
                 },
                 "code": paper.code,
                 "title": paper.title,
+                "abstract": "",
+                "keywords": [],
                 "submission": {
                     "uid": any_str,
                     "display_name": any_str,
@@ -473,6 +475,8 @@ class TestImportReview:
                 },
                 "code": paper.code,
                 "title": paper.title,
+                "abstract": "",
+                "keywords": [],
                 "submission": {
                     "uid": any_str,
                     "display_name": any_str,

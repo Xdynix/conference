@@ -62,6 +62,16 @@
                       x-text="review?.paper.code"
                     ></span>
                     <h5 class="card-title mt-2 mb-2" x-text="review?.paper.title"></h5>
+                    <template x-if="review?.paper.keywords?.length">
+                      <div class="mb-2">
+                        <template x-for="kw in review.paper.keywords" :key="kw">
+                          <span
+                            class="badge bg-body-tertiary text-body border me-1"
+                            x-text="kw"
+                          ></span>
+                        </template>
+                      </div>
+                    </template>
                     <p class="text-muted small mb-0">
                       <span x-text="review?.paper.track?.display_name"></span>
                       <template x-if="review?.paper.submission">
@@ -77,6 +87,28 @@
                         </span>
                       </template>
                     </p>
+                    <template x-if="review?.paper.abstract">
+                      <div class="mt-3 pt-3 border-top">
+                        <button
+                          type="button"
+                          class="btn btn-link btn-sm p-0 small text-decoration-none"
+                          @click="showAbstract = !showAbstract"
+                        >
+                          <i
+                            class="bi"
+                            :class="showAbstract ? 'bi-chevron-down' : 'bi-chevron-right'"
+                          ></i>
+                          Abstract
+                        </button>
+                        <p
+                          x-show="showAbstract"
+                          x-cloak
+                          class="small mt-2 mb-0"
+                          style="white-space: pre-wrap;"
+                          x-text="review.paper.abstract"
+                        ></p>
+                      </div>
+                    </template>
                   </div>
                 </div>
 
@@ -89,7 +121,19 @@
                       then accept or decline the assignment.
                     </p>
 
-                    <div class="d-flex gap-2">
+                    <div class="d-flex justify-content-end gap-2">
+                      <button
+                        type="button"
+                        class="btn btn-secondary"
+                        @click="declineReview()"
+                        :disabled="accepting || declining"
+                      >
+                        <span
+                          x-show="declining"
+                          class="spinner-border spinner-border-sm me-1"
+                        ></span>
+                        Decline
+                      </button>
                       <button
                         type="button"
                         class="btn btn-primary"
@@ -101,18 +145,6 @@
                           class="spinner-border spinner-border-sm me-1"
                         ></span>
                         Accept Assignment
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        @click="declineReview()"
-                        :disabled="accepting || declining"
-                      >
-                        <span
-                          x-show="declining"
-                          class="spinner-border spinner-border-sm me-1"
-                        ></span>
-                        Decline
                       </button>
                     </div>
                   </div>
@@ -512,6 +544,7 @@
         review: null,
         loading: true,
         error: null,
+        showAbstract: false,
         accepting: false,
         declining: false,
         saving: false,

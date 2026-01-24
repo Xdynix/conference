@@ -455,6 +455,8 @@ class ReviewPaper(Schema):
     track: PaperTrack
     code: PaperCode
     title: PaperTitle
+    abstract: PaperAbstract
+    keywords: list[KeywordText]
     submission: PaperSubmission | None
 
 

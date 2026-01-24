@@ -26,6 +26,10 @@ class ReviewPaperResponse(ReviewPaper):
         return paper.conference.name
 
     @staticmethod
+    def resolve_keywords(paper: Paper) -> list[str]:
+        return [keyword.text for keyword in paper.keywords.all()]
+
+    @staticmethod
     def resolve_submission(paper: Paper) -> PaperSubmissionSchema | None:
         latest: PaperSubmission | None = next(iter(paper.latest_submission), None)  # type: ignore[attr-defined]
         if latest is None:
@@ -79,12 +83,14 @@ def with_review_prefetch(
             queryset=Paper.objects.select_related(
                 "conference",
                 "track__conference",
-            ).annotate(
+            )
+            .annotate(
                 api_base_url=Value(
                     request.build_absolute_uri("/"),
                     output_field=CharField(),
                 ),
-            ),
+            )
+            .prefetch_related("keywords"),
         ),
         PaperSubmission.prefetch_latest(lookup="paper__submissions"),
     )

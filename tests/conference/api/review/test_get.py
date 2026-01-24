@@ -88,6 +88,8 @@ class TestGetMyReview:
                 },
                 "code": paper.code,
                 "title": paper.title,
+                "abstract": "",
+                "keywords": [],
                 "submission": {
                     "uid": str(submission.uid),
                     "display_name": f"{paper.code}.pdf",
@@ -353,6 +355,8 @@ class TestGetReview:
                 },
                 "code": paper.code,
                 "title": paper.title,
+                "abstract": "",
+                "keywords": [],
                 "submission": {
                     "uid": str(submission.uid),
                     "display_name": f"{paper.code}.pdf",

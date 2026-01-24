@@ -91,6 +91,8 @@ class TestUpdateMyReview:
                 },
                 "code": review.paper.code,
                 "title": review.paper.title,
+                "abstract": "",
+                "keywords": [],
             },
             "state": ReviewState.ACCEPTED,
             "originality": 5,
@@ -419,6 +421,8 @@ class TestUpdateReview:
                 },
                 "code": review.paper.code,
                 "title": review.paper.title,
+                "abstract": "",
+                "keywords": [],
             },
             "state": ReviewState.ACCEPTED,
             "reviewer": {

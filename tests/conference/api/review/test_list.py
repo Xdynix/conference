@@ -84,6 +84,8 @@ class TestListMyReviews:
                     },
                     "code": paper.code,
                     "title": paper.title,
+                    "abstract": "",
+                    "keywords": [],
                     "submission": {
                         "uid": str(submission.uid),
                         "display_name": f"{paper.code}.pdf",
@@ -338,6 +340,8 @@ class TestListReviews:
                     },
                     "code": paper.code,
                     "title": paper.title,
+                    "abstract": "",
+                    "keywords": [],
                     "submission": {
                         "uid": str(submission.uid),
                         "display_name": f"{paper.code}.pdf",

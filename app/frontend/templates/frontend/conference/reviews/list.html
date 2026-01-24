@@ -71,8 +71,8 @@
                         </h2>
                         <div x-show="!collapsed.pending">
                           <p class="text-muted small mb-3">
-                            Please download and scan each paper,
-                            then accept or decline the assignment.
+                            Please scan each paper before accepting or declining the
+                            assignment.
                           </p>
                           <div class="d-flex flex-column gap-3">
                             <template x-for="review in pending" :key="review.uid">
@@ -91,23 +91,58 @@
                                     class="card-title mb-2"
                                     x-text="review.paper.title"
                                   ></h5>
-                                  <p class="text-muted small mb-3">
-                                  <span
-                                    x-text="review.paper.track?.display_name"
-                                  ></span>
+                                  <template x-if="review.paper.keywords?.length">
+                                    <div class="mb-2">
+                                      <template
+                                        x-for="kw in review.paper.keywords"
+                                        :key="kw"
+                                      >
+                                        <span
+                                          class="badge bg-body-tertiary text-body border me-1"
+                                          x-text="kw"
+                                        ></span>
+                                      </template>
+                                    </div>
+                                  </template>
+                                  <p class="text-muted small mb-2">
+                                    <span
+                                      x-text="review.paper.track?.display_name"
+                                    ></span>
                                     <span class="mx-1">&middot;</span>
                                     Assigned
                                     <span
                                       x-text="formatDate(review.create_time)"
                                     ></span>
                                   </p>
+                                  <template x-if="review.paper.abstract">
+                                    <div class="mb-3">
+                                      <button
+                                        type="button"
+                                        class="btn btn-link btn-sm p-0 small text-decoration-none"
+                                        @click="review._showAbstract = !review._showAbstract"
+                                      >
+                                        <i
+                                          class="bi"
+                                          :class="review._showAbstract ? 'bi-chevron-down' : 'bi-chevron-right'"
+                                        ></i>
+                                        Abstract
+                                      </button>
+                                      <p
+                                        x-show="review._showAbstract"
+                                        x-cloak
+                                        class="text-muted small mt-2 mb-0"
+                                        style="white-space: pre-wrap;"
+                                        x-text="review.paper.abstract"
+                                      ></p>
+                                    </div>
+                                  </template>
                                   <div
                                     class="d-flex justify-content-between align-items-center"
                                   >
                                     <a
                                       x-show="review.paper.submission"
                                       :href="review.paper.submission?.download_url"
-                                      class="btn btn-sm btn-outline-secondary"
+                                      class="btn btn-sm btn-secondary"
                                       target="_blank"
                                     >
                                       <i class="bi-file-earmark-text me-1"></i>
@@ -117,7 +152,7 @@
                                     <div class="d-flex gap-2">
                                       <button
                                         type="button"
-                                        class="btn btn-sm btn-outline-secondary"
+                                        class="btn btn-sm btn-secondary"
                                         @click="declineReview(review)"
                                       >
                                         Decline
@@ -175,6 +210,17 @@
                                     class="card-title mb-2"
                                     x-text="review.paper.title"
                                   ></h5>
+                                  <template x-if="review.paper.keywords?.length">
+                                    <div class="mb-2">
+                                      <template x-for="kw in review.paper.keywords"
+                                                :key="kw">
+                                        <span
+                                          class="badge bg-body-tertiary text-body border me-1"
+                                          x-text="kw"
+                                        ></span>
+                                      </template>
+                                    </div>
+                                  </template>
                                   <p
                                     class="text-muted small mb-3"
                                     x-text="review.paper.track?.display_name"
