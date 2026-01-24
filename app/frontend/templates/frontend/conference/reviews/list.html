@@ -70,6 +70,10 @@
                           ></span>
                         </h2>
                         <div x-show="!collapsed.pending">
+                          <p class="text-muted small mb-3">
+                            Please download and scan each paper,
+                            then accept or decline the assignment.
+                          </p>
                           <div class="d-flex flex-column gap-3">
                             <template x-for="review in pending" :key="review.uid">
                               <div class="card">
@@ -115,12 +119,16 @@
                                         type="button"
                                         class="btn btn-sm btn-outline-secondary"
                                         @click="declineReview(review)"
-                                      >Decline</button>
+                                      >
+                                        Decline
+                                      </button>
                                       <button
                                         type="button"
                                         class="btn btn-sm btn-primary"
                                         @click="acceptReview(review)"
-                                      >Accept</button>
+                                      >
+                                        Accept
+                                      </button>
                                     </div>
                                   </div>
                                 </div>
