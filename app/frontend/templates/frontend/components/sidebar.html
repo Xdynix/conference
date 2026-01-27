@@ -66,12 +66,11 @@
       <div>
         <hr class="my-3">
         <ul class="nav nav-pills flex-column">
-          {# TODO: Add href when Papers management page is implemented #}
           <li class="nav-item">
             <a
               class="nav-link d-flex align-items-center gap-2"
               :class="{'active': $store.sidebar?.active === 'admin-papers'}"
-              href="#"
+              href="{% url 'frontend:admin-paper-list' conference_name=params.conference_name %}"
             >
               <i class="bi-folder"></i>
               Papers

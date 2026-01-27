@@ -6,7 +6,7 @@
   {% include "frontend/components/navbar.html" %}
   <div class="d-flex flex-grow-1 overflow-hidden">
     {% include "frontend/components/sidebar.html" %}
-    <main class="flex-grow-1 overflow-auto p-4">
+    <main class="d-flex flex-column flex-grow-1 overflow-auto p-4">
       <nav x-data aria-label="breadcrumb" class="border-bottom pb-3 mb-3">
         <ol class="breadcrumb mb-0">
           <template x-for="(item, index) in $store.breadcrumb.items" :key="index">

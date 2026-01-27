@@ -277,7 +277,19 @@
     return null;
   }
 
+  /**
+   * Formats a date for display.
+   *
+   * @param {string} isoString - ISO date string.
+   * @returns {string} Formatted date (e.g., "11 Jan 2026"), or empty string if invalid.
+   */
+  function formatDate(isoString) {
+    if (!isoString) return "";
+    return dateFmt.full.format(new Date(isoString));
+  }
+
   window.urlTemplate = urlTemplate;
+  window.formatDate = formatDate;
   window.mapErrors = mapErrors;
   window.getModelValue = getModelValue;
   window.setModelValue = setModelValue;
