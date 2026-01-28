@@ -1,11 +1,41 @@
-from typing import Self
+from collections.abc import Callable
+from functools import wraps
+from inspect import iscoroutinefunction
+from typing import Any, ParamSpec, Self, TypeVar, cast
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from ninja import NinjaAPI, Router
 from ninja.operation import Operation
 
 from app.ninja.errors import set_exception_handlers
 from app.ninja.json import ORJSONParser, ORJSONRenderer
+
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def superuser_required[F: Callable[..., Any]](view_func: F) -> F:  # pragma: no cover
+    if iscoroutinefunction(view_func):
+
+        @wraps(view_func)
+        async def wrapped(request, *args, **kwargs):  # type: ignore[no-untyped-def]
+            user = await request.auser()
+            if not (user.is_active and user.is_superuser):
+                raise PermissionDenied
+
+            return await view_func(request, *args, **kwargs)
+    else:
+
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):  # type: ignore[no-untyped-def]
+            user = request.user
+            if not (user.is_active and user.is_superuser):
+                raise PermissionDenied
+
+            return view_func(request, *args, **kwargs)
+
+    return cast(F, wrapped)
 
 
 class AppNinjaAPI(NinjaAPI):
@@ -31,7 +61,7 @@ class AppNinjaAPI(NinjaAPI):
             urls_namespace=urls_namespace,
             renderer=ORJSONRenderer(),
             parser=ORJSONParser(),
-            # TODO: Consider protect API doc page if `DEBUG=False`.
+            docs_decorator=None if settings.DEBUG else superuser_required,
         )
         set_exception_handlers(api)
         return api
