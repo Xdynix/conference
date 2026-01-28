@@ -81,4 +81,14 @@ urlpatterns = [
         protected_view(template_name="frontend/conference/admin/papers/list.html"),
         name="admin-paper-list",
     ),
+    path(
+        "<slug:conference_name>/admin/papers/new/",
+        protected_view(template_name="frontend/conference/admin/papers/new.html"),
+        name="admin-paper-new",
+    ),
+    path(
+        "<slug:conference_name>/admin/papers/<slug:paper_code>/",
+        protected_view(template_name="frontend/conference/admin/papers/detail.html"),
+        name="admin-paper-detail",
+    ),
 ]

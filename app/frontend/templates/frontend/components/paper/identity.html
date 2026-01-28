@@ -2,20 +2,20 @@
 Paper identity section: track and title.
 
 This component expects the parent to provide:
-  - mode: 'create' | 'edit' | 'view'
-  - form: Object with track (ULID) and title fields (for create/edit)
-  - paper: Paper object (for edit/view, contains track and title)
+  - mode: 'create' | 'edit' | 'view' | 'admin-create' | 'admin-edit' | 'admin-view'
+  - form: Object with track (ULID) and title fields (for create/edit modes)
+  - paper: Paper object (for edit/view modes, contains track and title)
   - errors: Object for displaying validation errors
-  - availableTracks: Array of tracks (for create mode)
+  - availableTracks: Array of tracks (for create/admin-create modes)
 
 Modes:
-  - create: Track dropdown (required), title input
-  - edit: Track badge (read-only), title input
-  - view: Track badge, title heading (wrapped in card)
+  - create, admin-create: Track dropdown (required), title input
+  - edit, admin-edit: Track (read-only), title input
+  - view, admin-view: Track (read-only), title (read-only), wrapped in card
 {% endcomment %}
 
 <div>
-  <template x-if="mode === 'create' || mode === 'edit'">
+  <template x-if="['create', 'edit', 'admin-create', 'admin-edit'].includes(mode)">
     <div class="mb-4">
       <div class="mb-3">
         <label class="form-label text-muted">Conference</label>
@@ -24,7 +24,7 @@ Modes:
 
       <div class="mb-3">
         <label class="form-label text-muted">Track</label>
-        <template x-if="mode === 'create'">
+        <template x-if="mode === 'create' || mode === 'admin-create'">
           <div>
             <select
               id="track"
@@ -42,7 +42,7 @@ Modes:
             <small class="text-muted">Track cannot be changed after paper is created.</small>
           </div>
         </template>
-        <template x-if="mode === 'edit'">
+        <template x-if="mode === 'edit' || mode === 'admin-edit'">
           <div class="form-control-plaintext" x-text="paper?.track?.display_name"></div>
         </template>
       </div>
@@ -64,7 +64,7 @@ Modes:
     </div>
   </template>
 
-  <template x-if="mode === 'view'">
+  <template x-if="mode === 'view' || mode === 'admin-view'">
     <div class="card mb-4">
       <div class="card-header">Basic Info</div>
       <div class="card-body">

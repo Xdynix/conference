@@ -1,0 +1,556 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}{{ params.paper_code }} - {% endblock %}
+
+{% block content %}
+  <div
+    x-data="adminPaperDetail()"
+    x-init="
+      $store.sidebar.setActive('admin-papers');
+      $store.breadcrumb.set([
+        {label: 'Papers', url: '{% url 'frontend:admin-paper-list' conference_name=params.conference_name %}'},
+        {label: '{{ params.paper_code }}'}
+      ]);
+    "
+  >
+    <h1 class="h3 mb-4 d-flex align-items-center">
+      <span x-text="headerText">Paper</span>
+      <span x-show="paper" class="badge ms-2 fs-6" :class="stateClass" x-text="stateLabel"></span>
+    </h1>
+
+    <div x-show="$store.conference.loading || loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Paper not found.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && !error && paper" x-cloak>
+      <div class="row">
+        {# Form column #}
+        <div class="col-xl-8 order-xl-1 order-2">
+          <form id="paper-form" @submit.prevent="save()">
+            {% include "frontend/components/paper/identity.html" %}
+            {% include "frontend/components/paper/authors.html" %}
+            {% include "frontend/components/paper/content.html" %}
+            {% include "frontend/components/paper/files.html" %}
+          </form>
+        </div>
+
+        {# Actions sidebar #}
+        <div class="col-xl-4 order-xl-2 order-1 mb-4 mb-xl-0">
+          <div class="card position-sticky" style="top: 1rem;">
+            <div class="card-body">
+              {# Owner info #}
+              <div class="mb-3">
+                <label class="form-label text-muted mb-1">Owner</label>
+                <div x-text="paper?.owner.email"></div>
+                <template x-if="ownerDisplayName">
+                  <div class="text-muted small" x-text="ownerDisplayName"></div>
+                </template>
+                <template x-if="ownerAffiliationLine">
+                  <div class="text-muted small" x-text="ownerAffiliationLine"></div>
+                </template>
+              </div>
+
+              {# Create time #}
+              <div class="mb-3">
+                <label class="form-label text-muted mb-1">Created</label>
+                <div x-text="formatDate(paper?.create_time)"></div>
+              </div>
+
+              {# Announced status - for decided papers #}
+              <template x-if="isDecided">
+                <div class="mb-3">
+                  <label class="form-label text-muted mb-1">Announced</label>
+                  <div x-text="paper.announce_time ? formatDate(paper.announce_time) : 'No'"></div>
+                  <template x-if="paper.acceptance_letter_url">
+                    <a :href="paper.acceptance_letter_url" target="_blank" class="small">
+                      <i class="bi bi-file-earmark-text me-1"></i>Acceptance letter
+                    </a>
+                  </template>
+                </div>
+              </template>
+
+              {# Final upload limit - only for conference admins #}
+              <template x-if="$store.permissions.isConferenceAdmin">
+                <div class="mb-3">
+                  <label class="form-label text-muted mb-1">Final Uploads</label>
+                  <div class="d-flex align-items-center gap-2">
+                    <span x-text="finalLimitDisplay"></span>
+                    <button
+                      type="button"
+                      class="btn btn-link btn-sm p-0"
+                      @click="openFinalLimitModal()"
+                      title="Change limit"
+                    >
+                      <i class="bi bi-pencil"></i>
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+              <hr class="my-3">
+
+              {# Actions #}
+              <template x-if="mode === 'admin-edit'">
+                <div>
+                  <div x-show="errors._form" x-cloak class="alert alert-danger small mb-2" x-text="errors._form"></div>
+
+                  <div class="d-grid gap-2">
+                    <button type="submit" form="paper-form" class="btn btn-primary" :disabled="saving">
+                      <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
+                      <span x-text="saved ? 'Saved!' : 'Save'"></span>
+                    </button>
+
+                    {# Submit button - only for Draft state #}
+                    <template x-if="paper.state === APP.enums.PaperState.DRAFT.value">
+                      <div class="d-grid">
+                        <template x-if="!isDirty">
+                          <button
+                            type="button"
+                            class="btn btn-success"
+                            @click="submitPaper()"
+                            :disabled="submitting"
+                          >
+                            <span x-show="submitting" class="spinner-border spinner-border-sm me-1"></span>
+                            Submit for Review
+                          </button>
+                        </template>
+                        <template x-if="isDirty">
+                          <div class="text-muted small text-center py-2">
+                            Save changes before submitting
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+
+                    {# TODO: Link to /{conference}/admin/papers/{code}/reviews/ #}
+                    <a href="#" class="btn btn-secondary">
+                      Manage Reviews
+                    </a>
+
+                    {# Decide - only for Chair, non-withdrawn #}
+                    <template x-if="showDecide">
+                      <div>
+                        <template x-if="paper.state === APP.enums.PaperState.DRAFT.value">
+                          <button type="button" class="btn btn-secondary w-100" disabled>
+                            Decide <span class="fw-normal opacity-75">(submit the paper first)</span>
+                          </button>
+                        </template>
+                        <template x-if="paper.state !== APP.enums.PaperState.DRAFT.value">
+                          {# TODO: Link to /{conference}/admin/papers/{code}/decide/ #}
+                          <a href="#" class="btn btn-secondary w-100">
+                            Decide
+                          </a>
+                        </template>
+                      </div>
+                    </template>
+
+                    {# Announce - only for conference admins, decided, not yet announced #}
+                    <template x-if="showAnnounceSection && !paper.announce_time">
+                      <div>
+                        <template x-if="canAnnounce">
+                          <button
+                            type="button"
+                            class="btn btn-secondary w-100"
+                            @click="announcePaper()"
+                            :disabled="announcing"
+                          >
+                            <span x-show="announcing" class="spinner-border spinner-border-sm me-1"></span>
+                            Announce
+                          </button>
+                        </template>
+                        <template x-if="!canAnnounce">
+                          <button type="button" class="btn btn-secondary w-100" disabled>
+                            Announce <span class="fw-normal opacity-75">(needs acceptance letter)</span>
+                          </button>
+                        </template>
+                      </div>
+                    </template>
+
+                    {# TODO: Transfer - modal to change paper owner (Chair only) #}
+                    {# TODO: Relocate - modal to move paper to different track (Chair only) #}
+                  </div>
+                </div>
+              </template>
+
+              <template x-if="mode === 'admin-view'">
+                <div class="text-muted small">
+                  <i class="bi bi-info-circle me-1"></i>
+                  This paper has a decision and cannot be edited.
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {# Set Final Limit Modal #}
+    <div class="modal fade" id="final-limit-modal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Set Final Upload Limit</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <div class="text-muted small mb-2" x-text="finalLimitModalStatus"></div>
+              <label class="form-label" for="final-limit-input">New limit</label>
+              <input
+                type="number"
+                class="form-control"
+                id="final-limit-input"
+                x-model.number="finalLimitForm.count"
+                min="0"
+                max="100"
+              >
+              <div class="form-text">
+                Setting below current usage will prevent further uploads.
+              </div>
+            </div>
+            <div x-show="finalLimitForm.error" x-cloak class="alert alert-danger small mb-0"
+                 x-text="finalLimitForm.error"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              @click="saveFinalLimit()"
+              :disabled="finalLimitForm.saving"
+            >
+              <span x-show="finalLimitForm.saving" class="spinner-border spinner-border-sm me-1"></span>
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function adminPaperDetail() {
+      return {
+        ...paperAuthors(),
+        paper: null,
+        form: {
+          track: "",
+          title: "",
+          abstract: "",
+          contribution: "",
+          keywords: [],
+          authors: [],
+        },
+        errors: {},
+        loading: true,
+        error: null,
+        saving: false,
+        saved: false,
+        isDirty: false,
+        submitting: false,
+        finalLimitForm: {
+          count: 1,
+          saving: false,
+          error: null,
+        },
+        announcing: false,
+
+        get mode() {
+          if (!this.paper) return null;
+          if (this.paper.withdraw_time) {
+            return 'admin-view';
+          }
+          // Conference admins can edit papers in any state.
+          if (this.$store.permissions.isConferenceAdmin) {
+            return 'admin-edit';
+          }
+          // Track admins can only edit non-decided papers.
+          const decidedStates = APP.enums.PaperState._collections.decided;
+          if (decidedStates.includes(this.paper.state)) {
+            return 'admin-view';
+          }
+          return 'admin-edit';
+        },
+
+        get headerText() {
+          if (!this.paper) return 'Paper';
+          return `Paper: ${this.paper.code}`;
+        },
+
+        get stateClass() {
+          if (!this.paper) return '';
+          const state = this.paper.state;
+          const classes = {
+            [APP.enums.PaperState.DRAFT.value]: 'text-bg-secondary',
+            [APP.enums.PaperState.SUBMITTED.value]: 'text-bg-primary',
+            [APP.enums.PaperState.UNDER_REVIEW.value]: 'text-bg-info',
+            [APP.enums.PaperState.ACCEPTED.value]: 'text-bg-success',
+            [APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value]: 'text-bg-warning',
+            [APP.enums.PaperState.REJECTED.value]: 'text-bg-danger',
+          };
+          const base = classes[state] || 'text-bg-secondary';
+          return this.paper.withdraw_time ? `${base} opacity-50` : base;
+        },
+
+        get stateLabel() {
+          if (!this.paper) return '';
+          const label = enumLabel(APP.enums.PaperState, this.paper.state);
+          return this.paper.withdraw_time ? `${label} (Withdrawn)` : label;
+        },
+
+        get ownerDisplayName() {
+          const profile = this.paper?.owner.profile;
+          if (!profile) return '';
+          const parts = [profile.given_name, profile.family_name].filter(Boolean);
+          return parts.join(' ');
+        },
+
+        get ownerAffiliationLine() {
+          const profile = this.paper?.owner.profile;
+          if (!profile) return '';
+          const parts = [
+            profile.affiliation,
+            profile.region_code ? regionName(profile.region_code) : '',
+          ].filter(Boolean);
+          return parts.join(', ');
+        },
+
+        get showDecide() {
+          if (!this.paper) return false;
+          if (!this.$store.permissions.isChairRole) return false;
+          if (this.paper.withdraw_time) return false;
+          return true;
+        },
+
+        get finalLimitDisplay() {
+          if (!this.paper) return '';
+          const limit = this.paper.final_revision_limit ?? 1;
+          const remaining = this.paper.final_revision_remaining ?? 0;
+          const used = limit - remaining;
+          return `${used} of ${limit} used`;
+        },
+
+        get finalLimitModalStatus() {
+          if (!this.paper) return '';
+          const limit = this.paper.final_revision_limit ?? 1;
+          const remaining = this.paper.final_revision_remaining ?? 0;
+          const used = limit - remaining;
+          return `Currently ${used} of ${limit} uploads used.`;
+        },
+
+        get isDecided() {
+          if (!this.paper) return false;
+          const decidedStates = APP.enums.PaperState._collections.decided;
+          return decidedStates.includes(this.paper.state);
+        },
+
+        get showAnnounceSection() {
+          if (!this.isDecided) return false;
+          return this.$store.permissions.isConferenceAdmin;
+        },
+
+        get canAnnounce() {
+          if (!this.paper) return false;
+          if (this.paper.announce_time) return false;
+          if (this.paper.withdraw_time) return false;
+          const acceptedStates = [
+            APP.enums.PaperState.ACCEPTED.value,
+            APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value,
+          ];
+          if (acceptedStates.includes(this.paper.state) && !this.paper.acceptance_letter_url) {
+            return false;
+          }
+          return true;
+        },
+
+        populateForm() {
+          if (!this.paper) return;
+          this.form.track = this.paper.track?.uid || "";
+          this.form.title = this.paper.title || "";
+          this.form.abstract = this.paper.abstract || "";
+          this.form.contribution = this.paper.contribution || "";
+          this.form.keywords = this.paper.keywords || [];
+
+          // Populate authors from API response (snake_case to camelCase)
+          this.form.authors = (this.paper.authors || []).map(a => ({
+            givenName: a.given_name || "",
+            familyName: a.family_name || "",
+            affiliation: a.affiliation || "",
+            regionCode: a.region_code || "",
+            email: a.email || "",
+          }));
+          const corrIndex = (this.paper.authors || []).findIndex(a => a.corresponding);
+          this.correspondingIndex = corrIndex >= 0 ? corrIndex : 0;
+        },
+
+        buildPayload() {
+          return {
+            title: this.form.title,
+            abstract: this.form.abstract,
+            contribution: this.form.contribution,
+            keywords: this.form.keywords,
+            authors: this.form.authors.map((a, i) => ({
+              given_name: a.givenName,
+              family_name: a.familyName,
+              affiliation: a.affiliation,
+              region_code: a.regionCode,
+              email: a.email,
+              corresponding: i === this.correspondingIndex,
+            })),
+          };
+        },
+
+        async load() {
+          const url = "{% url 'api-1.0.0:get-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
+          const {data} = await api.get(url);
+          this.paper = data;
+          this.populateForm();
+          this.isDirty = false;
+        },
+
+        async init() {
+          try {
+            await this.load();
+            this.$nextTick(() => {
+              this.isDirty = false;
+              this.$watch('form', () => {
+                this.isDirty = true;
+              }, {deep: true});
+            });
+          } catch (e) {
+            this.error = e;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async save() {
+          if (this.saving) return;
+          this.errors = {};
+          this.saving = true;
+
+          try {
+            const url = "{% url 'api-1.0.0:update-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
+            const {data} = await api.patch(url, this.buildPayload());
+            this.paper = data;
+            this.isDirty = false;
+            this.saved = true;
+            setTimeout(() => this.saved = false, 2000);
+          } catch (error) {
+            const resp = error.response?.data;
+            if (error.response?.status === 422 && resp?.details?.length) {
+              this.errors = mapErrors(resp.details);
+            } else {
+              this.errors._form = resp?.message || 'Failed to save.';
+            }
+          } finally {
+            this.saving = false;
+          }
+        },
+
+        async submitPaper() {
+          if (this.submitting) return;
+          this.submitting = true;
+          this.errors = {};
+
+          try {
+            const url = "{% url 'api-1.0.0:submit-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
+            const {data} = await api.post(url);
+            this.paper = data;
+          } catch (e) {
+            this.errors._form = e.response?.data?.message || 'Failed to submit paper.';
+          } finally {
+            this.submitting = false;
+          }
+        },
+
+        openFinalLimitModal() {
+          this.finalLimitForm = {
+            count: this.paper?.final_revision_limit ?? 1,
+            saving: false,
+            error: null,
+          };
+          new bootstrap.Modal(document.getElementById('final-limit-modal')).show();
+        },
+
+        async saveFinalLimit() {
+          if (this.finalLimitForm.saving) return;
+          this.finalLimitForm.saving = true;
+          this.finalLimitForm.error = null;
+
+          try {
+            const url = "{% url 'api-1.0.0:set-paper-final-limit' conference_name=params.conference_name paper_code=params.paper_code %}";
+            const {data} = await api.post(url, {count: this.finalLimitForm.count});
+            this.paper = data;
+            bootstrap.Modal.getInstance(document.getElementById('final-limit-modal'))?.hide();
+          } catch (e) {
+            this.finalLimitForm.error = e.response?.data?.message || 'Failed to update limit.';
+          } finally {
+            this.finalLimitForm.saving = false;
+          }
+        },
+
+        async announcePaper() {
+          if (this.announcing) return;
+          if (!confirm('Announce decision to authors? This action cannot be undone.')) return;
+
+          this.announcing = true;
+          try {
+            const url = "{% url 'api-1.0.0:announce-papers' conference_name=params.conference_name %}";
+            await api.post(url, {codes: [this.paper.code]});
+          } catch (e) {
+            alert(e.response?.data?.message || 'Failed to announce paper.');
+            return;
+          } finally {
+            this.announcing = false;
+          }
+          // Refresh paper data after successful announce.
+          try {
+            await this.load();
+          } catch (e) {
+            // Reload the page if refresh fails.
+            window.location.reload();
+          }
+        },
+
+        async uploadSubmission(file, onProgress) {
+          const url = "{% url 'api-1.0.0:create-submission' conference_name=params.conference_name paper_code=params.paper_code %}";
+          const formData = new FormData();
+          formData.append('file', file);
+          const {data} = await api.post(url, formData, {
+            headers: {'Content-Type': 'multipart/form-data'},
+            onUploadProgress: onProgress,
+          });
+          this.paper = data;
+        },
+
+        async uploadFinal(sourceFile, viewableFile, onProgress) {
+          const url = "{% url 'api-1.0.0:create-final' conference_name=params.conference_name paper_code=params.paper_code %}";
+          const formData = new FormData();
+          formData.append('source_file', sourceFile);
+          if (viewableFile) {
+            formData.append('viewable_file', viewableFile);
+          }
+          const {data} = await api.post(url, formData, {
+            headers: {'Content-Type': 'multipart/form-data'},
+            onUploadProgress: onProgress,
+          });
+          this.paper = data;
+        },
+      };
+    }
+  </script>
+{% endblock %}

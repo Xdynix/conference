@@ -2,9 +2,9 @@
 Paper content section: abstract, contribution, and keywords.
 
 This component expects the parent to provide:
-  - mode: 'create' | 'edit' | 'view'
-  - form: Object with abstract, contribution, keywords fields (for create/edit)
-  - paper: Paper object (for view mode)
+  - mode: 'create' | 'edit' | 'view' | 'admin-create' | 'admin-edit' | 'admin-view'
+  - form: Object with abstract, contribution, keywords fields (for create/edit modes)
+  - paper: Paper object (for view modes)
   - errors: Object for displaying validation errors
 
 Keywords handling:
@@ -14,7 +14,7 @@ Keywords handling:
 {% endcomment %}
 
 <div>
-  <template x-if="mode === 'create' || mode === 'edit'">
+  <template x-if="['create', 'edit', 'admin-create', 'admin-edit'].includes(mode)">
     <div>
       <div class="mb-3">
         <label for="abstract" class="form-label text-muted">
@@ -89,7 +89,7 @@ Keywords handling:
     </div>
   </template>
 
-  <template x-if="mode === 'view'">
+  <template x-if="mode === 'view' || mode === 'admin-view'">
     <div class="card mb-4">
       <div class="card-header">Content</div>
       <div class="card-body">

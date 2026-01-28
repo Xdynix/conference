@@ -198,6 +198,28 @@
     return Object.values(enumObj).find((e) => e.value === value)?.label;
   }
 
+  let regionsMap = null;
+
+  /**
+   * Looks up a region name by its code.
+   *
+   * @param {string} code - The region code (e.g., "US", "GB").
+   * @returns {string} The region name, or the code itself if not found.
+   */
+  function regionName(code) {
+    if (!code) return "";
+    if (!regionsMap) {
+      const el = document.getElementById("app-regions");
+      if (el) {
+        const regions = JSON.parse(el.textContent);
+        regionsMap = new Map(regions);
+      } else {
+        regionsMap = new Map();
+      }
+    }
+    return regionsMap.get(code) || code;
+  }
+
   const dateFmt = {
     day: new Intl.DateTimeFormat("en-US", {day: "numeric"}),
     monthYear: new Intl.DateTimeFormat("en-US", {month: "long", year: "numeric"}),
@@ -296,6 +318,7 @@
   window.extractUrlHash = extractUrlHash;
   window.safeRedirectUrl = safeRedirectUrl;
   window.enumLabel = enumLabel;
+  window.regionName = regionName;
   window.formatDateRange = formatDateRange;
   window.formatFileSize = formatFileSize;
   window.validateFile = validateFile;

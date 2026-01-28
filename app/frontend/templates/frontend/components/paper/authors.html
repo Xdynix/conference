@@ -2,9 +2,9 @@
 Paper authors section: author cards with add/remove/reorder.
 
 This component expects the parent to spread paperAuthors() and provide:
-  - mode: 'create' | 'edit' | 'view'
+  - mode: 'create' | 'edit' | 'view' | 'admin-create' | 'admin-edit' | 'admin-view'
   - form.authors: Array of author objects
-  - paper: Paper object (for view mode, contains authors array)
+  - paper: Paper object (for view modes, contains authors array)
   - errors: Object for displaying validation errors
 
 Usage in parent component:
@@ -26,7 +26,7 @@ Provides:
 {% endcomment %}
 
 <div>
-  <template x-if="mode === 'create' || mode === 'edit'">
+  <template x-if="['create', 'edit', 'admin-create', 'admin-edit'].includes(mode)">
     <div>
       <div class="d-flex justify-content-end mb-3">
         <button type="button" class="btn btn-sm btn-outline-primary" @click="addAuthor()">
@@ -193,7 +193,7 @@ Provides:
     </div>
   </template>
 
-  <template x-if="mode === 'view'">
+  <template x-if="mode === 'view' || mode === 'admin-view'">
     <div class="card mb-4">
       <div class="card-header">Authors</div>
       <div class="card-body">

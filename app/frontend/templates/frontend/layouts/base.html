@@ -123,6 +123,11 @@
           "conference_name",
           "ulid",
         ),
+        adminPaperDetail: urlTemplate(
+          "{% url 'frontend:admin-paper-detail' conference_name='__CONFERENCE_NAME__' paper_code='__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
       },
     },
   };

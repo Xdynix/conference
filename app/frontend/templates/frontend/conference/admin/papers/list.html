@@ -13,96 +13,105 @@
       $store.breadcrumb.set([{label: 'Papers'}]);
     "
   >
-    <template x-if="$store.conference.loading">
-      <div class="text-center py-5">
-        <div class="spinner-border" role="status">
-          <span class="visually-hidden">Loading...</span>
-        </div>
+    <div x-show="$store.conference.loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
       </div>
-    </template>
+    </div>
 
-    <template x-if="!$store.conference.loading && !$store.conference.detail">
-      <div class="text-center py-5">
-        <p class="text-muted mb-0">Conference not found.</p>
-      </div>
-    </template>
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
 
-    <template x-if="$store.conference.detail">
+    <template x-if="!$store.conference.loading && $store.conference.detail">
       <div class="d-flex flex-column flex-grow-1 overflow-hidden">
         {# Header Actions #}
-        <div class="d-flex justify-content-end align-items-center gap-2 px-4 pb-2 border-bottom">
-          <button
-            type="button"
-            class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2"
-            :disabled="loading"
-            @click="fetchPapers()"
-          >
-            <span x-show="loading" class="spinner-border spinner-border-sm"></span>
-            <i x-show="!loading" class="bi-arrow-clockwise"></i>
-            Refresh
-          </button>
+        <div class="d-flex justify-content-between align-items-center gap-2 pb-2 border-bottom">
+          <div class="d-flex align-items-center gap-2">
+            <a
+              href="{% url 'frontend:admin-paper-new' conference_name=params.conference_name %}"
+              class="btn btn-sm btn-outline-primary d-flex align-items-center gap-2"
+            >
+              <i class="bi-plus-lg"></i>
+              New Paper
+            </a>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2"
+              :disabled="loading"
+              @click="fetchPapers()"
+            >
+              <span x-show="loading" class="spinner-border spinner-border-sm"></span>
+              <i x-show="!loading" class="bi-arrow-clockwise"></i>
+              Refresh
+            </button>
+          </div>
         </div>
 
         {# Main Content #}
         <div class="d-flex flex-grow-1 overflow-hidden">
           {# Paper Table #}
           <div class="flex-grow-1 overflow-auto">
-            <template x-if="loading">
-              <div class="text-center py-5">
-                <div class="spinner-border" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
+            <div x-show="loading" class="text-center py-5">
+              <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
               </div>
-            </template>
+            </div>
 
-            <template x-if="!loading && error">
-              <div class="text-center py-5">
-                <p class="text-muted mb-0">Failed to load papers.</p>
-              </div>
-            </template>
+            <div x-show="!loading && error" x-cloak class="text-center py-5">
+              <p class="text-muted mb-0">Failed to load papers.</p>
+            </div>
 
-            <template x-if="!loading && !error">
-              <table class="table table-striped table-hover">
-                <thead class="bg-body" style="position: sticky; top: 0; z-index: 1;">
+            <table x-show="!loading && !error" x-cloak class="table table-striped table-hover">
+              <thead class="bg-body" style="position: sticky; top: 0; z-index: 1;">
+              <tr>
+                <template x-for="col in visibleColumns" :key="col.key">
+                  <th
+                    :class="thClass(col)"
+                    :style="thStyle(col)"
+                    @click="col.sortValue && toggleSort(col.key)"
+                    :role="col.sortValue ? 'button' : null"
+                  >
+                    <span x-text="col.label"></span>
+                    <i :class="sortIcon(col.key)" class="ms-1"></i>
+                  </th>
+                </template>
+              </tr>
+              </thead>
+              <tbody>
+              <template x-for="paper in filteredPapers" :key="paper.uid">
                 <tr>
                   <template x-for="col in visibleColumns" :key="col.key">
-                    <th
-                      :class="thClass(col)"
-                      :style="thStyle(col)"
-                      @click="col.sortValue && toggleSort(col.key)"
-                      :role="col.sortValue ? 'button' : null"
+                    <td
+                      :class="tdClass(col)"
+                      :style="tdStyle(col)"
+                      :title="col.tooltip ? col.tooltip(paper) : null"
                     >
-                      <span x-text="col.label"></span>
-                      <i :class="sortIcon(col.key)" class="ms-1"></i>
-                    </th>
+                      <template x-if="col.link && col.link(paper)">
+                        <a
+                          :href="col.link(paper)"
+                          :class="col.muted?.(paper) && 'text-muted'"
+                          target="_blank"
+                          x-text="col.value(paper)"
+                        ></a>
+                      </template>
+                      <template x-if="!(col.link && col.link(paper)) && col.badge">
+                        <span class="badge" :class="col.badge(paper)" x-text="col.value(paper)"></span>
+                      </template>
+                      <template x-if="!(col.link && col.link(paper)) && !col.badge && col.icon && col.icon(paper)">
+                        <i :class="col.icon(paper)"></i>
+                      </template>
+                      <template x-if="!(col.link && col.link(paper)) && !col.badge && !(col.icon && col.icon(paper))">
+                        <span :class="col.muted?.(paper) && 'text-muted'" x-text="col.value(paper)"></span>
+                      </template>
+                    </td>
                   </template>
                 </tr>
-                </thead>
-                <tbody>
-                <template x-for="paper in filteredPapers" :key="paper.uid">
-                  <tr>
-                    <template x-for="col in visibleColumns" :key="col.key">
-                      <td
-                        :class="tdClass(col)"
-                        :style="tdStyle(col)"
-                        :title="col.tooltip ? col.tooltip(paper) : null"
-                      >
-                        <template x-if="col.badge">
-                          <span class="badge" :class="col.badge(paper)" x-text="col.value(paper)"></span>
-                        </template>
-                        <template x-if="!col.badge && col.icon && col.icon(paper)">
-                          <i :class="col.icon(paper)"></i>
-                        </template>
-                        <template x-if="!col.badge && !(col.icon && col.icon(paper))">
-                          <span :class="col.muted?.(paper) && 'text-muted'" x-text="col.value(paper)"></span>
-                        </template>
-                      </td>
-                    </template>
-                  </tr>
-                </template>
-                </tbody>
-              </table>
-            </template>
+              </template>
+              </tbody>
+            </table>
           </div>
 
           {# Filter Sidebar #}
@@ -362,6 +371,7 @@
             key: 'code',
             label: 'Code',
             value: (p) => p?.code,
+            link: (p) => p?.code ? APP.urls.pages.adminPaperDetail(APP.params.conference_name, p.code) : null,
             sortValue: (p) => p?.code,
             muted: (p) => !!p?.withdraw_time,
             nowrap: true,

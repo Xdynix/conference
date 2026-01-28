@@ -4,11 +4,11 @@
 
 {% block content %}
   <div
-    x-data="paperCreate()"
+    x-data="adminPaperNew()"
     x-init="
-      $store.sidebar.setActive('my-papers');
+      $store.sidebar.setActive('admin-papers');
       $store.breadcrumb.set([
-        {label: 'My Papers', url: '{% url 'frontend:paper-list' conference_name=params.conference_name %}'},
+        {label: 'Papers', url: '{% url 'frontend:admin-paper-list' conference_name=params.conference_name %}'},
         {label: 'New Paper'}
       ]);
     "
@@ -49,15 +49,15 @@
 {% block scripts %}
   {{ block.super }}
   <script>
-    function paperCreate() {
+    function adminPaperNew() {
       return {
         ...paperAuthors(),
-        mode: 'create',
+        mode: 'admin-create',
         form: {
-          track: "",
-          title: "",
-          abstract: "",
-          contribution: "",
+          track: '',
+          title: '',
+          abstract: '',
+          contribution: '',
           keywords: [],
           authors: [],
         },
@@ -65,8 +65,8 @@
         loading: false,
 
         get availableTracks() {
-          const tracks = this.$store.conference.detail?.tracks || [];
-          return tracks.filter(t => t.accepts_submissions);
+          // Admins can create papers in any visible track, including those with submissions disabled.
+          return this.$store.conference.detail?.tracks || [];
         },
 
         buildPayload() {
@@ -97,9 +97,9 @@
           this.loading = true;
 
           try {
-            const url = "{% url 'api-1.0.0:create-draft' conference_name=params.conference_name %}";
+            const url = "{% url 'api-1.0.0:create-paper' conference_name=params.conference_name %}";
             const {data} = await api.post(url, this.buildPayload());
-            window.location.href = APP.urls.pages.paperDetail(
+            window.location.href = APP.urls.pages.adminPaperDetail(
               APP.params.conference_name,
               data.code,
             );

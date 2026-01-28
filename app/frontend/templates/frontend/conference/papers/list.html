@@ -11,25 +11,19 @@
       <div class="col-xl-8 col-xxl-6">
         <h1 class="h3 mb-4">My Papers</h1>
 
-        <template x-if="$store.conference.loading || loading">
-          <div class="text-center py-5">
-            <div class="spinner-border" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
+        <div x-show="$store.conference.loading || loading" class="text-center py-5">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
           </div>
-        </template>
+        </div>
 
-        <template x-if="!$store.conference.loading && !$store.conference.detail">
-          <div class="text-center py-5">
-            <p class="text-muted mb-0">Conference not found.</p>
-          </div>
-        </template>
+        <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+          <p class="text-muted mb-0">Conference not found.</p>
+        </div>
 
-        <template x-if="$store.conference.detail && !loading && error">
-          <div class="text-center py-5">
-            <p class="text-muted mb-0">Failed to load papers.</p>
-          </div>
-        </template>
+        <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
+          <p class="text-muted mb-0">Failed to load papers.</p>
+        </div>
 
         <template x-if="$store.conference.detail && !loading && !error">
           <div>
