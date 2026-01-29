@@ -318,7 +318,6 @@
             this.$store.session.update(data);
 
             if (this.invitation) {
-              // TODO: Redirect to conference profile page for confirmation.
               window.location.href = "{% url 'frontend:index' %}";
             } else {
               const next = new URLSearchParams(window.location.search).get("{% redirect_field_name %}");

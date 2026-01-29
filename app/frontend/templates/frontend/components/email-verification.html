@@ -77,20 +77,24 @@ States:
     <div class="d-flex flex-wrap align-items-center column-gap-2 text-muted small mb-2">
       <span>Code sent to <strong x-text="email"></strong></span>
       <span class="d-flex align-items-center column-gap-2">
-        <span>&middot;</span>
+        <span>·</span>
         <button
           type="button"
           class="btn btn-link p-0 text-secondary text-decoration-none"
           :disabled="loading"
           @click="resendCode()"
-        >Resend</button>
-        <span>&middot;</span>
+        >
+          Resend
+        </button>
+        <span>·</span>
         <button
           type="button"
           class="btn btn-link p-0 text-secondary text-decoration-none"
           :disabled="loading"
           @click="clearForm()"
-        >Use different email</button>
+        >
+          Use different email
+        </button>
       </span>
     </div>
     <div class="input-group">
