@@ -82,7 +82,7 @@
   {{ block.super }}
   <script>
     function conferenceSubtitle() {
-      const detail = Alpine.store("conference").detail;
+      const detail = this.$store.conference.detail;
       if (!detail) return "";
       const datePart = formatDateRange(detail.start_date, detail.end_date);
       const location = (detail.location || "").trim();

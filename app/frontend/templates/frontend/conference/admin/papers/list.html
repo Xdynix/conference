@@ -3,9 +3,29 @@
 
 {% block title %}Papers - {% endblock %}
 
+{% block styles %}
+  <style>
+    .admin-paper-list .paper-row-selected > * {
+      background-color: color-mix(
+        in srgb,
+        var(--bs-table-bg) 85%,
+        rgb(var(--bs-primary-rgb)) 15%
+      );
+    }
+
+    [data-bs-theme="dark"] .admin-paper-list .paper-row-selected > * {
+      background-color: color-mix(
+        in srgb,
+        var(--bs-table-bg) 85%,
+        rgb(var(--bs-primary-rgb)) 15%
+      );
+    }
+  </style>
+{% endblock %}
+
 {% block content %}
   <div
-    class="d-flex flex-column flex-grow-1 mx-n4 mb-n4"
+    class="admin-paper-list d-flex flex-column flex-grow-1 mx-n4 mb-n4"
     style="min-height: 0;"
     x-data="adminPaperList()"
     x-init="
@@ -37,6 +57,16 @@
             </a>
           </div>
           <div class="d-flex align-items-center gap-2">
+            <template x-if="hasActiveFilters">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2"
+                @click="clearFilters()"
+              >
+                <i class="bi-x-lg"></i>
+                Clear Filters
+              </button>
+            </template>
             <button
               type="button"
               class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2"
@@ -74,36 +104,68 @@
                     @click="col.sortValue && toggleSort(col.key)"
                     :role="col.sortValue ? 'button' : null"
                   >
-                    <span x-text="col.label"></span>
-                    <i :class="sortIcon(col.key)" class="ms-1"></i>
+                    <template x-if="col.checkbox">
+                      <input
+                        type="checkbox"
+                        class="form-check-input"
+                        :checked="allVisibleSelected"
+                        x-effect="$el.indeterminate = someVisibleSelected"
+                        @click.stop="toggleSelectAll()"
+                        @change.stop
+                      >
+                    </template>
+                    <template x-if="!col.checkbox">
+                      <span>
+                        <span x-text="col.label"></span>
+                        <i :class="sortIcon(col.key)" class="ms-1"></i>
+                      </span>
+                    </template>
                   </th>
                 </template>
               </tr>
               </thead>
               <tbody>
               <template x-for="paper in filteredPapers" :key="paper.uid">
-                <tr>
+                <tr
+                  :class="isSelected(paper) && 'paper-row-selected'"
+                  @click="toggleSelection(paper)"
+                  style="cursor: pointer;"
+                >
                   <template x-for="col in visibleColumns" :key="col.key">
                     <td
-                      :class="tdClass(col)"
+                      :class="tdClass(col, paper)"
                       :style="tdStyle(col)"
                       :title="col.tooltip ? col.tooltip(paper) : null"
                     >
-                      <template x-if="col.link && col.link(paper)">
+                      <template x-if="col.checkbox">
+                        <input
+                          type="checkbox"
+                          class="form-check-input"
+                          :checked="isSelected(paper)"
+                          @click.stop="toggleSelection(paper)"
+                          @change.stop
+                        >
+                      </template>
+                      <template x-if="!col.checkbox && col.link && col.link(paper)">
                         <a
                           :href="col.link(paper)"
                           :class="col.muted?.(paper) && 'text-muted'"
                           target="_blank"
+                          @click.stop
                           x-text="col.value(paper)"
                         ></a>
                       </template>
-                      <template x-if="!(col.link && col.link(paper)) && col.badge">
+                      <template x-if="!col.checkbox && !(col.link && col.link(paper)) && col.badge">
                         <span class="badge" :class="col.badge(paper)" x-text="col.value(paper)"></span>
                       </template>
-                      <template x-if="!(col.link && col.link(paper)) && !col.badge && col.icon && col.icon(paper)">
+                      <template
+                        x-if="!col.checkbox && !(col.link && col.link(paper)) && !col.badge && col.icon && col.icon(paper)"
+                      >
                         <i :class="col.icon(paper)"></i>
                       </template>
-                      <template x-if="!(col.link && col.link(paper)) && !col.badge && !(col.icon && col.icon(paper))">
+                      <template
+                        x-if="!col.checkbox && !(col.link && col.link(paper)) && !col.badge && !(col.icon && col.icon(paper))"
+                      >
                         <span :class="col.muted?.(paper) && 'text-muted'" x-text="col.value(paper)"></span>
                       </template>
                     </td>
@@ -187,70 +249,38 @@
                 </template>
               </div>
 
-              {# Announced filter #}
+              {# Visibility filter #}
               <div class="border-bottom" x-data="{open: false}">
                 <button
                   class="btn btn-link text-decoration-none text-body w-100 d-flex justify-content-between align-items-center px-3 py-2"
                   type="button"
                   @click="open = !open"
                 >
-                  <span class="fw-medium">Announced</span>
+                  <span class="fw-medium">Visibility</span>
                   <i class="small" :class="open ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
                 </button>
                 <template x-if="open">
                   <div class="px-3 pb-3">
-                    <template x-for="opt in announcedOptions" :key="opt.value">
-                      <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="radio"
-                          name="announced"
-                          :id="'announced-' + (opt.value || 'all')"
-                          :value="opt.value"
-                          :checked="urlState.announced === opt.value"
-                          @change="urlState.announced = opt.value"
-                        >
-                        <label
-                          class="form-check-label"
-                          :for="'announced-' + (opt.value || 'all')"
-                          x-text="opt.label"
-                        ></label>
-                      </div>
-                    </template>
-                  </div>
-                </template>
-              </div>
-
-              {# Withdrawn filter #}
-              <div class="border-bottom" x-data="{open: false}">
-                <button
-                  class="btn btn-link text-decoration-none text-body w-100 d-flex justify-content-between align-items-center px-3 py-2"
-                  type="button"
-                  @click="open = !open"
-                >
-                  <span class="fw-medium">Withdrawn</span>
-                  <i class="small" :class="open ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
-                </button>
-                <template x-if="open">
-                  <div class="px-3 pb-3">
-                    <template x-for="opt in withdrawnOptions" :key="opt.value">
-                      <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="radio"
-                          name="withdrawn"
-                          :id="'withdrawn-' + (opt.value || 'all')"
-                          :value="opt.value"
-                          :checked="urlState.withdrawn === opt.value"
-                          @change="urlState.withdrawn = opt.value"
-                        >
-                        <label
-                          class="form-check-label"
-                          :for="'withdrawn-' + (opt.value || 'all')"
-                          x-text="opt.label"
-                        ></label>
-                      </div>
-                    </template>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="hide-announced"
+                        :checked="urlState.hideAnnounced"
+                        @change="urlState.hideAnnounced = $el.checked"
+                      >
+                      <label class="form-check-label" for="hide-announced">Hide announced</label>
+                    </div>
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="hide-withdrawn"
+                        :checked="urlState.hideWithdrawn"
+                        @change="urlState.hideWithdrawn = $el.checked"
+                      >
+                      <label class="form-check-label" for="hide-withdrawn">Hide withdrawn</label>
+                    </div>
                   </div>
                 </template>
               </div>
@@ -288,11 +318,32 @@
         </div>
 
         {# Footer #}
-        <div class="d-flex justify-content-between align-items-center px-4 pt-2 border-top">
+        <div class="d-flex justify-content-between align-items-center gap-3 pt-2 border-top">
           <span class="text-muted" x-text="footerText"></span>
+          <template x-if="availableBulkActions.length > 0">
+            <div class="d-flex align-items-center gap-2">
+              <select class="form-select form-select-sm" style="width: auto;" x-model="bulkAction">
+                <option value="">Action...</option>
+                <template x-for="action in availableBulkActions" :key="action.key">
+                  <option :value="action.key" x-text="action.label"></option>
+                </template>
+              </select>
+              <button
+                type="button"
+                class="btn btn-sm btn-primary"
+                :disabled="!bulkAction || selectedCount === 0"
+                @click="applyBulkAction()"
+              >
+                Apply
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </template>
+
+    {# Acceptance Letter Modal #}
+    {% include "frontend/components/paper/acceptance-letter-modal.html" %}
   </div>
 {% endblock %}
 
@@ -325,6 +376,7 @@
       'created',
       'review-stats',
       'score',
+      'letter',
     ];
 
     const adminPaperListSchema = {
@@ -338,8 +390,8 @@
         UrlState.types.string({default: ''}),
         {default: [], allowEmpty: true}
       ),
-      announced: UrlState.types.oneOf(['', 'yes', 'no'], {default: ''}),
-      withdrawn: UrlState.types.oneOf(['', 'yes', 'no'], {default: ''}),
+      hideAnnounced: UrlState.types.boolean({default: false}),
+      hideWithdrawn: UrlState.types.boolean({default: false}),
       columns: UrlState.types.setOf(
         UrlState.types.oneOf(adminPaperListColumnOptions, {default: ''}),
         {default: ['track'], allowEmpty: true}
@@ -353,6 +405,7 @@
     function adminPaperList() {
       return {
         ...UrlState.use(adminPaperListSchema),
+        ...acceptanceLetterModal(),
 
         // ---------------------------------------------------------------------------
         // State
@@ -361,12 +414,55 @@
         allPapers: [],
         loading: true,
         error: null,
+        selectedPaperCodes: new Set(),
+        bulkAction: '',
+
+        // ---------------------------------------------------------------------------
+        // Bulk Actions
+        // ---------------------------------------------------------------------------
+
+        bulkActions: [
+          {
+            key: 'generate-letters',
+            label: 'Generate Letters',
+            auth: (ctx) => ctx.$store.permissions.isConferenceAdmin,
+          },
+          {
+            key: 'announce',
+            label: 'Announce',
+            auth: (ctx) => ctx.$store.permissions.isConferenceAdmin,
+          },
+        ],
+
+        get availableBulkActions() {
+          return this.bulkActions.filter(action => action.auth(this));
+        },
+
+        applyBulkAction() {
+          if (!this.bulkAction || this.selectedCount === 0) return;
+
+          const codes = [...this.selectedPaperCodes];
+
+          if (this.bulkAction === 'generate-letters') {
+            this.openLetterModal(codes, () => this.fetchPapers());
+          }
+
+          // Reset bulk action selection
+          this.bulkAction = '';
+        },
 
         // ---------------------------------------------------------------------------
         // Column Definitions
         // ---------------------------------------------------------------------------
 
         columns: [
+          {
+            key: 'checkbox',
+            label: '',
+            checkbox: true,
+            sticky: true,
+            width: '2.5rem',
+          },
           {
             key: 'code',
             label: 'Code',
@@ -377,6 +473,8 @@
             nowrap: true,
             mono: true,
             sticky: true,
+            stickyLeft: '2.5rem',
+            stickyBorder: true,
           },
           {
             key: 'title',
@@ -475,15 +573,25 @@
             nowrap: true,
             center: true,
           },
+          {
+            key: 'letter',
+            label: 'Letter',
+            value: (p) => p?.acceptance_letter_url ? 'View' : '',
+            link: (p) => p?.acceptance_letter_url,
+            sortValue: (p) => p?.acceptance_letter_url ? 1 : 0,
+            nowrap: true,
+            center: true,
+          },
         ],
 
-        baseColumnKeys: ['code', 'title', 'state', 'announced'],
+        baseColumnKeys: ['checkbox', 'code', 'title', 'state', 'announced'],
 
         optionalColumns: [
           {key: 'track', label: 'Track', columnKeys: ['track']},
           {key: 'created', label: 'Created', columnKeys: ['created']},
           {key: 'review-stats', label: 'Review Stats', columnKeys: ['reviewers', 'submitted']},
           {key: 'score', label: 'Score', columnKeys: ['score']},
+          {key: 'letter', label: 'Letter', columnKeys: ['letter']},
         ],
 
         get visibleColumnKeys() {
@@ -536,18 +644,6 @@
           return this.$store.conference.detail?.tracks || [];
         },
 
-        announcedOptions: [
-          {value: '', label: 'All'},
-          {value: 'yes', label: 'Yes'},
-          {value: 'no', label: 'No'},
-        ],
-
-        withdrawnOptions: [
-          {value: '', label: 'All'},
-          {value: 'yes', label: 'Yes'},
-          {value: 'no', label: 'No'},
-        ],
-
         // ---------------------------------------------------------------------------
         // Filter Toggle Methods
         // ---------------------------------------------------------------------------
@@ -568,6 +664,74 @@
           } else {
             this.urlState.tracks = [...tracks, uid];
           }
+        },
+
+        get hasActiveFilters() {
+          return this.urlState.search !== '' ||
+            this.urlState.states.length > 0 ||
+            this.urlState.tracks.length > 0 ||
+            this.urlState.hideAnnounced ||
+            this.urlState.hideWithdrawn;
+        },
+
+        clearFilters() {
+          this.urlState.search = '';
+          this.urlState.states = [];
+          this.urlState.tracks = [];
+          this.urlState.hideAnnounced = false;
+          this.urlState.hideWithdrawn = false;
+        },
+
+        // ---------------------------------------------------------------------------
+        // Selection
+        // ---------------------------------------------------------------------------
+
+        isSelected(paper) {
+          return this.selectedPaperCodes.has(paper.code);
+        },
+
+        toggleSelection(paper) {
+          if (this.selectedPaperCodes.has(paper.code)) {
+            this.selectedPaperCodes.delete(paper.code);
+          } else {
+            this.selectedPaperCodes.add(paper.code);
+          }
+          // Trigger reactivity
+          this.selectedPaperCodes = new Set(this.selectedPaperCodes);
+        },
+
+        get allVisibleSelected() {
+          const visible = this.filteredPapers;
+          return visible.length > 0 && visible.every(p => this.isSelected(p));
+        },
+
+        get someVisibleSelected() {
+          const visible = this.filteredPapers;
+          return visible.some(p => this.isSelected(p)) && !this.allVisibleSelected;
+        },
+
+        toggleSelectAll() {
+          if (this.allVisibleSelected) {
+            // Deselect all visible
+            for (const paper of this.filteredPapers) {
+              this.selectedPaperCodes.delete(paper.code);
+            }
+          } else {
+            // Select all visible
+            for (const paper of this.filteredPapers) {
+              this.selectedPaperCodes.add(paper.code);
+            }
+          }
+          // Trigger reactivity
+          this.selectedPaperCodes = new Set(this.selectedPaperCodes);
+        },
+
+        clearSelection() {
+          this.selectedPaperCodes = new Set();
+        },
+
+        get selectedCount() {
+          return this.selectedPaperCodes.size;
         },
 
         // ---------------------------------------------------------------------------
@@ -598,19 +762,11 @@
             papers = papers.filter(p => tracks.includes(p.track?.uid));
           }
 
-          // Announced filter
-          const announced = this.urlState.announced;
-          if (announced === 'yes') {
-            papers = papers.filter(p => p.announce_time);
-          } else if (announced === 'no') {
+          // Visibility filters
+          if (this.urlState.hideAnnounced) {
             papers = papers.filter(p => !p.announce_time);
           }
-
-          // Withdrawn filter
-          const withdrawn = this.urlState.withdrawn;
-          if (withdrawn === 'yes') {
-            papers = papers.filter(p => p.withdraw_time);
-          } else if (withdrawn === 'no') {
+          if (this.urlState.hideWithdrawn) {
             papers = papers.filter(p => !p.withdraw_time);
           }
 
@@ -664,25 +820,41 @@
 
         thStyle(col) {
           const styles = [];
+          if (col.width) {
+            styles.push(`width: ${col.width}`, `min-width: ${col.width}`, `max-width: ${col.width}`);
+          }
           if (col.flex) styles.push('width: 100%');
-          if (col.sticky) styles.push('position: sticky', 'left: 0', 'z-index: 1', 'border-right: 1px solid var(--bs-border-color)');
+          if (col.sticky) {
+            const left = col.stickyLeft || '0';
+            styles.push('position: sticky', `left: ${left}`, 'z-index: 1');
+            if (col.stickyBorder) styles.push('border-right: 1px solid var(--bs-border-color)');
+          }
           return styles.join('; ');
         },
 
-        tdClass(col) {
+        tdClass(col, paper) {
           const classes = [];
           if (col.nowrap) classes.push('text-nowrap');
           if (col.mono) classes.push('font-monospace');
           if (col.truncate) classes.push('text-truncate');
           if (col.center) classes.push('text-center');
-          if (col.sticky) classes.push('bg-body');
+          if (col.sticky) {
+            classes.push(paper && this.isSelected(paper) ? 'paper-row-selected' : 'bg-body');
+          }
           return classes.join(' ');
         },
 
         tdStyle(col) {
           const styles = [];
+          if (col.width) {
+            styles.push(`width: ${col.width}`, `min-width: ${col.width}`, `max-width: ${col.width}`);
+          }
           if (col.truncate) styles.push('max-width: 0');
-          if (col.sticky) styles.push('position: sticky', 'left: 0', 'border-right: 1px solid var(--bs-border-color)');
+          if (col.sticky) {
+            const left = col.stickyLeft || '0';
+            styles.push('position: sticky', `left: ${left}`);
+            if (col.stickyBorder) styles.push('border-right: 1px solid var(--bs-border-color)');
+          }
           return styles.join('; ');
         },
 
@@ -693,10 +865,13 @@
         get footerText() {
           const total = this.allPapers.length;
           const filtered = this.filteredPapers.length;
-          if (filtered === total) {
-            return `${total} papers`;
+          const selected = this.selectedCount;
+
+          let text = filtered === total ? `${total} papers` : `${filtered} of ${total} papers`;
+          if (selected > 0) {
+            text += ` (${selected} selected)`;
           }
-          return `${filtered} of ${total} papers`;
+          return text;
         },
 
         // ---------------------------------------------------------------------------
@@ -705,6 +880,14 @@
 
         async init() {
           this.initUrlState();
+
+          // Clear selection when filters change
+          this.$watch('urlState.search', () => this.clearSelection());
+          this.$watch('urlState.states', () => this.clearSelection());
+          this.$watch('urlState.tracks', () => this.clearSelection());
+          this.$watch('urlState.hideAnnounced', () => this.clearSelection());
+          this.$watch('urlState.hideWithdrawn', () => this.clearSelection());
+
           await this.fetchPapers();
         },
 
