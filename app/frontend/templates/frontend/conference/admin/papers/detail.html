@@ -154,6 +154,17 @@
                       </div>
                     </template>
 
+                    {# Generate Acceptance Letter - only for accepted papers #}
+                    <template x-if="canGenerateLetter">
+                      <button
+                        type="button"
+                        class="btn btn-secondary"
+                        @click="openLetterModal([paper.code], async () => { try { await load(); } catch { window.location.reload(); } })"
+                      >
+                        <span x-text="paper.acceptance_letter_url ? 'Regenerate Letter' : 'Generate Letter'"></span>
+                      </button>
+                    </template>
+
                     {# Announce - only for conference admins, decided, not yet announced #}
                     <template x-if="showAnnounceSection && !paper.announce_time">
                       <div>
@@ -236,6 +247,9 @@
         </div>
       </div>
     </div>
+
+    {# Acceptance Letter Modal #}
+    {% include "frontend/components/paper/acceptance-letter-modal.html" %}
   </div>
 {% endblock %}
 
@@ -245,6 +259,7 @@
     function adminPaperDetail() {
       return {
         ...paperAuthors(),
+        ...acceptanceLetterModal(),
         paper: null,
         form: {
           track: "",
@@ -374,6 +389,17 @@
             return false;
           }
           return true;
+        },
+
+        get canGenerateLetter() {
+          if (!this.paper) return false;
+          if (!this.$store.permissions.isConferenceAdmin) return false;
+          if (this.paper.withdraw_time) return false;
+          const acceptedStates = [
+            APP.enums.PaperState.ACCEPTED.value,
+            APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value,
+          ];
+          return acceptedStates.includes(this.paper.state);
         },
 
         populateForm() {

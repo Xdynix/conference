@@ -96,6 +96,13 @@
           "conference_name",
         ),
       },
+      paper: {
+        generateAcceptanceLetter: urlTemplate(
+          "{% url 'api-1.0.0:generate-acceptance-letter' conference_name='__CONFERENCE_NAME__' paper_code='__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
+      },
       myReview: {
         accept: urlTemplate(
           "{% url 'api-1.0.0:accept-review' conference_name='__CONFERENCE_NAME__' review_uid='00000000000000000000000001' %}",
