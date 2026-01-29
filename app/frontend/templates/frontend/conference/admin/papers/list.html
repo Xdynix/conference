@@ -342,8 +342,9 @@
       </div>
     </template>
 
-    {# Acceptance Letter Modal #}
+    {# Modals #}
     {% include "frontend/components/paper/acceptance-letter-modal.html" %}
+    {% include "frontend/components/paper/announce-modal.html" %}
   </div>
 {% endblock %}
 
@@ -406,6 +407,7 @@
       return {
         ...UrlState.use(adminPaperListSchema),
         ...acceptanceLetterModal(),
+        ...announceModal(),
 
         // ---------------------------------------------------------------------------
         // State
@@ -442,9 +444,18 @@
           if (!this.bulkAction || this.selectedCount === 0) return;
 
           const codes = [...this.selectedPaperCodes];
+          const onSuccess = async () => {
+            try {
+              await this.fetchPapers();
+            } catch {
+              window.location.reload();
+            }
+          };
 
           if (this.bulkAction === 'generate-letters') {
-            this.openLetterModal(codes, () => this.fetchPapers());
+            this.openLetterModal(codes, onSuccess);
+          } else if (this.bulkAction === 'announce') {
+            this.openAnnounceModal(codes, onSuccess);
           }
 
           // Reset bulk action selection

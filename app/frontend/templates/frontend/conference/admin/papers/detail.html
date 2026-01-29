@@ -172,10 +172,8 @@
                           <button
                             type="button"
                             class="btn btn-secondary w-100"
-                            @click="announcePaper()"
-                            :disabled="announcing"
+                            @click="openAnnounceModal([paper.code], async () => { try { await load(); } catch { window.location.reload(); } })"
                           >
-                            <span x-show="announcing" class="spinner-border spinner-border-sm me-1"></span>
                             Announce
                           </button>
                         </template>
@@ -248,8 +246,9 @@
       </div>
     </div>
 
-    {# Acceptance Letter Modal #}
+    {# Modals #}
     {% include "frontend/components/paper/acceptance-letter-modal.html" %}
+    {% include "frontend/components/paper/announce-modal.html" %}
   </div>
 {% endblock %}
 
@@ -260,6 +259,7 @@
       return {
         ...paperAuthors(),
         ...acceptanceLetterModal(),
+        ...announceModal(),
         paper: null,
         form: {
           track: "",
@@ -281,7 +281,6 @@
           saving: false,
           error: null,
         },
-        announcing: false,
 
         get mode() {
           if (!this.paper) return null;
@@ -526,29 +525,6 @@
             this.finalLimitForm.error = e.response?.data?.message || 'Failed to update limit.';
           } finally {
             this.finalLimitForm.saving = false;
-          }
-        },
-
-        async announcePaper() {
-          if (this.announcing) return;
-          if (!confirm('Announce decision to authors? This action cannot be undone.')) return;
-
-          this.announcing = true;
-          try {
-            const url = "{% url 'api-1.0.0:announce-papers' conference_name=params.conference_name %}";
-            await api.post(url, {codes: [this.paper.code]});
-          } catch (e) {
-            alert(e.response?.data?.message || 'Failed to announce paper.');
-            return;
-          } finally {
-            this.announcing = false;
-          }
-          // Refresh paper data after successful announce.
-          try {
-            await this.load();
-          } catch (e) {
-            // Reload the page if refresh fails.
-            window.location.reload();
           }
         },
 

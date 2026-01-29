@@ -102,6 +102,10 @@
           "conference_name",
           "paper_code",
         ),
+        announce: urlTemplate(
+          "{% url 'api-1.0.0:announce-papers' conference_name='__CONFERENCE_NAME__' %}",
+          "conference_name",
+        ),
       },
       myReview: {
         accept: urlTemplate(

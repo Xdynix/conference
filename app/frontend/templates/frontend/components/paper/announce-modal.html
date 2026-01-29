@@ -1,0 +1,191 @@
+{% comment %}
+Announce Papers Modal
+
+A reusable modal for announcing decisions for one or more papers.
+
+Usage:
+  1. Spread announceModal() into the parent component's x-data
+  2. Include this template in your page
+  3. Call openAnnounceModal(paperCodes, onSuccess) to show the modal
+
+Example:
+  <div x-data="{...announceModal(), ...otherData}">
+    <button @click="openAnnounceModal([paper.code], () => refetch())">Announce</button>
+    {% include "frontend/components/paper/announce-modal.html" %}
+  </div>
+{% endcomment %}
+
+<div
+  class="modal fade"
+  id="announce-modal"
+  tabindex="-1"
+  aria-hidden="true"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false"
+>
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Announce Decisions</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+          x-show="!announce.processing"
+        ></button>
+      </div>
+      <div class="modal-body">
+        {# Success state #}
+        <template x-if="announce.done">
+          <div class="text-center py-3">
+            <template x-if="announce.announcedCount > 0">
+              <div class="text-success mb-3">
+                <i class="bi bi-check-circle fs-1"></i>
+              </div>
+            </template>
+            <template x-if="announce.announcedCount === 0">
+              <div class="text-warning mb-3">
+                <i class="bi bi-exclamation-circle fs-1"></i>
+              </div>
+            </template>
+            <p class="fw-medium mb-1" x-text="announce.resultSummary"></p>
+            <template x-if="announce.skippedCount > 0">
+              <p class="text-muted small mb-0">
+                <span x-text="announce.skippedCount"></span> skipped (already announced, withdrawn, or missing letter)
+              </p>
+            </template>
+          </div>
+        </template>
+
+        {# Confirmation state #}
+        <template x-if="!announce.done && !announce.error">
+          <div>
+            <p class="mb-0">
+              Announce decisions for
+              <span class="fw-medium" x-text="announce.paperCountLabel"></span>?
+            </p>
+            <p class="text-muted small mb-0 mt-2">
+              This will make the decisions visible to authors.
+            </p>
+          </div>
+        </template>
+
+        {# Error state #}
+        <template x-if="!announce.done && announce.error">
+          <div class="text-center py-3">
+            <div class="text-danger mb-3">
+              <i class="bi bi-x-circle fs-1"></i>
+            </div>
+            <p class="fw-medium mb-1">Failed to announce</p>
+            <p class="text-muted small mb-0" x-text="announce.error"></p>
+          </div>
+        </template>
+      </div>
+      <div class="modal-footer">
+        <template x-if="announce.done || announce.error">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+            Done
+          </button>
+        </template>
+        <template x-if="!announce.done && !announce.error">
+          <div class="d-flex gap-2">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+              :disabled="announce.processing"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              @click="announceConfirm()"
+              :disabled="announce.processing"
+            >
+              <span x-show="announce.processing" class="spinner-border spinner-border-sm me-1"></span>
+              <span x-text="announce.processing ? 'Announcing...' : 'Announce'"></span>
+            </button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function announceModal() {
+    return {
+      announce: {
+        paperCodes: [],
+        processing: false,
+        done: false,
+        error: null,
+        announcedCount: 0,
+        skippedCount: 0,
+        onSuccess: null,
+      },
+
+      openAnnounceModal(paperCodes, onSuccess = null) {
+        this.announce = {
+          paperCodes: paperCodes,
+          processing: false,
+          done: false,
+          error: null,
+          announcedCount: 0,
+          skippedCount: 0,
+          onSuccess: onSuccess,
+        };
+        // Add computed properties
+        Object.defineProperty(this.announce, 'paperCountLabel', {
+          get: () => {
+            const count = this.announce.paperCodes.length;
+            return count === 1 ? '1 paper' : `${count} papers`;
+          }
+        });
+        Object.defineProperty(this.announce, 'resultSummary', {
+          get: () => {
+            const announced = this.announce.announcedCount;
+            const total = this.announce.paperCodes.length;
+            if (total === 1) {
+              return announced === 1 ? 'Decision announced successfully.' : 'Could not announce decision.';
+            }
+            if (announced === 0) {
+              return 'No papers were announced.';
+            }
+            return `${announced} of ${total} papers announced.`;
+          }
+        });
+        new bootstrap.Modal(document.getElementById('announce-modal')).show();
+      },
+
+      async announceConfirm() {
+        if (this.announce.processing) return;
+
+        this.announce.processing = true;
+        this.announce.error = null;
+
+        try {
+          const url = APP.urls.paper.announce(APP.params.conference_name);
+          const {data} = await api.post(url, {codes: this.announce.paperCodes});
+
+          // API returns the codes that were actually announced
+          const announcedCodes = data;
+          this.announce.announcedCount = announcedCodes.length;
+          this.announce.skippedCount = this.announce.paperCodes.length - announcedCodes.length;
+          this.announce.done = true;
+
+          // Call success callback if provided and at least one was announced
+          if (this.announce.onSuccess && this.announce.announcedCount > 0) {
+            this.announce.onSuccess();
+          }
+        } catch (e) {
+          this.announce.error = e.response?.data?.message || 'An unexpected error occurred.';
+        } finally {
+          this.announce.processing = false;
+        }
+      },
+    };
+  }
+</script>
