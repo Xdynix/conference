@@ -14,7 +14,7 @@
     "
   >
     <h1 class="h3 mb-4 d-flex align-items-center">
-      <span x-text="headerText">Paper</span>
+      <span>Paper: {{ params.paper_code }}</span>
       <span x-show="paper" class="badge ms-2 fs-6" :class="stateClass" x-text="stateLabel"></span>
     </h1>
 
@@ -132,8 +132,10 @@
                       </div>
                     </template>
 
-                    {# TODO: Link to /{conference}/admin/papers/{code}/reviews/ #}
-                    <a href="#" class="btn btn-secondary">
+                    <a
+                      href="{% url 'frontend:admin-paper-reviews' conference_name=params.conference_name paper_code=params.paper_code %}"
+                      class="btn btn-secondary"
+                    >
                       Manage Reviews
                     </a>
 
@@ -301,14 +303,8 @@
           return 'admin-edit';
         },
 
-        get headerText() {
-          if (!this.paper) return 'Paper';
-          return `Paper: ${this.paper.code}`;
-        },
-
         get stateClass() {
           if (!this.paper) return '';
-          const state = this.paper.state;
           const classes = {
             [APP.enums.PaperState.DRAFT.value]: 'text-bg-secondary',
             [APP.enums.PaperState.SUBMITTED.value]: 'text-bg-primary',
@@ -317,7 +313,7 @@
             [APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value]: 'text-bg-warning',
             [APP.enums.PaperState.REJECTED.value]: 'text-bg-danger',
           };
-          const base = classes[state] || 'text-bg-secondary';
+          const base = classes[this.paper.state] || 'text-bg-secondary';
           return this.paper.withdraw_time ? `${base} opacity-50` : base;
         },
 

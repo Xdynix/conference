@@ -465,6 +465,7 @@ class Review(Schema):
     create_time: AwareDatetime
     paper: ReviewPaper
     state: ReviewState
+    recommendation: ReviewScore | None
     submit_time: AwareDatetime | None
 
 
@@ -475,7 +476,6 @@ class ReviewDetailMixin(Schema):
     reference: ReviewScore | None
     presentation: ReviewScore | None
     match_topic: ReviewScore | None
-    recommendation: ReviewScore | None
     contribution: ReviewComment
     decision_reason: ReviewComment
     comments: ReviewComment

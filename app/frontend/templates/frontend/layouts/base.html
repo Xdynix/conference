@@ -119,6 +119,13 @@
           "ulid",
         ),
       },
+      review: {
+        cancel: urlTemplate(
+          "{% url 'api-1.0.0:cancel-review' conference_name='__CONFERENCE_NAME__' review_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+      },
       pages: {
         conferenceHome: urlTemplate(
           "{% url 'frontend:conference-home' conference_name='__CONFERENCE_NAME__' %}",

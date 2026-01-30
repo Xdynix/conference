@@ -1,0 +1,495 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Reviews - {{ params.paper_code }} - {% endblock %}
+
+{% block content %}
+  <div
+    x-data="adminPaperReviews()"
+    x-init="
+      $store.sidebar.setActive('admin-papers');
+      $store.breadcrumb.set([
+        {label: 'Papers', url: '{% url 'frontend:admin-paper-list' conference_name=params.conference_name %}'},
+        {label: '{{ params.paper_code }}', url: '{% url 'frontend:admin-paper-detail' conference_name=params.conference_name paper_code=params.paper_code %}'},
+        {label: 'Reviews'}
+      ]);
+    "
+    class="d-flex flex-column flex-grow-1 mx-auto w-100"
+    style="min-height: 0; max-width: 60rem;"
+  >
+    <h1 class="h3 mb-1 d-flex align-items-center">
+      <span>Reviews: {{ params.paper_code }}</span>
+      <span x-show="paper" class="badge ms-2 fs-6" :class="stateClass" x-text="stateLabel"></span>
+    </h1>
+
+    <p class="text-muted mb-4" x-show="paper" x-cloak>
+      <span x-text="paper?.title || 'Untitled'"></span>
+      <template x-if="paper?.track">
+        <span>
+          <span class="mx-1">·</span>
+          <span x-text="paper.track.display_name"></span>
+        </span>
+      </template>
+      <template x-if="paper?.submission">
+        <span>
+          <span class="mx-1">·</span>
+          <a :href="paper.submission.download_url" class="text-decoration-none" target="_blank">
+            <i class="bi bi-file-earmark-text me-1"></i>
+            <span x-text="paper.submission.display_name"></span>
+          </a>
+        </span>
+      </template>
+    </p>
+
+    <div x-show="actionError" x-cloak class="alert alert-danger py-2 mb-4" x-text="actionError"></div>
+
+    <div x-show="$store.conference.loading || loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Failed to load data.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && !error && paper" x-cloak>
+      <div class="d-flex flex-column flex-grow-1" style="min-height: 0;">
+        {# Current Assignments #}
+        <section class="mb-4">
+          <h2 class="h5 mb-3">
+            Current Assignments
+            <span x-show="cancelling" x-cloak class="spinner-border spinner-border-sm ms-2"></span>
+          </h2>
+
+          <p x-show="reviewsError" x-cloak class="text-danger" x-text="reviewsError"></p>
+          <p x-show="!reviewsError && activeReviews.length === 0" x-cloak class="text-muted">
+            No reviewers assigned yet.
+          </p>
+
+          <template x-if="!reviewsError && activeReviews.length > 0">
+            <div class="table-responsive">
+              <table class="table align-middle mb-0">
+                <thead>
+                <tr>
+                  <th style="width: 2rem;"></th>
+                  <th>Reviewer</th>
+                  <th>State</th>
+                  <th class="text-center">Score</th>
+                  <th>Assigned</th>
+                  <th class="text-end" style="width: 10rem;"></th>
+                </tr>
+                </thead>
+                <template x-for="review in activeReviews" :key="review.uid">
+                  <tbody>
+                  <tr style="cursor: pointer;" @click="review._expanded = !review._expanded">
+                    <td>
+                      <i class="bi small" :class="review._expanded ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+                    </td>
+                    <td x-text="reviewerName(review)"></td>
+                    <td>
+                      <span
+                        class="badge"
+                        :class="reviewStateBadgeClass(review)"
+                        x-text="reviewStateLabel(review)"
+                      ></span>
+                    </td>
+                    <td class="text-center" x-text="review.recommendation || '—'"></td>
+                    <td x-text="formatDate(review.create_time)"></td>
+                    <td class="text-end">
+                      {# TODO: Link to review detail page when implemented #}
+                      <a href="#" class="btn btn-sm btn-outline-secondary me-1" @click.stop>
+                        View
+                      </a>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger"
+                        :disabled="cancelling"
+                        @click.stop="cancelReview(review)"
+                      >
+                        Cancel
+                      </button>
+                    </td>
+                  </tr>
+                  <tr x-show="review._expanded" x-cloak class="bg-body-tertiary">
+                    <td></td>
+                    <td colspan="5" class="small text-muted py-2" :class="{ 'fst-italic': !review.reviewer }">
+                      <span x-text="reviewerDetails(review)"></span>
+                    </td>
+                  </tr>
+                  </tbody>
+                </template>
+              </table>
+            </div>
+          </template>
+        </section>
+
+        {# TODO: Add external review import section (modal or inline form) #}
+
+        {# Assign Reviewer #}
+        <section class="d-flex flex-column flex-grow-1 border-top pt-4" style="min-height: 300px;">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h5 mb-0">
+              Assign Reviewer
+              <span x-show="assigning" x-cloak class="spinner-border spinner-border-sm ms-2"></span>
+            </h2>
+            <input
+              x-show="!assignBlockedReason"
+              type="text"
+              class="form-control"
+              style="width: 250px;"
+              placeholder="Search reviewers..."
+              x-model="candidateSearch"
+            >
+          </div>
+
+          <p x-show="assignBlockedReason" x-cloak class="text-muted" x-text="assignBlockedReason"></p>
+          <p x-show="!assignBlockedReason && candidatesError" x-cloak class="text-danger" x-text="candidatesError"></p>
+          <p
+            x-show="!assignBlockedReason && !candidatesError && filteredCandidates.length === 0"
+            x-cloak
+            class="text-muted"
+            x-text="candidateSearch ? 'No reviewers match your search.' : 'No available reviewers.'"
+          ></p>
+
+          <template x-if="!assignBlockedReason && !candidatesError && filteredCandidates.length > 0">
+            <div class="flex-grow-1 overflow-auto">
+              <table class="table align-middle mb-0">
+                <thead class="sticky-top bg-body">
+                <tr>
+                  <th style="width: 2rem;"></th>
+                  <th role="button" class="user-select-none" @click="toggleCandidateSort('name')">
+                    Reviewer <i :class="candidateSortIcon('name')" class="ms-1"></i>
+                  </th>
+                  <th role="button" class="text-center user-select-none" @click="toggleCandidateSort('available')">
+                    Assignments <i :class="candidateSortIcon('available')" class="ms-1"></i>
+                  </th>
+                  <th role="button" class="text-center user-select-none" @click="toggleCandidateSort('match')">
+                    Match <i :class="candidateSortIcon('match')" class="ms-1"></i>
+                  </th>
+                  <th>Status</th>
+                  <th class="text-end" style="width: 6rem;"></th>
+                </tr>
+                </thead>
+                <template x-for="candidate in filteredCandidates" :key="candidate.uid">
+                  <tbody>
+                  <tr
+                    style="cursor: pointer;"
+                    :class="{ 'text-muted': isAtCapacity(candidate) }"
+                    @click="candidate._expanded = !candidate._expanded"
+                  >
+                    <td>
+                      <i class="bi small" :class="candidate._expanded ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+                    </td>
+                    <td x-text="candidateName(candidate)"></td>
+                    <td class="text-center">
+                      <span x-text="currentAssignments(candidate)"></span>
+                      <span class="text-muted">/</span>
+                      <span x-text="candidate.workload.desired_count || '—'"></span>
+                    </td>
+                    <td class="text-center" x-text="candidate.match_score > 0 ? candidate.match_score : '—'"></td>
+                    <td>
+                      <span x-show="candidate.has_declined" class="badge text-bg-secondary">Declined</span>
+                    </td>
+                    <td class="text-end">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-primary"
+                        :disabled="assigning || assignBlockedReason"
+                        @click.stop="assignReviewer(candidate)"
+                      >
+                        Assign
+                      </button>
+                    </td>
+                  </tr>
+                  <tr x-show="candidate._expanded" x-cloak class="bg-body-tertiary">
+                    <td></td>
+                    <td colspan="5" class="small text-muted py-2">
+                      <span x-text="candidateDetails(candidate)"></span>
+                    </td>
+                  </tr>
+                  </tbody>
+                </template>
+              </table>
+            </div>
+          </template>
+        </section>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function adminPaperReviews() {
+      return {
+        paper: null,
+        reviews: [],
+        candidates: [],
+        candidateSearch: '',
+        candidateSort: '-available',
+        loading: true,
+        assigning: false,
+        cancelling: false,
+        error: null,
+        reviewsError: null,
+        candidatesError: null,
+        actionError: null,
+
+        get activeReviews() {
+          return this.reviews.filter(r =>
+            APP.enums.ReviewState._collections.active.includes(r.state)
+          );
+        },
+
+        get filteredCandidates() {
+          let result = this.candidates;
+
+          // Filter by search
+          if (this.candidateSearch.trim()) {
+            const search = this.candidateSearch.toLowerCase();
+            result = result.filter(c => {
+              const name = this.candidateName(c).toLowerCase();
+              const email = (c.email || '').toLowerCase();
+              return name.includes(search) || email.includes(search);
+            });
+          }
+
+          // Sort
+          const desc = this.candidateSort.startsWith('-');
+          const key = desc ? this.candidateSort.slice(1) : this.candidateSort;
+          return [...result].sort((a, b) => {
+            let av, bv;
+            if (key === 'name') {
+              av = this.candidateName(a).toLowerCase();
+              bv = this.candidateName(b).toLowerCase();
+            } else if (key === 'available') {
+              av = (a.workload.desired_count || 0) - this.currentAssignments(a);
+              bv = (b.workload.desired_count || 0) - this.currentAssignments(b);
+            } else if (key === 'match') {
+              av = a.match_score || 0;
+              bv = b.match_score || 0;
+            }
+            let cmp = 0;
+            if (av < bv) cmp = -1;
+            else if (av > bv) cmp = 1;
+            return desc ? -cmp : cmp;
+          });
+        },
+
+        get assignBlockedReason() {
+          if (!this.paper) return 'Loading...';
+          if (this.paper.withdraw_time) {
+            return 'Cannot assign reviewers to withdrawn papers.';
+          }
+          if (this.paper.state === APP.enums.PaperState.DRAFT.value) {
+            return 'Cannot assign reviewers to papers in Draft state.';
+          }
+          const decidedStates = APP.enums.PaperState._collections.decided;
+          if (this.paper.announce_time && decidedStates.includes(this.paper.state)) {
+            return 'Cannot assign reviewers after decision announcement.';
+          }
+          return null;
+        },
+
+        toggleCandidateSort(key) {
+          if (this.candidateSort === key) {
+            this.candidateSort = '-' + key;
+          } else if (this.candidateSort === '-' + key) {
+            this.candidateSort = key;
+          } else {
+            this.candidateSort = '-' + key;
+          }
+        },
+
+        candidateSortIcon(key) {
+          if (this.candidateSort === key) return 'bi-sort-down-alt';
+          if (this.candidateSort === '-' + key) return 'bi-sort-up';
+          return '';
+        },
+
+        displayName(user) {
+          if (user?.profile) {
+            const {given_name, family_name} = user.profile;
+            if (given_name || family_name) {
+              return [given_name, family_name].filter(Boolean).join(' ');
+            }
+          }
+          return user?.email || null;
+        },
+
+        displayDetails(user) {
+          const parts = [];
+          if (user?.email) {
+            parts.push(user.email);
+          }
+          if (user?.profile?.affiliation) {
+            parts.push(user.profile.affiliation);
+          }
+          if (user?.profile?.region_code) {
+            parts.push(regionName(user.profile.region_code));
+          }
+          return parts.join(' · ') || 'No details available';
+        },
+
+        candidateName(candidate) {
+          return this.displayName(candidate) || 'Unknown';
+        },
+
+        candidateDetails(candidate) {
+          return this.displayDetails(candidate);
+        },
+
+        currentAssignments(candidate) {
+          const w = candidate.workload;
+          return w.pending_count + w.accepted_count + w.submitted_count;
+        },
+
+        isAtCapacity(candidate) {
+          const desired = candidate.workload.desired_count;
+          return desired > 0 && this.currentAssignments(candidate) >= desired;
+        },
+
+        reviewerName(review) {
+          return this.displayName(review.reviewer) || review.offline_reviewer_name || 'External reviewer';
+        },
+
+        reviewerDetails(review) {
+          if (!review.reviewer) {
+            return review.offline_reviewer_name || 'External reviewer';
+          }
+          return this.displayDetails(review.reviewer);
+        },
+
+        reviewStateLabel(review) {
+          if (review.state === APP.enums.ReviewState.ACCEPTED.value) {
+            return 'In Progress';
+          }
+          return enumLabel(APP.enums.ReviewState, review.state);
+        },
+
+        reviewStateBadgeClass(review) {
+          const classes = {
+            [APP.enums.ReviewState.PENDING.value]: 'text-bg-warning',
+            [APP.enums.ReviewState.ACCEPTED.value]: 'text-bg-info',
+            [APP.enums.ReviewState.SUBMITTED.value]: 'text-bg-success',
+          };
+          return classes[review.state] || 'text-bg-secondary';
+        },
+
+        get stateClass() {
+          if (!this.paper) return '';
+          const classes = {
+            [APP.enums.PaperState.DRAFT.value]: 'text-bg-secondary',
+            [APP.enums.PaperState.SUBMITTED.value]: 'text-bg-primary',
+            [APP.enums.PaperState.UNDER_REVIEW.value]: 'text-bg-info',
+            [APP.enums.PaperState.ACCEPTED.value]: 'text-bg-success',
+            [APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value]: 'text-bg-warning',
+            [APP.enums.PaperState.REJECTED.value]: 'text-bg-danger',
+          };
+          const base = classes[this.paper.state] || 'text-bg-secondary';
+          return this.paper.withdraw_time ? `${base} opacity-50` : base;
+        },
+
+        get stateLabel() {
+          if (!this.paper) return '';
+          const label = enumLabel(APP.enums.PaperState, this.paper.state);
+          return this.paper.withdraw_time ? `${label} (Withdrawn)` : label;
+        },
+
+        async loadPaper() {
+          const url = "{% url 'api-1.0.0:get-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
+          const {data} = await api.get(url);
+          this.paper = data;
+        },
+
+        async loadReviews() {
+          const url = "{% url 'api-1.0.0:list-reviews' conference_name=params.conference_name paper_code=params.paper_code %}";
+          const {data} = await api.get(url);
+          this.reviews = data;
+        },
+
+        async loadCandidates() {
+          const url = "{% url 'api-1.0.0:list-reviewer-candidates' conference_name=params.conference_name paper_code=params.paper_code %}";
+          const {data} = await api.get(url);
+          this.candidates = data;
+        },
+
+        async refreshData() {
+          const [paperResult, reviewsResult, candidatesResult] = await Promise.allSettled([
+            this.loadPaper(),
+            this.loadReviews(),
+            this.loadCandidates(),
+          ]);
+
+          // Paper refresh failure is silent - we still have the old data
+          this.reviewsError = reviewsResult.status === 'rejected'
+            ? 'Failed to load current assignments.'
+            : null;
+          this.candidatesError = candidatesResult.status === 'rejected'
+            ? 'Failed to load candidates.'
+            : null;
+        },
+
+        async cancelReview(review) {
+          const name = this.reviewerName(review);
+          const message = `Remove ${name} from reviewing this paper?\n\nAny review progress will be lost. This cannot be undone.`;
+          if (!confirm(message)) return;
+
+          this.actionError = null;
+          this.cancelling = true;
+          try {
+            const url = APP.urls.review.cancel(APP.params.conference_name, review.uid);
+            await api.post(url);
+            await this.refreshData();
+          } catch (e) {
+            this.actionError = e.response?.data?.message || 'Failed to cancel review.';
+          } finally {
+            this.cancelling = false;
+          }
+        },
+
+        async assignReviewer(candidate) {
+          this.actionError = null;
+          this.assigning = true;
+          try {
+            const url = "{% url 'api-1.0.0:assign-review' conference_name=params.conference_name paper_code=params.paper_code %}";
+            await api.post(url, {reviewer: candidate.uid});
+            await this.refreshData();
+          } catch (e) {
+            this.actionError = e.response?.data?.message || 'Failed to assign reviewer.';
+          } finally {
+            this.assigning = false;
+          }
+        },
+
+        async init() {
+          const [paperResult, reviewsResult, candidatesResult] = await Promise.allSettled([
+            this.loadPaper(),
+            this.loadReviews(),
+            this.loadCandidates(),
+          ]);
+
+          if (paperResult.status === 'rejected') {
+            this.error = paperResult.reason;
+            this.loading = false;
+            return;
+          }
+
+          if (reviewsResult.status === 'rejected') {
+            this.reviewsError = 'Failed to load current assignments.';
+          }
+          if (candidatesResult.status === 'rejected') {
+            this.candidatesError = 'Failed to load candidates.';
+          }
+
+          this.loading = false;
+        },
+      };
+    }
+  </script>
+{% endblock %}

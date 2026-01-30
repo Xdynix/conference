@@ -149,7 +149,10 @@ def enums_json() -> SafeString:
                     PaperState,
                     collections=["decided"],
                 ),
-                "ReviewState": _enum_to_dict(ReviewState),
+                "ReviewState": _enum_to_dict(
+                    ReviewState,
+                    collections=["active"],
+                ),
                 "TrackRole": _enum_to_dict(
                     TrackRole,
                     collections=["admins", "reviewers"],
