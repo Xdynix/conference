@@ -34,49 +34,8 @@
             <span x-text="headerText">Review</span>
             <span class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
           </h1>
-          {# Paper info card #}
-          <div class="card mb-4">
-            <div class="card-body">
-              <h5 class="card-title mt-2 mb-2" x-text="review?.paper.title"></h5>
-              <template x-if="review?.paper.keywords?.length">
-                <div class="mb-2">
-                  <template x-for="kw in review.paper.keywords" :key="kw">
-                    <span class="badge bg-body-tertiary text-body border me-1" x-text="kw"></span>
-                  </template>
-                </div>
-              </template>
-              <p class="text-muted small mb-0">
-                <span x-text="review?.paper.track?.display_name"></span>
-                <template x-if="review?.paper.submission">
-                  <span>
-                    <span class="mx-1">·</span>
-                    <a :href="review.paper.submission.download_url" class="text-decoration-none" target="_blank">
-                      <i class="bi-file-earmark-text me-1"></i>Download Paper
-                    </a>
-                  </span>
-                </template>
-              </p>
-              <template x-if="review?.paper.abstract">
-                <div class="mt-3 pt-3 border-top">
-                  <button
-                    type="button"
-                    class="btn btn-link btn-sm p-0 small text-decoration-none"
-                    @click="showAbstract = !showAbstract"
-                  >
-                    <i class="bi" :class="showAbstract ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
-                    Abstract
-                  </button>
-                  <p
-                    x-show="showAbstract"
-                    x-cloak
-                    class="small mt-2 mb-0"
-                    style="white-space: pre-wrap;"
-                    x-text="review.paper.abstract"
-                  ></p>
-                </div>
-              </template>
-            </div>
-          </div>
+
+          {% include "frontend/components/review/paper-card.html" %}
 
           {# State: Pending #}
           <template x-if="review?.state === APP.enums.ReviewState.PENDING.value">
@@ -144,7 +103,7 @@
             </template>
 
             <form x-ref="reviewForm" @submit.prevent>
-              {% include "frontend/components/review-form.html" %}
+              {% include "frontend/components/review/form.html" %}
 
               <template x-if="mode === 'edit'">
                 <div>
@@ -207,7 +166,6 @@
         review: null,
         loading: true,
         error: null,
-        showAbstract: false,
         accepting: false,
         declining: false,
         saving: false,
