@@ -89,7 +89,13 @@
                     <td>
                       <i class="bi small" :class="review._expanded ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
                     </td>
-                    <td x-text="reviewerName(review)"></td>
+                    <td>
+                      <div class="d-flex align-items-center">
+                        <span x-text="reviewerName(review)"></span>
+                        <span x-show="isCurrentUser(review.reviewer)" class="badge text-bg-secondary ms-1">you</span>
+                        <span x-show="isOwner(review.reviewer)" class="badge text-bg-info ms-1">owner</span>
+                      </div>
+                    </td>
                     <td>
                       <span
                         class="badge"
@@ -184,7 +190,13 @@
                     <td>
                       <i class="bi small" :class="candidate._expanded ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
                     </td>
-                    <td x-text="candidateName(candidate)"></td>
+                    <td>
+                      <div class="d-flex align-items-center">
+                        <span x-text="candidateName(candidate)"></span>
+                        <span x-show="isCurrentUser(candidate)" class="badge text-bg-secondary ms-1">you</span>
+                        <span x-show="isOwner(candidate)" class="badge text-bg-info ms-1">owner</span>
+                      </div>
+                    </td>
                     <td class="text-center">
                       <span x-text="currentAssignments(candidate)"></span>
                       <span class="text-muted">/</span>
@@ -332,6 +344,14 @@
 
         candidateName(candidate) {
           return this.displayName(candidate) || 'Unknown';
+        },
+
+        isCurrentUser(user) {
+          return user?.email === this.$store.session.user?.email;
+        },
+
+        isOwner(user) {
+          return user?.email === this.paper?.owner.email;
         },
 
         candidateDetails(candidate) {

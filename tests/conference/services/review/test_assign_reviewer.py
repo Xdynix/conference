@@ -237,30 +237,6 @@ class TestAssignReviewer:
                 mode="track",
             )
 
-    def test_paper_owner_cannot_be_assigned_as_reviewer(
-        self,
-        faker: Faker,
-        conference: Conference,
-        paper: Paper,
-    ) -> None:
-        assigner = User.objects.create_user(username=faker.user_name())
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=paper.owner,
-            role=ConferenceRole.REVIEWER,
-        )
-
-        with pytest.raises(
-            ReviewerNotEligibleError,
-            match="Paper owner cannot be assigned as reviewer",
-        ):
-            ReviewService.assign_reviewer(
-                paper=paper,
-                reviewer=paper.owner,
-                assigner=assigner,
-                mode="conference",
-            )
-
     def test_transitions_submitted_paper_to_under_review(
         self,
         faker: Faker,

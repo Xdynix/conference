@@ -108,8 +108,7 @@ class ReviewService:
             PaperWithdrawnError: If the paper has been withdrawn.
             PaperStateError: If the paper is in Draft state or has been decided and
                 announced.
-            ReviewerNotEligibleError: If reviewer has no eligible role or is the
-                paper owner.
+            ReviewerNotEligibleError: If reviewer has no eligible role.
         """
         with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
             paper = Paper.objects.active().get(pk=paper.pk)
@@ -125,11 +124,6 @@ class ReviewService:
             if paper.announce_time is not None and paper.state in PaperState.decided():
                 raise PaperStateError(
                     _("Cannot assign reviewers to papers after decision announcement.")
-                )
-
-            if reviewer.pk == paper.owner_id:
-                raise ReviewerNotEligibleError(
-                    _("Paper owner cannot be assigned as reviewer.")
                 )
 
             if mode == "conference":

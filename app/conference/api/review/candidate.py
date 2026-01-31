@@ -65,8 +65,8 @@ async def list_reviewer_candidates(
     """Returns potential reviewers for a paper based on the requester's role.
 
     Conference admins see all eligible users in the conference. Track admins see only
-    users with reviewer roles in the paper's track. Excludes the requester, the paper
-    owner, and users who already have an active review for this paper.
+    users with reviewer roles in the paper's track. Excludes users who already have an
+    active review for this paper.
     """
     user = await request.auser()
     conference = await aget_object_or_404(
@@ -109,8 +109,6 @@ async def list_reviewer_candidates(
 
     candidates = (
         User.objects.active()
-        .exclude(pk=paper.owner_id)
-        .exclude(pk=user.pk)
         .exclude(Exists(active_reviewers))
         .annotate(
             pending_count=workload_count(ReviewState.PENDING),

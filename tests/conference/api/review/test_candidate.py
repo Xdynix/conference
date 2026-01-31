@@ -69,63 +69,26 @@ class TestListReviewerCandidates:
         response = api_client.get(self.path(conference.name, paper.code))
         assert response.status_code == HTTPStatus.OK
 
-        assert response.json() == [
-            {
-                "uid": str(reviewer.uid),
-                "email": reviewer.email,
-                "profile": {
-                    "given_name": "Alice",
-                    "family_name": "Reviewer",
-                    "affiliation": "University",
-                    "region_code": "",
-                },
-                "workload": {
-                    "pending_count": 0,
-                    "accepted_count": 0,
-                    "submitted_count": 0,
-                    "desired_count": 0,
-                },
-                "has_declined": False,
-                "match_score": 0,
-            }
-        ]
-
-    def test_excludes_paper_owner(
-        self,
-        api_client: Client,
-        conference: Conference,
-        conference_chair: User,
-        paper: Paper,
-    ) -> None:
-        ConferenceRoleAssignment.objects.create(
-            conference=conference,
-            user=paper.owner,
-            role=ConferenceRole.REVIEWER,
-        )
-        api_client.force_login(conference_chair)
-
-        response = api_client.get(self.path(conference.name, paper.code))
-        assert response.status_code == HTTPStatus.OK
-
         data = response.json()
-        uids = [c["uid"] for c in data]
-        assert str(paper.owner.uid) not in uids
-
-    def test_excludes_requester(
-        self,
-        api_client: Client,
-        conference: Conference,
-        conference_chair: User,
-        paper: Paper,
-    ) -> None:
-        api_client.force_login(conference_chair)
-
-        response = api_client.get(self.path(conference.name, paper.code))
-        assert response.status_code == HTTPStatus.OK
-
-        data = response.json()
-        uids = [c["uid"] for c in data]
-        assert str(conference_chair.uid) not in uids
+        candidate = next(c for c in data if c["uid"] == str(reviewer.uid))
+        assert candidate == {
+            "uid": str(reviewer.uid),
+            "email": reviewer.email,
+            "profile": {
+                "given_name": "Alice",
+                "family_name": "Reviewer",
+                "affiliation": "University",
+                "region_code": "",
+            },
+            "workload": {
+                "pending_count": 0,
+                "accepted_count": 0,
+                "submitted_count": 0,
+                "desired_count": 0,
+            },
+            "has_declined": False,
+            "match_score": 0,
+        }
 
     def test_excludes_users_with_active_reviews(
         self,
@@ -348,7 +311,7 @@ class TestListReviewerCandidates:
         assert str(track_reviewer.uid) in uids
         assert str(conf_reviewer.uid) not in uids
 
-    def test_returns_empty_list_when_no_candidates(
+    def test_returns_only_admin_when_no_explicit_reviewers(
         self,
         api_client: Client,
         conference: Conference,
@@ -360,7 +323,9 @@ class TestListReviewerCandidates:
         response = api_client.get(self.path(conference.name, paper.code))
         assert response.status_code == HTTPStatus.OK
 
-        assert response.json() == []
+        data = response.json()
+        uids = [c["uid"] for c in data]
+        assert uids == [str(conference_chair.uid)]
 
     def test_conference_not_found(
         self,
