@@ -1,6 +1,6 @@
 {% extends "frontend/layouts/app.html" %}
 
-{% block title %}Review - {% endblock %}
+{% block title %}Review | {% endblock %}
 
 {% block content %}
   <div
@@ -266,6 +266,7 @@
                 this.isDirty = true;
               }, {deep: true});
             });
+            document.title = document.title.replace('Review | ', `Review - ${data.paper.code} | `);
             this.$store.breadcrumb.set([
               {
                 label: 'My Reviews',
