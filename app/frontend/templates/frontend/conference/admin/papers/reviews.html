@@ -313,13 +313,7 @@
         },
 
         displayName(user) {
-          if (user?.profile) {
-            const {given_name, family_name} = user.profile;
-            if (given_name || family_name) {
-              return [given_name, family_name].filter(Boolean).join(' ');
-            }
-          }
-          return user?.email || null;
+          return formatProfileName(user?.profile) || user?.email || null;
         },
 
         displayDetails(user) {

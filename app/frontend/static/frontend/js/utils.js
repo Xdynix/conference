@@ -369,6 +369,19 @@
   }
 
   /**
+   * Formats a profile name from given and family name parts.
+   *
+   * Works with any object containing given_name and family_name fields,
+   * such as user profiles, paper authors, or reviewer candidates.
+   *
+   * @param {Object} profile - Object with given_name and family_name fields.
+   * @returns {string} Formatted name, or empty string if no name parts.
+   */
+  function formatProfileName(profile) {
+    return [profile?.given_name, profile?.family_name].filter(Boolean).join(" ");
+  }
+
+  /**
    * Returns badge class and label for a review state.
    *
    * The "Accepted" state is displayed as "In Progress" since it means
@@ -409,4 +422,5 @@
   window.paperStateBadge = paperStateBadge;
   window.paperStateBadgeAdmin = paperStateBadgeAdmin;
   window.reviewStateBadge = reviewStateBadge;
+  window.formatProfileName = formatProfileName;
 })();

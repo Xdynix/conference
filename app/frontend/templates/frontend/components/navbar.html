@@ -207,11 +207,7 @@
       displayName() {
         const user = this.$store.session.user;
         if (!user) return "";
-        const profile = user.profile;
-        if (profile?.given_name || profile?.family_name) {
-          return [profile.given_name, profile.family_name].filter(Boolean).join(" ");
-        }
-        return user.username;
+        return formatProfileName(user.profile) || user.username;
       },
 
       signUpUrl() {

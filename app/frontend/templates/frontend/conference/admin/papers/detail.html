@@ -309,10 +309,7 @@
         },
 
         get ownerDisplayName() {
-          const profile = this.paper?.owner.profile;
-          if (!profile) return '';
-          const parts = [profile.given_name, profile.family_name].filter(Boolean);
-          return parts.join(' ');
+          return formatProfileName(this.paper?.owner.profile);
         },
 
         get ownerAffiliationLine() {
