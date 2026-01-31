@@ -1,7 +1,6 @@
 # Frontend Guidelines
 
-This document defines frontend implementation patterns for the project. Examples
-reference actual files in the codebase.
+This document defines frontend implementation patterns for the project.
 
 ## Technology Stack
 
@@ -14,7 +13,8 @@ reference actual files in the codebase.
 | Searchable Select | Tom Select      |
 
 All frontend dependencies are downloaded locally and served via Django's static files
-system. No npm, bundlers, or build steps are used.
+system. No npm, bundlers, or build steps are used. The `package.json` exists only for
+editor type hints and linting config, not for shipping assets.
 
 Vendor files are committed to the repository. Update them manually when upgrading
 library versions.
@@ -32,6 +32,8 @@ legacy compatibility. ES6+, CSS Grid, native `Intl` APIs are all safe to use.
 - **Django-Rendered Configuration**: Static config (CSRF, URLs, feature flags) rendered
   into `window.APP` at page load.
 - **Alpine.js Components**: Reusable UI behaviors encapsulated as component functions.
+- **Single-File Pattern**: Inspired by Vue's Single-File Components, each page/component
+  keeps its HTML and JavaScript together in one file for easier maintenance.
 
 ## Layouts
 
@@ -41,7 +43,7 @@ Two layout types, both include the navbar.
 
 Centered content without sidebar. Used for authentication pages and account settings.
 
-→ Example: `app/frontend/templates/frontend/layouts/simple.html`
+-> Example: `app/frontend/templates/frontend/layouts/simple.html`
 
 Pages using this layout:
 
@@ -91,7 +93,7 @@ $store.breadcrumb.set([
 ]);
 ```
 
-→ Example: `app/frontend/templates/frontend/layouts/app.html`,
+-> Example: `app/frontend/templates/frontend/layouts/app.html`,
 `app/frontend/templates/frontend/conference/home.html`
 
 ## Views
@@ -106,7 +108,7 @@ path("login/", public_view(template_name="frontend/login.html"))
 path("account/", protected_view(template_name="frontend/account.html"))
 ```
 
-→ Example: `app/frontend/views.py`, `app/frontend/urls.py`
+-> Example: `app/frontend/views.py`, `app/frontend/urls.py`
 
 ## State Management
 
@@ -119,7 +121,68 @@ path("account/", protected_view(template_name="frontend/account.html"))
 | Reactive shared state | Alpine store | Session, theme, conference     |
 | Component-local state | `x-data`     | Form fields, loading, errors   |
 
-→ Example: `app/frontend/static/frontend/js/stores.js`
+-> Example: `app/frontend/static/frontend/js/stores.js`
+
+### URL State Management
+
+For pages with filters, pagination, or other URL-persisted state, use the `UrlState`
+utility (`app/frontend/static/frontend/js/url-state.js`).
+
+**Define a schema** with typed fields:
+
+```javascript
+const {string, number, boolean, oneOf, setOf} = UrlState.types;
+
+const schema = {
+  search: string({default: ''}),
+  page: number({default: 1, min: 1}),
+  sort: oneOf(['name', 'date'], {default: 'name'}),
+  status: setOf(oneOf(['draft', 'submitted'], {default: ''}), {
+    default: ['draft'],
+  }),
+};
+```
+
+**Integrate with Alpine.js** using the `use()` mixin:
+
+```javascript
+function myComponent() {
+  return {
+    ...UrlState.use(schema),
+
+    init() {
+      this.initUrlState();  // Required: call in init()
+    },
+
+    // Access via this.urlState.search, this.urlState.page, etc.
+  };
+}
+```
+
+**Key points:**
+
+- State syncs bidirectionally with URL query parameters.
+- Default values are omitted from URL for cleaner links.
+- Uses `replaceState` (not `pushState`) to avoid polluting browser history.
+- Type helpers validate and clamp values on load.
+
+## API Client
+
+The API client (`app/frontend/static/frontend/js/api.js`) is a configured axios instance
+with automatic CSRF handling and mutation tracking.
+
+**Mutation tracking**: Non-GET requests increment a pending counter. If the user tries
+to leave the page with pending mutations, a `beforeunload` warning is shown. This
+prevents accidental data loss during saves.
+
+**Usage**:
+
+```javascript
+// CSRF header is automatically included
+const {data} = await api.post(APP.urls.paper.create, payload);
+const {data} = await api.patch(APP.urls.paper.update(code), payload);
+const {data} = await api.delete(APP.urls.paper.delete(code));
+```
 
 ## Forms
 
@@ -162,7 +225,7 @@ function profileForm() {
 }
 ```
 
-→ Example: `app/frontend/templates/frontend/account.html`,
+-> Example: `app/frontend/templates/frontend/account.html`,
 `app/frontend/templates/frontend/login.html`
 
 ### Key Points
@@ -225,7 +288,7 @@ snake_case (matches API error `loc`).
 
 Document parameters in a comment block at the top of the component file.
 
-→ Example: `app/frontend/templates/frontend/components/password-input.html`
+-> Example: `app/frontend/templates/frontend/components/password-input.html`
 
 ### Component Data via Template Tags
 
@@ -247,7 +310,7 @@ def regions_json() -> SafeString:
 const regions = JSON.parse(document.getElementById('app-regions').textContent);
 ```
 
-→ Example: `app/frontend/templatetags/frontend_tags.py`
+-> Example: `app/frontend/templatetags/frontend_tags.py`
 
 ### Searchable Dropdown (Tom Select)
 
@@ -291,16 +354,7 @@ Initialize inline with Alpine's `x-init`:
 - Error feedback needs `d-block` class since Tom Select breaks Bootstrap's sibling
   selector
 
-→ Example: `app/frontend/templates/frontend/account.html`
-
-### Password Input
-
-Password field with show/hide toggle:
-
-- Toggle button with eye icon
-- Configurable autocomplete (`current-password`, `new-password`)
-
-→ Example: `app/frontend/templates/frontend/components/password-input.html`
+-> Example: `app/frontend/templates/frontend/account.html`
 
 ## URL Configuration
 
@@ -331,36 +385,35 @@ window.APP = {
 };
 ```
 
-For dynamic URL segments, use functions:
+### Dynamic URL Segments
+
+Use `urlTemplate()` for URLs with dynamic segments:
+
+<!-- markdownlint-disable MD013 -->
 
 ```javascript
+// In base.html - define with placeholders
 urls: {
-  // Dynamic segment appended to base URL
-  paper: (code) =>
-    `{% url 'api:papers' conference.name %}${encodeURIComponent(code)}/`,
-
-    // Multiple dynamic segments via placeholder replacement
-    paperReview
-:
-  "{% url 'api:paper-review' conference.name '__PAPER__' '__REVIEW__' %}",
-
-    buildUrl
-:
-  (template, params) => {
-    let url = template;
-    for (const [key, value] of Object.entries(params)) {
-      url = url.replace(`__${key.toUpperCase()}__`, encodeURIComponent(value));
-    }
-    return url;
-  },
+  paper: {
+    get: urlTemplate(
+      "{% url 'api-1.0.0:get-my-paper' '__CONFERENCE__' '00000000000000000000000001' %}",
+      "conference", "ulid"
+    )
+  }
 }
 
-// Usage
-APP.urls.paper('ABC-123')
-APP.buildUrl(APP.urls.paperReview, {paper: 'ABC', review: '123'})
+<!-- markdownlint-enable MD013 -->
+
+// Usage - call with values
+APP.urls.paper.get("icse-2025", "01ARZ3NDEKTSV4RRFFQ69G5FAV")
 ```
 
-→ Example: `app/frontend/templates/frontend/layouts/base.html`
+**Placeholder types:**
+
+- Named: `__PARAM_NAME__` for string params (e.g., conference names)
+- ULID: Sequential placeholder ULIDs for ULID params (use `"ulid"` as param name)
+
+-> Example: `app/frontend/templates/frontend/layouts/base.html`
 
 ## Context Processor
 
@@ -378,7 +431,7 @@ def config(_: Any) -> dict[str, Any]:
     }
 ```
 
-→ Example: `app/frontend/context_processors.py`
+-> Example: `app/frontend/context_processors.py`
 
 ## Enums
 
@@ -399,11 +452,27 @@ if (data.state === APP.enums.InvitationState.ACCEPTED.value) { ...
 APP.enums.ConferenceRole._collections.admins.includes(user.role)
 ```
 
-→ Implementation: `app/frontend/templatetags/frontend_tags.py` (`_enum_to_dict`,
+-> Implementation: `app/frontend/templatetags/frontend_tags.py` (`_enum_to_dict`,
 `enums_json`), `app/frontend/static/frontend/js/utils.js` (`enumLabel`)
 
-→ Usage: `app/frontend/templates/frontend/index.html`,
-`app/frontend/templates/frontend/invitation-accept.html`
+## Utilities Reference
+
+Common utilities in `app/frontend/static/frontend/js/utils.js`:
+
+| Function              | Purpose                                            |
+|-----------------------|----------------------------------------------------|
+| `mapErrors(details)`  | Convert API validation errors to field-keyed map   |
+| `enumLabel(enum, v)`  | Look up enum label by value                        |
+| `formatDate(iso)`     | Format ISO date string                             |
+| `formatDateRange()`   | Format date range with smart month/year handling   |
+| `formatFileSize()`    | Human-readable file size (KB, MB, etc.)            |
+| `validateFile()`      | Validate file against upload constraints           |
+| `formatProfileName()` | Format name from given_name/family_name fields     |
+| `paperStateBadge()`   | Get badge class and label for paper state          |
+| `reviewStateBadge()`  | Get badge class and label for review state         |
+| `regionName(code)`    | Look up region name by code                        |
+| `safeRedirectUrl()`   | Validate redirect URL is same-origin               |
+| `urlTemplate()`       | Create URL builder from template with placeholders |
 
 ## Dark Mode
 
@@ -412,7 +481,7 @@ APP.enums.ConferenceRole._collections.admins.includes(user.role)
 - Applied by setting `data-bs-theme` attribute on `<html>`.
 - Toggle in navbar with dropdown (Light, Dark, Auto options).
 
-→ Example: `app/frontend/templates/frontend/components/navbar.html`
+-> Example: `app/frontend/templates/frontend/components/navbar.html`
 
 ## Loading States
 
@@ -472,14 +541,22 @@ Baseline approach: don't break what Bootstrap and semantic HTML provide for free
 
 ## Code Organization
 
-| Logic Type          | Location                                          |
-|---------------------|---------------------------------------------------|
-| Page-specific       | Inline `<script>` in template                     |
-| Reusable components | `app/frontend/static/frontend/js/components/*.js` |
-| Core utilities      | `app/frontend/static/frontend/js/api.js`          |
-| Alpine stores       | `app/frontend/static/frontend/js/stores.js`       |
+| Templates           | Location                         |
+|---------------------|----------------------------------|
+| Layouts             | `templates/frontend/layouts/`    |
+| Reusable components | `templates/frontend/components/` |
+| Conference pages    | `templates/frontend/conference/` |
+| Public pages        | `templates/frontend/*.html`      |
 
-Inline scripts are not linted. Extract complex logic to `.js` files for linting.
+| JavaScript     | Location                          |
+|----------------|-----------------------------------|
+| Core utilities | `static/frontend/js/utils.js`     |
+| API client     | `static/frontend/js/api.js`       |
+| Alpine stores  | `static/frontend/js/stores.js`    |
+| URL state      | `static/frontend/js/url-state.js` |
+
+Page-specific logic goes in inline `<script>` tags. Inline scripts are not linted;
+extract complex logic to `.js` files for linting.
 
 ## Coding Conventions
 
@@ -491,3 +568,8 @@ Inline scripts are not linted. Extract complex logic to `.js` files for linting.
   utilities (`d-block`, `d-grid`, etc.). Bootstrap uses `!important` which overrides
   Alpine's inline `display: none`. Use `x-if` with `<template>` instead, or put `x-show`
   on a parent/wrapper.
+
+## Testing
+
+Frontend testing is not yet implemented. When added, tests will use pytest with
+Playwright for end-to-end browser testing.
