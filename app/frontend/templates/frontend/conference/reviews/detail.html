@@ -41,7 +41,7 @@
             <div class="col-xl-8 col-xxl-6">
               <h1 class="h3 mb-4 d-flex align-items-center">
                 <span x-text="headerText">Review</span>
-                <span class="badge ms-2 fs-6" :class="stateBadgeClass" x-text="stateLabel"></span>
+                <span class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
               </h1>
               {# Paper info card #}
               <div class="card mb-4">
@@ -479,23 +479,9 @@
           return `Review: ${this.review.paper.code}`;
         },
 
-        get stateBadgeClass() {
-          if (!this.review) return '';
-          const state = this.review.state;
-          const classes = {
-            [APP.enums.ReviewState.PENDING.value]: 'text-bg-warning',
-            [APP.enums.ReviewState.ACCEPTED.value]: 'text-bg-info',
-            [APP.enums.ReviewState.SUBMITTED.value]: 'text-bg-success',
-            [APP.enums.ReviewState.DECLINED.value]: 'text-bg-secondary',
-          };
-          return classes[state] || 'text-bg-secondary';
-        },
-
-        get stateLabel() {
-          if (!this.review) return '';
-          const state = this.review.state;
-          if (state === APP.enums.ReviewState.ACCEPTED.value) return 'In Progress';
-          return enumLabel(APP.enums.ReviewState, state);
+        get stateBadge() {
+          if (!this.review) return {class: '', label: ''};
+          return reviewStateBadge(this.review.state);
         },
 
         formatDate(isoString) {

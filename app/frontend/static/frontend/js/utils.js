@@ -310,6 +310,90 @@
     return dateFmt.full.format(new Date(isoString));
   }
 
+  /**
+   * Returns the badge CSS class for a paper state value.
+   *
+   * @param {string} state - The paper state value (e.g., "Draft", "Submitted").
+   * @returns {string} Bootstrap badge class.
+   */
+  function paperStateClass(state) {
+    const stateEnum = APP.enums.PaperState;
+    const classes = {
+      [stateEnum.DRAFT.value]: "text-bg-secondary",
+      [stateEnum.SUBMITTED.value]: "text-bg-primary",
+      [stateEnum.UNDER_REVIEW.value]: "text-bg-info",
+      [stateEnum.ACCEPTED.value]: "text-bg-success",
+      [stateEnum.ACCEPTED_REVISION_NEEDED.value]: "text-bg-warning",
+      [stateEnum.REJECTED.value]: "text-bg-danger",
+    };
+    return classes[state] || "text-bg-secondary";
+  }
+
+  /**
+   * Returns badge class and label for a paper state (author-facing).
+   *
+   * For authors, withdrawn papers have state="Withdrawn" from the API,
+   * hiding the underlying state.
+   *
+   * @param {string} state - The paper state value.
+   * @returns {{class: string, label: string}} Badge class and label.
+   */
+  function paperStateBadge(state) {
+    if (state === "Withdrawn") {
+      return {class: "text-bg-dark", label: "Withdrawn"};
+    }
+    return {
+      class: paperStateClass(state),
+      label: enumLabel(APP.enums.PaperState, state) || state,
+    };
+  }
+
+  /**
+   * Returns badge class and label for a paper state (admin-facing).
+   *
+   * For admins, withdrawn papers show the underlying state with "(Withdrawn)"
+   * suffix and reduced opacity.
+   *
+   * @param {string} state - The paper state value.
+   * @param {string|null} withdrawTime - The withdraw timestamp, or null if not withdrawn.
+   * @returns {{class: string, label: string}} Badge class and label.
+   */
+  function paperStateBadgeAdmin(state, withdrawTime) {
+    const baseCls = paperStateClass(state);
+    const baseLabel = enumLabel(APP.enums.PaperState, state) || state;
+
+    if (withdrawTime) {
+      return {class: `${baseCls} opacity-50`, label: `${baseLabel} (Withdrawn)`};
+    }
+    return {class: baseCls, label: baseLabel};
+  }
+
+  /**
+   * Returns badge class and label for a review state.
+   *
+   * The "Accepted" state is displayed as "In Progress" since it means
+   * the reviewer accepted the assignment and is working on it.
+   *
+   * @param {string} state - The review state value.
+   * @returns {{class: string, label: string}} Badge class and label.
+   */
+  function reviewStateBadge(state) {
+    const stateEnum = APP.enums.ReviewState;
+    const classes = {
+      [stateEnum.PENDING.value]: "text-bg-warning",
+      [stateEnum.ACCEPTED.value]: "text-bg-info",
+      [stateEnum.SUBMITTED.value]: "text-bg-success",
+      [stateEnum.DECLINED.value]: "text-bg-secondary",
+    };
+    const cls = classes[state] || "text-bg-secondary";
+
+    // "Accepted" means reviewer accepted the assignment, display as "In Progress"
+    if (state === stateEnum.ACCEPTED.value) {
+      return {class: cls, label: "In Progress"};
+    }
+    return {class: cls, label: enumLabel(stateEnum, state) || state};
+  }
+
   window.urlTemplate = urlTemplate;
   window.formatDate = formatDate;
   window.mapErrors = mapErrors;
@@ -322,4 +406,7 @@
   window.formatDateRange = formatDateRange;
   window.formatFileSize = formatFileSize;
   window.validateFile = validateFile;
+  window.paperStateBadge = paperStateBadge;
+  window.paperStateBadgeAdmin = paperStateBadgeAdmin;
+  window.reviewStateBadge = reviewStateBadge;
 })();

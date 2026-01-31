@@ -15,7 +15,7 @@
   >
     <h1 class="h3 mb-4 d-flex align-items-center">
       <span x-text="headerText">Paper</span>
-      <span x-show="paper" class="badge ms-2 fs-6" :class="stateClass" x-text="stateLabel"></span>
+      <span x-show="paper" class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
     </h1>
 
     <div x-show="$store.conference.loading || loading" class="text-center py-5">
@@ -541,25 +541,9 @@
           return `${action} Paper: ${this.paper.code}`;
         },
 
-        get stateClass() {
-          if (!this.paper) return '';
-          const state = this.paper.state;
-          const classes = {
-            [APP.enums.PaperState.DRAFT.value]: 'text-bg-secondary',
-            [APP.enums.PaperState.SUBMITTED.value]: 'text-bg-primary',
-            [APP.enums.PaperState.UNDER_REVIEW.value]: 'text-bg-info',
-            [APP.enums.PaperState.ACCEPTED.value]: 'text-bg-success',
-            [APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value]: 'text-bg-warning',
-            [APP.enums.PaperState.REJECTED.value]: 'text-bg-danger',
-            "Withdrawn": 'text-bg-dark',
-          };
-          return classes[state] || 'text-bg-secondary';
-        },
-
-        get stateLabel() {
-          if (!this.paper) return '';
-          if (this.paper.state === 'Withdrawn') return 'Withdrawn';
-          return enumLabel(APP.enums.PaperState, this.paper.state);
+        get stateBadge() {
+          if (!this.paper) return {class: '', label: ''};
+          return paperStateBadge(this.paper.state);
         },
 
         get canWithdraw() {

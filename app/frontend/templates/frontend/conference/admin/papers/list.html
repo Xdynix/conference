@@ -510,24 +510,9 @@
           {
             key: 'state',
             label: 'State',
-            value: (p) => {
-              const label = enumLabel(APP.enums.PaperState, p?.state);
-              return p?.withdraw_time ? `${label} (Withdrawn)` : label;
-            },
+            value: (p) => p ? paperStateBadgeAdmin(p.state, p.withdraw_time).label : '',
             sortValue: (p) => p?.withdraw_time ? 'Withdrawn' : p?.state,
-            badge: (p) => {
-              if (!p) return 'text-bg-secondary';
-              const classes = {
-                [APP.enums.PaperState.DRAFT.value]: 'text-bg-secondary',
-                [APP.enums.PaperState.SUBMITTED.value]: 'text-bg-primary',
-                [APP.enums.PaperState.UNDER_REVIEW.value]: 'text-bg-info',
-                [APP.enums.PaperState.ACCEPTED.value]: 'text-bg-success',
-                [APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value]: 'text-bg-warning',
-                [APP.enums.PaperState.REJECTED.value]: 'text-bg-danger',
-              };
-              const base = classes[p.state] || 'text-bg-secondary';
-              return p.withdraw_time ? `${base} opacity-50` : base;
-            },
+            badge: (p) => p ? paperStateBadgeAdmin(p.state, p.withdraw_time).class : 'text-bg-secondary',
             nowrap: true,
           },
           {

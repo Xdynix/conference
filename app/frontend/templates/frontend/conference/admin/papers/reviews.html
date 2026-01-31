@@ -18,7 +18,7 @@
   >
     <h1 class="h3 mb-1 d-flex align-items-center">
       <span>Reviews: {{ params.paper_code }}</span>
-      <span x-show="paper" class="badge ms-2 fs-6" :class="stateClass" x-text="stateLabel"></span>
+      <span x-show="paper" class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
     </h1>
 
     <p class="text-muted mb-4" x-show="paper" x-cloak>
@@ -93,8 +93,8 @@
                     <td>
                       <span
                         class="badge"
-                        :class="reviewStateBadgeClass(review)"
-                        x-text="reviewStateLabel(review)"
+                        :class="reviewBadge(review).class"
+                        x-text="reviewBadge(review).label"
                       ></span>
                     </td>
                     <td class="text-center" x-text="review.recommendation || '—'"></td>
@@ -365,40 +365,13 @@
           return this.displayDetails(review.reviewer);
         },
 
-        reviewStateLabel(review) {
-          if (review.state === APP.enums.ReviewState.ACCEPTED.value) {
-            return 'In Progress';
-          }
-          return enumLabel(APP.enums.ReviewState, review.state);
+        reviewBadge(review) {
+          return reviewStateBadge(review.state);
         },
 
-        reviewStateBadgeClass(review) {
-          const classes = {
-            [APP.enums.ReviewState.PENDING.value]: 'text-bg-warning',
-            [APP.enums.ReviewState.ACCEPTED.value]: 'text-bg-info',
-            [APP.enums.ReviewState.SUBMITTED.value]: 'text-bg-success',
-          };
-          return classes[review.state] || 'text-bg-secondary';
-        },
-
-        get stateClass() {
-          if (!this.paper) return '';
-          const classes = {
-            [APP.enums.PaperState.DRAFT.value]: 'text-bg-secondary',
-            [APP.enums.PaperState.SUBMITTED.value]: 'text-bg-primary',
-            [APP.enums.PaperState.UNDER_REVIEW.value]: 'text-bg-info',
-            [APP.enums.PaperState.ACCEPTED.value]: 'text-bg-success',
-            [APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value]: 'text-bg-warning',
-            [APP.enums.PaperState.REJECTED.value]: 'text-bg-danger',
-          };
-          const base = classes[this.paper.state] || 'text-bg-secondary';
-          return this.paper.withdraw_time ? `${base} opacity-50` : base;
-        },
-
-        get stateLabel() {
-          if (!this.paper) return '';
-          const label = enumLabel(APP.enums.PaperState, this.paper.state);
-          return this.paper.withdraw_time ? `${label} (Withdrawn)` : label;
+        get stateBadge() {
+          if (!this.paper) return {class: '', label: ''};
+          return paperStateBadgeAdmin(this.paper.state, this.paper.withdraw_time);
         },
 
         async loadPaper() {

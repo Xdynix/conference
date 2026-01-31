@@ -38,7 +38,7 @@
                     <div class="card-body">
                       <div class="d-flex justify-content-between align-items-start mb-2">
                         <span class="font-monospace text-muted" x-text="paper.code"></span>
-                        <span class="badge" :class="stateClass(paper.state)" x-text="stateLabel(paper.state)"></span>
+                        <span class="badge" :class="stateBadge(paper.state).class" x-text="stateBadge(paper.state).label"></span>
                       </div>
                       <h5 class="card-title mb-2" x-text="paper.title || 'Untitled'"></h5>
                       <p class="text-muted small mb-0" x-text="paper.track?.display_name"></p>
@@ -74,22 +74,8 @@
         loading: true,
         error: null,
 
-        stateClass(state) {
-          const classes = {
-            [APP.enums.PaperState.DRAFT.value]: 'text-bg-secondary',
-            [APP.enums.PaperState.SUBMITTED.value]: 'text-bg-primary',
-            [APP.enums.PaperState.UNDER_REVIEW.value]: 'text-bg-info',
-            [APP.enums.PaperState.ACCEPTED.value]: 'text-bg-success',
-            [APP.enums.PaperState.ACCEPTED_REVISION_NEEDED.value]: 'text-bg-warning',
-            [APP.enums.PaperState.REJECTED.value]: 'text-bg-danger',
-            "Withdrawn": 'text-bg-dark',
-          };
-          return classes[state] || 'text-bg-secondary';
-        },
-
-        stateLabel(state) {
-          if (state === 'Withdrawn') return 'Withdrawn';
-          return enumLabel(APP.enums.PaperState, state);
+        stateBadge(state) {
+          return paperStateBadge(state);
         },
 
         formatDate(isoString) {
