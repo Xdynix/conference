@@ -202,7 +202,7 @@ Parent should spread reviewForm() to get required constants and helpers:
             — Visible to authors anonymously
           </span>
         </div>
-        <p class="mb-0" style="white-space: pre-wrap;" x-text="review.contribution"></p>
+        <p class="mb-0" style="white-space: pre-wrap; overflow-wrap: break-word;" x-text="review.contribution"></p>
       </div>
     </template>
 
@@ -214,7 +214,7 @@ Parent should spread reviewForm() to get required constants and helpers:
             — Visible to authors anonymously
           </span>
         </div>
-        <p class="mb-0" style="white-space: pre-wrap;" x-text="review.decision_reason"></p>
+        <p class="mb-0" style="white-space: pre-wrap; overflow-wrap: break-word;" x-text="review.decision_reason"></p>
       </div>
     </template>
 
@@ -226,7 +226,7 @@ Parent should spread reviewForm() to get required constants and helpers:
             — Visible to authors anonymously
           </span>
         </div>
-        <p class="mb-0" style="white-space: pre-wrap;" x-text="review.comments"></p>
+        <p class="mb-0" style="white-space: pre-wrap; overflow-wrap: break-word;" x-text="review.comments"></p>
       </div>
     </template>
 
@@ -238,7 +238,11 @@ Parent should spread reviewForm() to get required constants and helpers:
             — Visible to editors only
           </span>
         </div>
-        <p class="mb-0" style="white-space: pre-wrap;" x-text="review.confidential_remarks"></p>
+        <p
+          class="mb-0"
+          style="white-space: pre-wrap; overflow-wrap: break-word;"
+          x-text="review.confidential_remarks"
+        ></p>
       </div>
     </template>
   </div>

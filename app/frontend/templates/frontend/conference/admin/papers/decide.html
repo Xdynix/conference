@@ -1,0 +1,664 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Admin: Decision - {{ params.paper_code }} | {% endblock %}
+
+{% block content %}
+  <div
+    x-data="adminPaperDecision()"
+    x-init="
+      $store.sidebar.setActive('admin-papers');
+      $store.breadcrumb.set([
+        {label: 'Papers', url: '{% url 'frontend:admin-paper-list' conference_name=params.conference_name %}'},
+        {label: '{{ params.paper_code }}', url: '{% url 'frontend:admin-paper-detail' conference_name=params.conference_name paper_code=params.paper_code %}'},
+        {label: 'Decision'}
+      ]);
+    "
+  >
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <h1 class="h3 mb-0 d-flex align-items-center">
+        <span>Decision: {{ params.paper_code }}</span>
+        <span x-show="paper" class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
+        <span x-show="paper?.announce_time" x-cloak class="badge text-bg-info ms-2 fs-6">Announced</span>
+      </h1>
+      <a
+        x-show="paper"
+        x-cloak
+        href="{% url 'frontend:admin-paper-reviews' conference_name=params.conference_name paper_code=params.paper_code %}"
+        class="btn btn-secondary"
+      >
+        Manage Reviews
+      </a>
+    </div>
+
+    <p class="text-muted mb-4" x-show="paper" x-cloak>
+      <span x-text="paper?.title || 'Untitled'"></span>
+      <template x-if="paper?.track">
+        <span>
+          <span class="mx-1">·</span>
+          <span x-text="paper.track.display_name"></span>
+        </span>
+      </template>
+      <template x-if="paper?.submission">
+        <span>
+          <span class="mx-1">·</span>
+          <a :href="paper.submission.download_url" class="text-decoration-none" target="_blank">
+            <i class="bi bi-file-earmark-text me-1"></i>
+            <span x-text="paper.submission.display_name"></span>
+          </a>
+        </span>
+      </template>
+    </p>
+
+    <div x-show="$store.conference.loading || loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
+
+    {# Non-chair users will fail to load chair-only data (admin comments, decisions) and see this error. #}
+    <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Failed to load data.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && !error && paper" x-cloak>
+      <div class="row">
+        {# Main column #}
+        <div class="col-xl-8 order-xl-1 order-2">
+          {# Reviews table #}
+          <section class="mb-4">
+            <h2 class="h5 mb-3">
+              Reviews
+              <span class="text-muted fw-normal" x-text="reviewsSummary()"></span>
+            </h2>
+
+            <template x-if="visibleReviews().length === 0">
+              <p class="text-muted">No reviews available yet.</p>
+            </template>
+
+            <template x-if="visibleReviews().length > 0">
+              <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                  <thead>
+                  <tr>
+                    <th style="width: 2rem;"></th>
+                    <th>Reviewer</th>
+                    <th>State</th>
+                    <th>Recommendation</th>
+                  </tr>
+                  </thead>
+                  <template x-for="review in visibleReviews()" :key="review.uid">
+                    <tbody>
+                    <tr style="cursor: pointer;" @click="toggleReview(review)">
+                      <td>
+                        <i class="bi small" :class="review._expanded ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+                      </td>
+                      <td>
+                        <span x-text="reviewerName(review)"></span>
+                        <span x-show="isCurrentUser(review.reviewer)" class="badge text-bg-secondary ms-1">you</span>
+                        <span x-show="isOwner(review.reviewer)" class="badge text-bg-info ms-1">owner</span>
+                      </td>
+                      <td>
+                        <span
+                          class="badge"
+                          :class="reviewBadge(review).class"
+                          x-text="reviewBadge(review).label"
+                        ></span>
+                      </td>
+                      <td x-text="review.recommendation || '—'"></td>
+                    </tr>
+                    <tr x-show="review._expanded" x-cloak class="bg-body-tertiary">
+                      <td></td>
+                      <td colspan="3" class="py-3">
+                        <div x-show="review._loading" class="text-center py-3">
+                          <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                          </div>
+                        </div>
+
+                        <div x-show="review._error" x-cloak class="text-danger small">
+                          Failed to load review details.
+                        </div>
+
+                        <template x-if="review._loaded && !review._loading && !review._error">
+                          <div>
+                            {# Scores row #}
+                            <div class="d-flex justify-content-between text-center border-bottom pb-3 mb-3">
+                              <div>
+                                <div class="text-muted small">Originality</div>
+                                <div x-text="review.originality ?? '—'"></div>
+                              </div>
+                              <div>
+                                <div class="text-muted small">Significance</div>
+                                <div x-text="review.significance ?? '—'"></div>
+                              </div>
+                              <div>
+                                <div class="text-muted small">Technical</div>
+                                <div x-text="review.technical ?? '—'"></div>
+                              </div>
+                              <div>
+                                <div class="text-muted small">Reference</div>
+                                <div x-text="review.reference ?? '—'"></div>
+                              </div>
+                              <div>
+                                <div class="text-muted small">Presentation</div>
+                                <div x-text="review.presentation ?? '—'"></div>
+                              </div>
+                              <div>
+                                <div class="text-muted small">Topic Match</div>
+                                <div x-text="review.match_topic ?? '—'"></div>
+                              </div>
+                            </div>
+
+                            {# Text fields #}
+                            <template x-if="review.contribution">
+                              <div class="mb-3">
+                                <div class="text-muted small mb-1">Contribution</div>
+                                <div
+                                  class="small"
+                                  style="white-space: pre-wrap; overflow-wrap: break-word;"
+                                  x-text="review.contribution"
+                                ></div>
+                              </div>
+                            </template>
+
+                            <template x-if="review.decision_reason">
+                              <div class="mb-3">
+                                <div class="text-muted small mb-1">Decision Reason</div>
+                                <div
+                                  class="small"
+                                  style="white-space: pre-wrap; overflow-wrap: break-word;"
+                                  x-text="review.decision_reason"
+                                ></div>
+                              </div>
+                            </template>
+
+                            <template x-if="review.comments">
+                              <div class="mb-3">
+                                <div class="text-muted small mb-1">Comments to Authors</div>
+                                <div
+                                  class="small"
+                                  style="white-space: pre-wrap; overflow-wrap: break-word;"
+                                  x-text="review.comments"
+                                ></div>
+                              </div>
+                            </template>
+
+                            <template x-if="review.confidential_remarks">
+                              <div class="mb-0 p-2 bg-body-secondary rounded">
+                                <div class="text-muted small mb-1">
+                                  <i class="bi bi-shield-lock me-1"></i>Confidential Remarks
+                                  <span class="opacity-75">(not visible to authors)</span>
+                                </div>
+                                <div
+                                  class="small"
+                                  style="white-space: pre-wrap; overflow-wrap: break-word;"
+                                  x-text="review.confidential_remarks"
+                                ></div>
+                              </div>
+                            </template>
+                          </div>
+                        </template>
+                      </td>
+                    </tr>
+                    </tbody>
+                  </template>
+                </table>
+              </div>
+            </template>
+          </section>
+
+          {# Admin comments #}
+          <section class="mb-4">
+            <h2 class="h5 mb-3">Admin Comments</h2>
+
+            <p class="text-muted small mb-3">
+              Comments are shown anonymously to authors after decision announcement.
+            </p>
+
+            <div
+              x-show="commentForm.deleteError"
+              x-cloak
+              class="alert alert-danger small py-2 mb-3"
+              x-text="commentForm.deleteError"
+            ></div>
+
+            <template x-if="adminComments.length === 0 && !commentForm.content">
+              <p class="text-muted">No comments yet.</p>
+            </template>
+
+            <template x-for="comment in adminComments" :key="comment.uid">
+              <div class="mb-3 pb-3 border-bottom">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                  <div class="text-muted small">
+                    <span x-text="formatDate(comment.create_time)"></span>
+                    <template x-if="comment.author">
+                      <span>
+                        ·
+                        <span x-text="commentAuthorName(comment)"></span>
+                      </span>
+                    </template>
+                  </div>
+                  <button
+                    x-show="$store.permissions.isConferenceAdmin"
+                    type="button"
+                    class="btn btn-link btn-sm text-danger p-0"
+                    :disabled="commentForm.deleting"
+                    @click="deleteComment(comment)"
+                    title="Delete comment"
+                  >
+                    <span
+                      x-show="commentForm.deleting === comment.uid"
+                      class="spinner-border spinner-border-sm"
+                    ></span>
+                    <i x-show="commentForm.deleting !== comment.uid" class="bi bi-trash"></i>
+                  </button>
+                </div>
+                <div
+                  class="small"
+                  style="white-space: pre-wrap; overflow-wrap: break-word;"
+                  x-text="comment.content"
+                ></div>
+              </div>
+            </template>
+
+            <template x-if="$store.permissions.isConferenceAdmin">
+              <div class="mt-3">
+                <textarea
+                  class="form-control"
+                  :class="{'is-invalid': commentForm.errors.content}"
+                  rows="3"
+                  x-model="commentForm.content"
+                  :disabled="commentForm.posting"
+                  @input="commentForm.error = null; commentForm.errors = {}"
+                ></textarea>
+                <div class="invalid-feedback" x-text="commentForm.errors.content"></div>
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                  <div class="text-danger small" x-text="commentForm.error"></div>
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                    :disabled="!commentForm.content.trim() || commentForm.posting"
+                    @click="postComment()"
+                  >
+                    <span x-show="commentForm.posting" class="spinner-border spinner-border-sm me-1"></span>
+                    Post
+                  </button>
+                </div>
+              </div>
+            </template>
+          </section>
+        </div>
+
+        {# Sidebar #}
+        <div class="col-xl-4 order-xl-2 order-1 mb-4 mb-xl-0">
+          <div class="card position-sticky" style="top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto;">
+            {# Decision form #}
+            <template x-if="canDecide">
+              <div class="card-body">
+                <h2 class="h5 mb-3">Make Decision</h2>
+
+                <div
+                  x-show="decisionForm.error"
+                  x-cloak
+                  class="alert alert-danger small py-2 mb-3"
+                  x-text="decisionForm.error"
+                ></div>
+
+                <div class="mb-3">
+                  <label for="decision-state" class="form-label">Decision</label>
+                  <select
+                    id="decision-state"
+                    class="form-select"
+                    :class="{'is-invalid': decisionForm.errors.state}"
+                    x-model="decisionForm.state"
+                    :disabled="decisionForm.submitting"
+                    @change="decisionForm.error = null; decisionForm.errors = {}"
+                  >
+                    <option value="">Select decision...</option>
+                    <template
+                      x-for="state in [
+                        APP.enums.PaperState.ACCEPTED,
+                        APP.enums.PaperState.ACCEPTED_REVISION_NEEDED,
+                        APP.enums.PaperState.REJECTED,
+                      ]"
+                      :key="state.value"
+                    >
+                      <option :value="state.value" x-text="state.label"></option>
+                    </template>
+                  </select>
+                  <div class="invalid-feedback" x-text="decisionForm.errors.state"></div>
+                </div>
+
+                <div class="mb-3">
+                  <label for="decision-note" class="form-label">Notes</label>
+                  <textarea
+                    id="decision-note"
+                    class="form-control"
+                    :class="{'is-invalid': decisionForm.errors.note}"
+                    rows="3"
+                    x-model="decisionForm.note"
+                    :disabled="decisionForm.submitting"
+                    @input="decisionForm.error = null; decisionForm.errors = {}"
+                  ></textarea>
+                  <div class="invalid-feedback" x-text="decisionForm.errors.note"></div>
+                  <div class="form-text">Visible to other admins only.</div>
+                </div>
+
+                <div class="d-grid">
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    :disabled="!decisionForm.state || decisionForm.submitting"
+                    @click="submitDecision()"
+                  >
+                    <span x-show="decisionForm.submitting" class="spinner-border spinner-border-sm me-1"></span>
+                    Make Decision
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            {# Decision history #}
+            <div class="card-body border-top">
+              <h2 class="h5 mb-3">History</h2>
+
+              <template x-if="decisions.length === 0">
+                <p class="text-muted mb-0">No decisions yet.</p>
+              </template>
+
+              <template x-for="(decision, index) in decisions" :key="decision._key">
+                <div :class="{'mb-3': index < decisions.length - 1}">
+                  <div class="mb-1">
+                    <span
+                      class="badge"
+                      :class="decisionBadge(decision.state).class"
+                      x-text="decisionBadge(decision.state).label"
+                    ></span>
+                  </div>
+                  <div class="text-muted small mb-1">
+                    <span x-text="formatDate(decision.create_time)"></span>
+                    <span>·</span>
+                    <span x-text="deciderName(decision)"></span>
+                  </div>
+                  <template x-if="decision.note">
+                    <div
+                      class="small"
+                      style="white-space: pre-wrap; overflow-wrap: break-word;"
+                      x-text="decision.note"
+                    ></div>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function decisionReviewList() {
+      return {
+        reviews: [],
+
+        visibleReviews() {
+          const visibleStates = [
+            APP.enums.ReviewState.SUBMITTED.value,
+            APP.enums.ReviewState.ACCEPTED.value,
+          ];
+          return this.reviews.filter(r => visibleStates.includes(r.state));
+        },
+
+        reviewsSummary() {
+          const visible = this.visibleReviews();
+          const submitted = visible.filter(
+            r => r.state === APP.enums.ReviewState.SUBMITTED.value
+          ).length;
+          const inProgress = visible.filter(
+            r => r.state === APP.enums.ReviewState.ACCEPTED.value
+          ).length;
+
+          const parts = [];
+          if (submitted > 0) parts.push(`${submitted} submitted`);
+          if (inProgress > 0) parts.push(`${inProgress} in progress`);
+          return parts.length > 0 ? `(${parts.join(', ')})` : '';
+        },
+
+        reviewerName(review) {
+          return formatProfileName(review.reviewer?.profile)
+            || review.reviewer?.email
+            || review.offline_reviewer_name
+            || 'External reviewer';
+        },
+
+        reviewBadge(review) {
+          return reviewStateBadge(review.state);
+        },
+
+        isCurrentUser(user) {
+          return user?.email === this.$store.session.user?.email;
+        },
+
+        isOwner(user) {
+          return user?.email === this.paper?.owner.email;
+        },
+
+        async toggleReview(review) {
+          review._expanded = !review._expanded;
+
+          if (!review._loaded && !review._loading) {
+            review._loading = true;
+            review._error = false;
+
+            try {
+              const url = APP.urls.review.get(APP.params.conference_name, review.uid);
+              const {data} = await api.get(url);
+              Object.assign(review, data, {_expanded: true, _loaded: true, _loading: false});
+            } catch (e) {
+              review._error = true;
+              review._loading = false;
+            }
+          }
+        },
+
+        async loadReviews() {
+          const url = "{% url 'api-1.0.0:list-reviews' conference_name=params.conference_name paper_code=params.paper_code %}";
+          const {data} = await api.get(url);
+          this.reviews = data;
+        },
+      };
+    }
+
+    function decisionAdminComments() {
+      return {
+        adminComments: [],
+        commentForm: {
+          content: '',
+          posting: false,
+          deleting: null,
+          error: null,
+          errors: {},
+          deleteError: null,
+        },
+
+        commentAuthorName(comment) {
+          return formatProfileName(comment.author?.profile) || comment.author?.email || 'Unknown';
+        },
+
+        async postComment() {
+          if (this.commentForm.posting || !this.commentForm.content.trim()) return;
+          this.commentForm.posting = true;
+          this.commentForm.error = null;
+          this.commentForm.errors = {};
+
+          try {
+            const url = "{% url 'api-1.0.0:create-admin-comment' conference_name=params.conference_name paper_code=params.paper_code %}";
+            const {data} = await api.post(url, {content: this.commentForm.content});
+            this.adminComments.push(data);
+            this.commentForm.content = '';
+          } catch (e) {
+            const resp = e.response?.data;
+            if (e.response?.status === 422 && resp?.details?.length) {
+              this.commentForm.errors = mapErrors(resp.details);
+            } else {
+              this.commentForm.error = resp?.message || 'Failed to post comment.';
+            }
+          } finally {
+            this.commentForm.posting = false;
+          }
+        },
+
+        async deleteComment(comment) {
+          if (this.commentForm.deleting) return;
+
+          const msg = 'Delete this comment? This cannot be undone.';
+          if (!confirm(msg)) return;
+
+          this.commentForm.deleting = comment.uid;
+          this.commentForm.deleteError = null;
+
+          try {
+            const url = APP.urls.adminComment.delete(APP.params.conference_name, comment.uid);
+            await api.delete(url);
+            this.adminComments = this.adminComments.filter(c => c.uid !== comment.uid);
+          } catch (e) {
+            if (e.response?.status === 404) {
+              this.adminComments = this.adminComments.filter(c => c.uid !== comment.uid);
+            } else {
+              this.commentForm.deleteError = e.response?.data?.message || 'Failed to delete comment.';
+            }
+          } finally {
+            this.commentForm.deleting = null;
+          }
+        },
+
+        async loadAdminComments() {
+          const url = "{% url 'api-1.0.0:list-admin-comments' conference_name=params.conference_name paper_code=params.paper_code %}";
+          const {data} = await api.get(url);
+          this.adminComments = data;
+        },
+      };
+    }
+
+    function decisionFormMixin() {
+      return {
+        decisionForm: {
+          state: '',
+          note: '',
+          submitting: false,
+          error: null,
+          errors: {},
+        },
+
+        async submitDecision() {
+          if (this.decisionForm.submitting || !this.decisionForm.state) return;
+          this.decisionForm.submitting = true;
+          this.decisionForm.error = null;
+          this.decisionForm.errors = {};
+
+          try {
+            const url = "{% url 'api-1.0.0:decide-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
+            const {data} = await api.post(url, {
+              state: this.decisionForm.state,
+              note: this.decisionForm.note,
+            });
+            this.paper = data;
+            this.decisionForm.state = '';
+            this.decisionForm.note = '';
+            try {
+              await this.loadDecisions();
+            } catch {
+              window.location.reload();
+            }
+          } catch (e) {
+            const resp = e.response?.data;
+            if (e.response?.status === 422 && resp?.details?.length) {
+              this.decisionForm.errors = mapErrors(resp.details);
+            } else {
+              this.decisionForm.error = resp?.message || 'Failed to submit decision.';
+            }
+          } finally {
+            this.decisionForm.submitting = false;
+          }
+        },
+      };
+    }
+
+    function decisionHistoryMixin() {
+      return {
+        decisions: [],
+
+        decisionBadge(state) {
+          return paperStateBadgeAdmin(state, null);
+        },
+
+        deciderName(decision) {
+          return formatProfileName(decision.decider.profile)
+            || decision.decider.email
+            || 'Unknown';
+        },
+
+        async loadDecisions() {
+          const url = "{% url 'api-1.0.0:list-paper-decisions' conference_name=params.conference_name paper_code=params.paper_code %}";
+          const {data} = await api.get(url);
+          this.decisions = data.map(decision => ({
+            ...decision,
+            _key: crypto.randomUUID(),
+          }));
+        },
+      };
+    }
+
+    function adminPaperDecision() {
+      return {
+        ...decisionReviewList(),
+        ...decisionAdminComments(),
+        ...decisionFormMixin(),
+        ...decisionHistoryMixin(),
+        paper: null,
+        loading: true,
+        error: null,
+
+        get stateBadge() {
+          if (!this.paper) return {class: '', label: ''};
+          return paperStateBadgeAdmin(this.paper.state, this.paper.withdraw_time);
+        },
+
+        get canDecide() {
+          if (!this.paper) return false;
+          if (!this.$store.permissions.isChairRole) return false;
+          if (this.paper.state === APP.enums.PaperState.DRAFT.value) return false;
+          return !this.paper.withdraw_time;
+        },
+
+        async loadPaper() {
+          const url = "{% url 'api-1.0.0:get-paper' conference_name=params.conference_name paper_code=params.paper_code %}";
+          const {data} = await api.get(url);
+          this.paper = data;
+        },
+
+        async init() {
+          try {
+            await Promise.all([
+              this.loadPaper(),
+              this.loadReviews(),
+              this.loadAdminComments(),
+              this.loadDecisions(),
+            ]);
+          } catch (e) {
+            this.error = e;
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}

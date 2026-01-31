@@ -16,10 +16,20 @@
     class="d-flex flex-column flex-grow-1 mx-auto w-100"
     style="min-height: 0; max-width: 60rem;"
   >
-    <h1 class="h3 mb-1 d-flex align-items-center">
-      <span>Reviews: {{ params.paper_code }}</span>
-      <span x-show="paper" class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
-    </h1>
+    <div class="d-flex justify-content-between align-items-start mb-1">
+      <h1 class="h3 mb-0 d-flex align-items-center">
+        <span>Reviews: {{ params.paper_code }}</span>
+        <span x-show="paper" class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
+      </h1>
+      <template x-if="showDecideLink">
+        <a
+          href="{% url 'frontend:admin-paper-decide' conference_name=params.conference_name paper_code=params.paper_code %}"
+          class="btn btn-secondary"
+        >
+          Make Decision
+        </a>
+      </template>
+    </div>
 
     <p class="text-muted mb-4" x-show="paper" x-cloak>
       <span x-text="paper?.title || 'Untitled'"></span>
@@ -313,6 +323,13 @@
 
         get canCancelReview() {
           return !(!this.$store.permissions.isConferenceAdmin && this.paper?.announce_time);
+        },
+
+        get showDecideLink() {
+          if (!this.paper) return false;
+          if (!this.$store.permissions.isChairRole) return false;
+          if (this.paper.withdraw_time) return false;
+          return this.paper.state !== APP.enums.PaperState.DRAFT.value;
         },
 
         toggleCandidateSort(key) {

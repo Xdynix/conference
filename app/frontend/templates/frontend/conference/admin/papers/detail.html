@@ -148,9 +148,11 @@
                           </button>
                         </template>
                         <template x-if="paper.state !== APP.enums.PaperState.DRAFT.value">
-                          {# TODO: Link to /{conference}/admin/papers/{code}/decide/ #}
-                          <a href="#" class="btn btn-secondary w-100">
-                            Decide
+                          <a
+                            href="{% url 'frontend:admin-paper-decide' conference_name=params.conference_name paper_code=params.paper_code %}"
+                            class="btn btn-secondary w-100"
+                          >
+                            Make Decision
                           </a>
                         </template>
                       </div>
