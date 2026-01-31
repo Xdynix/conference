@@ -79,8 +79,8 @@
                 </div>
               </template>
 
-              {# Final upload limit - only for conference admins #}
-              <template x-if="$store.permissions.isConferenceAdmin">
+              {# Final upload limit - only for conference admins, not withdrawn #}
+              <template x-if="$store.permissions.isConferenceAdmin && !paper?.withdraw_time">
                 <div class="mb-3">
                   <label class="form-label text-muted mb-1">Final Uploads</label>
                   <div class="d-flex align-items-center gap-2">
@@ -194,11 +194,19 @@
               </template>
 
               <template x-if="mode === 'admin-view'">
-                <div class="text-muted small">
-                  <i class="bi bi-info-circle me-1"></i>
-                  <span
-                    x-text="paper?.withdraw_time ? 'This paper has been withdrawn and cannot be edited.' : 'This paper has a decision and cannot be edited.'"
-                  ></span>
+                <div class="d-grid gap-2">
+                  <a
+                    href="{% url 'frontend:admin-paper-reviews' conference_name=params.conference_name paper_code=params.paper_code %}"
+                    class="btn btn-secondary"
+                  >
+                    Manage Reviews
+                  </a>
+                  <div class="text-muted small">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <span
+                      x-text="paper?.withdraw_time ? 'This paper has been withdrawn and cannot be edited.' : 'This paper has a decision and cannot be edited.'"
+                    ></span>
+                  </div>
                 </div>
               </template>
             </div>
