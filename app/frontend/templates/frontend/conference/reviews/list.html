@@ -3,266 +3,257 @@
 {% block title %}My Reviews - {% endblock %}
 
 {% block content %}
-  <div x-data="reviewList()" x-init="
-    $store.sidebar.setActive('my-reviews');
-    $store.breadcrumb.set([{label: 'My Reviews'}]);
-  ">
+  <div
+    x-data="reviewList()"
+    x-init="
+      $store.sidebar.setActive('my-reviews');
+      $store.breadcrumb.set([{label: 'My Reviews'}]);
+    "
+  >
     <div class="row justify-content-center">
       <div class="col-xl-8 col-xxl-6">
         <h1 class="h3 mb-4">My Reviews</h1>
 
-        <template x-if="$store.conference.loading">
-          <div class="text-center py-5">
-            <div class="spinner-border" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
+        <div x-show="$store.conference.loading || loading" class="text-center py-5">
+          <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
           </div>
-        </template>
+        </div>
 
-        <template x-if="!$store.conference.loading && !$store.conference.detail">
-          <div class="text-center py-5">
-            <p class="text-muted mb-0">Conference not found.</p>
-          </div>
-        </template>
+        <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+          <p class="text-muted mb-0">Conference not found.</p>
+        </div>
 
-        <template x-if="!$store.conference.loading && $store.conference.detail">
-          <div>
-            <div x-show="loading" class="text-center py-5">
-              <div class="spinner-border" role="status">
-                <span class="visually-hidden">Loading...</span>
-              </div>
-            </div>
+        <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
+          <p class="text-muted mb-0">Failed to load reviews.</p>
+        </div>
 
-            <div x-show="!loading && error" x-cloak class="text-center py-5">
-              <p class="text-muted mb-0">Failed to load reviews.</p>
-            </div>
+        <div x-show="!$store.conference.loading && $store.conference.detail" x-cloak>
+          <div x-show="!loading && !error" x-cloak>
+            <template x-if="reviews.length === 0">
+              <p class="text-muted">No reviews assigned yet.</p>
+            </template>
 
-            <div x-show="!loading && !error" x-cloak>
-              <template x-if="reviews.length === 0">
-                <p class="text-muted">No reviews assigned yet.</p>
-              </template>
-
-              <template x-if="reviews.length > 0">
-                <div class="d-flex flex-column gap-4">
-                  {# Pending Section #}
-                  <template x-if="pending.length > 0">
-                    <div>
-                      <h2
-                        class="h6 text-muted mb-3 d-flex align-items-center"
-                        role="button"
-                        @click="collapsed.pending = !collapsed.pending"
-                      >
-                        <i class="bi me-2" :class="collapsed.pending ? 'bi-chevron-right' : 'bi-chevron-down'"></i>
-                        Pending Assignment
-                        <span class="badge text-bg-secondary ms-1" x-text="pending.length"></span>
-                      </h2>
-                      <div x-show="!collapsed.pending">
-                        <div class="d-flex flex-column gap-3">
-                          <template x-for="review in pending" :key="review.uid">
-                            <div class="card">
-                              <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-1">
-                                  <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
-                                  <span class="badge text-bg-warning">Pending</span>
+            <template x-if="reviews.length > 0">
+              <div class="d-flex flex-column gap-4">
+                {# Pending Section #}
+                <template x-if="pending.length > 0">
+                  <div>
+                    <h2
+                      class="h6 text-muted mb-3 d-flex align-items-center"
+                      role="button"
+                      @click="collapsed.pending = !collapsed.pending"
+                    >
+                      <i class="bi me-2" :class="collapsed.pending ? 'bi-chevron-right' : 'bi-chevron-down'"></i>
+                      Pending Assignment
+                      <span class="badge text-bg-secondary ms-1" x-text="pending.length"></span>
+                    </h2>
+                    <div x-show="!collapsed.pending">
+                      <div class="d-flex flex-column gap-3">
+                        <template x-for="review in pending" :key="review.uid">
+                          <div class="card">
+                            <div class="card-body">
+                              <div class="d-flex justify-content-between align-items-start mb-1">
+                                <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
+                                <span class="badge text-bg-warning">Pending</span>
+                              </div>
+                              <h5 class="card-title mb-2" x-text="review.paper.title"></h5>
+                              <template x-if="review.paper.keywords?.length">
+                                <div class="mb-2">
+                                  <template x-for="kw in review.paper.keywords" :key="kw">
+                                    <span class="badge bg-body-tertiary text-body border me-1" x-text="kw"></span>
+                                  </template>
                                 </div>
-                                <h5 class="card-title mb-2" x-text="review.paper.title"></h5>
-                                <template x-if="review.paper.keywords?.length">
-                                  <div class="mb-2">
-                                    <template x-for="kw in review.paper.keywords" :key="kw">
-                                      <span class="badge bg-body-tertiary text-body border me-1" x-text="kw"></span>
-                                    </template>
-                                  </div>
-                                </template>
-                                <p class="text-muted small mb-2">
-                                  <span x-text="review.paper.track?.display_name"></span>
-                                  <span class="mx-1">·</span>
-                                  Assigned
-                                  <span x-text="formatDate(review.create_time)"></span>
-                                </p>
-                                <template x-if="review.paper.abstract">
-                                  <div class="mb-3">
-                                    <button
-                                      type="button"
-                                      class="btn btn-link btn-sm p-0 small text-decoration-none"
-                                      @click="review._showAbstract = !review._showAbstract"
-                                    >
-                                      <i
-                                        class="bi"
-                                        :class="review._showAbstract ? 'bi-chevron-down' : 'bi-chevron-right'"
-                                      ></i>
-                                      Abstract
-                                    </button>
-                                    <p
-                                      x-show="review._showAbstract"
-                                      x-cloak
-                                      class="text-muted small mt-2 mb-0"
-                                      style="white-space: pre-wrap;"
-                                      x-text="review.paper.abstract"
-                                    ></p>
-                                  </div>
-                                </template>
-                                <div class="d-flex justify-content-between align-items-center">
-                                  <a
-                                    x-show="review.paper.submission"
-                                    :href="review.paper.submission?.download_url"
+                              </template>
+                              <p class="text-muted small mb-2">
+                                <span x-text="review.paper.track?.display_name"></span>
+                                <span class="mx-1">·</span>
+                                Assigned
+                                <span x-text="formatDate(review.create_time)"></span>
+                              </p>
+                              <template x-if="review.paper.abstract">
+                                <div class="mb-3">
+                                  <button
+                                    type="button"
+                                    class="btn btn-link btn-sm p-0 small text-decoration-none"
+                                    @click="review._showAbstract = !review._showAbstract"
+                                  >
+                                    <i
+                                      class="bi"
+                                      :class="review._showAbstract ? 'bi-chevron-down' : 'bi-chevron-right'"
+                                    ></i>
+                                    Abstract
+                                  </button>
+                                  <p
+                                    x-show="review._showAbstract"
+                                    x-cloak
+                                    class="text-muted small mt-2 mb-0"
+                                    style="white-space: pre-wrap;"
+                                    x-text="review.paper.abstract"
+                                  ></p>
+                                </div>
+                              </template>
+                              <div class="d-flex justify-content-between align-items-center">
+                                <a
+                                  x-show="review.paper.submission"
+                                  :href="review.paper.submission?.download_url"
+                                  class="btn btn-sm btn-secondary"
+                                  target="_blank"
+                                >
+                                  <i class="bi-file-earmark-text me-1"></i>
+                                  Download Paper
+                                </a>
+                                <span x-show="!review.paper.submission"></span>
+                                <div class="d-flex gap-2">
+                                  <button
+                                    type="button"
                                     class="btn btn-sm btn-secondary"
-                                    target="_blank"
+                                    @click="declineReview(review)"
                                   >
-                                    <i class="bi-file-earmark-text me-1"></i>
-                                    Download Paper
-                                  </a>
-                                  <span x-show="!review.paper.submission"></span>
-                                  <div class="d-flex gap-2">
-                                    <button
-                                      type="button"
-                                      class="btn btn-sm btn-secondary"
-                                      @click="declineReview(review)"
-                                    >
-                                      Decline
-                                    </button>
-                                    <button
-                                      type="button"
-                                      class="btn btn-sm btn-primary"
-                                      @click="acceptReview(review)"
-                                    >
-                                      Accept
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </template>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-
-                  {# In Progress Section #}
-                  <template x-if="accepted.length > 0">
-                    <div class="border-top pt-4">
-                      <h2
-                        class="h6 text-muted mb-3 d-flex align-items-center"
-                        role="button"
-                        @click="collapsed.accepted = !collapsed.accepted"
-                      >
-                        <i class="bi me-2" :class="collapsed.accepted ? 'bi-chevron-right' : 'bi-chevron-down'"></i>
-                        In Progress
-                        <span class="badge text-bg-secondary ms-1" x-text="accepted.length"></span>
-                      </h2>
-                      <div x-show="!collapsed.accepted">
-                        <div class="d-flex flex-column gap-3">
-                          <template x-for="review in accepted" :key="review.uid">
-                            <div class="card">
-                              <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-1">
-                                  <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
-                                  <span class="badge text-bg-info">In Progress</span>
-                                </div>
-                                <h5 class="card-title mb-2" x-text="review.paper.title"></h5>
-                                <template x-if="review.paper.keywords?.length">
-                                  <div class="mb-2">
-                                    <template x-for="kw in review.paper.keywords" :key="kw">
-                                      <span class="badge bg-body-tertiary text-body border me-1" x-text="kw"></span>
-                                    </template>
-                                  </div>
-                                </template>
-                                <p class="text-muted small mb-3" x-text="review.paper.track?.display_name"></p>
-                                <div class="d-flex justify-content-end">
-                                  <a
-                                    :href="APP.urls.pages.reviewDetail(APP.params.conference_name, review.uid)"
+                                    Decline
+                                  </button>
+                                  <button
+                                    type="button"
                                     class="btn btn-sm btn-primary"
+                                    @click="acceptReview(review)"
                                   >
-                                    Continue
-                                    <i class="bi-arrow-right ms-1"></i>
-                                  </a>
+                                    Accept
+                                  </button>
                                 </div>
                               </div>
                             </div>
-                          </template>
-                        </div>
+                          </div>
+                        </template>
                       </div>
                     </div>
-                  </template>
+                  </div>
+                </template>
 
-                  {# Submitted Section #}
-                  <template x-if="submitted.length > 0">
-                    <div class="border-top pt-4">
-                      <h2
-                        class="h6 text-muted mb-3 d-flex align-items-center"
-                        role="button"
-                        @click="collapsed.submitted = !collapsed.submitted"
-                      >
-                        <i class="bi me-2" :class="collapsed.submitted ? 'bi-chevron-right' : 'bi-chevron-down'"></i>
-                        Submitted
-                        <span class="badge text-bg-secondary ms-1" x-text="submitted.length"></span>
-                      </h2>
-                      <div x-show="!collapsed.submitted">
-                        <div class="d-flex flex-column gap-3">
-                          <template x-for="review in submitted" :key="review.uid">
-                            <div class="card">
-                              <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-1">
-                                  <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
-                                  <span class="badge text-bg-success">Submitted</span>
+                {# In Progress Section #}
+                <template x-if="accepted.length > 0">
+                  <div class="border-top pt-4">
+                    <h2
+                      class="h6 text-muted mb-3 d-flex align-items-center"
+                      role="button"
+                      @click="collapsed.accepted = !collapsed.accepted"
+                    >
+                      <i class="bi me-2" :class="collapsed.accepted ? 'bi-chevron-right' : 'bi-chevron-down'"></i>
+                      In Progress
+                      <span class="badge text-bg-secondary ms-1" x-text="accepted.length"></span>
+                    </h2>
+                    <div x-show="!collapsed.accepted">
+                      <div class="d-flex flex-column gap-3">
+                        <template x-for="review in accepted" :key="review.uid">
+                          <div class="card">
+                            <div class="card-body">
+                              <div class="d-flex justify-content-between align-items-start mb-1">
+                                <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
+                                <span class="badge text-bg-info">In Progress</span>
+                              </div>
+                              <h5 class="card-title mb-2" x-text="review.paper.title"></h5>
+                              <template x-if="review.paper.keywords?.length">
+                                <div class="mb-2">
+                                  <template x-for="kw in review.paper.keywords" :key="kw">
+                                    <span class="badge bg-body-tertiary text-body border me-1" x-text="kw"></span>
+                                  </template>
                                 </div>
-                                <h5 class="card-title mb-2" x-text="review.paper.title"></h5>
-                                <p class="text-muted small mb-3">
-                                  <span x-text="review.paper.track?.display_name"></span>
-                                  <span class="mx-1">·</span>
-                                  Submitted
-                                  <span x-text="formatDate(review.submit_time)"></span>
-                                </p>
-                                <div class="d-flex justify-content-end">
-                                  <a
-                                    :href="APP.urls.pages.reviewDetail(APP.params.conference_name, review.uid)"
-                                    class="btn btn-sm btn-outline-primary"
-                                  >
-                                    View
-                                  </a>
-                                </div>
+                              </template>
+                              <p class="text-muted small mb-3" x-text="review.paper.track?.display_name"></p>
+                              <div class="d-flex justify-content-end">
+                                <a
+                                  :href="APP.urls.pages.reviewDetail(APP.params.conference_name, review.uid)"
+                                  class="btn btn-sm btn-primary"
+                                >
+                                  Continue
+                                  <i class="bi-arrow-right ms-1"></i>
+                                </a>
                               </div>
                             </div>
-                          </template>
-                        </div>
+                          </div>
+                        </template>
                       </div>
                     </div>
-                  </template>
+                  </div>
+                </template>
 
-                  {# Declined Section #}
-                  <template x-if="declined.length > 0">
-                    <div class="border-top pt-4">
-                      <h2
-                        class="h6 text-muted mb-3 d-flex align-items-center"
-                        role="button"
-                        @click="collapsed.declined = !collapsed.declined"
-                      >
-                        <i class="bi me-2" :class="collapsed.declined ? 'bi-chevron-right' : 'bi-chevron-down'"></i>
-                        Declined
-                        <span class="badge text-bg-secondary ms-1" x-text="declined.length"></span>
-                      </h2>
-                      <div x-show="!collapsed.declined">
-                        <div class="d-flex flex-column gap-3">
-                          <template x-for="review in declined" :key="review.uid">
-                            <div class="card bg-body-tertiary">
-                              <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-start mb-1">
-                                  <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
-                                  <span class="badge text-bg-secondary">Declined</span>
-                                </div>
-                                <h5 class="card-title mb-2 text-muted" x-text="review.paper.title"></h5>
-                                <p class="text-muted small mb-0" x-text="review.paper.track?.display_name"></p>
+                {# Submitted Section #}
+                <template x-if="submitted.length > 0">
+                  <div class="border-top pt-4">
+                    <h2
+                      class="h6 text-muted mb-3 d-flex align-items-center"
+                      role="button"
+                      @click="collapsed.submitted = !collapsed.submitted"
+                    >
+                      <i class="bi me-2" :class="collapsed.submitted ? 'bi-chevron-right' : 'bi-chevron-down'"></i>
+                      Submitted
+                      <span class="badge text-bg-secondary ms-1" x-text="submitted.length"></span>
+                    </h2>
+                    <div x-show="!collapsed.submitted">
+                      <div class="d-flex flex-column gap-3">
+                        <template x-for="review in submitted" :key="review.uid">
+                          <div class="card">
+                            <div class="card-body">
+                              <div class="d-flex justify-content-between align-items-start mb-1">
+                                <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
+                                <span class="badge text-bg-success">Submitted</span>
+                              </div>
+                              <h5 class="card-title mb-2" x-text="review.paper.title"></h5>
+                              <p class="text-muted small mb-3">
+                                <span x-text="review.paper.track?.display_name"></span>
+                                <span class="mx-1">·</span>
+                                Submitted
+                                <span x-text="formatDate(review.submit_time)"></span>
+                              </p>
+                              <div class="d-flex justify-content-end">
+                                <a
+                                  :href="APP.urls.pages.reviewDetail(APP.params.conference_name, review.uid)"
+                                  class="btn btn-sm btn-outline-primary"
+                                >
+                                  View
+                                </a>
                               </div>
                             </div>
-                          </template>
-                        </div>
+                          </div>
+                        </template>
                       </div>
                     </div>
-                  </template>
-                </div>
-              </template>
-            </div>
+                  </div>
+                </template>
+
+                {# Declined Section #}
+                <template x-if="declined.length > 0">
+                  <div class="border-top pt-4">
+                    <h2
+                      class="h6 text-muted mb-3 d-flex align-items-center"
+                      role="button"
+                      @click="collapsed.declined = !collapsed.declined"
+                    >
+                      <i class="bi me-2" :class="collapsed.declined ? 'bi-chevron-right' : 'bi-chevron-down'"></i>
+                      Declined
+                      <span class="badge text-bg-secondary ms-1" x-text="declined.length"></span>
+                    </h2>
+                    <div x-show="!collapsed.declined">
+                      <div class="d-flex flex-column gap-3">
+                        <template x-for="review in declined" :key="review.uid">
+                          <div class="card bg-body-tertiary">
+                            <div class="card-body">
+                              <div class="d-flex justify-content-between align-items-start mb-1">
+                                <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
+                                <span class="badge text-bg-secondary">Declined</span>
+                              </div>
+                              <h5 class="card-title mb-2 text-muted" x-text="review.paper.title"></h5>
+                              <p class="text-muted small mb-0" x-text="review.paper.track?.display_name"></p>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
           </div>
-        </template>
+        </div>
       </div>
     </div>
   </div>

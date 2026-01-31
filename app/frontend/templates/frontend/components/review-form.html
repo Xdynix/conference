@@ -1,0 +1,282 @@
+{% comment %}
+Review form component - displays review scores, recommendation, and comments.
+
+Required context from parent:
+  - mode: 'edit' or 'view'
+  - form: form object with score/text fields (edit mode)
+  - review: review object for display values (view mode)
+  - errors: validation errors object
+
+Parent should spread reviewForm() to get required constants and helpers:
+  function parentComponent() {
+    return {
+      ...reviewForm(),
+      // other properties
+    };
+  }
+{% endcomment %}
+
+<template x-if="mode === 'edit'">
+  <div>
+    <div class="mb-4">
+      <h6 class="mb-3">Scores</h6>
+      <div class="table-responsive">
+        <table class="table table-striped table-sm align-middle mb-0">
+          <thead>
+          <tr>
+            <th></th>
+            <template x-for="i in 5" :key="i">
+              <th class="text-center small text-muted" style="width: 6rem;">
+                <div x-text="i"></div>
+                <div x-text="CRITERIA_LABELS[i]" class="fw-normal"></div>
+              </th>
+            </template>
+          </tr>
+          </thead>
+          <tbody>
+          <template x-for="score in CRITERIA_SCORES" :key="score.key">
+            <tr>
+              <td>
+                <span x-text="score.label"></span>
+                <span class="text-danger">*</span>
+              </td>
+              <template x-for="i in 5" :key="i">
+                <td class="text-center">
+                  <input
+                    type="radio"
+                    class="form-check-input"
+                    :name="score.key"
+                    :value="i"
+                    x-model.number="form[score.key]"
+                    required
+                  >
+                </td>
+              </template>
+            </tr>
+          </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <h6 class="mb-3">
+        Recommendation
+        <span class="text-danger">*</span>
+      </h6>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+          <tr>
+            <template x-for="i in 5" :key="i">
+              <th class="text-center small text-muted" style="width: 6rem;">
+                <div x-text="i"></div>
+                <div x-text="RECOMMENDATION_LABELS[i]" class="fw-normal"></div>
+              </th>
+            </template>
+          </tr>
+          </thead>
+          <tbody>
+          <tr>
+            <template x-for="i in 5" :key="i">
+              <td class="text-center">
+                <input
+                  type="radio"
+                  class="form-check-input"
+                  name="recommendation"
+                  :value="i"
+                  x-model.number="form.recommendation"
+                  required
+                >
+              </td>
+            </template>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="mb-4">
+      <label for="contribution" class="form-label">
+        Contribution Summary
+        <span class="text-danger">*</span>
+        <span class="small text-muted fw-normal">
+          — Visible to authors anonymously
+        </span>
+      </label>
+      <textarea
+        id="contribution"
+        class="form-control"
+        :class="{ 'is-invalid': errors.contribution }"
+        rows="4"
+        x-model="form.contribution"
+        required
+      ></textarea>
+      <div class="invalid-feedback" x-text="errors.contribution"></div>
+    </div>
+
+    <div class="mb-4">
+      <label for="decision-reason" class="form-label">
+        Decision Reason
+        <span class="text-danger">*</span>
+        <span class="small text-muted fw-normal">
+          — Visible to authors anonymously
+        </span>
+      </label>
+      <textarea
+        id="decision-reason"
+        class="form-control"
+        :class="{ 'is-invalid': errors.decision_reason }"
+        rows="4"
+        x-model="form.decision_reason"
+        required
+      ></textarea>
+      <div class="invalid-feedback" x-text="errors.decision_reason"></div>
+    </div>
+
+    <div class="mb-4">
+      <label for="comments" class="form-label">
+        Comments for Authors
+        <span class="small text-muted fw-normal">
+          — Visible to authors anonymously
+        </span>
+      </label>
+      <textarea
+        id="comments"
+        class="form-control"
+        :class="{ 'is-invalid': errors.comments }"
+        rows="3"
+        x-model="form.comments"
+      ></textarea>
+      <div class="invalid-feedback" x-text="errors.comments"></div>
+    </div>
+
+    <div class="mb-4">
+      <label for="confidential-remarks" class="form-label">
+        Confidential Remarks
+        <span class="small text-muted fw-normal">
+          — Visible to editors only
+        </span>
+      </label>
+      <textarea
+        id="confidential-remarks"
+        class="form-control"
+        :class="{ 'is-invalid': errors.confidential_remarks }"
+        rows="3"
+        x-model="form.confidential_remarks"
+      ></textarea>
+      <div class="invalid-feedback" x-text="errors.confidential_remarks"></div>
+    </div>
+  </div>
+</template>
+
+<template x-if="mode === 'view'">
+  <div>
+    <div class="mb-4" style="max-width: 24rem;">
+      <h6 class="text-muted mb-3">Scores</h6>
+      <table class="table table-striped table-sm mb-0 w-100">
+        <tbody>
+        <template x-for="score in CRITERIA_SCORES" :key="score.key">
+          <tr>
+            <td x-text="score.label"></td>
+            <td class="text-end" x-text="formatCriteriaScore(review[score.key])"></td>
+          </tr>
+        </template>
+        <tr class="table-group-divider">
+          <td class="fw-medium">Recommendation</td>
+          <td class="text-end fw-medium" x-text="formatRecommendation(review.recommendation)"></td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <hr>
+
+    <div class="mb-4">
+      <div class="d-flex align-items-baseline gap-2 mb-2">
+        <h6 class="text-muted mb-0">Contribution Summary</h6>
+        <span class="small text-muted">
+          — Visible to authors anonymously
+        </span>
+      </div>
+      <p class="mb-0" style="white-space: pre-wrap;" x-text="review.contribution"></p>
+    </div>
+
+    <div class="mb-4">
+      <div class="d-flex align-items-baseline gap-2 mb-2">
+        <h6 class="text-muted mb-0">Decision Reason</h6>
+        <span class="small text-muted">
+          — Visible to authors anonymously
+        </span>
+      </div>
+      <p class="mb-0" style="white-space: pre-wrap;" x-text="review.decision_reason"></p>
+    </div>
+
+    <template x-if="review.comments">
+      <div class="mb-4">
+        <div class="d-flex align-items-baseline gap-2 mb-2">
+          <h6 class="text-muted mb-0">Comments for Authors</h6>
+          <span class="small text-muted">
+            — Visible to authors anonymously
+          </span>
+        </div>
+        <p class="mb-0" style="white-space: pre-wrap;" x-text="review.comments"></p>
+      </div>
+    </template>
+
+    <template x-if="review.confidential_remarks">
+      <div class="mb-4">
+        <div class="d-flex align-items-baseline gap-2 mb-2">
+          <h6 class="text-muted mb-0">Confidential Remarks</h6>
+          <span class="small text-muted">
+            — Visible to editors only
+          </span>
+        </div>
+        <p class="mb-0" style="white-space: pre-wrap;" x-text="review.confidential_remarks"></p>
+      </div>
+    </template>
+  </div>
+</template>
+
+<script>
+  const CRITERIA_LABELS = {
+    1: 'Poor',
+    2: 'Fair',
+    3: 'Good',
+    4: 'Very Good',
+    5: 'Outstanding',
+  };
+  const RECOMMENDATION_LABELS = {
+    1: 'Strongly Reject',
+    2: 'Reject',
+    3: 'Marginally Accept',
+    4: 'Accept',
+    5: 'Strong Accept',
+  };
+  const CRITERIA_SCORES = [
+    {key: 'originality', label: 'Originality'},
+    {key: 'significance', label: 'Significance'},
+    {key: 'technical', label: 'Technical Quality'},
+    {key: 'reference', label: 'References'},
+    {key: 'presentation', label: 'Presentation'},
+    {key: 'match_topic', label: 'Topic Match'},
+  ];
+
+  function reviewForm() {
+    return {
+      CRITERIA_LABELS,
+      RECOMMENDATION_LABELS,
+      CRITERIA_SCORES,
+      formatCriteriaScore(value) {
+        if (!value) return '—';
+        return `${CRITERIA_LABELS[value]} (${value})`;
+      },
+      formatRecommendation(value) {
+        if (!value) return '—';
+        return `${RECOMMENDATION_LABELS[value]} (${value})`;
+      },
+    };
+  }
+</script>

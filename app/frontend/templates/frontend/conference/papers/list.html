@@ -3,10 +3,13 @@
 {% block title %}My Papers - {% endblock %}
 
 {% block content %}
-  <div x-data="paperList()" x-init="
-    $store.sidebar.setActive('my-papers');
-    $store.breadcrumb.set([{label: 'My Papers'}]);
-  ">
+  <div
+    x-data="paperList()"
+    x-init="
+      $store.sidebar.setActive('my-papers');
+      $store.breadcrumb.set([{label: 'My Papers'}]);
+    "
+  >
     <div class="row justify-content-center">
       <div class="col-xl-8 col-xxl-6">
         <h1 class="h3 mb-4">My Papers</h1>
@@ -25,41 +28,43 @@
           <p class="text-muted mb-0">Failed to load papers.</p>
         </div>
 
-        <template x-if="$store.conference.detail && !loading && !error">
-          <div>
-            <template x-if="papers.length === 0">
-              <p class="text-muted">No papers yet. Submit your first paper.</p>
-            </template>
+        <div x-show="$store.conference.detail && !loading && !error" x-cloak>
+          <template x-if="papers.length === 0">
+            <p class="text-muted">No papers yet. Submit your first paper.</p>
+          </template>
 
-            <template x-if="papers.length > 0">
-              <div class="d-flex flex-column gap-3">
-                <template x-for="paper in papers" :key="paper.uid">
-                  <div class="card">
-                    <div class="card-body">
-                      <div class="d-flex justify-content-between align-items-start mb-2">
-                        <span class="font-monospace text-muted" x-text="paper.code"></span>
-                        <span class="badge" :class="stateBadge(paper.state).class" x-text="stateBadge(paper.state).label"></span>
-                      </div>
-                      <h5 class="card-title mb-2" x-text="paper.title || 'Untitled'"></h5>
-                      <p class="text-muted small mb-0" x-text="paper.track?.display_name"></p>
+          <template x-if="papers.length > 0">
+            <div class="d-flex flex-column gap-3">
+              <template x-for="paper in papers" :key="paper.uid">
+                <div class="card">
+                  <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <span class="font-monospace text-muted" x-text="paper.code"></span>
+                      <span
+                        class="badge"
+                        :class="stateBadge(paper.state).class"
+                        x-text="stateBadge(paper.state).label"
+                      ></span>
                     </div>
-                    <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
-                      <small class="text-muted">
-                        Created <span x-text="formatDate(paper.create_time)"></span>
-                      </small>
-                      <a
-                        :href="APP.urls.pages.paperDetail(APP.params.conference_name, paper.code)"
-                        class="stretched-link"
-                      >
-                        View
-                      </a>
-                    </div>
+                    <h5 class="card-title mb-2" x-text="paper.title || 'Untitled'"></h5>
+                    <p class="text-muted small mb-0" x-text="paper.track?.display_name"></p>
                   </div>
-                </template>
-              </div>
-            </template>
-          </div>
-        </template>
+                  <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
+                    <small class="text-muted">
+                      Created <span x-text="formatDate(paper.create_time)"></span>
+                    </small>
+                    <a
+                      :href="APP.urls.pages.paperDetail(APP.params.conference_name, paper.code)"
+                      class="stretched-link"
+                    >
+                      View
+                    </a>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
       </div>
     </div>
   </div>
