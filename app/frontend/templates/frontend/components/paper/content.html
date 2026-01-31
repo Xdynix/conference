@@ -13,106 +13,104 @@ Keywords handling:
   - Component merges and sorts both lists for the dropdown
 {% endcomment %}
 
-<div>
-  <template x-if="['create', 'edit', 'admin-create', 'admin-edit'].includes(mode)">
-    <div>
-      <div class="mb-3">
-        <label for="abstract" class="form-label text-muted">
-          Abstract
-        </label>
-        <textarea
-          id="abstract"
-          class="form-control"
-          :class="{ 'is-invalid': errors.abstract }"
-          x-model="form.abstract"
-          rows="6"
-        ></textarea>
-        <div class="invalid-feedback" x-text="errors.abstract"></div>
-      </div>
-
-      <div class="mb-3">
-        <label for="contribution" class="form-label text-muted">
-          Contribution
-        </label>
-        <textarea
-          id="contribution"
-          class="form-control"
-          :class="{ 'is-invalid': errors.contribution }"
-          x-model="form.contribution"
-          rows="4"
-        ></textarea>
-        <div class="invalid-feedback" x-text="errors.contribution"></div>
-      </div>
-
-      <div class="mb-3">
-        <label for="keywords" class="form-label text-muted">
-          Keywords
-        </label>
-        <select
-          id="keywords"
-          class="form-select"
-          multiple
-          x-init="
-            const buildOptions = () => {
-              const confKeywords = $store.conference.detail?.keywords || [];
-              const paperKeywords = form.keywords || [];
-              return [...new Set([...confKeywords, ...paperKeywords])].sort();
-            };
-            $el._ts = new TomSelect($el, {
-              options: buildOptions().map(k => ({value: k, text: k})),
-              items: form.keywords || [],
-              maxOptions: null,
-              plugins: ['remove_button'],
-              /* Use splice instead of assignment to preserve array reference for Alpine reactivity. */
-              onChange: (v) => { form.keywords.splice(0, form.keywords.length, ...v); }
-            });
-            $watch('$store.conference.detail', () => {
-              const opts = buildOptions();
-              $el._ts.clearOptions();
-              $el._ts.addOptions(opts.map(k => ({value: k, text: k})));
-            });
-            $watch('form.keywords', (v) => {
-              const current = $el._ts.getValue();
-              const newVal = v || [];
-              if (JSON.stringify([...current].sort()) !== JSON.stringify([...newVal].sort())) {
-                $el._ts.setValue(newVal, true);
-              }
-            });
-          "
-          x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.keywords)"
-        ></select>
-        <div class="invalid-feedback" :class="{ 'd-block': errors.keywords }" x-text="errors.keywords"></div>
-        <small class="text-muted">
-          Select from the available keywords that best match your paper.
-        </small>
-      </div>
+<template x-if="['create', 'edit', 'admin-create', 'admin-edit'].includes(mode)">
+  <div>
+    <div class="mb-3">
+      <label for="abstract" class="form-label text-muted">
+        Abstract
+      </label>
+      <textarea
+        id="abstract"
+        class="form-control"
+        :class="{ 'is-invalid': errors.abstract }"
+        x-model="form.abstract"
+        rows="6"
+      ></textarea>
+      <div class="invalid-feedback" x-text="errors.abstract"></div>
     </div>
-  </template>
 
-  <template x-if="mode === 'view' || mode === 'admin-view'">
-    <div class="card mb-4">
-      <div class="card-header">Content</div>
-      <div class="card-body">
-        <div class="mb-3">
-          <label class="form-label text-muted">Abstract</label>
-          <div class="form-control-plaintext" x-text="paper?.abstract || '(No abstract provided)'"></div>
-        </div>
+    <div class="mb-3">
+      <label for="contribution" class="form-label text-muted">
+        Contribution
+      </label>
+      <textarea
+        id="contribution"
+        class="form-control"
+        :class="{ 'is-invalid': errors.contribution }"
+        x-model="form.contribution"
+        rows="4"
+      ></textarea>
+      <div class="invalid-feedback" x-text="errors.contribution"></div>
+    </div>
 
-        <div class="mb-3">
-          <label class="form-label text-muted">Contribution</label>
-          <div class="form-control-plaintext" x-text="paper?.contribution || '(No contribution provided)'"></div>
-        </div>
+    <div class="mb-3">
+      <label for="keywords" class="form-label text-muted">
+        Keywords
+      </label>
+      <select
+        id="keywords"
+        class="form-select"
+        multiple
+        x-init="
+          const buildOptions = () => {
+            const confKeywords = $store.conference.detail?.keywords || [];
+            const paperKeywords = form.keywords || [];
+            return [...new Set([...confKeywords, ...paperKeywords])].sort();
+          };
+          $el._ts = new TomSelect($el, {
+            options: buildOptions().map(k => ({value: k, text: k})),
+            items: form.keywords || [],
+            maxOptions: null,
+            plugins: ['remove_button'],
+            /* Use splice instead of assignment to preserve array reference for Alpine reactivity. */
+            onChange: (v) => { form.keywords.splice(0, form.keywords.length, ...v); }
+          });
+          $watch('$store.conference.detail', () => {
+            const opts = buildOptions();
+            $el._ts.clearOptions();
+            $el._ts.addOptions(opts.map(k => ({value: k, text: k})));
+          });
+          $watch('form.keywords', (v) => {
+            const current = $el._ts.getValue();
+            const newVal = v || [];
+            if (JSON.stringify([...current].sort()) !== JSON.stringify([...newVal].sort())) {
+              $el._ts.setValue(newVal, true);
+            }
+          });
+        "
+        x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.keywords)"
+      ></select>
+      <div class="invalid-feedback" :class="{ 'd-block': errors.keywords }" x-text="errors.keywords"></div>
+      <small class="text-muted">
+        Select from the available keywords that best match your paper.
+      </small>
+    </div>
+  </div>
+</template>
 
-        <div>
-          <label class="form-label text-muted">Keywords</label>
-          <div class="form-control-plaintext">
-            <template x-if="!paper?.keywords?.length"><span>(No keywords)</span></template>
-            <template x-for="keyword in paper?.keywords || []" :key="keyword">
-              <span class="badge text-bg-secondary me-1" x-text="keyword"></span>
-            </template>
-          </div>
+<template x-if="mode === 'view' || mode === 'admin-view'">
+  <div class="card mb-4">
+    <div class="card-header">Content</div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label class="form-label text-muted">Abstract</label>
+        <div class="form-control-plaintext" x-text="paper?.abstract || '(No abstract provided)'"></div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label text-muted">Contribution</label>
+        <div class="form-control-plaintext" x-text="paper?.contribution || '(No contribution provided)'"></div>
+      </div>
+
+      <div>
+        <label class="form-label text-muted">Keywords</label>
+        <div class="form-control-plaintext">
+          <template x-if="!paper?.keywords?.length"><span>(No keywords)</span></template>
+          <template x-for="keyword in paper?.keywords || []" :key="keyword">
+            <span class="badge text-bg-secondary me-1" x-text="keyword"></span>
+          </template>
         </div>
       </div>
     </div>
-  </template>
-</div>
+  </div>
+</template>

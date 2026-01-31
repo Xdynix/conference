@@ -14,9 +14,59 @@ Modes:
   - view, admin-view: Track (read-only), title (read-only), wrapped in card
 {% endcomment %}
 
-<div>
-  <template x-if="['create', 'edit', 'admin-create', 'admin-edit'].includes(mode)">
-    <div class="mb-4">
+<template x-if="['create', 'edit', 'admin-create', 'admin-edit'].includes(mode)">
+  <div class="mb-4">
+    <div class="mb-3">
+      <label class="form-label text-muted">Conference</label>
+      <div class="form-control-plaintext" x-text="$store.conference.detail?.display_name"></div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label text-muted">Track</label>
+      <template x-if="mode === 'create' || mode === 'admin-create'">
+        <div>
+          <select
+            id="track"
+            class="form-select"
+            :class="{ 'is-invalid': errors.track }"
+            x-model="form.track"
+            required
+          >
+            <option value="">Select a track...</option>
+            <template x-for="t in availableTracks" :key="t.uid">
+              <option :value="t.uid" x-text="t.display_name"></option>
+            </template>
+          </select>
+          <div class="invalid-feedback" x-text="errors.track"></div>
+          <small class="text-muted">Track cannot be changed after paper is created.</small>
+        </div>
+      </template>
+      <template x-if="mode === 'edit' || mode === 'admin-edit'">
+        <div class="form-control-plaintext" x-text="paper?.track?.display_name"></div>
+      </template>
+    </div>
+
+    <div class="mb-3">
+      <label for="title" class="form-label text-muted">
+        Title <span class="text-danger">*</span>
+      </label>
+      <input
+        id="title"
+        type="text"
+        class="form-control"
+        :class="{ 'is-invalid': errors.title }"
+        x-model="form.title"
+        required
+      >
+      <div class="invalid-feedback" x-text="errors.title"></div>
+    </div>
+  </div>
+</template>
+
+<template x-if="mode === 'view' || mode === 'admin-view'">
+  <div class="card mb-4">
+    <div class="card-header">Basic Info</div>
+    <div class="card-body">
       <div class="mb-3">
         <label class="form-label text-muted">Conference</label>
         <div class="form-control-plaintext" x-text="$store.conference.detail?.display_name"></div>
@@ -24,65 +74,13 @@ Modes:
 
       <div class="mb-3">
         <label class="form-label text-muted">Track</label>
-        <template x-if="mode === 'create' || mode === 'admin-create'">
-          <div>
-            <select
-              id="track"
-              class="form-select"
-              :class="{ 'is-invalid': errors.track }"
-              x-model="form.track"
-              required
-            >
-              <option value="">Select a track...</option>
-              <template x-for="t in availableTracks" :key="t.uid">
-                <option :value="t.uid" x-text="t.display_name"></option>
-              </template>
-            </select>
-            <div class="invalid-feedback" x-text="errors.track"></div>
-            <small class="text-muted">Track cannot be changed after paper is created.</small>
-          </div>
-        </template>
-        <template x-if="mode === 'edit' || mode === 'admin-edit'">
-          <div class="form-control-plaintext" x-text="paper?.track?.display_name"></div>
-        </template>
+        <div class="form-control-plaintext" x-text="paper?.track?.display_name"></div>
       </div>
 
-      <div class="mb-3">
-        <label for="title" class="form-label text-muted">
-          Title <span class="text-danger">*</span>
-        </label>
-        <input
-          id="title"
-          type="text"
-          class="form-control"
-          :class="{ 'is-invalid': errors.title }"
-          x-model="form.title"
-          required
-        >
-        <div class="invalid-feedback" x-text="errors.title"></div>
+      <div>
+        <label class="form-label text-muted">Title</label>
+        <div class="form-control-plaintext" x-text="paper?.title"></div>
       </div>
     </div>
-  </template>
-
-  <template x-if="mode === 'view' || mode === 'admin-view'">
-    <div class="card mb-4">
-      <div class="card-header">Basic Info</div>
-      <div class="card-body">
-        <div class="mb-3">
-          <label class="form-label text-muted">Conference</label>
-          <div class="form-control-plaintext" x-text="$store.conference.detail?.display_name"></div>
-        </div>
-
-        <div class="mb-3">
-          <label class="form-label text-muted">Track</label>
-          <div class="form-control-plaintext" x-text="paper?.track?.display_name"></div>
-        </div>
-
-        <div>
-          <label class="form-label text-muted">Title</label>
-          <div class="form-control-plaintext" x-text="paper?.title"></div>
-        </div>
-      </div>
-    </div>
-  </template>
-</div>
+  </div>
+</template>

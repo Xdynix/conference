@@ -25,200 +25,198 @@ Provides:
   - moveAuthorDown(index): Move author down
 {% endcomment %}
 
-<div>
-  <template x-if="['create', 'edit', 'admin-create', 'admin-edit'].includes(mode)">
-    <div>
-      <div class="d-flex justify-content-end mb-3">
-        <button type="button" class="btn btn-sm btn-outline-primary" @click="addAuthor()">
-          <i class="bi bi-plus"></i>
-          Add Author
-        </button>
-      </div>
+<template x-if="['create', 'edit', 'admin-create', 'admin-edit'].includes(mode)">
+  <div>
+    <div class="d-flex justify-content-end mb-3">
+      <button type="button" class="btn btn-sm btn-outline-primary" @click="addAuthor()">
+        <i class="bi bi-plus"></i>
+        Add Author
+      </button>
+    </div>
 
-      <template x-if="form.authors.length === 0">
-        <p class="text-muted">No authors added yet. Click "Add Author" to add one.</p>
-      </template>
+    <template x-if="form.authors.length === 0">
+      <p class="text-muted">No authors added yet. Click "Add Author" to add one.</p>
+    </template>
 
-      <template x-for="(author, index) in form.authors" :key="index">
-        <div class="card mb-3">
-          <div class="card-header py-2 d-flex justify-content-between align-items-center">
-            <div class="d-flex align-items-center gap-3">
-              <span class="fw-medium">
-                Author <span x-text="index + 1"></span>
-              </span>
-              <div class="form-check mb-0">
-                <input
-                  type="radio"
-                  class="form-check-input"
-                  name="corresponding"
-                  :id="'corresponding-' + index"
-                  :value="index"
-                  x-model.number="correspondingIndex"
-                >
-                <label class="form-check-label small" :for="'corresponding-' + index">
-                  Corresponding
-                </label>
-              </div>
-            </div>
-            <div class="d-flex align-items-center gap-1">
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-secondary"
-                :class="{ 'invisible': index === 0 }"
-                @click="moveAuthorUp(index)"
-                title="Move up"
+    <template x-for="(author, index) in form.authors" :key="index">
+      <div class="card mb-3">
+        <div class="card-header py-2 d-flex justify-content-between align-items-center">
+          <div class="d-flex align-items-center gap-3">
+            <span class="fw-medium">
+              Author <span x-text="index + 1"></span>
+            </span>
+            <div class="form-check mb-0">
+              <input
+                type="radio"
+                class="form-check-input"
+                name="corresponding"
+                :id="'corresponding-' + index"
+                :value="index"
+                x-model.number="correspondingIndex"
               >
-                <i class="bi bi-arrow-up"></i>
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-secondary"
-                :class="{ 'invisible': index === form.authors.length - 1 }"
-                @click="moveAuthorDown(index)"
-                title="Move down"
-              >
-                <i class="bi bi-arrow-down"></i>
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-danger"
-                @click="removeAuthor(index)"
-                title="Remove author"
-              >
-                <i class="bi bi-x-lg"></i>
-              </button>
+              <label class="form-check-label small" :for="'corresponding-' + index">
+                Corresponding
+              </label>
             </div>
           </div>
+          <div class="d-flex align-items-center gap-1">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              :class="{ 'invisible': index === 0 }"
+              @click="moveAuthorUp(index)"
+              title="Move up"
+            >
+              <i class="bi bi-arrow-up"></i>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              :class="{ 'invisible': index === form.authors.length - 1 }"
+              @click="moveAuthorDown(index)"
+              title="Move down"
+            >
+              <i class="bi bi-arrow-down"></i>
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger"
+              @click="removeAuthor(index)"
+              title="Remove author"
+            >
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
 
-          <div class="card-body py-3">
-            <div class="row g-2 mb-2">
-              <div class="col-md-6">
-                <label :for="'author-' + index + '-given-name'" class="form-label small mb-1">
-                  Given name
-                </label>
-                <input
-                  type="text"
-                  class="form-control form-control-sm"
-                  :class="{ 'is-invalid': errors['authors.' + index + '.given_name'] }"
-                  :id="'author-' + index + '-given-name'"
-                  x-model="author.givenName"
-                  placeholder="First/personal name"
-                >
-                <div class="invalid-feedback" x-text="errors['authors.' + index + '.given_name']"></div>
-              </div>
-              <div class="col-md-6">
-                <label :for="'author-' + index + '-family-name'" class="form-label small mb-1">
-                  Family name
-                </label>
-                <input
-                  type="text"
-                  class="form-control form-control-sm"
-                  :class="{ 'is-invalid': errors['authors.' + index + '.family_name'] }"
-                  :id="'author-' + index + '-family-name'"
-                  x-model="author.familyName"
-                  placeholder="Last name/surname"
-                >
-                <div class="invalid-feedback" x-text="errors['authors.' + index + '.family_name']"></div>
-              </div>
-            </div>
-
-            <div class="mb-2">
-              <label :for="'author-' + index + '-affiliation'" class="form-label small mb-1">
-                Affiliation
+        <div class="card-body py-3">
+          <div class="row g-2 mb-2">
+            <div class="col-md-6">
+              <label :for="'author-' + index + '-given-name'" class="form-label small mb-1">
+                Given name
               </label>
               <input
                 type="text"
                 class="form-control form-control-sm"
-                :class="{ 'is-invalid': errors['authors.' + index + '.affiliation'] }"
-                :id="'author-' + index + '-affiliation'"
-                x-model="author.affiliation"
-                placeholder="e.g., Google LLC or School of Computing, Example University"
+                :class="{ 'is-invalid': errors['authors.' + index + '.given_name'] }"
+                :id="'author-' + index + '-given-name'"
+                x-model="author.givenName"
+                placeholder="First/personal name"
               >
-              <div class="invalid-feedback" x-text="errors['authors.' + index + '.affiliation']"></div>
+              <div class="invalid-feedback" x-text="errors['authors.' + index + '.given_name']"></div>
             </div>
+            <div class="col-md-6">
+              <label :for="'author-' + index + '-family-name'" class="form-label small mb-1">
+                Family name
+              </label>
+              <input
+                type="text"
+                class="form-control form-control-sm"
+                :class="{ 'is-invalid': errors['authors.' + index + '.family_name'] }"
+                :id="'author-' + index + '-family-name'"
+                x-model="author.familyName"
+                placeholder="Last name/surname"
+              >
+              <div class="invalid-feedback" x-text="errors['authors.' + index + '.family_name']"></div>
+            </div>
+          </div>
 
-            <div class="row g-2">
-              <div class="col-md-6">
-                <label :for="'author-' + index + '-region'" class="form-label small mb-1">
-                  Region
-                </label>
-                <select
-                  class="form-select form-select-sm"
-                  :id="'author-' + index + '-region'"
-                  x-init="
-                    const regions = JSON.parse(document.getElementById('app-regions').textContent);
-                    $el._ts = new TomSelect($el, {
-                      options: regions.map(r => ({value: r[0], text: r[1]})),
-                      maxOptions: null,
-                      allowEmptyOption: true,
-                      onChange: (v) => { author.regionCode = v; }
-                    });
-                    if (author.regionCode) $el._ts.setValue(author.regionCode, true);
-                    $watch('author.regionCode', (v) => {
-                      if ($el._ts.getValue() !== (v || '')) $el._ts.setValue(v || '', true);
-                    });
-                  "
-                  x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors['authors.' + index + '.region_code'])"
-                >
-                  <option value="">Select...</option>
-                </select>
-                <div
-                  class="invalid-feedback"
-                  :class="{ 'd-block': errors['authors.' + index + '.region_code'] }"
-                  x-text="errors['authors.' + index + '.region_code']"
-                ></div>
-              </div>
-              <div class="col-md-6">
-                <label :for="'author-' + index + '-email'" class="form-label small mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  class="form-control form-control-sm"
-                  :class="{ 'is-invalid': errors['authors.' + index + '.email'] }"
-                  :id="'author-' + index + '-email'"
-                  x-model="author.email"
-                  placeholder="email@example.com"
-                >
-                <div class="invalid-feedback" x-text="errors['authors.' + index + '.email']"></div>
-              </div>
+          <div class="mb-2">
+            <label :for="'author-' + index + '-affiliation'" class="form-label small mb-1">
+              Affiliation
+            </label>
+            <input
+              type="text"
+              class="form-control form-control-sm"
+              :class="{ 'is-invalid': errors['authors.' + index + '.affiliation'] }"
+              :id="'author-' + index + '-affiliation'"
+              x-model="author.affiliation"
+              placeholder="e.g., Google LLC or School of Computing, Example University"
+            >
+            <div class="invalid-feedback" x-text="errors['authors.' + index + '.affiliation']"></div>
+          </div>
+
+          <div class="row g-2">
+            <div class="col-md-6">
+              <label :for="'author-' + index + '-region'" class="form-label small mb-1">
+                Region
+              </label>
+              <select
+                class="form-select form-select-sm"
+                :id="'author-' + index + '-region'"
+                x-init="
+                  const regions = JSON.parse(document.getElementById('app-regions').textContent);
+                  $el._ts = new TomSelect($el, {
+                    options: regions.map(r => ({value: r[0], text: r[1]})),
+                    maxOptions: null,
+                    allowEmptyOption: true,
+                    onChange: (v) => { author.regionCode = v; }
+                  });
+                  if (author.regionCode) $el._ts.setValue(author.regionCode, true);
+                  $watch('author.regionCode', (v) => {
+                    if ($el._ts.getValue() !== (v || '')) $el._ts.setValue(v || '', true);
+                  });
+                "
+                x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors['authors.' + index + '.region_code'])"
+              >
+                <option value="">Select...</option>
+              </select>
+              <div
+                class="invalid-feedback"
+                :class="{ 'd-block': errors['authors.' + index + '.region_code'] }"
+                x-text="errors['authors.' + index + '.region_code']"
+              ></div>
+            </div>
+            <div class="col-md-6">
+              <label :for="'author-' + index + '-email'" class="form-label small mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                class="form-control form-control-sm"
+                :class="{ 'is-invalid': errors['authors.' + index + '.email'] }"
+                :id="'author-' + index + '-email'"
+                x-model="author.email"
+                placeholder="email@example.com"
+              >
+              <div class="invalid-feedback" x-text="errors['authors.' + index + '.email']"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template x-if="errors.authors">
+      <div class="alert alert-danger py-2" x-text="errors.authors"></div>
+    </template>
+  </div>
+</template>
+
+<template x-if="mode === 'view' || mode === 'admin-view'">
+  <div class="card mb-4">
+    <div class="card-header">Authors</div>
+    <div class="card-body">
+      <template x-if="!paper?.authors?.length">
+        <p class="text-muted mb-0">No authors listed.</p>
+      </template>
+
+      <template x-for="(author, index) in paper?.authors || []" :key="index">
+        <div class="d-flex align-items-start mb-2" :class="{ 'mb-0': index === paper.authors.length - 1 }">
+          <div class="me-2 text-muted" x-text="(index + 1) + '.'"></div>
+          <div>
+            <span x-text="formatProfileName(author) || '(No name)'"></span>
+            <span x-show="author.corresponding" class="badge text-bg-primary ms-1">Corresponding</span>
+            <div class="small text-muted" x-show="author.affiliation" x-text="author.affiliation"></div>
+            <div class="small text-muted" x-show="author.email">
+              <i class="bi bi-envelope"></i>
+              <span x-text="author.email"></span>
             </div>
           </div>
         </div>
       </template>
-
-      <template x-if="errors.authors">
-        <div class="alert alert-danger py-2" x-text="errors.authors"></div>
-      </template>
     </div>
-  </template>
-
-  <template x-if="mode === 'view' || mode === 'admin-view'">
-    <div class="card mb-4">
-      <div class="card-header">Authors</div>
-      <div class="card-body">
-        <template x-if="!paper?.authors?.length">
-          <p class="text-muted mb-0">No authors listed.</p>
-        </template>
-
-        <template x-for="(author, index) in paper?.authors || []" :key="index">
-          <div class="d-flex align-items-start mb-2" :class="{ 'mb-0': index === paper.authors.length - 1 }">
-            <div class="me-2 text-muted" x-text="(index + 1) + '.'"></div>
-            <div>
-              <span x-text="formatProfileName(author) || '(No name)'"></span>
-              <span x-show="author.corresponding" class="badge text-bg-primary ms-1">Corresponding</span>
-              <div class="small text-muted" x-show="author.affiliation" x-text="author.affiliation"></div>
-              <div class="small text-muted" x-show="author.email">
-                <i class="bi bi-envelope"></i>
-                <span x-text="author.email"></span>
-              </div>
-            </div>
-          </div>
-        </template>
-      </div>
-    </div>
-  </template>
-</div>
+  </div>
+</template>
 
 <script>
   function paperAuthors() {
