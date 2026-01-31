@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from typing import Literal
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
@@ -14,7 +15,11 @@ from app.conference.models import (
     ReviewState,
     TrackRole,
 )
-from app.conference.services import ConferenceService, ReviewService
+from app.conference.services import (
+    ConferenceAccessService,
+    ConferenceService,
+    ReviewService,
+)
 from app.conference.services.review import InvalidReviewStateError
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole
@@ -60,7 +65,7 @@ async def accept_review(
 
     try:
         review = await sync_to_async(ReviewService.respond_to_assignment)(
-            review=review,
+            review,
             response=ReviewState.ACCEPTED,
         )
     except InvalidReviewStateError as exc:
@@ -107,7 +112,7 @@ async def decline_review(
 
     try:
         review = await sync_to_async(ReviewService.respond_to_assignment)(
-            review=review,
+            review,
             response=ReviewState.DECLINED,
         )
     except InvalidReviewStateError as exc:
@@ -147,7 +152,8 @@ async def cancel_review(
 
     Transitions a review to Cancelled state. The review remains visible in admin queries
     and counts, but is hidden from the reviewer's own views. Can be used for reviews in
-    Pending, Accepted, or Submitted states.
+    Pending, Accepted, or Submitted states. Track admins cannot cancel reviews for
+    papers after decision announcement.
     """
     user = await request.auser()
     conference = await aget_object_or_404(
@@ -159,8 +165,17 @@ async def cancel_review(
 
     review = await aget_object_or_404(reviews, uid=review_uid)
 
+    ctx = await ConferenceAccessService.context(
+        conference=conference,
+        user=user,
+        global_roles=(GlobalRole.ADMIN,),
+    )
+    mode: Literal["conference", "track"] = (
+        "conference" if ctx.has_full_conference_scope else "track"
+    )
+
     try:
-        review = await sync_to_async(ReviewService.cancel_review)(review)
+        review = await sync_to_async(ReviewService.cancel_review)(review, mode=mode)
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 

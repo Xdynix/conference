@@ -1,7 +1,9 @@
+from typing import Literal
+
 import pytest
 from django.utils import timezone
 
-from app.conference.models import Conference, Paper, Review, Track
+from app.conference.models import Conference, Paper, PaperState, Review, Track
 from app.conference.models.review import ReviewState
 from app.conference.services import ReviewService
 from app.conference.services.review import InvalidReviewStateError
@@ -20,8 +22,13 @@ class TestUnsubmitReview:
             submit_time=timezone.now(),
         )
 
-    def test_happy_path(self, review: Review) -> None:
-        result = ReviewService.unsubmit_review(review)
+    @pytest.mark.parametrize("mode", ["conference", "track"])
+    def test_happy_path(
+        self,
+        review: Review,
+        mode: Literal["conference", "track"],
+    ) -> None:
+        result = ReviewService.unsubmit_review(review, mode=mode)
 
         db_result = Review.objects.get(pk=result.pk)
         assert result.state == db_result.state == ReviewState.ACCEPTED
@@ -44,7 +51,7 @@ class TestUnsubmitReview:
             InvalidReviewStateError,
             match="Review must be in submitted state to unsubmit",
         ):
-            ReviewService.unsubmit_review(review)
+            ReviewService.unsubmit_review(review, mode="conference")
 
         review.refresh_from_db()
         assert review.state == state
@@ -63,7 +70,7 @@ class TestUnsubmitReview:
             InvalidReviewStateError,
             match="Offline reviews cannot be unsubmitted",
         ):
-            ReviewService.unsubmit_review(review)
+            ReviewService.unsubmit_review(review, mode="conference")
 
         review.refresh_from_db()
         assert review.state == ReviewState.SUBMITTED
@@ -77,16 +84,43 @@ class TestUnsubmitReview:
         update_object(conference, active=False)
 
         with pytest.raises(Review.DoesNotExist):
-            ReviewService.unsubmit_review(review)
+            ReviewService.unsubmit_review(review, mode="conference")
 
     def test_inactive_track_raises_error(self, track: Track, review: Review) -> None:
         update_object(track, active=False)
 
         with pytest.raises(Review.DoesNotExist):
-            ReviewService.unsubmit_review(review)
+            ReviewService.unsubmit_review(review, mode="conference")
 
     def test_deleted_paper_raises_error(self, paper: Paper, review: Review) -> None:
         update_object(paper, delete_time=timezone.now())
 
         with pytest.raises(Review.DoesNotExist):
-            ReviewService.unsubmit_review(review)
+            ReviewService.unsubmit_review(review, mode="conference")
+
+    def test_track_mode_rejects_announced_paper(
+        self,
+        paper: Paper,
+        review: Review,
+    ) -> None:
+        update_object(paper, state=PaperState.ACCEPTED, announce_time=timezone.now())
+
+        with pytest.raises(
+            InvalidReviewStateError,
+            match="Cannot unsubmit reviews for papers after decision announcement",
+        ):
+            ReviewService.unsubmit_review(review, mode="track")
+
+        review.refresh_from_db()
+        assert review.state == ReviewState.SUBMITTED
+
+    def test_conference_mode_allows_announced_paper(
+        self,
+        paper: Paper,
+        review: Review,
+    ) -> None:
+        update_object(paper, state=PaperState.ACCEPTED, announce_time=timezone.now())
+
+        result = ReviewService.unsubmit_review(review, mode="conference")
+
+        assert result.state == ReviewState.ACCEPTED

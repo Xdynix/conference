@@ -108,7 +108,7 @@
                     <td class="text-end">
                       <a
                         :href="APP.urls.pages.adminReviewDetail(APP.params.conference_name, APP.params.paper_code, review.uid)"
-                        class="btn btn-sm btn-outline-secondary me-1"
+                        class="btn btn-sm btn-secondary me-1"
                         @click.stop
                       >
                         View
@@ -116,7 +116,8 @@
                       <button
                         type="button"
                         class="btn btn-sm btn-outline-danger"
-                        :disabled="cancelling"
+                        :disabled="cancelling || !canCancelReview"
+                        :title="canCancelReview ? '' : 'Cannot cancel reviews after decision announcement'"
                         @click.stop="cancelReview(review)"
                       >
                         Cancel
@@ -304,11 +305,14 @@
           if (this.paper.state === APP.enums.PaperState.DRAFT.value) {
             return 'Cannot assign reviewers to papers in Draft state.';
           }
-          const decidedStates = APP.enums.PaperState._collections.decided;
-          if (this.paper.announce_time && decidedStates.includes(this.paper.state)) {
+          if (this.paper.announce_time) {
             return 'Cannot assign reviewers after decision announcement.';
           }
           return null;
+        },
+
+        get canCancelReview() {
+          return !(!this.$store.permissions.isConferenceAdmin && this.paper?.announce_time);
         },
 
         toggleCandidateSort(key) {

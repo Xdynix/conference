@@ -1,4 +1,5 @@
 from http import HTTPStatus
+from typing import Literal
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
@@ -17,7 +18,11 @@ from app.conference.models import (
     ReviewState,
     TrackRole,
 )
-from app.conference.services import ConferenceService, ReviewService
+from app.conference.services import (
+    ConferenceAccessService,
+    ConferenceService,
+    ReviewService,
+)
 from app.conference.services.review import (
     InvalidReviewStateError,
     ReviewSubmissionError,
@@ -154,7 +159,8 @@ async def unsubmit_review(
     """Unsubmit a review, returning it to Accepted state for revision.
 
     Allows admins to send a submitted review back to the reviewer for corrections.
-    Not applicable to offline reviews.
+    Not applicable to offline reviews. Track admins cannot unsubmit reviews for papers
+    after decision announcement.
     """
     user = await request.auser()
     conference = await aget_object_or_404(
@@ -166,8 +172,17 @@ async def unsubmit_review(
 
     review = await aget_object_or_404(reviews, uid=review_uid)
 
+    ctx = await ConferenceAccessService.context(
+        conference=conference,
+        user=user,
+        global_roles=(GlobalRole.ADMIN,),
+    )
+    mode: Literal["conference", "track"] = (
+        "conference" if ctx.has_full_conference_scope else "track"
+    )
+
     try:
-        review = await sync_to_async(ReviewService.unsubmit_review)(review)
+        review = await sync_to_async(ReviewService.unsubmit_review)(review, mode=mode)
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 

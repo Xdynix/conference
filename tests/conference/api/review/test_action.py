@@ -67,7 +67,7 @@ class TestAcceptReview:
         assert data["state"] == ReviewState.ACCEPTED
 
         review_service_respond.assert_called_once_with(
-            review=review,
+            review,
             response=ReviewState.ACCEPTED,
         )
 
@@ -187,7 +187,7 @@ class TestDeclineReview:
         assert data["state"] == ReviewState.DECLINED
 
         review_service_respond.assert_called_once_with(
-            review=review,
+            review,
             response=ReviewState.DECLINED,
         )
 
@@ -308,7 +308,7 @@ class TestCancelReview:
         review_service_cancel: MagicMock,
         mock_visible_reviews: AsyncMock,
     ) -> None:
-        def cancel_side_effect(r: Review) -> Review:
+        def cancel_side_effect(r: Review, *, mode: str) -> Review:  # noqa: ARG001
             r.state = ReviewState.CANCELLED
             r.save(update_fields=["state"])
             return r
@@ -325,7 +325,7 @@ class TestCancelReview:
         assert data["state"] == ReviewState.CANCELLED
         assert "assignment_level" in data
 
-        review_service_cancel.assert_called_once_with(review)
+        review_service_cancel.assert_called_once_with(review, mode="conference")
         mock_visible_reviews.assert_awaited_once_with(
             conference=conference,
             user=conference_chair,
@@ -485,7 +485,7 @@ class TestCancelReview:
         response = api_client.post(self.path(conference.name, review.uid))
         assert response.status_code == HTTPStatus.OK
 
-        review_service_cancel.assert_called_once()
+        review_service_cancel.assert_called_once_with(review, mode="track")
 
     @pytest.mark.parametrize(
         "non_admin_role",

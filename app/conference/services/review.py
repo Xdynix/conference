@@ -178,8 +178,8 @@ class ReviewService:
     @classmethod
     def respond_to_assignment(
         cls,
-        *,
         review: Review,
+        *,
         response: Literal[ReviewState.ACCEPTED, ReviewState.DECLINED],
     ) -> Review:
         """Respond to a review assignment, transitioning from Pending to the response.
@@ -269,21 +269,32 @@ class ReviewService:
             return review
 
     @classmethod
-    def unsubmit_review(cls, review: Review) -> Review:
+    def unsubmit_review(
+        cls,
+        review: Review,
+        *,
+        mode: Literal["conference", "track"],
+    ) -> Review:
         """Unsubmit a review, returning it to Accepted state for revision.
 
         Transitions a submitted review back to Accepted state and clears the
         ``submit_time``. This allows the reviewer to make corrections before
         resubmitting.
 
+        Args:
+            review: The review to unsubmit.
+            mode: Caller's scope. ``"conference"`` allows unsubmit regardless of
+                paper state. ``"track"`` blocks unsubmit after decision announcement.
+
         Raises:
             Review.DoesNotExist: If the review's paper, conference, or track has been
                 deleted or deactivated.
-            InvalidReviewStateError: If the review is not in Submitted state or is an
-                offline review.
+            InvalidReviewStateError: If the review is not in Submitted state, is an
+                offline review, or if mode is ``"track"`` and the paper decision has
+                been announced.
         """
         with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
-            review = Review.objects.active().get(pk=review.pk)
+            review = Review.objects.active().select_related("paper").get(pk=review.pk)
 
             if review.reviewer_id is None:
                 raise InvalidReviewStateError(
@@ -295,6 +306,11 @@ class ReviewService:
                     _("Review must be in submitted state to unsubmit.")
                 )
 
+            if mode == "track" and review.paper.announce_time is not None:
+                raise InvalidReviewStateError(
+                    _("Cannot unsubmit reviews for papers after decision announcement.")
+                )
+
             review.state = ReviewState.ACCEPTED
             review.submit_time = None
             review.save(update_fields=["state", "submit_time", "update_time"])
@@ -302,16 +318,28 @@ class ReviewService:
             return review
 
     @classmethod
-    def cancel_review(cls, review: Review) -> Review:
+    def cancel_review(
+        cls,
+        review: Review,
+        *,
+        mode: Literal["conference", "track"],
+    ) -> Review:
         """Cancel a review assignment.
 
         Transitions a review to Cancelled state. Can be used for reviews in Pending,
         Accepted, or Submitted states.
 
+        Args:
+            review: The review to cancel.
+            mode: Caller's scope. ``"conference"`` allows cancellation regardless of
+                paper state. ``"track"`` blocks cancellation after decision
+                announcement.
+
         Raises:
             Review.DoesNotExist: If the review's paper, conference, or track has been
                 deleted or deactivated.
-            InvalidReviewStateError: If the review is not in a cancellable state.
+            InvalidReviewStateError: If the review is not in a cancellable state, or
+                if mode is ``"track"`` and the paper decision has been announced.
         """
         cancellable_states = {
             ReviewState.PENDING,
@@ -320,7 +348,7 @@ class ReviewService:
         }
 
         with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
-            review = Review.objects.active().get(pk=review.pk)
+            review = Review.objects.active().select_related("paper").get(pk=review.pk)
 
             if review.state not in cancellable_states:
                 raise InvalidReviewStateError(
@@ -328,6 +356,11 @@ class ReviewService:
                         "Review must be in pending, accepted, "
                         "or submitted state to cancel."
                     )
+                )
+
+            if mode == "track" and review.paper.announce_time is not None:
+                raise InvalidReviewStateError(
+                    _("Cannot cancel reviews for papers after decision announcement.")
                 )
 
             review.state = ReviewState.CANCELLED

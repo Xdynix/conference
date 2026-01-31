@@ -443,7 +443,7 @@ class TestUnsubmitReview:
         review_service_unsubmit: MagicMock,
         mock_visible_reviews: AsyncMock,
     ) -> None:
-        def unsubmit_side_effect(r: Review) -> Review:
+        def unsubmit_side_effect(r: Review, *, mode: str) -> Review:  # noqa: ARG001
             r.state = ReviewState.ACCEPTED
             r.submit_time = None
             r.save(update_fields=["state", "submit_time"])
@@ -462,7 +462,7 @@ class TestUnsubmitReview:
         assert "submit_time" not in data
         assert "assignment_level" in data
 
-        review_service_unsubmit.assert_called_once_with(review)
+        review_service_unsubmit.assert_called_once_with(review, mode="conference")
         mock_visible_reviews.assert_awaited_once_with(
             conference=conference,
             user=conference_chair,
@@ -622,7 +622,7 @@ class TestUnsubmitReview:
         response = api_client.post(self.path(conference.name, review.uid))
         assert response.status_code == HTTPStatus.OK
 
-        review_service_unsubmit.assert_called_once()
+        review_service_unsubmit.assert_called_once_with(review, mode="track")
 
     @pytest.mark.parametrize(
         "non_admin_role",

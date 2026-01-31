@@ -27,10 +27,7 @@ class TestRespondToAssignment:
         review: Review,
         response: Literal[ReviewState.ACCEPTED, ReviewState.DECLINED],
     ) -> None:
-        result = ReviewService.respond_to_assignment(
-            review=review,
-            response=response,
-        )
+        result = ReviewService.respond_to_assignment(review, response=response)
 
         db_result = Review.objects.get(pk=result.pk)
         assert result.state == db_result.state == response
@@ -50,7 +47,7 @@ class TestRespondToAssignment:
     ) -> None:
         with pytest.raises(ValueError, match="Invalid response"):
             ReviewService.respond_to_assignment(
-                review=review,
+                review,
                 response=response,  # type: ignore[arg-type]
             )
 
@@ -74,7 +71,7 @@ class TestRespondToAssignment:
             InvalidReviewStateError,
             match="Review must be in pending state to respond",
         ):
-            ReviewService.respond_to_assignment(review=review, response=response)
+            ReviewService.respond_to_assignment(review, response=response)
 
         review.refresh_from_db()
         assert review.state == state
@@ -88,7 +85,7 @@ class TestRespondToAssignment:
 
         with pytest.raises(Review.DoesNotExist):
             ReviewService.respond_to_assignment(
-                review=review,
+                review,
                 response=ReviewState.ACCEPTED,
             )
 
@@ -97,7 +94,7 @@ class TestRespondToAssignment:
 
         with pytest.raises(Review.DoesNotExist):
             ReviewService.respond_to_assignment(
-                review=review,
+                review,
                 response=ReviewState.ACCEPTED,
             )
 
@@ -106,6 +103,6 @@ class TestRespondToAssignment:
 
         with pytest.raises(Review.DoesNotExist):
             ReviewService.respond_to_assignment(
-                review=review,
+                review,
                 response=ReviewState.ACCEPTED,
             )

@@ -417,6 +417,7 @@ class Paper(Schema):
     create_time: AwareDatetime
     state: PaperState
     withdraw_time: AwareDatetime | None
+    announce_time: AwareDatetime | None
     title: PaperTitle
     authors: list[PaperAuthor]
     submission: PaperSubmission | None
@@ -454,6 +455,7 @@ class ReviewPaper(Schema):
     conference: ConferenceName
     track: PaperTrack
     code: PaperCode
+    announce_time: AwareDatetime | None
     title: PaperTitle
     abstract: PaperAbstract
     keywords: list[KeywordText]

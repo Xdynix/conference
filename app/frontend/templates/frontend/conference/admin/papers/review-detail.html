@@ -119,11 +119,14 @@
                       </button>
                     </template>
 
-                    <template x-if="review.state === APP.enums.ReviewState.SUBMITTED.value && review.reviewer && !isDirty">
+                    <template
+                      x-if="review.state === APP.enums.ReviewState.SUBMITTED.value && review.reviewer && !isDirty"
+                    >
                       <button
                         type="button"
                         class="btn btn-secondary"
-                        :disabled="processing"
+                        :disabled="processing || !canModifyAfterAnnouncement"
+                        :title="canModifyAfterAnnouncement ? '' : 'Cannot unsubmit reviews after decision announcement'"
                         @click="unsubmit()"
                       >
                         <span x-show="unsubmitting" class="spinner-border spinner-border-sm me-1"></span>
@@ -152,7 +155,8 @@
                     <button
                       type="button"
                       class="btn btn-outline-danger btn-sm"
-                      :disabled="processing"
+                      :disabled="processing || !canModifyAfterAnnouncement"
+                      :title="canModifyAfterAnnouncement ? '' : 'Cannot cancel reviews after decision announcement'"
                       @click="cancelAssignment()"
                     >
                       <span x-show="cancelling" class="spinner-border spinner-border-sm me-1"></span>
@@ -236,6 +240,10 @@
 
         get processing() {
           return this.saving || this.submitting || this.unsubmitting || this.cancelling;
+        },
+
+        get canModifyAfterAnnouncement() {
+          return !(!this.$store.permissions.isConferenceAdmin && this.review?.paper.announce_time);
         },
 
         populateForm() {
