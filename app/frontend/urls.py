@@ -96,4 +96,11 @@ urlpatterns = [
         protected_view(template_name="frontend/conference/admin/papers/reviews.html"),
         name="admin-paper-reviews",
     ),
+    path(
+        "<slug:conference_name>/admin/papers/<slug:paper_code>/reviews/<ulid:review_uid>/",
+        protected_view(
+            template_name="frontend/conference/admin/papers/review-detail.html"
+        ),
+        name="admin-review-detail",
+    ),
 ]

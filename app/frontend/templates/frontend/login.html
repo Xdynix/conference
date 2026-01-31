@@ -116,12 +116,8 @@
             this.cfTurnstileReset();
 
             const data = error.response?.data;
-            if (error.response?.status === 422) {
-              if (data?.details?.length) {
-                this.errors = mapErrors(data.details);
-              } else {
-                this.errors._form = data?.message;
-              }
+            if (error.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
             } else {
               this.errors._form = data?.message || "An unexpected error occurred. Please try again.";
             }

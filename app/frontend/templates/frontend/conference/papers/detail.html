@@ -15,7 +15,7 @@
   >
     <h1 class="h3 mb-4 d-flex align-items-center">
       <span x-text="headerText">Paper</span>
-      <span x-show="paper" class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
+      <span class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
     </h1>
 
     <div x-show="$store.conference.loading || loading" class="text-center py-5">

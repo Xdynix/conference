@@ -1,0 +1,360 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Admin: Review - {{ params.paper_code }} | {% endblock %}
+
+{% block content %}
+  <div
+    x-data="adminReviewDetail()"
+    x-init="
+      $store.sidebar.setActive('admin-papers');
+      $store.breadcrumb.set([
+        {label: 'Papers', url: '{% url 'frontend:admin-paper-list' conference_name=params.conference_name %}'},
+        {label: '{{ params.paper_code }}', url: '{% url 'frontend:admin-paper-detail' conference_name=params.conference_name paper_code=params.paper_code %}'},
+        {label: 'Reviews', url: '{% url 'frontend:admin-paper-reviews' conference_name=params.conference_name paper_code=params.paper_code %}'},
+        {label: 'Detail'}
+      ]);
+    "
+  >
+    <h1 class="h3 mb-4 d-flex align-items-center">
+      <span>Review: {{ params.paper_code }}</span>
+      <span class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
+    </h1>
+
+    <div x-show="$store.conference.loading || loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Review not found.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && !error && review" x-cloak>
+      <div class="row">
+        {# Main column #}
+        <div class="col-xl-8 order-xl-1 order-2">
+          {% include "frontend/components/review/paper-card.html" %}
+
+          <form x-ref="reviewForm" @submit.prevent>
+            {% include "frontend/components/review/form.html" %}
+          </form>
+        </div>
+
+        {# Sidebar #}
+        <div class="col-xl-4 order-xl-2 order-1 mb-4 mb-xl-0">
+          <div class="card position-sticky" style="top: 1rem;">
+            <div class="card-body">
+              {# Reviewer info #}
+              <div class="mb-3">
+                <label class="form-label text-muted mb-1">Reviewer</label>
+                <template x-if="review.reviewer">
+                  <div>
+                    <div x-text="displayName(review.reviewer)"></div>
+                    <div class="text-muted small" x-text="review.reviewer.email"></div>
+                  </div>
+                </template>
+                <template x-if="!review.reviewer">
+                  <div>
+                    <div x-text="review.offline_reviewer_name || 'External reviewer'"></div>
+                    <div class="text-muted small">Offline review</div>
+                  </div>
+                </template>
+              </div>
+
+              {# Assignment info #}
+              <div class="mb-3">
+                <label class="form-label text-muted mb-1">Assigned</label>
+                <div x-text="formatDate(review.create_time)"></div>
+                <template x-if="review.assigner">
+                  <div class="text-muted small">
+                    by <span x-text="displayName(review.assigner)"></span>
+                  </div>
+                </template>
+              </div>
+
+              <hr class="my-3">
+
+              {# Error display #}
+              <div
+                x-show="errors._form"
+                x-cloak
+                class="alert alert-danger small mb-3"
+                x-text="errors._form"
+              ></div>
+
+              {# Actions: Pending, Accepted, Submitted #}
+              <template x-if="[
+                APP.enums.ReviewState.PENDING.value,
+                APP.enums.ReviewState.ACCEPTED.value,
+                APP.enums.ReviewState.SUBMITTED.value,
+              ].includes(review.state)">
+                <div>
+                  <div class="d-grid gap-2">
+                    <template x-if="mode === 'edit'">
+                      <button
+                        type="button"
+                        class="btn btn-primary"
+                        :disabled="processing"
+                        @click="save()"
+                      >
+                        <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
+                        Save
+                      </button>
+                    </template>
+
+                    <template x-if="review.state === APP.enums.ReviewState.ACCEPTED.value && !isDirty">
+                      <button
+                        type="button"
+                        class="btn btn-success"
+                        :disabled="processing"
+                        @click="submitOnBehalf()"
+                      >
+                        <span x-show="submitting" class="spinner-border spinner-border-sm me-1"></span>
+                        Submit on Behalf
+                      </button>
+                    </template>
+
+                    <template x-if="review.state === APP.enums.ReviewState.SUBMITTED.value && review.reviewer && !isDirty">
+                      <button
+                        type="button"
+                        class="btn btn-secondary"
+                        :disabled="processing"
+                        @click="unsubmit()"
+                      >
+                        <span x-show="unsubmitting" class="spinner-border spinner-border-sm me-1"></span>
+                        Unsubmit
+                      </button>
+                    </template>
+
+                    <template x-if="review.state === APP.enums.ReviewState.SUBMITTED.value && !review.reviewer">
+                      <div class="text-muted small text-center py-2">
+                        Offline reviews cannot be unsubmitted.
+                      </div>
+                    </template>
+
+                    <template x-if="mode === 'edit' && isDirty">
+                      <div class="text-muted small text-center py-2">
+                        Save changes first
+                      </div>
+                    </template>
+                  </div>
+
+                  <template x-if="review.state !== APP.enums.ReviewState.PENDING.value">
+                    <hr class="my-3">
+                  </template>
+
+                  <div class="d-grid">
+                    <button
+                      type="button"
+                      class="btn btn-outline-danger btn-sm"
+                      :disabled="processing"
+                      @click="cancelAssignment()"
+                    >
+                      <span x-show="cancelling" class="spinner-border spinner-border-sm me-1"></span>
+                      Cancel Assignment
+                    </button>
+                  </div>
+                </div>
+              </template>
+
+              {# Actions: Declined #}
+              <template x-if="review.state === APP.enums.ReviewState.DECLINED.value">
+                <div class="text-muted small">
+                  This reviewer declined the assignment.
+                </div>
+              </template>
+
+              {# Actions: Cancelled #}
+              <template x-if="review.state === APP.enums.ReviewState.CANCELLED.value">
+                <div class="text-muted small">
+                  This assignment was cancelled.
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function adminReviewDetail() {
+      return {
+        ...reviewForm(),
+        review: null,
+        loading: true,
+        error: null,
+        isDirty: false,
+        saving: false,
+        submitting: false,
+        unsubmitting: false,
+        cancelling: false,
+        errors: {},
+        form: {
+          originality: null,
+          significance: null,
+          technical: null,
+          reference: null,
+          presentation: null,
+          match_topic: null,
+          recommendation: null,
+          contribution: '',
+          decision_reason: '',
+          comments: '',
+          confidential_remarks: '',
+        },
+
+        get stateBadge() {
+          if (!this.review) return {class: '', label: ''};
+          return reviewStateBadge(this.review.state);
+        },
+
+        displayName(user) {
+          return formatProfileName(user?.profile) || user?.email || 'Unknown';
+        },
+
+        get mode() {
+          if (!this.review) return null;
+          // Only conference admins can edit (track admins can only view)
+          if (!this.$store.permissions.isConferenceAdmin) return 'view';
+          // Conference admins can edit Accepted and Submitted states
+          const editableStates = [
+            APP.enums.ReviewState.ACCEPTED.value,
+            APP.enums.ReviewState.SUBMITTED.value,
+          ];
+          if (editableStates.includes(this.review.state)) return 'edit';
+          return 'view';
+        },
+
+        get processing() {
+          return this.saving || this.submitting || this.unsubmitting || this.cancelling;
+        },
+
+        populateForm() {
+          const r = this.review;
+          if (!r) return;
+          this.form.originality = r.originality;
+          this.form.significance = r.significance;
+          this.form.technical = r.technical;
+          this.form.reference = r.reference;
+          this.form.presentation = r.presentation;
+          this.form.match_topic = r.match_topic;
+          this.form.recommendation = r.recommendation;
+          this.form.contribution = r.contribution || '';
+          this.form.decision_reason = r.decision_reason || '';
+          this.form.comments = r.comments || '';
+          this.form.confidential_remarks = r.confidential_remarks || '';
+        },
+
+        setReview(data) {
+          this.review = data;
+          this.populateForm();
+          this.$nextTick(() => {
+            this.isDirty = false;
+          });
+        },
+
+        async init() {
+          try {
+            const url = "{% url 'api-1.0.0:get-review' conference_name=params.conference_name review_uid=params.review_uid %}";
+            const {data} = await api.get(url);
+            this.setReview(data);
+            this.$nextTick(() => {
+              this.$watch('form', () => {
+                this.isDirty = true;
+              }, {deep: true});
+            });
+          } catch (e) {
+            this.error = e;
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async save() {
+          if (this.processing) return;
+          if (!this.$refs.reviewForm.reportValidity()) return;
+          this.saving = true;
+          this.errors = {};
+
+          try {
+            const url = "{% url 'api-1.0.0:update-review' conference_name=params.conference_name review_uid=params.review_uid %}";
+            const {data} = await api.patch(url, this.form);
+            this.setReview(data);
+          } catch (error) {
+            const resp = error.response?.data;
+            if (error.response?.status === 422 && resp?.details?.length) {
+              this.errors = mapErrors(resp.details);
+            } else {
+              this.errors._form = resp?.message || 'Failed to save.';
+            }
+          } finally {
+            this.saving = false;
+          }
+        },
+
+        async submitOnBehalf() {
+          if (this.processing) return;
+          const msg = 'Submit this review on behalf of the reviewer? They will no longer be able to make changes.';
+          if (!confirm(msg)) return;
+          this.submitting = true;
+          this.errors = {};
+
+          try {
+            const url = "{% url 'api-1.0.0:submit-review' conference_name=params.conference_name review_uid=params.review_uid %}";
+            const {data} = await api.post(url);
+            this.setReview(data);
+          } catch (error) {
+            this.errors._form = error.response?.data?.message || 'Failed to submit review.';
+          } finally {
+            this.submitting = false;
+          }
+        },
+
+        async unsubmit() {
+          if (this.processing) return;
+          const msg = 'Return this review to the reviewer for revision? They will need to resubmit when done, or the review will not be shown to authors.';
+          if (!confirm(msg)) return;
+          this.unsubmitting = true;
+          this.errors = {};
+
+          try {
+            const url = "{% url 'api-1.0.0:unsubmit-review' conference_name=params.conference_name review_uid=params.review_uid %}";
+            const {data} = await api.post(url);
+            this.setReview(data);
+          } catch (error) {
+            this.errors._form = error.response?.data?.message || 'Failed to unsubmit review.';
+          } finally {
+            this.unsubmitting = false;
+          }
+        },
+
+        async cancelAssignment() {
+          if (this.processing) return;
+          const msg = 'Cancel this review assignment? Any review progress will be lost.';
+          if (!confirm(msg)) return;
+          this.cancelling = true;
+          this.errors = {};
+
+          try {
+            const url = "{% url 'api-1.0.0:cancel-review' conference_name=params.conference_name review_uid=params.review_uid %}";
+            const {data} = await api.post(url);
+            this.setReview(data);
+          } catch (error) {
+            this.errors._form = error.response?.data?.message || 'Failed to cancel assignment.';
+          } finally {
+            this.cancelling = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}

@@ -106,8 +106,11 @@
                     <td class="text-center" x-text="review.recommendation || '—'"></td>
                     <td x-text="formatDate(review.create_time)"></td>
                     <td class="text-end">
-                      {# TODO: Link to review detail page when implemented #}
-                      <a href="#" class="btn btn-sm btn-outline-secondary me-1" @click.stop>
+                      <a
+                        :href="APP.urls.pages.adminReviewDetail(APP.params.conference_name, APP.params.paper_code, review.uid)"
+                        class="btn btn-sm btn-outline-secondary me-1"
+                        @click.stop
+                      >
                         View
                       </a>
                       <button

@@ -194,25 +194,29 @@ Parent should spread reviewForm() to get required constants and helpers:
 
     <hr>
 
-    <div class="mb-4">
-      <div class="d-flex align-items-baseline gap-2 mb-2">
-        <h6 class="text-muted mb-0">Contribution Summary</h6>
-        <span class="small text-muted">
-          — Visible to authors anonymously
-        </span>
+    <template x-if="review.contribution">
+      <div class="mb-4">
+        <div class="d-flex align-items-baseline gap-2 mb-2">
+          <h6 class="text-muted mb-0">Contribution Summary</h6>
+          <span class="small text-muted">
+            — Visible to authors anonymously
+          </span>
+        </div>
+        <p class="mb-0" style="white-space: pre-wrap;" x-text="review.contribution"></p>
       </div>
-      <p class="mb-0" style="white-space: pre-wrap;" x-text="review.contribution"></p>
-    </div>
+    </template>
 
-    <div class="mb-4">
-      <div class="d-flex align-items-baseline gap-2 mb-2">
-        <h6 class="text-muted mb-0">Decision Reason</h6>
-        <span class="small text-muted">
-          — Visible to authors anonymously
-        </span>
+    <template x-if="review.decision_reason">
+      <div class="mb-4">
+        <div class="d-flex align-items-baseline gap-2 mb-2">
+          <h6 class="text-muted mb-0">Decision Reason</h6>
+          <span class="small text-muted">
+            — Visible to authors anonymously
+          </span>
+        </div>
+        <p class="mb-0" style="white-space: pre-wrap;" x-text="review.decision_reason"></p>
       </div>
-      <p class="mb-0" style="white-space: pre-wrap;" x-text="review.decision_reason"></p>
-    </div>
+    </template>
 
     <template x-if="review.comments">
       <div class="mb-4">
