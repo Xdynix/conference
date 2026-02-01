@@ -204,8 +204,10 @@ Provides:
         <div class="d-flex align-items-start mb-2" :class="{ 'mb-0': index === paper.authors.length - 1 }">
           <div class="me-2 text-muted" x-text="(index + 1) + '.'"></div>
           <div>
-            <span x-text="formatProfileName(author) || '(No name)'"></span>
-            <span x-show="author.corresponding" class="badge text-bg-primary ms-1">Corresponding</span>
+            <div class="d-flex align-items-center">
+              <span x-text="formatProfileName(author) || '(No name)'"></span>
+              <span x-show="author.corresponding" class="badge text-bg-primary ms-1">Corresponding</span>
+            </div>
             <div class="small text-muted" x-show="author.affiliation" x-text="author.affiliation"></div>
             <div class="small text-muted" x-show="author.email">
               <i class="bi bi-envelope"></i>

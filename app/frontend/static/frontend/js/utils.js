@@ -325,7 +325,7 @@
       [stateEnum.SUBMITTED.value]: "text-bg-primary",
       [stateEnum.UNDER_REVIEW.value]: "text-bg-info",
       [stateEnum.ACCEPTED.value]: "text-bg-success",
-      [stateEnum.ACCEPTED_REVISION_NEEDED.value]: "text-bg-warning",
+      [stateEnum.ACCEPTED_REVISION_NEEDED.value]: "text-bg-success border border-2 border-warning",
       [stateEnum.REJECTED.value]: "text-bg-danger",
     };
     return classes[state] || "text-bg-secondary";
@@ -361,8 +361,14 @@
    * @returns {{class: string, label: string}} Badge class and label.
    */
   function paperStateBadgeAdmin(state, withdrawTime) {
+    const stateEnum = APP.enums.PaperState;
     const baseCls = paperStateClass(state);
-    const baseLabel = enumLabel(APP.enums.PaperState, state) || state;
+
+    // Shorter labels for admin context
+    const adminLabels = {
+      [stateEnum.ACCEPTED_REVISION_NEEDED.value]: "Revision Needed",
+    };
+    const baseLabel = adminLabels[state] || enumLabel(stateEnum, state) || state;
 
     if (withdrawTime) {
       return {class: `${baseCls} opacity-50`, label: `${baseLabel} (Withdrawn)`};
