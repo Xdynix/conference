@@ -138,6 +138,30 @@
           "ulid",
         ),
       },
+      track: {
+        update: urlTemplate(
+          "{% url 'api-1.0.0:update-track' conference_name='__CONFERENCE_NAME__' track_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+        delete: urlTemplate(
+          "{% url 'api-1.0.0:delete-track' conference_name='__CONFERENCE_NAME__' track_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+      },
+      codePool: {
+        update: urlTemplate(
+          "{% url 'api-1.0.0:update-code-pool' conference_name='__CONFERENCE_NAME__' code_pool_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+        delete: urlTemplate(
+          "{% url 'api-1.0.0:delete-code-pool' conference_name='__CONFERENCE_NAME__' code_pool_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+      },
       pages: {
         conferenceHome: urlTemplate(
           "{% url 'frontend:conference-home' conference_name='__CONFERENCE_NAME__' %}",

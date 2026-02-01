@@ -54,14 +54,19 @@
                     <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
                       <span x-text="track.display_name"></span>
                       <span class="d-flex gap-2">
-                        <template x-if="track.visibility !== APP.enums.TrackVisibility.PUBLIC.value">
-                          <span
-                            class="badge text-bg-secondary"
-                            x-text="enumLabel(APP.enums.TrackVisibility, track.visibility)"
-                          ></span>
-                        </template>
                         <span
-                          class="badge"
+                          class="badge text-center"
+                          style="min-width: 6.5rem;"
+                          :class="{
+                            'invisible': track.visibility === APP.enums.TrackVisibility.PUBLIC.value,
+                            'text-bg-warning': track.visibility === APP.enums.TrackVisibility.MEMBER_ONLY.value,
+                            'text-bg-danger': track.visibility === APP.enums.TrackVisibility.ADMIN_ONLY.value,
+                          }"
+                          x-text="enumLabel(APP.enums.TrackVisibility, track.visibility)"
+                        ></span>
+                        <span
+                          class="badge text-center"
+                          style="min-width: 9rem;"
                           :class="track.accepts_submissions ? 'text-bg-success' : 'text-bg-secondary'"
                           x-text="track.accepts_submissions ? 'Submissions Open' : 'Submissions Closed'"
                         ></span>
