@@ -84,14 +84,23 @@ class TestPaper:
         update_object(paper, state=state, announce_time=None)
         assert paper.visible_state == PaperState.UNDER_REVIEW
 
-    @pytest.mark.parametrize("state", PaperState.decided())
+    @pytest.mark.parametrize(
+        ("state", "expected"),
+        [
+            (PaperState.REJECTED, PaperState.REJECTED),
+            (PaperState.ACCEPTED, PaperState.ACCEPTED),
+            # Revision needed shows as accepted to authors.
+            (PaperState.ACCEPTED_REVISION_NEEDED, PaperState.ACCEPTED),
+        ],
+    )
     def test_visible_state_shows_decision_after_announcement(
         self,
         paper: Paper,
         state: PaperState,
+        expected: PaperState,
     ) -> None:
         update_object(paper, state=state, announce_time=timezone.now())
-        assert paper.visible_state == state
+        assert paper.visible_state == expected
 
     @pytest.mark.parametrize("state", PaperState.decided())
     def test_announce_time_allowed_for_decided_states(

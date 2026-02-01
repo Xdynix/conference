@@ -179,6 +179,8 @@ class Paper(TimeStampedModel, ULIDModel):
             return "Withdrawn"
         if self.announce_time is None and self.state in PaperState.decided():
             return PaperState.UNDER_REVIEW
+        if self.state == PaperState.ACCEPTED_REVISION_NEEDED:
+            return PaperState.ACCEPTED
         return PaperState(self.state)
 
 

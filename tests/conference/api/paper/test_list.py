@@ -340,7 +340,15 @@ class TestListMyPapers:
         response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
-    @pytest.mark.parametrize("state", PaperState.decided())
+    @pytest.mark.parametrize(
+        ("state", "expected"),
+        [
+            (PaperState.REJECTED, PaperState.REJECTED),
+            (PaperState.ACCEPTED, PaperState.ACCEPTED),
+            # Revision needed shows as accepted to authors.
+            (PaperState.ACCEPTED_REVISION_NEEDED, PaperState.ACCEPTED),
+        ],
+    )
     def test_visible_state_when_announced(
         self,
         api_client: Client,
@@ -348,6 +356,7 @@ class TestListMyPapers:
         conference: Conference,
         track: Track,
         state: PaperState,
+        expected: PaperState,
     ) -> None:
         create_paper(
             conference,
@@ -363,7 +372,7 @@ class TestListMyPapers:
 
         data = response.json()
         [paper_data] = data["items"]
-        assert paper_data["state"] == state
+        assert paper_data["state"] == expected
 
     @pytest.mark.parametrize(
         ("actual_state", "expected_state"),

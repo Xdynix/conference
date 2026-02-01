@@ -187,7 +187,8 @@ model memory:
 
 The Serena MCP server provides semantic code exploration and editing. Prefer Serena over
 reading entire files or text-based search/replace when working with code symbols
-(classes, methods, functions). Call `initial_instructions` to learn available tools.
+(classes, methods, functions). This applies to all code, including test methods. Call
+`initial_instructions` to learn how to use the toolbox effectively.
 
 When starting work on this project, check Serena's onboarding status and read relevant
 memories for project context.

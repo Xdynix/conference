@@ -259,7 +259,15 @@ class TestGetMyPaper:
         response = api_client.get(self.path(conference.name, "PAPER-001"))
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
-    @pytest.mark.parametrize("state", PaperState.decided())
+    @pytest.mark.parametrize(
+        ("state", "expected"),
+        [
+            (PaperState.REJECTED, PaperState.REJECTED),
+            (PaperState.ACCEPTED, PaperState.ACCEPTED),
+            # Revision needed shows as accepted to authors.
+            (PaperState.ACCEPTED_REVISION_NEEDED, PaperState.ACCEPTED),
+        ],
+    )
     def test_visible_state_when_announced(
         self,
         api_client: Client,
@@ -267,6 +275,7 @@ class TestGetMyPaper:
         conference: Conference,
         paper: Paper,
         state: PaperState,
+        expected: PaperState,
     ) -> None:
         update_object(paper, state=state, announce_time=timezone.now())
         api_client.force_login(user)
@@ -275,7 +284,7 @@ class TestGetMyPaper:
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
-        assert data["state"] == state
+        assert data["state"] == expected
 
     @pytest.mark.parametrize(
         ("actual_state", "expected_state"),
