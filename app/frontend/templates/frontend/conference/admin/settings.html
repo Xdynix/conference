@@ -1,0 +1,229 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Admin: Settings | {% endblock %}
+
+{% block content %}
+  <div
+    x-data="adminSettings()"
+    x-init="
+      $store.sidebar.setActive('admin-settings');
+      $store.breadcrumb.set([{label: 'Settings'}]);
+    "
+    class="d-flex flex-column flex-grow-1 mx-auto w-100"
+    style="min-height: 0; max-width: 60rem;"
+  >
+    <h1 class="h3 mb-4">Settings</h1>
+
+    <div x-show="$store.conference.loading || loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
+
+    <div x-show="!$store.conference.loading && !loading && error" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Failed to load settings data.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && !error" x-cloak>
+      <ul class="nav nav-tabs" id="settings-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link active"
+            id="general-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#general-pane"
+            type="button"
+            role="tab"
+            aria-controls="general-pane"
+            aria-selected="true"
+          >
+            General
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="tracks-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#tracks-pane"
+            type="button"
+            role="tab"
+            aria-controls="tracks-pane"
+            aria-selected="false"
+          >
+            Tracks
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="code-pools-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#code-pools-pane"
+            type="button"
+            role="tab"
+            aria-controls="code-pools-pane"
+            aria-selected="false"
+          >
+            Code Pools
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="attendance-types-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#attendance-types-pane"
+            type="button"
+            role="tab"
+            aria-controls="attendance-types-pane"
+            aria-selected="false"
+          >
+            Attendance Types
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="ieee-ecopyright-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#ieee-ecopyright-pane"
+            type="button"
+            role="tab"
+            aria-controls="ieee-ecopyright-pane"
+            aria-selected="false"
+          >
+            IEEE eCopyright
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content pt-4">
+        <div
+          class="tab-pane fade show active"
+          id="general-pane"
+          role="tabpanel"
+          aria-labelledby="general-tab"
+          tabindex="0"
+        >
+          <p class="text-muted">General settings content will go here.</p>
+        </div>
+
+        <div
+          class="tab-pane fade"
+          id="tracks-pane"
+          role="tabpanel"
+          aria-labelledby="tracks-tab"
+          tabindex="0"
+        >
+          <p class="text-muted">Tracks management content will go here.</p>
+        </div>
+
+        <div
+          class="tab-pane fade"
+          id="code-pools-pane"
+          role="tabpanel"
+          aria-labelledby="code-pools-tab"
+          tabindex="0"
+        >
+          <p class="text-muted">Code pools management content will go here.</p>
+        </div>
+
+        <div
+          class="tab-pane fade"
+          id="attendance-types-pane"
+          role="tabpanel"
+          aria-labelledby="attendance-types-tab"
+          tabindex="0"
+        >
+          <p class="text-muted">Attendance types management content will go here.</p>
+        </div>
+
+        <div
+          class="tab-pane fade"
+          id="ieee-ecopyright-pane"
+          role="tabpanel"
+          aria-labelledby="ieee-ecopyright-tab"
+          tabindex="0"
+        >
+          <p class="text-muted">IEEE eCopyright configuration content will go here.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Activate tab from hash immediately to avoid flash.
+    (function () {
+      const hash = window.location.hash.slice(1);
+      if (!hash) return;
+      const tabList = document.getElementById("settings-tabs");
+      if (!tabList) return;
+      const tab = tabList.querySelector(`#${hash}-tab`);
+      if (!tab) return;
+      // Remove active state from default tab.
+      tabList.querySelector(".nav-link.active")?.classList.remove("active");
+      tab.classList.add("active");
+      tab.setAttribute("aria-selected", "true");
+      // Update panes: hide default, show target.
+      document.querySelector(".tab-pane.show.active")?.classList.remove("show", "active");
+      document.getElementById(`${hash}-pane`)?.classList.add("show", "active");
+    })();
+  </script>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    document.getElementById("settings-tabs")?.addEventListener("shown.bs.tab", function (event) {
+      const id = event.target.id.replace("-tab", "");
+      history.replaceState(null, "", `#${id}`);
+    });
+
+    function adminSettings() {
+      return {
+        codePools: [],
+        codePoolAssignments: [],
+        attendanceTypes: [],
+        loading: true,
+        error: null,
+
+        async loadCodePools() {
+          const url = "{% url 'api-1.0.0:list-code-pools' conference_name=params.conference_name %}";
+          const {data} = await api.get(url);
+          this.codePools = data;
+        },
+
+        async loadCodePoolAssignments() {
+          const url = "{% url 'api-1.0.0:get-track-code-pool-assignments' conference_name=params.conference_name %}";
+          const {data} = await api.get(url);
+          this.codePoolAssignments = data;
+        },
+
+        async loadAttendanceTypes() {
+          const url = "{% url 'api-1.0.0:list-attendance-types' conference_name=params.conference_name %}";
+          const {data} = await api.get(url);
+          this.attendanceTypes = data;
+        },
+
+        async init() {
+          try {
+            await Promise.all([
+              this.loadCodePools(),
+              this.loadCodePoolAssignments(),
+              this.loadAttendanceTypes(),
+            ]);
+          } catch (e) {
+            this.error = e;
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}
