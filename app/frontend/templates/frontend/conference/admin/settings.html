@@ -109,8 +109,230 @@
           role="tabpanel"
           aria-labelledby="general-tab"
           tabindex="0"
+          x-data="settingsGeneralTab()"
         >
-          <p class="text-muted">General settings content will go here.</p>
+          <form @submit.prevent="save()" :class="{'mb-5 pb-4': isDirty}">
+            <div
+              x-show="errors._form"
+              x-cloak
+              class="alert alert-danger"
+              role="alert"
+              x-text="errors._form"
+            ></div>
+
+            {# Main Settings #}
+            <div class="row g-3 mb-4">
+              <div class="col-12">
+                <label for="display-name" class="form-label">Display Name</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="display-name"
+                  x-model="form.displayName"
+                  :class="{'is-invalid': errors.display_name}"
+                  :disabled="!$store.permissions.isChairRole"
+                  required
+                >
+                <div class="invalid-feedback" x-text="errors.display_name"></div>
+              </div>
+
+              <div class="col-12">
+                <label for="visibility" class="form-label">Visibility</label>
+                <select
+                  class="form-select"
+                  id="visibility"
+                  x-model="form.visibility"
+                  :class="{'is-invalid': errors.visibility}"
+                  :disabled="!$store.permissions.isChairRole"
+                  required
+                >
+                  <template x-for="opt in Object.values(APP.enums.ConferenceVisibility)" :key="opt.value">
+                    <option :value="opt.value" x-text="opt.label"></option>
+                  </template>
+                </select>
+                <div class="invalid-feedback" x-text="errors.visibility"></div>
+                <ul class="form-text text-muted small mt-1 mb-0 ps-3">
+                  <li><strong>Public</strong> — visible to everyone</li>
+                  <li><strong>Member-Only</strong> — visible to anyone with a role (including Members)</li>
+                  <li><strong>Admin-Only</strong> — visible to Chairs and Secretaries only</li>
+                </ul>
+              </div>
+
+              <div class="col-12">
+                <div class="form-check form-switch">
+                  <input
+                    type="checkbox"
+                    class="form-check-input"
+                    id="registration-enabled"
+                    x-model="form.registrationEnabled"
+                    :disabled="!$store.permissions.isChairRole"
+                    role="switch"
+                  >
+                  <label class="form-check-label" for="registration-enabled">
+                    Registration Enabled
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {# Display & Content Section #}
+            <div class="mt-2" x-data="{open: false}">
+              <button
+                type="button"
+                class="btn btn-link text-decoration-none p-0 d-inline-flex align-items-center"
+                @click="open = !open"
+              >
+                <i class="small me-1" :class="open ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
+                Display &amp; Content
+              </button>
+              <div class="mt-3" x-show="open" x-cloak>
+                {# Keywords #}
+                <div class="mb-4">
+                  <label for="keyword-set" class="form-label">Keywords</label>
+                  <select
+                    class="form-select"
+                    id="keyword-set"
+                    x-model="selectedKeywordSet"
+                    @change="applyKeywordSet()"
+                    :disabled="!$store.permissions.isChairRole"
+                  >
+                    <option value="">Select a keyword set...</option>
+                    <template x-for="ks in keywordSets" :key="ks.name">
+                      <option :value="ks.name" x-text="ks.name"></option>
+                    </template>
+                  </select>
+                  <div class="form-text text-muted small">
+                    Selecting a keyword set replaces all current keywords.
+                  </div>
+                  <div class="mt-2" x-show="form.keywords.length > 0">
+                    <template x-for="(kw, idx) in form.keywords" :key="idx">
+                      <span class="badge bg-secondary me-1 mb-1" x-text="kw"></span>
+                    </template>
+                  </div>
+                  <div class="text-muted small mt-2" x-show="form.keywords.length === 0">
+                    No keywords set.
+                  </div>
+                </div>
+
+                <p class="text-muted small mb-3">
+                  The following fields are for display purposes and are not enforced by the system.
+                </p>
+
+                {# Dates #}
+                <div class="row g-3 mb-4">
+                  <div class="col-md-6">
+                    <label for="start-date" class="form-label">Start Date</label>
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="start-date"
+                      x-model="form.startDate"
+                      :class="{'is-invalid': errors.start_date}"
+                      :disabled="!$store.permissions.isChairRole"
+                    >
+                    <div class="invalid-feedback" x-text="errors.start_date"></div>
+                  </div>
+                  <div class="col-md-6">
+                    <label for="end-date" class="form-label">End Date</label>
+                    <input
+                      type="date"
+                      class="form-control"
+                      id="end-date"
+                      x-model="form.endDate"
+                      :class="{'is-invalid': errors.end_date}"
+                      :disabled="!$store.permissions.isChairRole"
+                    >
+                    <div class="invalid-feedback" x-text="errors.end_date"></div>
+                  </div>
+                </div>
+
+                {# Location #}
+                <div class="mb-4">
+                  <label for="location" class="form-label">Location</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="location"
+                    x-model="form.location"
+                    :class="{'is-invalid': errors.location}"
+                    :disabled="!$store.permissions.isChairRole"
+                    placeholder="e.g., Cagliari, Italy"
+                  >
+                  <div class="invalid-feedback" x-text="errors.location"></div>
+                </div>
+
+                {# Instructions #}
+                <div class="mb-4">
+                  <label for="submission-instructions" class="form-label">
+                    Paper Submission Instructions
+                  </label>
+                  <textarea
+                    class="form-control"
+                    id="submission-instructions"
+                    x-model="form.paperSubmissionInstructions"
+                    :class="{'is-invalid': errors.paper_submission_instructions}"
+                    :disabled="!$store.permissions.isChairRole"
+                    rows="4"
+                  ></textarea>
+                  <div class="invalid-feedback" x-text="errors.paper_submission_instructions"></div>
+                  <div class="form-text text-muted small">
+                    Displayed on the paper submission form. Markdown supported.
+                  </div>
+                </div>
+
+                <div class="mb-4">
+                  <label for="final-instructions" class="form-label">
+                    Paper Final Version Instructions
+                  </label>
+                  <textarea
+                    class="form-control"
+                    id="final-instructions"
+                    x-model="form.paperFinalInstructions"
+                    :class="{'is-invalid': errors.paper_final_instructions}"
+                    :disabled="!$store.permissions.isChairRole"
+                    rows="4"
+                  ></textarea>
+                  <div class="invalid-feedback" x-text="errors.paper_final_instructions"></div>
+                  <div class="form-text text-muted small">
+                    Displayed when authors upload the final version. Markdown supported.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {# Floating Save Pill #}
+            <div
+              x-show="isDirty"
+              x-cloak
+              class="position-fixed bottom-0 start-50 translate-middle-x mb-4"
+              style="z-index: 1030;"
+            >
+              <div class="bg-body-tertiary border rounded-pill shadow px-4 py-2 d-flex align-items-center gap-3">
+                <span class="text-warning-emphasis small">
+                  <i class="bi-exclamation-triangle me-1"></i>
+                  Unsaved changes
+                </span>
+                <div class="d-flex gap-2">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary rounded-pill"
+                    @click="discard()"
+                    :disabled="saving"
+                  >
+                    Discard
+                  </button>
+                  <button
+                    type="submit"
+                    class="btn btn-sm btn-primary rounded-pill"
+                    :disabled="saving"
+                  >
+                    <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          </form>
         </div>
 
         <div
@@ -221,6 +443,121 @@
             this.error = e;
           } finally {
             this.loading = false;
+          }
+        },
+      };
+    }
+
+    function settingsGeneralTab() {
+      return {
+        form: {
+          displayName: "",
+          visibility: "",
+          registrationEnabled: false,
+          keywords: [],
+          startDate: "",
+          endDate: "",
+          location: "",
+          paperSubmissionInstructions: "",
+          paperFinalInstructions: "",
+        },
+        keywordSets: [],
+        selectedKeywordSet: "",
+        errors: {},
+        saving: false,
+
+        get isDirty() {
+          const c = this.$store.conference.detail;
+          if (!c) return false;
+          const sameKeywords = (a, b) =>
+            a.length === b.length && [...a].sort().join("\0") === [...b].sort().join("\0");
+          return (
+            this.form.displayName !== c.display_name ||
+            this.form.visibility !== c.visibility ||
+            this.form.registrationEnabled !== c.registration_enabled ||
+            !sameKeywords(this.form.keywords, c.keywords) ||
+            this.form.startDate !== (c.start_date || "") ||
+            this.form.endDate !== (c.end_date || "") ||
+            this.form.location !== (c.location || "") ||
+            this.form.paperSubmissionInstructions !== (c.paper_submission_instructions || "") ||
+            this.form.paperFinalInstructions !== (c.paper_final_instructions || "")
+          );
+        },
+
+        async init() {
+          this.$watch("$store.conference.detail", (detail) => {
+            if (detail) this.populateFromStore();
+          });
+          await this.loadKeywordSets();
+          this.populateFromStore();
+        },
+
+        async loadKeywordSets() {
+          const url = "{% url 'api-1.0.0:list-keyword-sets' %}";
+          const {data} = await api.get(url);
+          this.keywordSets = data;
+        },
+
+        populateFromStore() {
+          const c = this.$store.conference.detail;
+          if (!c) return;
+          this.form = {
+            displayName: c.display_name,
+            visibility: c.visibility,
+            registrationEnabled: c.registration_enabled,
+            keywords: [...c.keywords],
+            startDate: c.start_date || "",
+            endDate: c.end_date || "",
+            location: c.location || "",
+            paperSubmissionInstructions: c.paper_submission_instructions || "",
+            paperFinalInstructions: c.paper_final_instructions || "",
+          };
+        },
+
+        applyKeywordSet() {
+          const ks = this.keywordSets.find(k => k.name === this.selectedKeywordSet);
+          if (ks) {
+            this.form.keywords = [...ks.keywords];
+          }
+        },
+
+        discard() {
+          this.populateFromStore();
+          this.selectedKeywordSet = "";
+          this.errors = {};
+        },
+
+        async save() {
+          if (this.saving) return;
+          this.errors = {};
+          this.saving = true;
+
+          try {
+            const payload = {
+              display_name: this.form.displayName,
+              visibility: this.form.visibility,
+              registration_enabled: this.form.registrationEnabled,
+              keywords: this.form.keywords,
+              start_date: this.form.startDate || "",
+              end_date: this.form.endDate || "",
+              location: this.form.location,
+              paper_submission_instructions: this.form.paperSubmissionInstructions,
+              paper_final_instructions: this.form.paperFinalInstructions,
+            };
+            const url = "{% url 'api-1.0.0:update-conference' conference_name=params.conference_name %}";
+            const {data} = await api.patch(url, payload);
+            this.$store.conference.detail = data;
+            this.$store.conference.save();
+            this.selectedKeywordSet = "";
+          } catch (error) {
+            const data = error.response?.data;
+            if (error.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred.";
+            }
+          } finally {
+            this.saving = false;
           }
         },
       };

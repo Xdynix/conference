@@ -113,6 +113,8 @@
       let msg = error.msg;
       // Skip unhelpful messages.
       if (skipPatterns.some((p) => p.test(msg))) continue;
+      // Strip "Value error," prefix from custom Pydantic validators.
+      msg = msg.replace(/^Value error,\s*/i, "");
       // Clean up verbose email validation prefix.
       if (field.endsWith(".email") || field === "email") {
         msg = msg.replace(/^value is not a valid email address:\s*/i, "");

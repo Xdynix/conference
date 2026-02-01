@@ -13,6 +13,7 @@ from app.conference.models import Conference, ConferenceRole, ConferenceVisibili
 from app.conference.services import ConferenceService, KeywordService
 from app.conference.types import (
     ConferenceDisplayName,
+    ConferenceInstructions,
     ConferenceLocation,
     KeywordSetName,
     KeywordText,
@@ -34,8 +35,8 @@ class ConferenceSchema(Schema):
     start_date: date | Literal[""]
     end_date: date | Literal[""]
     location: ConferenceLocation
-    paper_submission_instructions: str = Field(max_length=10_000)
-    paper_final_instructions: str = Field(max_length=10_000)
+    paper_submission_instructions: ConferenceInstructions
+    paper_final_instructions: ConferenceInstructions
 
     @field_validator("end_date")
     @classmethod

@@ -4,6 +4,7 @@ __all__ = (
     "AttendanceTypeDisplayName",
     "Conference",
     "ConferenceDisplayName",
+    "ConferenceInstructions",
     "ConferenceLocation",
     "ConferenceName",
     "ConferenceUser",
@@ -220,6 +221,11 @@ ConferenceLocation = Annotated[
         examples=["Cagliari, Italy"],
     ),
 ]
+ConferenceInstructions = Annotated[
+    str,
+    BeforeValidator(sanitize_formatted_text),
+    StringConstraints(max_length=10_000),
+]
 
 
 class Conference(Schema):
@@ -231,8 +237,8 @@ class Conference(Schema):
     end_date: date | None = None
     location: ConferenceLocation = ""
     tracks: list[Track]
-    paper_submission_instructions: str = Field("", max_length=10_000)
-    paper_final_instructions: str = Field("", max_length=10_000)
+    paper_submission_instructions: ConferenceInstructions = ""
+    paper_final_instructions: ConferenceInstructions = ""
 
     @field_validator("end_date")
     @classmethod
