@@ -61,15 +61,15 @@
         <li class="nav-item" role="presentation">
           <button
             class="nav-link"
-            id="attendance-types-tab"
+            id="registration-tab"
             data-bs-toggle="tab"
-            data-bs-target="#attendance-types-pane"
+            data-bs-target="#registration-pane"
             type="button"
             role="tab"
-            aria-controls="attendance-types-pane"
+            aria-controls="registration-pane"
             aria-selected="false"
           >
-            Attendance Types
+            Registration
           </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -142,22 +142,6 @@
                   <li><strong>Member-Only</strong> — visible to anyone with a role (including Members)</li>
                   <li><strong>Admin-Only</strong> — visible to Chairs and Secretaries only</li>
                 </ul>
-              </div>
-
-              <div class="col-12">
-                <div class="form-check form-switch">
-                  <input
-                    type="checkbox"
-                    class="form-check-input"
-                    id="registration-enabled"
-                    x-model="form.registrationEnabled"
-                    :disabled="!$store.permissions.isChairRole"
-                    role="switch"
-                  >
-                  <label class="form-check-label" for="registration-enabled">
-                    Registration Enabled
-                  </label>
-                </div>
               </div>
             </div>
 
@@ -838,12 +822,332 @@
 
         <div
           class="tab-pane fade"
-          id="attendance-types-pane"
+          id="registration-pane"
           role="tabpanel"
-          aria-labelledby="attendance-types-tab"
+          aria-labelledby="registration-tab"
           tabindex="0"
         >
-          <p class="text-muted">Attendance types management content will go here.</p>
+          {# Registration Settings Section #}
+          <div x-data="registrationSettingsSection()">
+            <div
+              x-show="$store.conference.detail?.registration_enabled && attendanceTypes.length === 0"
+              x-cloak
+              class="alert alert-warning"
+              role="alert"
+            >
+              <i class="bi-exclamation-triangle me-1"></i>
+              Registration is open but no attendance types are defined.
+              Users cannot complete registration without an attendance type.
+            </div>
+
+            <div
+              x-show="error"
+              x-cloak
+              class="alert alert-danger alert-dismissible"
+              role="alert"
+            >
+              <span x-text="error"></span>
+              <button
+                type="button"
+                class="btn-close"
+                aria-label="Close"
+                @click="error = null"
+              ></button>
+            </div>
+
+            <div class="mb-4">
+              <div class="form-check form-switch">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  id="registration-enabled"
+                  :checked="$store.conference.detail?.registration_enabled"
+                  :disabled="!$store.permissions.isChairRole || saving"
+                  @change="toggleRegistration()"
+                  role="switch"
+                >
+                <label class="form-check-label" for="registration-enabled">
+                  Registration Open
+                  <span x-show="saving" class="spinner-border spinner-border-sm ms-1"></span>
+                </label>
+              </div>
+              <div class="form-text text-muted small">
+                When enabled, users can register for the conference.
+              </div>
+            </div>
+          </div>
+
+          {# Attendance Types Section #}
+          <div x-data="attendanceTypesSection()">
+            <div
+              x-show="error"
+              x-cloak
+              class="alert alert-danger alert-dismissible mb-3"
+              role="alert"
+            >
+              <span x-text="error"></span>
+              <button
+                type="button"
+                class="btn-close"
+                aria-label="Close"
+                @click="error = null"
+              ></button>
+            </div>
+
+            {# Section header #}
+            <div class="d-flex align-items-center mb-3">
+              <h6 class="text-uppercase text-muted small fw-semibold mb-0">Attendance Types</h6>
+              <template x-if="$store.permissions.isChairRole">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary ms-auto"
+                  :disabled="editing || reordering || deleting"
+                  @click="startCreate()"
+                  x-show="editing !== 'new'"
+                >
+                  <i class="bi-plus-lg me-1"></i> Add Type
+                </button>
+              </template>
+            </div>
+
+            {# New attendance type form #}
+            <div x-show="editing === 'new'" x-cloak class="card mb-3">
+              <div class="card-header">New Attendance Type</div>
+              <div class="card-body">
+                <form @submit.prevent="saveCreate()">
+                  <div
+                    x-show="errors._form"
+                    x-cloak
+                    class="alert alert-danger mb-3"
+                    x-text="errors._form"
+                  ></div>
+
+                  <div class="mb-3">
+                    <label for="new-type-name" class="form-label">Display Name</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="new-type-name"
+                      x-model="form.displayName"
+                      :class="{'is-invalid': errors.display_name}"
+                      required
+                    >
+                    <div class="invalid-feedback" x-text="errors.display_name"></div>
+                  </div>
+
+                  <div class="mb-3">
+                    <div class="form-check">
+                      <input
+                        type="checkbox"
+                        class="form-check-input"
+                        id="new-type-admin-only"
+                        x-model="form.adminOnly"
+                      >
+                      <label class="form-check-label" for="new-type-admin-only">
+                        Admin Only
+                      </label>
+                    </div>
+                    <div class="form-text text-muted small">
+                      Hidden from the public registration form. Only admins can assign this type.
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <div class="form-check">
+                      <input
+                        type="checkbox"
+                        class="form-check-input"
+                        id="new-type-paper-required"
+                        x-model="form.paperRequired"
+                      >
+                      <label class="form-check-label" for="new-type-paper-required">
+                        Paper Required
+                      </label>
+                    </div>
+                    <div class="form-text text-muted small">
+                      Only available when registrant selects a paper.
+                    </div>
+                  </div>
+
+                  <div class="d-flex justify-content-end gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      @click="cancelEdit()"
+                      :disabled="saving"
+                    >
+                      Cancel
+                    </button>
+                    <button type="submit" class="btn btn-primary" :disabled="saving">
+                      <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
+                      Create
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div x-show="attendanceTypes.length === 0 && editing !== 'new'" class="text-muted">
+              No attendance types defined.
+            </div>
+
+            <div x-show="attendanceTypes.length > 0">
+              {# Table header #}
+              <div class="d-flex align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted">
+                <span class="flex-grow-1">Name</span>
+                <span class="text-center" style="width: 6rem;">Admin Only</span>
+                <span class="text-center ms-2" style="width: 6rem;">Paper Req.</span>
+                <template x-if="$store.permissions.isChairRole">
+                  <span class="ms-3" style="width: 9.5rem;"></span>
+                </template>
+              </div>
+
+              <template x-for="(type, index) in attendanceTypes" :key="type.uid">
+                <div class="border-top">
+                  {# Type row #}
+                  <div class="d-flex align-items-center px-3 py-2">
+                    <span
+                      class="fw-medium flex-grow-1 text-truncate"
+                      x-text="type.display_name"
+                      :title="type.display_name"
+                    ></span>
+                    <span class="text-center" style="width: 6rem;">
+                      <i
+                        class="bi-check-lg"
+                        :class="type.admin_only ? 'text-success' : 'invisible'"
+                      ></i>
+                    </span>
+                    <span class="text-center ms-2" style="width: 6rem;">
+                      <i
+                        class="bi-check-lg"
+                        :class="type.paper_required ? 'text-success' : 'invisible'"
+                      ></i>
+                    </span>
+                    <template x-if="$store.permissions.isChairRole">
+                      <div class="d-flex align-items-center ms-3">
+                        <div class="btn-group btn-group-sm me-2">
+                          <button
+                            type="button"
+                            class="btn btn-outline-secondary"
+                            :class="{'invisible': editing || index === 0 || reordering}"
+                            title="Move up"
+                            :disabled="editing || index === 0 || reordering || deleting"
+                            @click="moveUp(index)"
+                          >
+                            <i class="bi-chevron-up"></i>
+                          </button>
+                          <button
+                            type="button"
+                            class="btn btn-outline-secondary"
+                            :class="{'invisible': editing || index === attendanceTypes.length - 1 || reordering}"
+                            title="Move down"
+                            :disabled="editing || index === attendanceTypes.length - 1 || reordering || deleting"
+                            @click="moveDown(index)"
+                          >
+                            <i class="bi-chevron-down"></i>
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-primary me-1"
+                          :disabled="editing || reordering || deleting"
+                          @click="startEdit(type)"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-danger"
+                          :disabled="editing || reordering || deleting"
+                          @click="deleteType(type)"
+                        >
+                          <i class="bi-trash"></i>
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+
+                  {# Expanded edit form #}
+                  <div
+                    x-show="editing === type.uid"
+                    x-cloak
+                    class="bg-body-tertiary px-3 py-3"
+                  >
+                    <form @submit.prevent="saveEdit()">
+                      <div
+                        x-show="errors._form"
+                        x-cloak
+                        class="alert alert-danger mb-3"
+                        x-text="errors._form"
+                      ></div>
+
+                      <div class="mb-3">
+                        <label :for="'edit-name-' + type.uid" class="form-label">Display Name</label>
+                        <input
+                          type="text"
+                          class="form-control"
+                          :id="'edit-name-' + type.uid"
+                          x-model="form.displayName"
+                          :class="{'is-invalid': errors.display_name}"
+                          required
+                        >
+                        <div class="invalid-feedback" x-text="errors.display_name"></div>
+                      </div>
+
+                      <div class="mb-3">
+                        <div class="form-check">
+                          <input
+                            type="checkbox"
+                            class="form-check-input"
+                            :id="'edit-admin-only-' + type.uid"
+                            x-model="form.adminOnly"
+                          >
+                          <label class="form-check-label" :for="'edit-admin-only-' + type.uid">
+                            Admin Only
+                          </label>
+                        </div>
+                        <div class="form-text text-muted small">
+                          Hidden from the public registration form. Only admins can assign this type.
+                        </div>
+                      </div>
+
+                      <div class="mb-3">
+                        <div class="form-check">
+                          <input
+                            type="checkbox"
+                            class="form-check-input"
+                            :id="'edit-paper-required-' + type.uid"
+                            x-model="form.paperRequired"
+                          >
+                          <label class="form-check-label" :for="'edit-paper-required-' + type.uid">
+                            Paper Required
+                          </label>
+                        </div>
+                        <div class="form-text text-muted small">
+                          Only available when registrant selects a paper.
+                        </div>
+                      </div>
+
+                      <div class="d-flex justify-content-end gap-2">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-secondary"
+                          @click="cancelEdit()"
+                          :disabled="saving"
+                        >
+                          Cancel
+                        </button>
+                        <button type="submit" class="btn btn-sm btn-primary" :disabled="saving">
+                          <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
+                          Save
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
         </div>
 
         <div
@@ -934,7 +1238,6 @@
         form: {
           displayName: "",
           visibility: "",
-          registrationEnabled: false,
           keywords: [],
           startDate: "",
           endDate: "",
@@ -955,7 +1258,6 @@
           return (
             this.form.displayName !== c.display_name ||
             this.form.visibility !== c.visibility ||
-            this.form.registrationEnabled !== c.registration_enabled ||
             !sameKeywords(this.form.keywords, c.keywords) ||
             this.form.startDate !== (c.start_date || "") ||
             this.form.endDate !== (c.end_date || "") ||
@@ -985,7 +1287,6 @@
           this.form = {
             displayName: c.display_name,
             visibility: c.visibility,
-            registrationEnabled: c.registration_enabled,
             keywords: [...c.keywords],
             startDate: c.start_date || "",
             endDate: c.end_date || "",
@@ -1017,7 +1318,6 @@
             const payload = {
               display_name: this.form.displayName,
               visibility: this.form.visibility,
-              registration_enabled: this.form.registrationEnabled,
               keywords: this.form.keywords,
               start_date: this.form.startDate || "",
               end_date: this.form.endDate || "",
@@ -1347,6 +1647,192 @@
             this.$store.conference.save();
           } catch (error) {
             this.error = error.response?.data?.message || "Failed to delete track.";
+          } finally {
+            this.deleting = false;
+          }
+        },
+      };
+    }
+
+    function registrationSettingsSection() {
+      return {
+        saving: false,
+        error: null,
+
+        async toggleRegistration() {
+          if (this.saving) return;
+          this.error = null;
+          this.saving = true;
+
+          const newValue = !this.$store.conference.detail.registration_enabled;
+          try {
+            const url = "{% url 'api-1.0.0:update-conference' conference_name=params.conference_name %}";
+            await api.patch(url, {registration_enabled: newValue});
+            this.$store.conference.detail.registration_enabled = newValue;
+            this.$store.conference.save();
+          } catch (e) {
+            this.error = e.response?.data?.message || "Failed to update registration setting.";
+            // Force checkbox to re-sync with store value after native toggle
+            const current = this.$store.conference.detail.registration_enabled;
+            this.$store.conference.detail.registration_enabled = !current;
+            this.$nextTick(() => {
+              this.$store.conference.detail.registration_enabled = current;
+            });
+          } finally {
+            this.saving = false;
+          }
+        },
+      };
+    }
+
+    function attendanceTypesSection() {
+      return {
+        editing: null,
+        form: {
+          displayName: "",
+          adminOnly: false,
+          paperRequired: true,
+        },
+        errors: {},
+        error: null,
+        saving: false,
+        reordering: false,
+        deleting: false,
+
+        resetForm() {
+          this.form = {displayName: "", adminOnly: false, paperRequired: true};
+          this.errors = {};
+        },
+
+        startEdit(type) {
+          this.form = {
+            displayName: type.display_name,
+            adminOnly: type.admin_only,
+            paperRequired: type.paper_required,
+          };
+          this.errors = {};
+          this.editing = type.uid;
+        },
+
+        startCreate() {
+          this.editing = "new";
+          this.resetForm();
+        },
+
+        cancelEdit() {
+          this.editing = null;
+          this.resetForm();
+        },
+
+        async saveEdit() {
+          if (this.saving) return;
+          this.errors = {};
+          this.saving = true;
+
+          try {
+            const payload = {
+              display_name: this.form.displayName,
+              admin_only: this.form.adminOnly,
+              paper_required: this.form.paperRequired,
+            };
+            const url = APP.urls.attendanceType.update(APP.params.conference_name, this.editing);
+            await api.patch(url, payload);
+          } catch (error) {
+            const data = error.response?.data;
+            if (error.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred.";
+            }
+            this.saving = false;
+            return;
+          }
+
+          this.editing = null;
+          this.resetForm();
+          this.saving = false;
+          try {
+            await this.loadAttendanceTypes();
+          } catch {
+            location.reload();
+          }
+        },
+
+        async saveCreate() {
+          if (this.saving) return;
+          this.errors = {};
+          this.saving = true;
+
+          try {
+            const payload = {
+              display_name: this.form.displayName,
+              admin_only: this.form.adminOnly,
+              paper_required: this.form.paperRequired,
+            };
+            const url = "{% url 'api-1.0.0:create-attendance-type' conference_name=params.conference_name %}";
+            await api.post(url, payload);
+          } catch (error) {
+            const data = error.response?.data;
+            if (error.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred.";
+            }
+            this.saving = false;
+            return;
+          }
+
+          this.editing = null;
+          this.resetForm();
+          this.saving = false;
+          try {
+            await this.loadAttendanceTypes();
+          } catch {
+            location.reload();
+          }
+        },
+
+        async moveUp(index) {
+          if (index === 0 || this.reordering) return;
+          await this.reorder(index, index - 1);
+        },
+
+        async moveDown(index) {
+          if (index >= this.attendanceTypes.length - 1 || this.reordering) return;
+          await this.reorder(index, index + 1);
+        },
+
+        async reorder(fromIndex, toIndex) {
+          this.error = null;
+          this.reordering = true;
+          const types = [...this.attendanceTypes];
+          const [moved] = types.splice(fromIndex, 1);
+          types.splice(toIndex, 0, moved);
+          const uids = types.map((t) => t.uid);
+
+          try {
+            const url = "{% url 'api-1.0.0:reorder-attendance-types' conference_name=params.conference_name %}";
+            const {data} = await api.post(url, uids);
+            this.attendanceTypes = data;
+          } catch (error) {
+            this.error = error.response?.data?.message || "Failed to reorder attendance types.";
+          } finally {
+            this.reordering = false;
+          }
+        },
+
+        async deleteType(type) {
+          if (this.deleting) return;
+          if (!confirm(`Delete attendance type "${type.display_name}"?`)) return;
+
+          this.error = null;
+          this.deleting = true;
+          try {
+            const url = APP.urls.attendanceType.delete(APP.params.conference_name, type.uid);
+            await api.delete(url);
+            this.attendanceTypes = this.attendanceTypes.filter((t) => t.uid !== type.uid);
+          } catch (error) {
+            this.error = error.response?.data?.message || "Failed to delete attendance type.";
           } finally {
             this.deleting = false;
           }

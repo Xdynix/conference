@@ -162,6 +162,18 @@
           "ulid",
         ),
       },
+      attendanceType: {
+        update: urlTemplate(
+          "{% url 'api-1.0.0:update-attendance-type' conference_name='__CONFERENCE_NAME__' attendance_type_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+        delete: urlTemplate(
+          "{% url 'api-1.0.0:delete-attendance-type' conference_name='__CONFERENCE_NAME__' attendance_type_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+      },
       pages: {
         conferenceHome: urlTemplate(
           "{% url 'frontend:conference-home' conference_name='__CONFERENCE_NAME__' %}",
