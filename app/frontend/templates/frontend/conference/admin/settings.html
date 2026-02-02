@@ -1156,8 +1156,110 @@
           role="tabpanel"
           aria-labelledby="ieee-ecopyright-tab"
           tabindex="0"
+          x-data="ieeeEcopyrightSection()"
         >
-          <p class="text-muted">IEEE eCopyright configuration content will go here.</p>
+          <div
+            x-show="ieeeEcopyrightConfig === null"
+            x-cloak
+            class="alert alert-info"
+            role="alert"
+          >
+            <i class="bi-info-circle me-1"></i>
+            IEEE eCopyright is not configured for this conference.
+            Fill in the fields below to enable it.
+          </div>
+
+          <div
+            x-show="error"
+            x-cloak
+            class="alert alert-danger alert-dismissible"
+            role="alert"
+          >
+            <span x-text="error"></span>
+            <button
+              type="button"
+              class="btn-close"
+              aria-label="Close"
+              @click="error = null"
+            ></button>
+          </div>
+
+          <form @submit.prevent="save()">
+            <div class="row g-3 mb-4">
+              <div class="col-12 col-md-6">
+                <label for="ieee-publication-title" class="form-label">Publication Title</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="ieee-publication-title"
+                  x-model="form.publicationTitle"
+                  :class="{'is-invalid': errors.publication_title}"
+                  :disabled="!$store.permissions.isChairRole"
+                  required
+                >
+                <div class="invalid-feedback" x-text="errors.publication_title"></div>
+              </div>
+
+              <div class="col-12 col-md-6">
+                <label for="ieee-article-source" class="form-label">Article Source</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="ieee-article-source"
+                  x-model="form.articleSource"
+                  :class="{'is-invalid': errors.article_source}"
+                  :disabled="!$store.permissions.isChairRole"
+                  required
+                >
+                <div class="invalid-feedback" x-text="errors.article_source"></div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Exempt Tracks</label>
+                <div class="form-text text-muted small mb-2">
+                  Papers in these tracks will NOT require IEEE eCopyright consent.
+                </div>
+                <div
+                  x-show="$store.conference.detail?.tracks?.length === 0"
+                  class="text-muted small"
+                >
+                  No tracks defined.
+                </div>
+                <template x-for="track in $store.conference.detail?.tracks || []" :key="track.uid">
+                  <div class="form-check">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      :id="'exempt-track-' + track.uid"
+                      :value="track.uid"
+                      x-model="form.exemptTracks"
+                      :disabled="!$store.permissions.isChairRole"
+                    >
+                    <label
+                      class="form-check-label"
+                      :for="'exempt-track-' + track.uid"
+                      x-text="track.display_name"
+                    ></label>
+                  </div>
+                </template>
+                <div
+                  x-show="errors.exempt_tracks"
+                  class="text-danger small mt-1"
+                  x-text="errors.exempt_tracks"
+                ></div>
+              </div>
+            </div>
+
+            <template x-if="$store.permissions.isChairRole">
+              <div class="d-flex justify-content-end align-items-center gap-3">
+                <span x-show="isDirty" x-cloak class="text-muted small">Unsaved changes</span>
+                <button type="submit" class="btn btn-primary" :disabled="saving || !isDirty">
+                  <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
+                  Save
+                </button>
+              </div>
+            </template>
+          </form>
         </div>
       </div>
     </div>
@@ -1196,6 +1298,7 @@
         codePools: [],
         codePoolAssignments: [],
         attendanceTypes: [],
+        ieeeEcopyrightConfig: null,
         loading: true,
         error: null,
 
@@ -1217,12 +1320,27 @@
           this.attendanceTypes = data;
         },
 
+        async loadIeeeEcopyrightConfig() {
+          const url = "{% url 'api-1.0.0:get-ieee-ecopyright-config' conference_name=params.conference_name %}";
+          try {
+            const {data} = await api.get(url);
+            this.ieeeEcopyrightConfig = data;
+          } catch (e) {
+            if (e.response?.status === 404) {
+              this.ieeeEcopyrightConfig = null;
+            } else {
+              throw e;
+            }
+          }
+        },
+
         async init() {
           try {
             await Promise.all([
               this.loadCodePools(),
               this.loadCodePoolAssignments(),
               this.loadAttendanceTypes(),
+              this.loadIeeeEcopyrightConfig(),
             ]);
           } catch (e) {
             this.error = e;
@@ -1460,6 +1578,83 @@
             this.error = error.response?.data?.message || "Failed to delete code pool.";
           } finally {
             this.deleting = false;
+          }
+        },
+      };
+    }
+
+    function ieeeEcopyrightSection() {
+      return {
+        form: {
+          publicationTitle: "",
+          articleSource: "",
+          exemptTracks: [],
+        },
+        errors: {},
+        error: null,
+        saving: false,
+
+        get isDirty() {
+          const config = this.ieeeEcopyrightConfig;
+          if (!config) {
+            return (
+              this.form.publicationTitle !== "" ||
+              this.form.articleSource !== "" ||
+              this.form.exemptTracks.length > 0
+            );
+          }
+          const sameExemptTracks = (a, b) =>
+            a.length === b.length && [...a].sort().join("\0") === [...b].sort().join("\0");
+          return (
+            this.form.publicationTitle !== config.publication_title ||
+            this.form.articleSource !== config.article_source ||
+            !sameExemptTracks(this.form.exemptTracks, config.exempt_tracks)
+          );
+        },
+
+        init() {
+          this.$watch("ieeeEcopyrightConfig", (config) => {
+            this.populateFromConfig(config);
+          });
+          this.populateFromConfig(this.ieeeEcopyrightConfig);
+        },
+
+        populateFromConfig(config) {
+          if (!config) {
+            this.form = {publicationTitle: "", articleSource: "", exemptTracks: []};
+            return;
+          }
+          this.form = {
+            publicationTitle: config.publication_title,
+            articleSource: config.article_source,
+            exemptTracks: [...config.exempt_tracks],
+          };
+        },
+
+        async save() {
+          if (this.saving) return;
+          this.errors = {};
+          this.error = null;
+          this.saving = true;
+
+          try {
+            const payload = {
+              publication_title: this.form.publicationTitle,
+              article_source: this.form.articleSource,
+              exempt_tracks: this.form.exemptTracks,
+            };
+            const url = "{% url 'api-1.0.0:update-ieee-ecopyright-config' conference_name=params.conference_name %}";
+            const {data} = await api.patch(url, payload);
+            this.ieeeEcopyrightConfig = data;
+          } catch (e) {
+            const data = e.response?.data;
+            if (e.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
+            } else {
+              this.error = data?.message || "Failed to save IEEE eCopyright configuration.";
+            }
+          } finally {
+            this.saving = false;
           }
         },
       };
