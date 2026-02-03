@@ -40,6 +40,7 @@ async def list_my_registrations(
         name=conference_name,
     )
 
+    # Base queryset mirrors has_registrations annotation in conference/core.py.
     registrations = conference.registrations.filter(user=user)
 
     return with_registration_prefetch(registrations, request)

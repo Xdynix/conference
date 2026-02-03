@@ -30,9 +30,15 @@ class ProfileTrackRole(Schema):
     role: TrackRole
 
 
+class FrontendContext(Schema):
+    has_registrations: bool
+    actionable_review_count: int
+
+
 class UserConferenceProfileResponse(BaseUserConferenceProfileSchema):
     conference_roles: list[ConferenceRole]
     track_roles: list[ProfileTrackRole]
+    context: FrontendContext
 
     @staticmethod
     def resolve_interested_keywords(profile: UserConferenceProfile) -> list[str]:
@@ -51,6 +57,13 @@ class UserConferenceProfileResponse(BaseUserConferenceProfileSchema):
             {"track": assignment.track.uid, "role": assignment.role}
             for assignment in profile.user.prefetched_track_roles  # type: ignore[attr-defined]
         ]
+
+    @staticmethod
+    def resolve_context(profile: UserConferenceProfile) -> FrontendContext:
+        return FrontendContext(
+            has_registrations=profile.has_registrations,  # type: ignore[attr-defined]
+            actionable_review_count=profile.actionable_review_count,  # type: ignore[attr-defined]
+        )
 
 
 @router.get(

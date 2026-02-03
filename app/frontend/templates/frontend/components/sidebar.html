@@ -4,7 +4,7 @@
       <li class="nav-item">
         <a
           class="nav-link d-flex align-items-center gap-2"
-          :class="{'active': $store.sidebar?.active === 'home'}"
+          :class="{'active': $store.sidebar.active === 'home'}"
           href="{% url 'frontend:conference-home' conference_name=params.conference_name %}"
         >
           <i class="bi-house"></i>
@@ -23,7 +23,7 @@
       <li class="nav-item">
         <a
           class="nav-link d-flex align-items-center gap-2"
-          :class="{'active': $store.sidebar?.active === 'my-papers'}"
+          :class="{'active': $store.sidebar.active === 'my-papers'}"
           href="{% url 'frontend:paper-list' conference_name=params.conference_name %}"
         >
           <i class="bi-file-earmark-text"></i>
@@ -31,10 +31,14 @@
         </a>
       </li>
       {# TODO: Add href when My Registrations page is implemented #}
-      <li class="nav-item">
+      <li
+        class="nav-item"
+        x-show="$store.conference.detail?.registration_enabled || $store.conference.profile?.context?.has_registrations"
+        x-cloak
+      >
         <a
           class="nav-link d-flex align-items-center gap-2"
-          :class="{'active': $store.sidebar?.active === 'my-registrations'}"
+          :class="{'active': $store.sidebar.active === 'my-registrations'}"
           href="#"
         >
           <i class="bi-ticket-perforated"></i>
@@ -44,17 +48,23 @@
       <li class="nav-item" x-show="$store.permissions.canReview" x-cloak>
         <a
           class="nav-link d-flex align-items-center gap-2"
-          :class="{'active': $store.sidebar?.active === 'my-reviews'}"
+          :class="{'active': $store.sidebar.active === 'my-reviews'}"
           href="{% url 'frontend:review-list' conference_name=params.conference_name %}"
         >
           <i class="bi-pencil-square"></i>
           My Reviews
+          <span
+            class="badge text-bg-danger rounded-pill"
+            x-show="$store.conference.profile?.context?.actionable_review_count > 0"
+            x-text="$store.conference.profile?.context?.actionable_review_count"
+            x-cloak
+          ></span>
         </a>
       </li>
       <li class="nav-item" x-show="$store.permissions.canReview" x-cloak>
         <a
           class="nav-link d-flex align-items-center gap-2"
-          :class="{'active': $store.sidebar?.active === 'review-preferences'}"
+          :class="{'active': $store.sidebar.active === 'review-preferences'}"
           href="{% url 'frontend:review-preferences' conference_name=params.conference_name %}"
         >
           <i class="bi-sliders"></i>
@@ -69,7 +79,7 @@
           <li class="nav-item">
             <a
               class="nav-link d-flex align-items-center gap-2"
-              :class="{'active': $store.sidebar?.active === 'admin-papers'}"
+              :class="{'active': $store.sidebar.active === 'admin-papers'}"
               href="{% url 'frontend:admin-paper-list' conference_name=params.conference_name %}"
             >
               <i class="bi-folder"></i>
@@ -80,7 +90,7 @@
           <li class="nav-item" x-show="$store.permissions.isConferenceAdmin" x-cloak>
             <a
               class="nav-link d-flex align-items-center gap-2"
-              :class="{'active': $store.sidebar?.active === 'admin-registrations'}"
+              :class="{'active': $store.sidebar.active === 'admin-registrations'}"
               href="#"
             >
               <i class="bi-people"></i>
@@ -91,7 +101,7 @@
           <li class="nav-item" x-show="$store.permissions.isConferenceAdmin" x-cloak>
             <a
               class="nav-link d-flex align-items-center gap-2"
-              :class="{'active': $store.sidebar?.active === 'admin-payments'}"
+              :class="{'active': $store.sidebar.active === 'admin-payments'}"
               href="#"
             >
               <i class="bi-credit-card"></i>
@@ -102,7 +112,7 @@
           <li class="nav-item">
             <a
               class="nav-link d-flex align-items-center gap-2"
-              :class="{'active': $store.sidebar?.active === 'admin-members'}"
+              :class="{'active': $store.sidebar.active === 'admin-members'}"
               href="#"
             >
               <i class="bi-person-badge"></i>
@@ -119,7 +129,7 @@
           <li class="nav-item">
             <a
               class="nav-link d-flex align-items-center gap-2"
-              :class="{'active': $store.sidebar?.active === 'admin-settings'}"
+              :class="{'active': $store.sidebar.active === 'admin-settings'}"
               href="{% url 'frontend:admin-settings' conference_name=params.conference_name %}"
             >
               <i class="bi-gear"></i>
@@ -130,7 +140,7 @@
       </div>
     </template>
   </nav>
-  <template x-if="$store.session?.user?.is_superuser">
+  <template x-if="$store.session.user?.is_superuser">
     <div class="p-3 border-top d-flex gap-2">
       <a
         href="{% url 'api-1.0.0:openapi-view' %}"

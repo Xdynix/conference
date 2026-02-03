@@ -37,14 +37,14 @@
       <span
         x-data
         x-cloak
-        x-show="$store.conference?.detail"
+        x-show="$store.conference.detail"
         class="text-body-secondary"
       >
         <span class="mx-2">·</span>
         <a
           :href="APP.urls.pages.conferenceHome(APP.params.conference_name)"
           class="text-body-secondary text-decoration-none"
-          x-text="$store.conference?.detail?.name"
+          x-text="$store.conference.detail?.name"
         ></a>
       </span>
     </div>

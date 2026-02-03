@@ -35,6 +35,8 @@ async def list_my_reviews(
         name=conference_name,
     )
 
+    # Base queryset; actionable_review_count annotation in conference/core.py uses a
+    # narrower filter (PENDING/ACCEPTED only) for the sidebar CTA badge.
     reviews = (
         Review.objects.active()
         .filter(paper__conference=conference, reviewer=user)

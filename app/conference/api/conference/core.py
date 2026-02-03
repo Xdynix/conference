@@ -1,18 +1,25 @@
 from django.contrib.auth.models import AnonymousUser
 from django.db.models import (
     BooleanField,
+    Count,
     Exists,
     ExpressionWrapper,
+    IntegerField,
     OuterRef,
     Prefetch,
     QuerySet,
+    Subquery,
 )
+from django.db.models.functions import Coalesce
 from ninja import Field, Router
 
 from app.conference.models import (
     Conference,
     ConferenceRoleAssignment,
     IEEEeCopyrightConfig,
+    Registration,
+    Review,
+    ReviewState,
     TrackRoleAssignment,
     UserConferenceProfile,
 )
@@ -23,11 +30,6 @@ from app.conference.types import Track as BaseTrackSchema
 from app.core.models import User
 
 router = Router(tags=["Conference"], exclude_none=True)
-
-# TODO: Add a `/conferences/{name}/my-dashboard` endpoint to return user-specific stats
-#  and action items (e.g., pending review count, in-progress review count, upcoming
-#  deadlines). This avoids requiring the frontend to call `list-my-reviews` on every
-#  page load just to display sidebar badges.
 
 
 class TrackSchema(BaseTrackSchema):
@@ -106,13 +108,45 @@ async def prefetch_user_profile(
         user: The user requesting the data, used for permission-aware track loading.
 
     Returns:
-        The user profile instance with keywords and roles prefetched.
+        The user profile instance with keywords, roles, and frontend context prefetched.
     """
     conference_id = profile.conference_id
     visible_tracks = await ConferenceService.visible_tracks(user)
     visible_conference_tracks = visible_tracks.filter(conference_id=conference_id)
+
+    # Frontend context annotations for sidebar CTAs. Keep in sync with the base
+    # querysets in the corresponding list endpoints:
+    # - has_registrations: registration/list.py::list_my_registrations
+    # - actionable_review_count: review/list.py::list_my_reviews (filtered to actionable
+    #   states)
+    has_registrations = Exists(
+        Registration.objects.filter(
+            user_id=OuterRef("user_id"),
+            conference_id=OuterRef("conference_id"),
+        )
+    )
+    actionable_review_count = Coalesce(
+        Subquery(
+            Review.objects.active()
+            .filter(
+                paper__conference_id=OuterRef("conference_id"),
+                reviewer_id=OuterRef("user_id"),
+                state__in=[ReviewState.PENDING, ReviewState.ACCEPTED],
+            )
+            .values("reviewer_id")
+            .annotate(c=Count("pk"))
+            .values("c")
+        ),
+        0,
+        output_field=IntegerField(),
+    )
+
     return await (
         UserConferenceProfile.objects.select_related("user")
+        .annotate(
+            has_registrations=has_registrations,
+            actionable_review_count=actionable_review_count,
+        )
         .prefetch_related(
             "interested_keywords",
             Prefetch(

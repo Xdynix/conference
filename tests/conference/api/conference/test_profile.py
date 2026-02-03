@@ -4,15 +4,22 @@ from unittest.mock import AsyncMock
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 from pytest_mock import MockerFixture
 from ulid import ULID
 
 from app.conference.models import (
+    AttendanceType,
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
     ConferenceVisibility,
     Keyword,
+    Paper,
+    PaperState,
+    Registration,
+    Review,
+    ReviewState,
     Track,
     TrackRole,
     TrackRoleAssignment,
@@ -88,6 +95,10 @@ class TestGetCurrentUserConferenceProfile:
             "interested_keywords": ["AI"],
             "conference_roles": ["Reviewer"],
             "track_roles": [{"track": str(track.uid), "role": "Member"}],
+            "context": {
+                "has_registrations": False,
+                "actionable_review_count": 0,
+            },
         }
 
         profile_service_get_or_create.assert_awaited_once()
@@ -178,6 +189,10 @@ class TestGetUserConferenceProfile:
                 {"track": str(track.uid), "role": "Reviewer"},
                 {"track": str(hidden_track.uid), "role": "Member"},
             ],
+            "context": {
+                "has_registrations": False,
+                "actionable_review_count": 0,
+            },
         }
 
         profile_service_get_or_create.assert_awaited_once()
@@ -297,6 +312,10 @@ class TestUpdateCurrentUserConferenceProfile:
             "interested_keywords": ["ML"],
             "conference_roles": ["Reviewer"],
             "track_roles": [{"track": str(track.uid), "role": "Member"}],
+            "context": {
+                "has_registrations": False,
+                "actionable_review_count": 0,
+            },
         }
 
         profile_service_get_or_create.assert_awaited_once()
@@ -407,6 +426,10 @@ class TestUpdateUserConferenceProfile:
             "interested_keywords": ["Security"],
             "conference_roles": ["Member"],
             "track_roles": [{"track": str(track.uid), "role": "Reviewer"}],
+            "context": {
+                "has_registrations": False,
+                "actionable_review_count": 0,
+            },
         }
 
         profile_service_get_or_create.assert_awaited_once()
@@ -493,3 +516,79 @@ class TestUpdateUserConferenceProfile:
         assert response.status_code == HTTPStatus.FORBIDDEN
 
         profile_service_update.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestFrontendContext:
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse(
+            "api-1.0.0:get-current-user-conference-profile",
+            args=[conference_name],
+        )
+
+    def test_has_registrations_true_when_registration_exists(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        UserConferenceProfile.objects.create(user=user, conference=conference)
+        paper = Paper.objects.create(
+            conference=conference,
+            track=track,
+            code="REG-001",
+            owner=user,
+            title="Test Paper",
+            state=PaperState.ACCEPTED,
+        )
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Oral Presentation",
+        )
+        Registration.objects.create(
+            conference=conference,
+            user=user,
+            paper=paper,
+            attendance_type=attendance_type,
+        )
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        context = response.json()["context"]
+        assert context["has_registrations"] is True
+
+    def test_actionable_review_count_includes_pending_and_accepted(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        UserConferenceProfile.objects.create(user=user, conference=conference)
+        paper1, paper2, paper3, paper4 = [
+            Paper.objects.create(
+                conference=conference,
+                track=track,
+                code=f"REV-00{i}",
+                owner=user,
+                title=f"Paper {i}",
+                state=PaperState.SUBMITTED,
+            )
+            for i in range(4)
+        ]
+        update_object(paper4, delete_time=timezone.now())
+        Review.objects.create(paper=paper1, reviewer=user, state=ReviewState.PENDING)
+        Review.objects.create(paper=paper2, reviewer=user, state=ReviewState.ACCEPTED)
+        Review.objects.create(paper=paper3, reviewer=user, state=ReviewState.SUBMITTED)
+        Review.objects.create(paper=paper4, reviewer=user, state=ReviewState.ACCEPTED)
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        context = response.json()["context"]
+        assert context["actionable_review_count"] == 2
