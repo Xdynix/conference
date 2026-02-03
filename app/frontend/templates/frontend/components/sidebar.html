@@ -12,13 +12,27 @@
         </a>
       </li>
     </ul>
-    <a
-      class="btn btn-outline-primary d-flex align-items-center gap-2 my-3"
-      href="{% url 'frontend:paper-new' conference_name=params.conference_name %}"
-    >
-      <i class="bi-plus-circle"></i>
-      Submit Paper
-    </a>
+    <div class="d-flex flex-column gap-2 my-3">
+      <template x-if="$store.conference.detail?.tracks?.some(t => t.accepts_submissions)">
+        <a
+          class="btn btn-outline-primary d-flex align-items-center gap-2"
+          href="{% url 'frontend:paper-new' conference_name=params.conference_name %}"
+        >
+          <i class="bi-plus-circle"></i>
+          Submit Paper
+        </a>
+      </template>
+      <template x-if="$store.conference.detail?.registration_enabled">
+        {# TODO: Add href when registration page is implemented #}
+        <a
+          class="btn btn-outline-primary d-flex align-items-center gap-2"
+          href="#"
+        >
+          <i class="bi-plus-circle"></i>
+          Register
+        </a>
+      </template>
+    </div>
     <ul class="nav nav-pills flex-column">
       <li class="nav-item">
         <a
