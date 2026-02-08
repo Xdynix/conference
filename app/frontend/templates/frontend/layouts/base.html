@@ -107,6 +107,18 @@
           "conference_name",
         ),
       },
+      registration: {
+        update: urlTemplate(
+          "{% url 'api-1.0.0:update-registration' conference_name='__CONFERENCE_NAME__' registration_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+        generateReceipt: urlTemplate(
+          "{% url 'api-1.0.0:generate-receipt' conference_name='__CONFERENCE_NAME__' registration_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+      },
       myReview: {
         accept: urlTemplate(
           "{% url 'api-1.0.0:accept-review' conference_name='__CONFERENCE_NAME__' review_uid='00000000000000000000000001' %}",

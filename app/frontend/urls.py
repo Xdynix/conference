@@ -124,6 +124,13 @@ urlpatterns = [
         name="admin-review-detail",
     ),
     path(
+        "<slug:conference_name>/admin/registrations/",
+        protected_view(
+            template_name="frontend/conference/admin/registrations/list.html"
+        ),
+        name="admin-registration-list",
+    ),
+    path(
         "<slug:conference_name>/admin/settings/",
         protected_view(template_name="frontend/conference/admin/settings.html"),
         name="admin-settings",

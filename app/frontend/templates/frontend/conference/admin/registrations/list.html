@@ -1,11 +1,11 @@
 {% extends "frontend/layouts/app.html" %}
 {% load static %}
 
-{% block title %}Admin: Papers | {% endblock %}
+{% block title %}Admin: Registrations | {% endblock %}
 
 {% block styles %}
   <style>
-    .admin-paper-list .paper-row-selected > * {
+    .admin-registration-list .registration-row-selected > * {
       background-color: color-mix(
         in srgb,
         var(--bs-table-bg) 85%,
@@ -13,7 +13,7 @@
       );
     }
 
-    [data-bs-theme="dark"] .admin-paper-list .paper-row-selected > * {
+    [data-bs-theme="dark"] .admin-registration-list .registration-row-selected > * {
       background-color: color-mix(
         in srgb,
         var(--bs-table-bg) 85%,
@@ -25,12 +25,12 @@
 
 {% block content %}
   <div
-    class="admin-paper-list d-flex flex-column flex-grow-1 mx-n4 mb-n4"
+    class="admin-registration-list d-flex flex-column flex-grow-1 mx-n4 mb-n4"
     style="min-height: 0;"
-    x-data="adminPaperList()"
+    x-data="adminRegistrationList()"
     x-init="
-      $store.sidebar.setActive('admin-papers');
-      $store.breadcrumb.set([{label: 'Papers'}]);
+      $store.sidebar.setActive('admin-registrations');
+      $store.breadcrumb.set([{label: 'Registrations'}]);
     "
   >
     <div x-show="$store.conference.loading" class="text-center py-5">
@@ -46,18 +46,7 @@
     <template x-if="!$store.conference.loading && $store.conference.detail">
       <div class="d-flex flex-column flex-grow-1 overflow-hidden">
         {# Header Actions #}
-        {# TODO: Add paper import button/modal #}
-        {# TODO: Add notify reviewers button/modal #}
-        <div class="d-flex justify-content-between align-items-center gap-2 pb-2 border-bottom">
-          <div class="d-flex align-items-center gap-2">
-            <a
-              href="{% url 'frontend:admin-paper-new' conference_name=params.conference_name %}"
-              class="btn btn-sm btn-outline-primary d-flex align-items-center gap-2"
-            >
-              <i class="bi-plus-lg"></i>
-              New Paper
-            </a>
-          </div>
+        <div class="d-flex justify-content-end align-items-center gap-2 pb-2 border-bottom">
           <div class="d-flex align-items-center gap-2">
             <template x-if="hasActiveFilters">
               <button
@@ -73,7 +62,7 @@
               type="button"
               class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2"
               :disabled="loading"
-              @click="fetchPapers()"
+              @click="fetchData()"
             >
               <span x-show="loading" class="spinner-border spinner-border-sm"></span>
               <i x-show="!loading" class="bi-arrow-clockwise"></i>
@@ -84,7 +73,7 @@
 
         {# Main Content #}
         <div class="d-flex flex-grow-1 overflow-hidden">
-          {# Paper Table #}
+          {# Registration Table #}
           <div class="flex-grow-1 overflow-auto">
             <div x-show="loading" class="text-center py-5">
               <div class="spinner-border" role="status">
@@ -93,13 +82,13 @@
             </div>
 
             <div x-show="!loading && error" x-cloak class="text-center py-5">
-              <p class="text-muted mb-0">Failed to load papers.</p>
+              <p class="text-muted mb-0">Failed to load registrations.</p>
             </div>
 
             <table x-show="!loading && !error" x-cloak class="table table-striped table-hover">
               <thead class="bg-body" style="position: sticky; top: 0; z-index: 1;">
               <tr>
-                <template x-for="col in visibleColumns" :key="col.key">
+                <template x-for="col in columns" :key="col.key">
                   <th
                     :class="thClass(col)"
                     :style="thStyle(col)"
@@ -127,48 +116,47 @@
               </tr>
               </thead>
               <tbody>
-              <template x-for="paper in filteredPapers" :key="paper.uid">
+              <template x-for="reg in filteredRegistrations" :key="reg.uid">
                 <tr
-                  :class="isSelected(paper) && 'paper-row-selected'"
-                  @click="toggleSelection(paper)"
+                  :class="isSelected(reg) && 'registration-row-selected'"
+                  @click="toggleSelection(reg)"
                   style="cursor: pointer;"
                 >
-                  <template x-for="col in visibleColumns" :key="col.key">
+                  <template x-for="col in columns" :key="col.key">
                     <td
-                      :class="tdClass(col, paper)"
+                      :class="tdClass(col, reg)"
                       :style="tdStyle(col)"
-                      :title="col.tooltip ? col.tooltip(paper) : null"
+                      :title="col.tooltip ? col.tooltip(reg) : null"
                     >
                       <template x-if="col.checkbox">
                         <input
                           type="checkbox"
                           class="form-check-input"
-                          :checked="isSelected(paper)"
-                          @click.stop="toggleSelection(paper)"
+                          :checked="isSelected(reg)"
+                          @click.stop="toggleSelection(reg)"
                           @change.stop
                         >
                       </template>
-                      <template x-if="!col.checkbox && col.link && col.link(paper)">
+                      <template x-if="!col.checkbox && col.link && col.link(reg)">
                         <a
-                          :href="col.link(paper)"
-                          :class="col.muted?.(paper) && 'text-muted'"
-                          target="_blank"
+                          :href="col.link(reg)"
+                          :class="col.linkClass?.(reg)"
                           @click.stop
-                          x-text="col.value(paper)"
+                          x-text="col.value(reg)"
                         ></a>
                       </template>
-                      <template x-if="!col.checkbox && !(col.link && col.link(paper)) && col.badge">
-                        <span class="badge" :class="col.badge(paper)" x-text="col.value(paper)"></span>
+                      <template x-if="!col.checkbox && !(col.link && col.link(reg)) && col.badge">
+                        <span class="badge" :class="col.badge(reg)" x-text="col.value(reg)"></span>
                       </template>
                       <template
-                        x-if="!col.checkbox && !(col.link && col.link(paper)) && !col.badge && col.icon && col.icon(paper)"
+                        x-if="!col.checkbox && !(col.link && col.link(reg)) && !col.badge && col.icon && col.icon(reg)"
                       >
-                        <i :class="col.icon(paper)"></i>
+                        <i :class="col.icon(reg)"></i>
                       </template>
                       <template
-                        x-if="!col.checkbox && !(col.link && col.link(paper)) && !col.badge && !(col.icon && col.icon(paper))"
+                        x-if="!col.checkbox && !(col.link && col.link(reg)) && !col.badge && !(col.icon && col.icon(reg))"
                       >
-                        <span :class="col.muted?.(paper) && 'text-muted'" x-text="col.value(paper)"></span>
+                        <span x-text="col.value(reg)"></span>
                       </template>
                     </td>
                   </template>
@@ -186,7 +174,7 @@
               <input
                 type="text"
                 class="form-control border-0 rounded-0 ps-5"
-                placeholder="Search code or title..."
+                placeholder="Search name, email, code..."
                 x-model="urlState.search"
               >
             </div>
@@ -222,29 +210,29 @@
                 </template>
               </div>
 
-              {# Track filter #}
+              {# Attendance Type filter #}
               <div class="border-bottom" x-data="{open: false}">
                 <button
                   class="btn btn-link text-decoration-none text-body w-100 d-flex justify-content-between align-items-center px-3 py-2"
                   type="button"
                   @click="open = !open"
                 >
-                  <span class="fw-medium">Track</span>
+                  <span class="fw-medium">Attendance Type</span>
                   <i class="small" :class="open ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
                 </button>
                 <template x-if="open">
                   <div class="px-3 pb-3">
-                    <template x-for="track in trackOptions" :key="track.uid">
+                    <template x-for="at in attendanceTypeOptions" :key="at.uid">
                       <div class="form-check">
                         <input
                           class="form-check-input"
                           type="checkbox"
-                          :id="'track-' + track.uid"
-                          :value="track.uid"
-                          :checked="urlState.tracks.includes(track.uid)"
-                          @change="toggleTrack(track.uid)"
+                          :id="'at-' + at.uid"
+                          :value="at.uid"
+                          :checked="urlState.attendanceTypes.includes(at.uid)"
+                          @change="toggleAttendanceType(at.uid)"
                         >
-                        <label class="form-check-label" :for="'track-' + track.uid" x-text="track.display_name"></label>
+                        <label class="form-check-label" :for="'at-' + at.uid" x-text="at.display_name"></label>
                       </div>
                     </template>
                   </div>
@@ -267,50 +255,22 @@
                       <input
                         class="form-check-input"
                         type="checkbox"
-                        id="hide-announced"
-                        :checked="urlState.hideAnnounced"
-                        @change="urlState.hideAnnounced = $el.checked"
+                        id="hide-cancelled"
+                        :checked="urlState.hideCancelled"
+                        @change="urlState.hideCancelled = $el.checked"
                       >
-                      <label class="form-check-label" for="hide-announced">Hide announced</label>
+                      <label class="form-check-label" for="hide-cancelled">Hide cancelled</label>
                     </div>
                     <div class="form-check">
                       <input
                         class="form-check-input"
                         type="checkbox"
-                        id="hide-withdrawn"
-                        :checked="urlState.hideWithdrawn"
-                        @change="urlState.hideWithdrawn = $el.checked"
+                        id="withdrawn-paper-only"
+                        :checked="urlState.withdrawnPaperOnly"
+                        @change="urlState.withdrawnPaperOnly = $el.checked"
                       >
-                      <label class="form-check-label" for="hide-withdrawn">Hide withdrawn</label>
+                      <label class="form-check-label" for="withdrawn-paper-only">Show only withdrawn-paper</label>
                     </div>
-                  </div>
-                </template>
-              </div>
-
-              {# Optional columns #}
-              <div class="border-bottom" x-data="{open: false}">
-                <button
-                  class="btn btn-link text-decoration-none text-body w-100 d-flex justify-content-between align-items-center px-3 py-2"
-                  type="button"
-                  @click="open = !open"
-                >
-                  <span class="fw-medium">Columns</span>
-                  <i class="small" :class="open ? 'bi-chevron-down' : 'bi-chevron-right'"></i>
-                </button>
-                <template x-if="open">
-                  <div class="px-3 pb-3">
-                    <template x-for="opt in optionalColumns" :key="opt.key">
-                      <div class="form-check">
-                        <input
-                          class="form-check-input"
-                          type="checkbox"
-                          :id="'col-' + opt.key"
-                          :checked="urlState.columns.includes(opt.key)"
-                          @change="toggleColumn(opt.key)"
-                        >
-                        <label class="form-check-label" :for="'col-' + opt.key" x-text="opt.label"></label>
-                      </div>
-                    </template>
                   </div>
                 </template>
               </div>
@@ -322,7 +282,7 @@
         {# Footer #}
         <div class="d-flex justify-content-between align-items-center gap-3 pt-2 border-top">
           <span class="text-muted" x-text="footerText"></span>
-          <template x-if="availableBulkActions.length > 0">
+          <template x-if="bulkActions.length > 0">
             <div class="d-flex align-items-center gap-2">
               <span
                 class="small"
@@ -338,7 +298,7 @@
                 :disabled="bulkRunning"
               >
                 <option value="">Action...</option>
-                <template x-for="action in availableBulkActions" :key="action.key">
+                <template x-for="action in bulkActions" :key="action.key">
                   <option :value="action.key" x-text="action.label"></option>
                 </template>
               </select>
@@ -358,8 +318,7 @@
     </template>
 
     {# Modals #}
-    {% include "frontend/components/paper/acceptance-letter-modal.html" %}
-    {% include "frontend/components/paper/announce-modal.html" %}
+    {% include "frontend/components/registration/receipt-modal.html" %}
   </div>
 {% endblock %}
 
@@ -371,90 +330,86 @@
     // URL State Schema Configuration
     // =============================================================================
 
-    const adminPaperListSortOptions = [
-      'code', '-code',
-      'title', '-title',
-      'track', '-track',
+    const adminRegistrationListSortOptions = [
+      'referenceCode', '-referenceCode',
+      'name', '-name',
+      'attendanceType', '-attendanceType',
+      'paper', '-paper',
       'state', '-state',
-      'announced', '-announced',
-      'created', '-created',
-      'reviewers', '-reviewers',
-      'submitted', '-submitted',
-      'score', '-score',
+      'payment', '-payment',
     ];
 
-    const adminPaperListStateOptions = Object.values(APP.enums.PaperState)
+    const adminRegistrationListStateOptions = Object.values(APP.enums.RegistrationState)
       .filter(s => s && typeof s.value === 'string')
       .map(s => s.value);
 
-    const adminPaperListColumnOptions = [
-      'track',
-      'created',
-      'review-stats',
-      'score',
-      'letter',
-    ];
-
-    const adminPaperListSchema = {
+    const adminRegistrationListSchema = {
       search: UrlState.types.string({default: ''}),
-      sort: UrlState.types.oneOf(adminPaperListSortOptions, {default: 'code'}),
+      sort: UrlState.types.oneOf(adminRegistrationListSortOptions, {default: 'paper'}),
       states: UrlState.types.setOf(
-        UrlState.types.oneOf(adminPaperListStateOptions, {default: ''}),
+        UrlState.types.oneOf(adminRegistrationListStateOptions, {default: ''}),
         {default: [], allowEmpty: true}
       ),
-      tracks: UrlState.types.setOf(
+      attendanceTypes: UrlState.types.setOf(
         UrlState.types.string({default: ''}),
         {default: [], allowEmpty: true}
       ),
-      hideAnnounced: UrlState.types.boolean({default: false}),
-      hideWithdrawn: UrlState.types.boolean({default: false}),
-      columns: UrlState.types.setOf(
-        UrlState.types.oneOf(adminPaperListColumnOptions, {default: ''}),
-        {default: ['track'], allowEmpty: true}
-      ),
+      hideCancelled: UrlState.types.boolean({default: true}),
+      withdrawnPaperOnly: UrlState.types.boolean({default: false}),
     };
 
     // =============================================================================
     // Alpine Component
     // =============================================================================
 
-    function adminPaperList() {
+    function adminRegistrationList() {
       return {
-        ...UrlState.use(adminPaperListSchema),
-        ...acceptanceLetterModal(),
-        ...announceModal(),
+        ...UrlState.use(adminRegistrationListSchema),
+        ...receiptModal(),
 
         // ---------------------------------------------------------------------------
         // State
         // ---------------------------------------------------------------------------
 
-        allPapers: [],
+        allRegistrations: [],
+        allAttendanceTypes: [],
         loading: true,
         error: null,
-        selectedPaperCodes: new Set(),
-        bulkAction: '',
+        selectedUids: new Set(),
         bulkRunning: false,
         bulkResult: null,
+        bulkAction: '',
 
         // ---------------------------------------------------------------------------
         // Bulk Actions
         // ---------------------------------------------------------------------------
 
         bulkActions: [
-          {
-            key: 'generate-letters',
-            label: 'Generate Letters',
-            auth: (ctx) => ctx.$store.permissions.isConferenceAdmin,
-          },
-          {
-            key: 'announce',
-            label: 'Announce',
-            auth: (ctx) => ctx.$store.permissions.isConferenceAdmin,
-          },
+          {key: 'confirm', label: 'Confirm'},
+          {key: 'generate-receipts', label: 'Generate Receipts'},
         ],
 
-        get availableBulkActions() {
-          return this.bulkActions.filter(action => action.auth(this));
+        applyBulkAction() {
+          if (!this.bulkAction || this.selectedCount === 0 || this.bulkRunning) return;
+
+          this.bulkResult = null;
+          const uids = [...this.selectedUids];
+          const onSuccess = async () => {
+            try {
+              await this.fetchData();
+            } catch {
+              window.location.reload();
+            }
+          };
+
+          if (this.bulkAction === 'confirm') {
+            this.bulkConfirm(uids, onSuccess);
+          } else if (this.bulkAction === 'generate-receipts') {
+            this.openReceiptModal(uids, onSuccess);
+          }
+
+          // Reset bulk action selection
+          this.bulkAction = '';
         },
 
         showBulkResult(message, failed = false) {
@@ -462,27 +417,38 @@
           setTimeout(() => this.bulkResult = null, 5000);
         },
 
-        applyBulkAction() {
-          if (!this.bulkAction || this.selectedCount === 0 || this.bulkRunning) return;
+        async bulkConfirm(uids, onSuccess) {
+          const count = uids.length;
+          if (!confirm(`Confirm ${count} registration${count === 1 ? '' : 's'}?`)) return;
 
+          this.bulkRunning = true;
           this.bulkResult = null;
-          const codes = [...this.selectedPaperCodes];
-          const onSuccess = async () => {
-            try {
-              await this.fetchPapers();
-            } catch {
-              window.location.reload();
+          let successCount = 0;
+          let failedCount = 0;
+
+          try {
+            for (const uid of uids) {
+              try {
+                const url = APP.urls.registration.update(APP.params.conference_name, uid);
+                await api.patch(url, {state: APP.enums.RegistrationState.CONFIRMED.value});
+                successCount++;
+              } catch {
+                failedCount++;
+              }
             }
-          };
 
-          if (this.bulkAction === 'generate-letters') {
-            this.openLetterModal(codes, onSuccess);
-          } else if (this.bulkAction === 'announce') {
-            this.openAnnounceModal(codes, onSuccess);
+            if (failedCount > 0) {
+              this.showBulkResult(`${successCount} confirmed, ${failedCount} failed.`, true);
+            } else {
+              this.showBulkResult(`${successCount} confirmed.`);
+            }
+
+            if (successCount > 0) {
+              await onSuccess();
+            }
+          } finally {
+            this.bulkRunning = false;
           }
-
-          // Reset bulk action selection
-          this.bulkAction = '';
         },
 
         // ---------------------------------------------------------------------------
@@ -498,12 +464,12 @@
             width: '2.5rem',
           },
           {
-            key: 'code',
+            key: 'referenceCode',
             label: 'Code',
-            value: (p) => p?.code,
-            link: (p) => p?.code ? APP.urls.pages.adminPaperDetail(APP.params.conference_name, p.code) : null,
-            sortValue: (p) => p?.code,
-            muted: (p) => !!p?.withdraw_time,
+            value: (r) => r?.reference_code,
+            // TODO: Link to admin registration detail page when it exists.
+            link: (r) => r ? '#' : null,
+            sortValue: (r) => r?.reference_code,
             nowrap: true,
             mono: true,
             sticky: true,
@@ -511,160 +477,63 @@
             stickyBorder: true,
           },
           {
-            key: 'title',
-            label: 'Title',
-            value: (p) => p?.title || 'Untitled',
-            sortValue: (p) => (p?.title || '').toLowerCase(),
-            tooltip: (p) => p?.title,
-            muted: (p) => !!p?.withdraw_time,
-            flex: true,
-            truncate: true,
+            key: 'name',
+            label: 'Name',
+            value: (r) => formatProfileName(r),
+            sortValue: (r) => r ? `${r.family_name} ${r.given_name}`.toLowerCase() : '',
+            nowrap: true,
           },
           {
-            key: 'track',
-            label: 'Track',
-            value: (p) => p?.track?.display_name || '',
-            sortValue: (p) => p?.track?.display_name || '',
-            muted: (p) => !!p?.withdraw_time,
+            key: 'attendanceType',
+            label: 'Attendance Type',
+            value: (r) => r?.attendance_type?.display_name || '',
+            sortValue: (r) => r?.attendance_type?.display_name || '',
             nowrap: true,
+          },
+          {
+            key: 'paper',
+            label: 'Paper',
+            value: (r) => r?.paper?.code || '',
+            link: (r) => {
+              if (!r?.paper?.code) return null;
+              return APP.urls.pages.adminPaperDetail(APP.params.conference_name, r.paper.code);
+            },
+            linkClass: (r) => r?._paperWithdrawn ? 'text-muted text-decoration-line-through' : '',
+            sortValue: (r) => r?.paper?.code || '\uffff',
+            nowrap: true,
+            mono: true,
           },
           {
             key: 'state',
             label: 'State',
-            value: (p) => p ? paperStateBadgeAdmin(p.state, p.withdraw_time).label : '',
-            sortValue: (p) => p?.withdraw_time ? 'Withdrawn' : p?.state,
-            badge: (p) => p ? paperStateBadgeAdmin(p.state, p.withdraw_time).class : 'text-bg-secondary',
+            value: (r) => r ? registrationStateBadge(r.state).label : '',
+            sortValue: (r) => r?.state,
+            badge: (r) => r ? registrationStateBadge(r.state).class : 'text-bg-secondary',
             nowrap: true,
           },
           {
-            key: 'announced',
-            label: 'Announced',
-            value: (p) => p?.announce_time ? 'Yes' : '',
-            icon: (p) => p?.announce_time ? 'bi-check-lg text-success' : '',
-            sortValue: (p) => p?.announce_time ? 1 : 0,
-            nowrap: true,
-            center: true,
-          },
-          {
-            key: 'created',
-            label: 'Created',
-            value: (p) => p?.create_time ? formatDate(p.create_time) : '',
-            sortValue: (p) => p?.create_time || '',
-            nowrap: true,
-          },
-          {
-            key: 'reviewers',
-            label: 'Reviewers',
-            value: (p) => {
-              const stat = p?.review_stat;
-              if (!stat) return '';
-              return (stat.accepted_count || 0) + (stat.submitted_count || 0);
-            },
-            sortValue: (p) => {
-              const stat = p?.review_stat;
-              if (!stat) return 0;
-              return (stat.accepted_count || 0) + (stat.submitted_count || 0);
-            },
-            nowrap: true,
-            center: true,
-          },
-          {
-            key: 'submitted',
-            label: 'Submitted',
-            value: (p) => p?.review_stat?.submitted_count ?? '',
-            sortValue: (p) => p?.review_stat?.submitted_count ?? 0,
-            nowrap: true,
-            center: true,
-          },
-          {
-            key: 'score',
-            label: 'Score',
-            value: (p) => {
-              const summary = p?.recommendation_summary;
-              const submitted = summary?.submitted_average;
-              const withDraft = summary?.submitted_and_draft_average;
-              if (!submitted && !withDraft) return '';
-              if (!submitted && withDraft) return `(${withDraft.toFixed(1)})`;
-              if (submitted === withDraft || !withDraft) return submitted.toFixed(1);
-              return `${submitted.toFixed(1)} (${withDraft.toFixed(1)})`;
-            },
-            sortValue: (p) => p?.recommendation_summary?.submitted_average ?? 0,
-            nowrap: true,
-            center: true,
-          },
-          {
-            key: 'letter',
-            label: 'Letter',
-            value: (p) => p?.acceptance_letter_url ? 'View' : '',
-            link: (p) => p?.acceptance_letter_url,
-            sortValue: (p) => p?.acceptance_letter_url ? 1 : 0,
+            key: 'payment',
+            label: 'Payment',
+            value: () => '',
+            icon: (r) => r?._hasPaid ? 'bi-check-lg text-success' : '',
+            sortValue: (r) => r?._hasPaid ? 1 : 0,
             nowrap: true,
             center: true,
           },
         ],
-
-        baseColumnKeys: ['checkbox', 'code', 'title', 'state', 'announced'],
-
-        // TODO: Add a "Readiness" optional column group for post-decision tracking.
-        // Columns: registered (has linked registration), paid (registration has payment),
-        // final (final version uploaded), eCopyright (eCopyright completed).
-        // Most useful when filtered to accepted/announced papers.
-        optionalColumns: [
-          {key: 'track', label: 'Track', columnKeys: ['track']},
-          {key: 'created', label: 'Created', columnKeys: ['created']},
-          {key: 'review-stats', label: 'Review Stats', columnKeys: ['reviewers', 'submitted']},
-          {key: 'score', label: 'Score', columnKeys: ['score']},
-          {key: 'letter', label: 'Letter', columnKeys: ['letter']},
-        ],
-
-        get visibleColumnKeys() {
-          const keys = [...this.baseColumnKeys];
-          for (const opt of this.optionalColumns) {
-            if (this.urlState.columns.includes(opt.key)) {
-              for (const colKey of opt.columnKeys) {
-                const col = this.columns.find(c => c.key === colKey);
-                if (col) {
-                  const insertIdx = this.columns.indexOf(col);
-                  const pos = keys.findIndex((k, i) =>
-                    this.columns.findIndex(c => c.key === k) > insertIdx
-                  );
-                  if (pos === -1) {
-                    keys.push(colKey);
-                  } else {
-                    keys.splice(pos, 0, colKey);
-                  }
-                }
-              }
-            }
-          }
-          return keys;
-        },
-
-        get visibleColumns() {
-          return this.visibleColumnKeys.map(key => this.columns.find(c => c.key === key)).filter(Boolean);
-        },
-
-        toggleColumn(key) {
-          const columns = this.urlState.columns;
-          if (columns.includes(key)) {
-            this.urlState.columns = columns.filter(k => k !== key);
-          } else {
-            this.urlState.columns = [...columns, key];
-          }
-        },
 
         // ---------------------------------------------------------------------------
         // Filter Options
         // ---------------------------------------------------------------------------
 
         get stateOptions() {
-          return Object.values(APP.enums.PaperState)
+          return Object.values(APP.enums.RegistrationState)
             .filter(s => s && typeof s.value === 'string')
             .map(s => ({value: s.value, label: s.label}));
         },
 
-        get trackOptions() {
-          return this.$store.conference.detail?.tracks || [];
+        get attendanceTypeOptions() {
+          return this.allAttendanceTypes;
         },
 
         // ---------------------------------------------------------------------------
@@ -680,117 +549,122 @@
           }
         },
 
-        toggleTrack(uid) {
-          const tracks = this.urlState.tracks;
-          if (tracks.includes(uid)) {
-            this.urlState.tracks = tracks.filter(t => t !== uid);
+        toggleAttendanceType(uid) {
+          const types = this.urlState.attendanceTypes;
+          if (types.includes(uid)) {
+            this.urlState.attendanceTypes = types.filter(t => t !== uid);
           } else {
-            this.urlState.tracks = [...tracks, uid];
+            this.urlState.attendanceTypes = [...types, uid];
           }
         },
 
         get hasActiveFilters() {
           return this.urlState.search !== '' ||
             this.urlState.states.length > 0 ||
-            this.urlState.tracks.length > 0 ||
-            this.urlState.hideAnnounced ||
-            this.urlState.hideWithdrawn;
+            this.urlState.attendanceTypes.length > 0 ||
+            !this.urlState.hideCancelled ||
+            this.urlState.withdrawnPaperOnly;
         },
 
         clearFilters() {
           this.urlState.search = '';
           this.urlState.states = [];
-          this.urlState.tracks = [];
-          this.urlState.hideAnnounced = false;
-          this.urlState.hideWithdrawn = false;
+          this.urlState.attendanceTypes = [];
+          this.urlState.hideCancelled = true;
+          this.urlState.withdrawnPaperOnly = false;
         },
 
         // ---------------------------------------------------------------------------
         // Selection
         // ---------------------------------------------------------------------------
 
-        isSelected(paper) {
-          return this.selectedPaperCodes.has(paper.code);
+        isSelected(reg) {
+          return this.selectedUids.has(reg.uid);
         },
 
-        toggleSelection(paper) {
-          if (this.selectedPaperCodes.has(paper.code)) {
-            this.selectedPaperCodes.delete(paper.code);
+        toggleSelection(reg) {
+          if (this.selectedUids.has(reg.uid)) {
+            this.selectedUids.delete(reg.uid);
           } else {
-            this.selectedPaperCodes.add(paper.code);
+            this.selectedUids.add(reg.uid);
           }
           // Trigger reactivity
-          this.selectedPaperCodes = new Set(this.selectedPaperCodes);
+          this.selectedUids = new Set(this.selectedUids);
         },
 
         get allVisibleSelected() {
-          const visible = this.filteredPapers;
-          return visible.length > 0 && visible.every(p => this.isSelected(p));
+          const visible = this.filteredRegistrations;
+          return visible.length > 0 && visible.every(r => this.isSelected(r));
         },
 
         get someVisibleSelected() {
-          const visible = this.filteredPapers;
-          return visible.some(p => this.isSelected(p)) && !this.allVisibleSelected;
+          const visible = this.filteredRegistrations;
+          return visible.some(r => this.isSelected(r)) && !this.allVisibleSelected;
         },
 
         toggleSelectAll() {
           if (this.allVisibleSelected) {
             // Deselect all visible
-            for (const paper of this.filteredPapers) {
-              this.selectedPaperCodes.delete(paper.code);
+            for (const reg of this.filteredRegistrations) {
+              this.selectedUids.delete(reg.uid);
             }
           } else {
             // Select all visible
-            for (const paper of this.filteredPapers) {
-              this.selectedPaperCodes.add(paper.code);
+            for (const reg of this.filteredRegistrations) {
+              this.selectedUids.add(reg.uid);
             }
           }
           // Trigger reactivity
-          this.selectedPaperCodes = new Set(this.selectedPaperCodes);
+          this.selectedUids = new Set(this.selectedUids);
         },
 
         clearSelection() {
-          this.selectedPaperCodes = new Set();
+          this.selectedUids = new Set();
         },
 
         get selectedCount() {
-          return this.selectedPaperCodes.size;
+          return this.selectedUids.size;
         },
 
         // ---------------------------------------------------------------------------
         // Filtering and Sorting
         // ---------------------------------------------------------------------------
 
-        get filteredPapers() {
-          let papers = this.allPapers;
+        get filteredRegistrations() {
+          let regs = this.allRegistrations;
 
           // Text search
           const search = this.urlState.search.toLowerCase().trim();
           if (search) {
-            papers = papers.filter(p =>
-              p.code.toLowerCase().includes(search) ||
-              (p.title && p.title.toLowerCase().includes(search))
+            regs = regs.filter(r =>
+              r.reference_code.toLowerCase().includes(search) ||
+              r.given_name.toLowerCase().includes(search) ||
+              r.family_name.toLowerCase().includes(search) ||
+              r.email.toLowerCase().includes(search) ||
+              (r.paper?.code && r.paper.code.toLowerCase().includes(search))
             );
           }
 
           // State filter
           const states = this.urlState.states;
           if (states.length > 0) {
-            papers = papers.filter(p => states.includes(p.state));
+            regs = regs.filter(r => states.includes(r.state));
           }
 
-          // Track filter
-          const tracks = this.urlState.tracks;
-          if (tracks.length > 0) {
-            papers = papers.filter(p => tracks.includes(p.track?.uid));
+          // Attendance type filter
+          const types = this.urlState.attendanceTypes;
+          if (types.length > 0) {
+            regs = regs.filter(r => types.includes(r.attendance_type?.uid));
           }
 
-          // Visibility filters
-          if (this.urlState.hideAnnounced) {
-            papers = papers.filter(p => !p.announce_time);
+          // Hide cancelled
+          if (this.urlState.hideCancelled) {
+            regs = regs.filter(r => r.state !== APP.enums.RegistrationState.CANCELLED.value);
           }
-          if (this.urlState.hideWithdrawn) {
-            papers = papers.filter(p => !p.withdraw_time);
+
+          // Withdrawn paper only
+          if (this.urlState.withdrawnPaperOnly) {
+            regs = regs.filter(r => r._paperWithdrawn);
           }
 
           // Sorting
@@ -799,7 +673,7 @@
           const key = desc ? sort.slice(1) : sort;
           const col = this.columns.find(c => c.key === key);
           if (col?.sortValue) {
-            papers = [...papers].sort((a, b) => {
+            regs = [...regs].sort((a, b) => {
               const av = col.sortValue(a);
               const bv = col.sortValue(b);
               let cmp = 0;
@@ -809,7 +683,7 @@
             });
           }
 
-          return papers;
+          return regs;
         },
 
         toggleSort(key) {
@@ -855,14 +729,14 @@
           return styles.join('; ');
         },
 
-        tdClass(col, paper) {
+        tdClass(col, reg) {
           const classes = [];
           if (col.nowrap) classes.push('text-nowrap');
           if (col.mono) classes.push('font-monospace');
           if (col.truncate) classes.push('text-truncate');
           if (col.center) classes.push('text-center');
           if (col.sticky) {
-            classes.push(paper && this.isSelected(paper) ? 'paper-row-selected' : 'bg-body');
+            classes.push(reg && this.isSelected(reg) ? 'registration-row-selected' : 'bg-body');
           }
           return classes.join(' ');
         },
@@ -886,11 +760,11 @@
         // ---------------------------------------------------------------------------
 
         get footerText() {
-          const total = this.allPapers.length;
-          const filtered = this.filteredPapers.length;
+          const total = this.allRegistrations.length;
+          const filtered = this.filteredRegistrations.length;
           const selected = this.selectedCount;
 
-          let text = filtered === total ? `${total} papers` : `${filtered} of ${total} papers`;
+          let text = filtered === total ? `${total} registrations` : `${filtered} of ${total} registrations`;
           if (selected > 0) {
             text += ` (${selected} selected)`;
           }
@@ -907,21 +781,47 @@
           // Clear selection when filters change
           this.$watch('urlState.search', () => this.clearSelection());
           this.$watch('urlState.states', () => this.clearSelection());
-          this.$watch('urlState.tracks', () => this.clearSelection());
-          this.$watch('urlState.hideAnnounced', () => this.clearSelection());
-          this.$watch('urlState.hideWithdrawn', () => this.clearSelection());
+          this.$watch('urlState.attendanceTypes', () => this.clearSelection());
+          this.$watch('urlState.hideCancelled', () => this.clearSelection());
+          this.$watch('urlState.withdrawnPaperOnly', () => this.clearSelection());
 
-          await this.fetchPapers();
+          await this.fetchData();
         },
 
-        async fetchPapers() {
+        async fetchData() {
           this.loading = true;
           this.error = null;
 
           try {
-            const url = "{% url 'api-1.0.0:list-papers' params.conference_name %}";
-            const {data} = await api.get(url, {params: {page_size: 1000}});
-            this.allPapers = data.items;
+            const [registrationsRes, papersRes, paymentsRes, attendanceTypesRes] = await Promise.all([
+              api.get("{% url 'api-1.0.0:list-registrations' params.conference_name %}", {params: {page_size: 1000}}),
+              api.get("{% url 'api-1.0.0:list-papers' params.conference_name %}", {params: {page_size: 1000}}),
+              api.get("{% url 'api-1.0.0:list-payments' params.conference_name %}", {params: {page_size: 1000}}),
+              api.get("{% url 'api-1.0.0:list-attendance-types' params.conference_name %}"),
+            ]);
+
+            this.allAttendanceTypes = attendanceTypesRes.data;
+
+            // Build paper lookup by code
+            const paperByCode = {};
+            for (const paper of papersRes.data.items) {
+              paperByCode[paper.code] = paper;
+            }
+
+            // Build payment lookup by registration UID
+            const paymentByRegistrationUid = {};
+            for (const payment of paymentsRes.data.items) {
+              for (const item of payment.items) {
+                paymentByRegistrationUid[item.registration.uid] = true;
+              }
+            }
+
+            for (const reg of registrationsRes.data.items) {
+              reg._paperWithdrawn = !!reg.paper?.code && !!paperByCode[reg.paper.code]?.withdraw_time;
+              reg._hasPaid = !!paymentByRegistrationUid[reg.uid];
+            }
+
+            this.allRegistrations = registrationsRes.data.items;
           } catch (e) {
             this.error = e;
           } finally {

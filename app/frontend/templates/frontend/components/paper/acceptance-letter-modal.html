@@ -152,11 +152,6 @@ Example:
         onSuccess: null,
       },
 
-      get letterModalPaperCountLabel() {
-        const count = this.letterModal.paperCodes.length;
-        return count === 1 ? '1 paper' : `${count} papers`;
-      },
-
       openLetterModal(paperCodes, onSuccess = null) {
         this.letterModal = {
           paperCodes: paperCodes,

@@ -1,0 +1,232 @@
+{% comment %}
+Receipt Generation Modal
+
+A reusable modal for generating receipts for one or more registrations.
+
+Usage:
+  1. Spread receiptModal() into the parent component's x-data
+  2. Include this template in your page
+  3. Call openReceiptModal(registrationUids, onSuccess) to show the modal
+
+Example:
+  <div x-data="{...receiptModal(), ...otherData}">
+    <button @click="openReceiptModal([reg.uid], () => refetch())">Generate</button>
+    {% include "frontend/components/registration/receipt-modal.html" %}
+  </div>
+{% endcomment %}
+
+<div
+  class="modal fade"
+  id="receipt-modal"
+  tabindex="-1"
+  aria-hidden="true"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false"
+>
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Generate Receipt</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+          x-show="!receiptModal.generating"
+        ></button>
+      </div>
+      <div class="modal-body">
+        {# Success state #}
+        <template x-if="receiptModal.done">
+          <div class="text-center py-3">
+            <div class="text-success mb-3">
+              <i class="bi bi-check-circle fs-1"></i>
+            </div>
+            <p class="fw-medium mb-1" x-text="receiptModal.resultSummary"></p>
+            <template x-if="receiptModal.failedCount > 0">
+              <p class="text-danger small mb-0">
+                <span x-text="receiptModal.failedCount"></span> failed
+              </p>
+            </template>
+          </div>
+        </template>
+
+        {# Form state #}
+        <template x-if="!receiptModal.done">
+          <div>
+            {# Registration count indicator #}
+            <div class="mb-3">
+              <span class="badge bg-secondary" x-text="receiptModal.countLabel"></span>
+            </div>
+
+            {# Template textarea #}
+            <div class="mb-3">
+              <label class="form-label" for="receipt-template">
+                Template <span class="text-danger">*</span>
+              </label>
+              <textarea
+                id="receipt-template"
+                class="form-control font-monospace"
+                :class="{'is-invalid': receiptModal.error}"
+                rows="12"
+                x-model="receiptModal.template"
+                :disabled="receiptModal.generating"
+                placeholder="Enter Jinja2 template..."
+              ></textarea>
+              <div class="form-text">
+                Jinja2 template. Available context:
+                <code>registration</code>
+                (with
+                <code>registration.reference_code</code>,
+                <code>registration.given_name</code>,
+                <code>registration.family_name</code>,
+                <code>registration.attendance_type</code>,
+                <code>registration.paper</code>,
+                <code>registration.payment_items</code>,
+                etc.)
+              </div>
+              <div class="invalid-feedback" x-text="receiptModal.error"></div>
+            </div>
+
+            {# Progress bar #}
+            <template x-if="receiptModal.generating && receiptModal.uids.length > 1">
+              <div class="mb-3">
+                <div class="d-flex justify-content-between small text-muted mb-1">
+                  <span>Progress</span>
+                  <span x-text="`${receiptModal.processedCount} / ${receiptModal.uids.length}`"></span>
+                </div>
+                <div class="progress" style="height: 4px;">
+                  <div
+                    class="progress-bar"
+                    :class="receiptModal.failedCount > 0 ? 'bg-warning' : ''"
+                    :style="`width: ${receiptModal.progressPercent}%`"
+                  ></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <div class="modal-footer">
+        <template x-if="receiptModal.done">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+            Done
+          </button>
+        </template>
+        <template x-if="!receiptModal.done">
+          <div class="d-flex gap-2">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+              :disabled="receiptModal.generating"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              @click="generateReceipts()"
+              :disabled="receiptModal.generating || !receiptModal.template.trim()"
+            >
+              <span x-show="receiptModal.generating" class="spinner-border spinner-border-sm me-1"></span>
+              <span x-text="receiptModal.generating ? 'Generating...' : 'Generate'"></span>
+            </button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function receiptModal() {
+    return {
+      receiptModal: {
+        uids: [],
+        template: '',
+        generating: false,
+        done: false,
+        error: null,
+        processedCount: 0,
+        successCount: 0,
+        failedCount: 0,
+        onSuccess: null,
+      },
+
+      openReceiptModal(uids, onSuccess = null) {
+        this.receiptModal = {
+          uids: uids,
+          template: '',
+          generating: false,
+          done: false,
+          error: null,
+          processedCount: 0,
+          successCount: 0,
+          failedCount: 0,
+          onSuccess: onSuccess,
+        };
+        // Copy computed property to receiptModal for template access
+        Object.defineProperty(this.receiptModal, 'countLabel', {
+          get: () => {
+            const count = this.receiptModal.uids.length;
+            return count === 1 ? '1 registration' : `${count} registrations`;
+          }
+        });
+        Object.defineProperty(this.receiptModal, 'progressPercent', {
+          get: () => {
+            if (this.receiptModal.uids.length === 0) return 0;
+            return Math.round((this.receiptModal.processedCount / this.receiptModal.uids.length) * 100);
+          }
+        });
+        Object.defineProperty(this.receiptModal, 'resultSummary', {
+          get: () => {
+            const success = this.receiptModal.successCount;
+            const total = this.receiptModal.uids.length;
+            if (total === 1) {
+              return success === 1 ? 'Receipt generated successfully.' : 'Failed to generate receipt.';
+            }
+            return `${success} of ${total} receipts generated.`;
+          }
+        });
+        new bootstrap.Modal(document.getElementById('receipt-modal')).show();
+      },
+
+      async generateReceipts() {
+        if (this.receiptModal.generating) return;
+        if (!this.receiptModal.template.trim()) return;
+
+        this.receiptModal.generating = true;
+        this.receiptModal.error = null;
+        this.receiptModal.processedCount = 0;
+        this.receiptModal.successCount = 0;
+        this.receiptModal.failedCount = 0;
+
+        for (const uid of this.receiptModal.uids) {
+          try {
+            const url = APP.urls.registration.generateReceipt(APP.params.conference_name, uid);
+            await api.post(url, {template: this.receiptModal.template});
+            this.receiptModal.successCount++;
+          } catch (e) {
+            this.receiptModal.failedCount++;
+            // For single registration, show the error
+            if (this.receiptModal.uids.length === 1) {
+              this.receiptModal.error = e.response?.data?.message || 'Failed to generate receipt.';
+              this.receiptModal.generating = false;
+              return;
+            }
+          }
+          this.receiptModal.processedCount++;
+        }
+
+        this.receiptModal.generating = false;
+        this.receiptModal.done = true;
+
+        // Call success callback if provided
+        if (this.receiptModal.onSuccess && this.receiptModal.successCount > 0) {
+          this.receiptModal.onSuccess();
+        }
+      },
+    };
+  }
+</script>
