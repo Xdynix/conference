@@ -97,6 +97,11 @@
         ),
       },
       paper: {
+        get: urlTemplate(
+          "{% url 'api-1.0.0:get-paper' conference_name='__CONFERENCE_NAME__' paper_code='__PAPER_CODE__' %}",
+          "conference_name",
+          "paper_code",
+        ),
         generateAcceptanceLetter: urlTemplate(
           "{% url 'api-1.0.0:generate-acceptance-letter' conference_name='__CONFERENCE_NAME__' paper_code='__PAPER_CODE__' %}",
           "conference_name",
@@ -210,6 +215,11 @@
           "{% url 'frontend:admin-paper-detail' conference_name='__CONFERENCE_NAME__' paper_code='__PAPER_CODE__' %}",
           "conference_name",
           "paper_code",
+        ),
+        adminRegistrationDetail: urlTemplate(
+          "{% url 'frontend:admin-registration-detail' conference_name='__CONFERENCE_NAME__' registration_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
         ),
         adminReviewDetail: urlTemplate(
           "{% url 'frontend:admin-review-detail' conference_name='__CONFERENCE_NAME__' paper_code='__PAPER_CODE__' review_uid='00000000000000000000000001' %}",

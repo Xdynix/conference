@@ -141,6 +141,7 @@
                         <a
                           :href="col.link(reg)"
                           :class="col.linkClass?.(reg)"
+                          target="_blank"
                           @click.stop
                           x-text="col.value(reg)"
                         ></a>
@@ -467,8 +468,7 @@
             key: 'referenceCode',
             label: 'Code',
             value: (r) => r?.reference_code,
-            // TODO: Link to admin registration detail page when it exists.
-            link: (r) => r ? '#' : null,
+            link: (r) => r ? APP.urls.pages.adminRegistrationDetail(APP.params.conference_name, r.uid) : null,
             sortValue: (r) => r?.reference_code,
             nowrap: true,
             mono: true,

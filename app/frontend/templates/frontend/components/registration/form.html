@@ -2,20 +2,39 @@
 Registration form component.
 
 This component expects the parent to provide:
-  - mode: 'create' | 'edit' | 'view'
+  - mode: 'create' | 'edit' | 'view' | 'admin-edit'
   - form: Form data object bound to inputs
-  - registration: Registration object (for edit/view modes)
+  - registration: Registration object (for edit/view/admin-edit modes)
   - errors: Validation errors keyed by field name
-  - attendanceTypes: Array of attendance types (for create mode)
+  - attendanceTypes: Array of attendance types (for create and admin-edit modes)
   - registrablePapers: Array of registrable papers (for create mode)
   - selectedAttendanceType: Computed property for the currently selected type (for create mode)
 {% endcomment %}
+
+{# State (admin-edit only) #}
+<template x-if="mode === 'admin-edit'">
+  <div class="mb-3">
+    <label class="form-label text-muted">State <span class="text-danger">*</span></label>
+    <select
+      id="state"
+      class="form-select"
+      :class="{'is-invalid': errors.state}"
+      x-model="form.state"
+      required
+    >
+      <template x-for="s in Object.values(APP.enums.RegistrationState)" :key="s.value">
+        <option :value="s.value" x-text="s.label" :selected="s.value === form.state"></option>
+      </template>
+    </select>
+    <div class="invalid-feedback" x-text="errors.state"></div>
+  </div>
+</template>
 
 {# Attendance type #}
 <div class="mb-3">
   <label class="form-label text-muted">
     Attendance Type
-    <template x-if="mode === 'create'">
+    <template x-if="mode === 'create' || mode === 'admin-edit'">
       <span class="text-danger">*</span>
     </template>
   </label>
@@ -38,7 +57,23 @@ This component expects the parent to provide:
       <div class="invalid-feedback" x-text="errors.attendance_type"></div>
     </div>
   </template>
-  <template x-if="mode !== 'create'">
+  <template x-if="mode === 'admin-edit'">
+    <div>
+      <select
+        id="attendance-type"
+        class="form-select"
+        :class="{'is-invalid': errors.attendance_type}"
+        x-model="form.attendance_type"
+        required
+      >
+        <template x-for="at in attendanceTypes" :key="at.uid">
+          <option :value="at.uid" x-text="at.display_name"></option>
+        </template>
+      </select>
+      <div class="invalid-feedback" x-text="errors.attendance_type"></div>
+    </div>
+  </template>
+  <template x-if="mode === 'edit' || mode === 'view'">
     <div class="form-control-plaintext" x-text="registration?.attendance_type?.display_name"></div>
   </template>
 </div>
@@ -72,7 +107,20 @@ This component expects the parent to provide:
     <div class="invalid-feedback" :class="{'d-block': errors.paper}" x-text="errors.paper"></div>
   </div>
 </template>
-<template x-if="mode !== 'create' && registration?.paper">
+<template x-if="mode === 'admin-edit' && registration?.paper">
+  <div class="mb-3">
+    <label class="form-label text-muted">Paper</label>
+    <div class="form-control-plaintext">
+      <a
+        :href="APP.urls.pages.adminPaperDetail(APP.params.conference_name, registration.paper.code)"
+        x-text="registration.paper.code"
+      ></a>
+      <span class="mx-1">·</span>
+      <span x-text="registration.paper.title"></span>
+    </div>
+  </div>
+</template>
+<template x-if="(mode === 'edit' || mode === 'view') && registration?.paper">
   <div class="mb-3">
     <label class="form-label text-muted">Paper</label>
     <div class="form-control-plaintext">
@@ -87,11 +135,11 @@ This component expects the parent to provide:
 <div class="mb-3">
   <label class="form-label text-muted">
     Receipt Title
-    <template x-if="mode !== 'view'">
+    <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
       <span class="text-danger">*</span>
     </template>
   </label>
-  <template x-if="mode !== 'view'">
+  <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
     <div>
       <input
         id="receipt-title"
@@ -113,7 +161,7 @@ This component expects the parent to provide:
 <hr class="my-4">
 
 {# Name: title + given name + family name #}
-<template x-if="mode !== 'view'">
+<template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
   <div class="row mb-3">
     <div class="col-md-3">
       <label class="form-label text-muted">Title</label>
@@ -178,11 +226,11 @@ This component expects the parent to provide:
 <div class="mb-3">
   <label class="form-label text-muted">
     Affiliation
-    <template x-if="mode !== 'view'">
+    <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
       <span class="text-danger">*</span>
     </template>
   </label>
-  <template x-if="mode !== 'view'">
+  <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
     <div>
       <input
         id="affiliation"
@@ -208,11 +256,11 @@ This component expects the parent to provide:
 <div class="mb-3">
   <label class="form-label text-muted">
     Region
-    <template x-if="mode !== 'view'">
+    <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
       <span class="text-danger">*</span>
     </template>
   </label>
-  <template x-if="mode !== 'view'">
+  <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
     <div>
       <select
         id="region-code"
@@ -248,11 +296,11 @@ This component expects the parent to provide:
   <div class="col-md-6">
     <label class="form-label text-muted">
       Email
-      <template x-if="mode !== 'view'">
+      <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
         <span class="text-danger">*</span>
       </template>
     </label>
-    <template x-if="mode !== 'view'">
+    <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
       <div>
         <input
           id="email"
@@ -274,11 +322,11 @@ This component expects the parent to provide:
   <div class="col-md-6">
     <label class="form-label text-muted">
       Phone
-      <template x-if="mode !== 'view'">
+      <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
         <span class="text-danger">*</span>
       </template>
     </label>
-    <template x-if="mode !== 'view'">
+    <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
       <div>
         <input
           id="phone"
@@ -303,11 +351,11 @@ This component expects the parent to provide:
 <div class="mb-3">
   <label class="form-label text-muted">
     Self-introduction
-    <template x-if="mode !== 'view'">
+    <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
       <span class="text-danger">*</span>
     </template>
   </label>
-  <template x-if="mode !== 'view'">
+  <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
     <div>
       <textarea
         id="self-introduction"

@@ -40,7 +40,7 @@
         <div class="col-xl-8 order-xl-1 order-2">
           {% include "frontend/components/review/paper-card.html" %}
 
-          <form x-ref="reviewForm" @submit.prevent>
+          <form id="review-form" @submit.prevent="save()">
             {% include "frontend/components/review/form.html" %}
           </form>
         </div>
@@ -96,12 +96,7 @@
                 <div>
                   <div class="d-grid gap-2">
                     <template x-if="mode === 'edit'">
-                      <button
-                        type="button"
-                        class="btn btn-primary"
-                        :disabled="processing"
-                        @click="save()"
-                      >
+                      <button type="submit" form="review-form" class="btn btn-primary" :disabled="processing">
                         <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
                         Save
                       </button>
@@ -289,7 +284,6 @@
 
         async save() {
           if (this.processing) return;
-          if (!this.$refs.reviewForm.reportValidity()) return;
           this.saving = true;
           this.errors = {};
 
