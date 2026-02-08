@@ -31,15 +31,66 @@
       <div class="row justify-content-center">
         <div class="col-xl-8 col-xxl-6">
           <h1 class="h3 mb-4 d-flex align-items-center">
-            <span x-text="'Registration: ' + registration.reference_code">Registration</span>
-            <span
-              class="badge ms-2 fs-6"
-              :class="registrationStateBadge(registration.state).class"
-              x-text="registrationStateBadge(registration.state).label"
-            ></span>
+            <span x-text="'Registration: ' + registration?.reference_code">Registration</span>
+            <span class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
           </h1>
 
-          {# TODO: Registration content #}
+          {# State: Pending #}
+          <template x-if="registration.state === APP.enums.RegistrationState.PENDING.value">
+            <div class="alert alert-info small mb-4">
+              <p class="mb-1">Your registration is pending payment confirmation by the organizer.</p>
+              <ul class="mb-0">
+                <li>
+                  When making payment, include the reference number of all relevant registrations (e.g.
+                  <strong x-text="registration?.reference_code"></strong>).
+                </li>
+                <li>You can edit your information or cancel this registration until it is confirmed.</li>
+              </ul>
+            </div>
+          </template>
+
+          {# State: Confirmed #}
+          <template x-if="registration.state === APP.enums.RegistrationState.CONFIRMED.value">
+            <p class="text-muted small mb-4">Your registration has been confirmed.</p>
+          </template>
+
+          {# State: Cancelled #}
+          <template x-if="registration.state === APP.enums.RegistrationState.CANCELLED.value">
+            <p class="text-muted small mb-4">This registration has been cancelled.</p>
+          </template>
+
+          <form @submit.prevent="save()">
+            {% include "frontend/components/registration/form.html" %}
+
+            <template x-if="mode === 'edit'">
+              <div>
+                <hr class="my-4">
+
+                <div
+                  x-show="errors._form"
+                  x-cloak
+                  class="alert alert-danger small mb-3"
+                  x-text="errors._form"
+                ></div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                  <button
+                    type="button"
+                    class="btn btn-outline-danger"
+                    @click="cancelRegistration()"
+                    :disabled="cancelling"
+                  >
+                    <span x-show="cancelling" class="spinner-border spinner-border-sm me-1"></span>
+                    Cancel Registration
+                  </button>
+                  <button type="submit" class="btn btn-primary" :disabled="saving">
+                    <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
+                    <span x-text="saved ? 'Saved!' : 'Save'"></span>
+                  </button>
+                </div>
+              </div>
+            </template>
+          </form>
         </div>
       </div>
     </div>
@@ -52,8 +103,23 @@
     function registrationDetail() {
       return {
         registration: null,
+        form: {
+          receipt_title: '',
+          title: '',
+          given_name: '',
+          family_name: '',
+          affiliation: '',
+          region_code: '',
+          email: '',
+          phone: '',
+          self_introduction: '',
+        },
+        errors: {},
         loading: true,
         error: null,
+        saving: false,
+        saved: false,
+        cancelling: false,
 
         get mode() {
           if (!this.registration) return null;
@@ -61,11 +127,31 @@
           return 'view';
         },
 
+        get stateBadge() {
+          if (!this.registration) return {class: '', label: ''};
+          return registrationStateBadge(this.registration.state);
+        },
+
+        populateForm() {
+          const r = this.registration;
+          if (!r) return;
+          this.form.receipt_title = r.receipt_title || '';
+          this.form.title = r.title || '';
+          this.form.given_name = r.given_name || '';
+          this.form.family_name = r.family_name || '';
+          this.form.affiliation = r.affiliation || '';
+          this.form.region_code = r.region_code || '';
+          this.form.email = r.email || '';
+          this.form.phone = r.phone || '';
+          this.form.self_introduction = r.self_introduction || '';
+        },
+
         async init() {
           try {
             const url = "{% url 'api-1.0.0:get-my-registration' conference_name=params.conference_name registration_uid=params.registration_uid %}";
             const {data} = await api.get(url);
             this.registration = data;
+            this.populateForm();
             document.title = document.title.replace('Registration | ', `Registration: ${data.reference_code} | `);
             this.$store.breadcrumb.set([
               {
@@ -78,6 +164,47 @@
             this.error = e;
           } finally {
             this.loading = false;
+          }
+        },
+
+        async save() {
+          if (this.saving) return;
+          this.errors = {};
+          this.saving = true;
+
+          try {
+            const url = "{% url 'api-1.0.0:update-my-registration' conference_name=params.conference_name registration_uid=params.registration_uid %}";
+            const {data} = await api.patch(url, this.form);
+            this.registration = data;
+            this.populateForm();
+            this.saved = true;
+            setTimeout(() => this.saved = false, 2000);
+          } catch (error) {
+            const resp = error.response?.data;
+            if (error.response?.status === 422 && resp?.details?.length) {
+              this.errors = mapErrors(resp.details);
+            } else {
+              this.errors._form = resp?.message || 'Failed to save registration.';
+            }
+          } finally {
+            this.saving = false;
+          }
+        },
+
+        async cancelRegistration() {
+          if (this.cancelling) return;
+          if (!confirm('Cancel this registration? This cannot be undone.')) return;
+          this.cancelling = true;
+
+          try {
+            const url = "{% url 'api-1.0.0:cancel-my-registration' conference_name=params.conference_name registration_uid=params.registration_uid %}";
+            const {data} = await api.post(url);
+            this.registration = data;
+          } catch (error) {
+            const resp = error.response?.data;
+            this.errors._form = resp?.message || 'Failed to cancel registration.';
+          } finally {
+            this.cancelling = false;
           }
         },
       };

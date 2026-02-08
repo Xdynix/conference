@@ -539,6 +539,9 @@ RegistrationSelfIntroduction = Annotated[
 
 
 class RegistrationPaper(Schema):
+    # Intentionally minimal; registrations can be created for papers the user doesn't
+    # own, so this schema avoids exposing detailed paper data. Pages that need richer
+    # info should call the paper endpoints separately.
     code: PaperCode
     title: PaperTitle
 

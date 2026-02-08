@@ -32,14 +32,35 @@
         <div class="col-xl-8 col-xxl-6">
           <h1 class="h3 mb-4">Register</h1>
 
+          <div class="alert alert-info small mb-4">
+            Attendance type and paper cannot be changed after registration is submitted.
+            Please make sure to select the correct options before submitting.
+          </div>
+
           <template x-if="attendanceTypes.length === 0">
             <p class="text-muted">Registration is not available at this time.</p>
           </template>
 
           <template x-if="attendanceTypes.length > 0">
-            <div>
-              {# TODO: Registration form #}
-            </div>
+            <form @submit.prevent="submit()">
+              {% include "frontend/components/registration/form.html" %}
+
+              <hr class="my-4">
+
+              <div
+                x-show="errors._form"
+                x-cloak
+                class="alert alert-danger small mb-3"
+                x-text="errors._form"
+              ></div>
+
+              <div class="d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary" :disabled="submitting">
+                  <span x-show="submitting" class="spinner-border spinner-border-sm me-1"></span>
+                  Submit Registration
+                </button>
+              </div>
+            </form>
           </template>
         </div>
       </div>
@@ -52,19 +73,81 @@
   <script>
     function registrationNew() {
       return {
+        mode: 'create',
         attendanceTypes: [],
+        registrablePapers: [],
+        form: {
+          attendance_type: '',
+          paper: '',
+          receipt_title: '',
+          title: '',
+          given_name: '',
+          family_name: '',
+          affiliation: '',
+          region_code: '',
+          email: '',
+          phone: '',
+          self_introduction: '',
+        },
+        errors: {},
         loading: true,
         error: null,
+        submitting: false,
+
+        get selectedAttendanceType() {
+          if (!this.form.attendance_type) return null;
+          return this.attendanceTypes.find(at => at.uid === this.form.attendance_type) || null;
+        },
 
         async init() {
           try {
-            const url = "{% url 'api-1.0.0:list-attendance-types' params.conference_name %}";
-            const {data} = await api.get(url);
-            this.attendanceTypes = data;
+            const [atResp, papersResp] = await Promise.all([
+              api.get("{% url 'api-1.0.0:list-attendance-types' params.conference_name %}"),
+              api.get("{% url 'api-1.0.0:list-registrable-papers' params.conference_name %}"),
+            ]);
+            this.attendanceTypes = atResp.data;
+            this.registrablePapers = papersResp.data;
+            if (this.attendanceTypes.length === 1) {
+              this.form.attendance_type = this.attendanceTypes[0].uid;
+            }
           } catch (e) {
             this.error = e;
           } finally {
             this.loading = false;
+          }
+
+          this.$watch('form.attendance_type', () => {
+            this.form.paper = '';
+          });
+        },
+
+        async submit() {
+          if (this.submitting) return;
+          this.errors = {};
+          this.submitting = true;
+
+          try {
+            const payload = {...this.form};
+            if (!this.selectedAttendanceType?.paper_required) {
+              payload.paper = null;
+            } else {
+              payload.paper = payload.paper || null;
+            }
+
+            const url = "{% url 'api-1.0.0:create-my-registration' params.conference_name %}";
+            const {data} = await api.post(url, payload);
+            window.location.href = APP.urls.pages.registrationDetail(
+              APP.params.conference_name, data.uid,
+            );
+          } catch (error) {
+            const resp = error.response?.data;
+            if (error.response?.status === 422 && resp?.details?.length) {
+              this.errors = mapErrors(resp.details);
+            } else {
+              this.errors._form = resp?.message || 'Failed to create registration.';
+            }
+          } finally {
+            this.submitting = false;
           }
         },
       };

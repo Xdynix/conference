@@ -1,0 +1,327 @@
+{% comment %}
+Registration form component.
+
+This component expects the parent to provide:
+  - mode: 'create' | 'edit' | 'view'
+  - form: Form data object bound to inputs
+  - registration: Registration object (for edit/view modes)
+  - errors: Validation errors keyed by field name
+  - attendanceTypes: Array of attendance types (for create mode)
+  - registrablePapers: Array of registrable papers (for create mode)
+  - selectedAttendanceType: Computed property for the currently selected type (for create mode)
+{% endcomment %}
+
+{# Attendance type #}
+<div class="mb-3">
+  <label class="form-label text-muted">
+    Attendance Type
+    <template x-if="mode === 'create'">
+      <span class="text-danger">*</span>
+    </template>
+  </label>
+  <template x-if="mode === 'create'">
+    <div>
+      <select
+        id="attendance-type"
+        class="form-select"
+        :class="{'is-invalid': errors.attendance_type}"
+        x-model="form.attendance_type"
+        required
+      >
+        <template x-if="attendanceTypes.length !== 1">
+          <option value="">Select attendance type...</option>
+        </template>
+        <template x-for="at in attendanceTypes" :key="at.uid">
+          <option :value="at.uid" x-text="at.display_name"></option>
+        </template>
+      </select>
+      <div class="invalid-feedback" x-text="errors.attendance_type"></div>
+    </div>
+  </template>
+  <template x-if="mode !== 'create'">
+    <div class="form-control-plaintext" x-text="registration?.attendance_type?.display_name"></div>
+  </template>
+</div>
+
+{# Paper (conditional on selected attendance type) #}
+<template x-if="mode === 'create'">
+  <div class="mb-3" x-show="selectedAttendanceType?.paper_required" x-cloak>
+    <label class="form-label text-muted">
+      Paper <span class="text-danger">*</span>
+    </label>
+    <select
+      id="paper"
+      class="form-select"
+      x-init="
+        $el._ts = new TomSelect($el, {
+          options: registrablePapers.map(p => ({value: p.code, text: `${p.code} \u00B7 ${p.title}`})),
+          maxOptions: null,
+          allowEmptyOption: true,
+          onChange: (v) => { form.paper = v; },
+        });
+        if (form.paper) $el._ts.setValue(form.paper, true);
+        $watch('form.paper', (v) => {
+          if ($el._ts.getValue() !== (v || '')) $el._ts.setValue(v || '', true);
+        });
+      "
+      x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.paper)"
+      :required="selectedAttendanceType?.paper_required"
+    >
+      <option value="">Select a paper...</option>
+    </select>
+    <div class="invalid-feedback" :class="{'d-block': errors.paper}" x-text="errors.paper"></div>
+  </div>
+</template>
+<template x-if="mode !== 'create' && registration?.paper">
+  <div class="mb-3">
+    <label class="form-label text-muted">Paper</label>
+    <div class="form-control-plaintext">
+      <span x-text="registration.paper.code"></span>
+      <span class="mx-1">·</span>
+      <span x-text="registration.paper.title"></span>
+    </div>
+  </div>
+</template>
+
+{# Receipt title #}
+<div class="mb-3">
+  <label class="form-label text-muted">
+    Receipt Title
+    <template x-if="mode !== 'view'">
+      <span class="text-danger">*</span>
+    </template>
+  </label>
+  <template x-if="mode !== 'view'">
+    <div>
+      <input
+        id="receipt-title"
+        type="text"
+        class="form-control"
+        :class="{'is-invalid': errors.receipt_title}"
+        x-model="form.receipt_title"
+        required
+      >
+      <div class="invalid-feedback" x-text="errors.receipt_title"></div>
+      <small class="form-text text-muted">Name to appear on the receipt, e.g. your institution.</small>
+    </div>
+  </template>
+  <template x-if="mode === 'view'">
+    <div class="form-control-plaintext" x-text="registration?.receipt_title"></div>
+  </template>
+</div>
+
+<hr class="my-4">
+
+{# Name: title + given name + family name #}
+<template x-if="mode !== 'view'">
+  <div class="row mb-3">
+    <div class="col-md-3">
+      <label class="form-label text-muted">Title</label>
+      <select
+        id="title"
+        class="form-select"
+        :class="{'is-invalid': errors.title}"
+        x-model="form.title"
+      >
+        <option value="">None</option>
+        <template x-for="t in Object.values(APP.enums.RegistrationTitle)" :key="t.value">
+          <option :value="t.value" x-text="t.label"></option>
+        </template>
+      </select>
+      <div class="invalid-feedback" x-text="errors.title"></div>
+    </div>
+    <div class="col-md">
+      <label class="form-label text-muted">
+        Given Name <span class="text-danger">*</span>
+      </label>
+      <input
+        id="given-name"
+        type="text"
+        class="form-control"
+        :class="{'is-invalid': errors.given_name}"
+        x-model="form.given_name"
+        placeholder="First/personal name"
+        autocomplete="given-name"
+        required
+      >
+      <div class="invalid-feedback" x-text="errors.given_name"></div>
+    </div>
+    <div class="col-md">
+      <label class="form-label text-muted">
+        Family Name <span class="text-danger">*</span>
+      </label>
+      <input
+        id="family-name"
+        type="text"
+        class="form-control"
+        :class="{'is-invalid': errors.family_name}"
+        x-model="form.family_name"
+        placeholder="Last name/surname"
+        autocomplete="family-name"
+        required
+      >
+      <div class="invalid-feedback" x-text="errors.family_name"></div>
+    </div>
+  </div>
+</template>
+<template x-if="mode === 'view'">
+  <div class="mb-3">
+    <label class="form-label text-muted">Name</label>
+    <div
+      class="form-control-plaintext"
+      x-text="[registration?.title, registration?.given_name, registration?.family_name].filter(Boolean).join(' ')"
+    ></div>
+  </div>
+</template>
+
+{# Affiliation #}
+<div class="mb-3">
+  <label class="form-label text-muted">
+    Affiliation
+    <template x-if="mode !== 'view'">
+      <span class="text-danger">*</span>
+    </template>
+  </label>
+  <template x-if="mode !== 'view'">
+    <div>
+      <input
+        id="affiliation"
+        type="text"
+        class="form-control"
+        :class="{'is-invalid': errors.affiliation}"
+        x-model="form.affiliation"
+        autocomplete="organization"
+        required
+      >
+      <div class="invalid-feedback" x-text="errors.affiliation"></div>
+      <small class="form-text text-muted">
+        e.g., <em>Google LLC</em> or <em>School of Computing, Example University</em>
+      </small>
+    </div>
+  </template>
+  <template x-if="mode === 'view'">
+    <div class="form-control-plaintext" x-text="registration?.affiliation"></div>
+  </template>
+</div>
+
+{# Region #}
+<div class="mb-3">
+  <label class="form-label text-muted">
+    Region
+    <template x-if="mode !== 'view'">
+      <span class="text-danger">*</span>
+    </template>
+  </label>
+  <template x-if="mode !== 'view'">
+    <div>
+      <select
+        id="region-code"
+        class="form-select"
+        x-init="
+          const regions = JSON.parse(document.getElementById('app-regions').textContent);
+          $el._ts = new TomSelect($el, {
+            options: regions.map(r => ({value: r[0], text: r[1]})),
+            maxOptions: null,
+            allowEmptyOption: true,
+            onChange: (v) => { form.region_code = v; },
+          });
+          if (form.region_code) $el._ts.setValue(form.region_code, true);
+          $watch('form.region_code', (v) => {
+            if ($el._ts.getValue() !== (v || '')) $el._ts.setValue(v || '', true);
+          });
+        "
+        x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.region_code)"
+        required
+      >
+        <option value="">Select region...</option>
+      </select>
+      <div class="invalid-feedback" :class="{'d-block': errors.region_code}" x-text="errors.region_code"></div>
+    </div>
+  </template>
+  <template x-if="mode === 'view'">
+    <div class="form-control-plaintext" x-text="regionName(registration?.region_code)"></div>
+  </template>
+</div>
+
+{# Email / Phone #}
+<div class="row mb-3">
+  <div class="col-md-6">
+    <label class="form-label text-muted">
+      Email
+      <template x-if="mode !== 'view'">
+        <span class="text-danger">*</span>
+      </template>
+    </label>
+    <template x-if="mode !== 'view'">
+      <div>
+        <input
+          id="email"
+          type="email"
+          class="form-control"
+          :class="{'is-invalid': errors.email}"
+          x-model="form.email"
+          autocomplete="email"
+          required
+        >
+        <div class="invalid-feedback" x-text="errors.email"></div>
+        <small class="form-text text-muted">Conference correspondence and updates will be sent to this address.</small>
+      </div>
+    </template>
+    <template x-if="mode === 'view'">
+      <div class="form-control-plaintext" x-text="registration?.email"></div>
+    </template>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label text-muted">
+      Phone
+      <template x-if="mode !== 'view'">
+        <span class="text-danger">*</span>
+      </template>
+    </label>
+    <template x-if="mode !== 'view'">
+      <div>
+        <input
+          id="phone"
+          type="tel"
+          class="form-control"
+          :class="{'is-invalid': errors.phone}"
+          x-model="form.phone"
+          autocomplete="tel"
+          required
+        >
+        <div class="invalid-feedback" x-text="errors.phone"></div>
+        <small class="form-text text-muted">May be used for urgent communication. Please include the country code (e.g. +1 234 567 8900).</small>
+      </div>
+    </template>
+    <template x-if="mode === 'view'">
+      <div class="form-control-plaintext" x-text="registration?.phone"></div>
+    </template>
+  </div>
+</div>
+
+{# Self-introduction #}
+<div class="mb-3">
+  <label class="form-label text-muted">
+    Self-introduction
+    <template x-if="mode !== 'view'">
+      <span class="text-danger">*</span>
+    </template>
+  </label>
+  <template x-if="mode !== 'view'">
+    <div>
+      <textarea
+        id="self-introduction"
+        class="form-control"
+        :class="{'is-invalid': errors.self_introduction}"
+        x-model="form.self_introduction"
+        rows="4"
+        required
+      ></textarea>
+      <div class="invalid-feedback" x-text="errors.self_introduction"></div>
+      <small class="form-text text-muted">Please limit to 100 words.</small>
+    </div>
+  </template>
+  <template x-if="mode === 'view'">
+    <div class="form-control-plaintext" style="white-space: pre-line" x-text="registration?.self_introduction"></div>
+  </template>
+</div>

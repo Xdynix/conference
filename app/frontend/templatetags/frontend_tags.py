@@ -14,6 +14,7 @@ from app.conference.models import (
     Invitation,
     PaperState,
     RegistrationState,
+    RegistrationTitle,
     ReviewState,
     TrackRole,
     TrackVisibility,
@@ -151,6 +152,7 @@ def enums_json() -> SafeString:
                     collections=["decided"],
                 ),
                 "RegistrationState": _enum_to_dict(RegistrationState),
+                "RegistrationTitle": _enum_to_dict(RegistrationTitle),
                 "ReviewState": _enum_to_dict(
                     ReviewState,
                     collections=["active"],
