@@ -1,18 +1,18 @@
 {% extends "frontend/layouts/app.html" %}
 
-{% block title %}My Papers | {% endblock %}
+{% block title %}My Registrations | {% endblock %}
 
 {% block content %}
   <div
-    x-data="paperList()"
+    x-data="registrationList()"
     x-init="
-      $store.sidebar.setActive('my-papers');
-      $store.breadcrumb.set([{label: 'My Papers'}]);
+      $store.sidebar.setActive('my-registrations');
+      $store.breadcrumb.set([{label: 'My Registrations'}]);
     "
   >
     <div class="row justify-content-center">
       <div class="col-xl-8 col-xxl-6">
-        <h1 class="h3 mb-4">My Papers</h1>
+        <h1 class="h3 mb-4">My Registrations</h1>
 
         <div x-show="$store.conference.loading || loading" class="text-center py-5">
           <div class="spinner-border" role="status">
@@ -25,40 +25,44 @@
         </div>
 
         <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
-          <p class="text-muted mb-0">Failed to load papers.</p>
+          <p class="text-muted mb-0">Failed to load registrations.</p>
         </div>
 
         <div x-show="$store.conference.detail && !loading && !error" x-cloak>
-          <template x-if="papers.length === 0">
-            <p class="text-muted">No papers yet. Submit your first paper.</p>
+          <template x-if="registrations.length === 0">
+            <p class="text-muted">No registrations yet.</p>
           </template>
 
-          <template x-if="papers.length > 0">
+          <template x-if="registrations.length > 0">
             <div class="d-flex flex-column gap-3">
-              <template x-for="paper in papers" :key="paper.uid">
+              <template x-for="reg in registrations" :key="reg.uid">
                 <div class="card">
                   <div class="card-body">
                     <div class="d-flex justify-content-between align-items-start mb-2">
-                      <span
-                        class="font-monospace text-muted position-relative"
-                        style="z-index: 2"
-                        x-text="paper.code"
-                      ></span>
+                      <span class="font-monospace text-muted position-relative" style="z-index: 2">
+                        Ref: <span x-text="reg.reference_code"></span>
+                      </span>
                       <span
                         class="badge"
-                        :class="paperStateBadge(paper.state).class"
-                        x-text="paperStateBadge(paper.state).label"
+                        :class="registrationStateBadge(reg.state).class"
+                        x-text="registrationStateBadge(reg.state).label"
                       ></span>
                     </div>
-                    <h5 class="card-title mb-2" x-text="paper.title || 'Untitled'"></h5>
-                    <p class="text-muted small mb-0" x-text="paper.track?.display_name"></p>
+                    <h5 class="card-title mb-1" x-text="reg.attendance_type.display_name"></h5>
+                    <template x-if="reg.paper">
+                      <p class="text-muted small mb-0">
+                        <span x-text="reg.paper.code"></span>
+                        <span class="mx-1">·</span>
+                        <span x-text="reg.paper.title"></span>
+                      </p>
+                    </template>
                   </div>
                   <div class="card-footer bg-transparent d-flex justify-content-between align-items-center">
                     <small class="text-muted">
-                      Created <span x-text="formatDate(paper.create_time)"></span>
+                      Created <span x-text="formatDate(reg.create_time)"></span>
                     </small>
                     <a
-                      :href="APP.urls.pages.paperDetail(APP.params.conference_name, paper.code)"
+                      :href="APP.urls.pages.registrationDetail(APP.params.conference_name, reg.uid)"
                       class="stretched-link"
                     >
                       View
@@ -77,17 +81,17 @@
 {% block scripts %}
   {{ block.super }}
   <script>
-    function paperList() {
+    function registrationList() {
       return {
-        papers: [],
+        registrations: [],
         loading: true,
         error: null,
 
         async init() {
           try {
-            const url = "{% url 'api-1.0.0:list-my-papers' params.conference_name %}";
+            const url = "{% url 'api-1.0.0:list-my-registrations' params.conference_name %}";
             const {data} = await api.get(url);
-            this.papers = data.items;
+            this.registrations = data.items;
           } catch (e) {
             this.error = e;
           } finally {

@@ -23,10 +23,9 @@
         </a>
       </template>
       <template x-if="$store.conference.detail?.registration_enabled">
-        {# TODO: Add href when registration page is implemented #}
         <a
           class="btn btn-outline-primary d-flex align-items-center gap-2"
-          href="#"
+          href="{% url 'frontend:registration-new' conference_name=params.conference_name %}"
         >
           <i class="bi-plus-circle"></i>
           Register
@@ -44,7 +43,6 @@
           My Papers
         </a>
       </li>
-      {# TODO: Add href when My Registrations page is implemented #}
       <li
         class="nav-item"
         x-show="$store.conference.detail?.registration_enabled || $store.conference.profile?.context?.has_registrations"
@@ -53,7 +51,7 @@
         <a
           class="nav-link d-flex align-items-center gap-2"
           :class="{'active': $store.sidebar.active === 'my-registrations'}"
-          href="#"
+          href="{% url 'frontend:registration-list' conference_name=params.conference_name %}"
         >
           <i class="bi-ticket-perforated"></i>
           My Registrations

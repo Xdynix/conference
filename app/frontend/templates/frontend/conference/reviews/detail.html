@@ -203,15 +203,6 @@
           return reviewStateBadge(this.review.state);
         },
 
-        formatDate(isoString) {
-          if (!isoString) return '';
-          return new Intl.DateTimeFormat('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-          }).format(new Date(isoString));
-        },
-
         async init() {
           try {
             const url = "{% url 'api-1.0.0:get-my-review' conference_name=params.conference_name review_uid=params.review_uid %}";

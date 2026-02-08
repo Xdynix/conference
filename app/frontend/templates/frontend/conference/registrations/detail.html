@@ -1,0 +1,86 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Registration | {% endblock %}
+
+{% block content %}
+  <div
+    x-data="registrationDetail()"
+    x-init="
+      $store.sidebar.setActive('my-registrations');
+      $store.breadcrumb.set([
+        {label: 'My Registrations', url: '{% url 'frontend:registration-list' conference_name=params.conference_name %}'},
+        {label: 'Registration'}
+      ]);
+    "
+  >
+    <div x-show="$store.conference.loading || loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Registration not found.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && !error && registration" x-cloak>
+      <div class="row justify-content-center">
+        <div class="col-xl-8 col-xxl-6">
+          <h1 class="h3 mb-4 d-flex align-items-center">
+            <span x-text="'Registration: ' + registration.reference_code">Registration</span>
+            <span
+              class="badge ms-2 fs-6"
+              :class="registrationStateBadge(registration.state).class"
+              x-text="registrationStateBadge(registration.state).label"
+            ></span>
+          </h1>
+
+          {# TODO: Registration content #}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function registrationDetail() {
+      return {
+        registration: null,
+        loading: true,
+        error: null,
+
+        get mode() {
+          if (!this.registration) return null;
+          if (this.registration.state === APP.enums.RegistrationState.PENDING.value) return 'edit';
+          return 'view';
+        },
+
+        async init() {
+          try {
+            const url = "{% url 'api-1.0.0:get-my-registration' conference_name=params.conference_name registration_uid=params.registration_uid %}";
+            const {data} = await api.get(url);
+            this.registration = data;
+            document.title = document.title.replace('Registration | ', `Registration: ${data.reference_code} | `);
+            this.$store.breadcrumb.set([
+              {
+                label: 'My Registrations',
+                url: '{% url 'frontend:registration-list' conference_name=params.conference_name %}',
+              },
+              {label: data.reference_code}
+            ]);
+          } catch (e) {
+            this.error = e;
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}

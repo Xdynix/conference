@@ -564,6 +564,9 @@ extract complex logic to `.js` files for linting.
 - Use `x-cloak` to hide Alpine-controlled elements until initialization.
 - Use `:key` with `x-for` loops for correct reactivity.
 - Prefer `@mousedown.prevent` over `@click` when blur timing matters.
+- Prefer literal UTF-8 characters over HTML entity escapes (e.g., use `·` instead of
+  `&middot;`). Only escape characters with special HTML meaning (`&lt;`, `&gt;`,
+  `&amp;`, `&quot;`).
 - Never use `x-show` on the same element as `d-flex` or other Bootstrap display
   utilities (`d-block`, `d-grid`, etc.). Bootstrap uses `!important` which overrides
   Alpine's inline `display: none`. Use `x-if` with `<template>` instead, or put `x-show`

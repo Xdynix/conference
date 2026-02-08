@@ -1,6 +1,10 @@
 (function () {
   "use strict";
 
+  // ---------------------------------------------------------------------------
+  // URL utilities
+  // ---------------------------------------------------------------------------
+
   const ULID_PLACEHOLDERS = [
     "00000000000000000000000001",
     "00000000000000000000000002",
@@ -67,6 +71,74 @@
   }
 
   /**
+   * Extracts the URL hash fragment and optionally clears it from the address bar.
+   *
+   * @param {boolean} [clear=true] - Whether to clear the hash from the URL.
+   * @returns {string} The hash value without the leading "#", or empty string if none.
+   */
+  function extractUrlHash(clear = true) {
+    const hash = window.location.hash.slice(1);
+    if (hash && clear) {
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    }
+    return hash;
+  }
+
+  /**
+   * Returns a safe redirect URL, validating that it's same-origin.
+   *
+   * @param {string|null} next - The requested redirect URL.
+   * @param {string} fallback - The fallback URL if next is invalid or missing.
+   * @returns {string} A safe same-origin URL to redirect to.
+   */
+  function safeRedirectUrl(next, fallback) {
+    if (next) {
+      try {
+        const url = new URL(next, window.location.origin);
+        if (url.origin === window.location.origin) {
+          return url.pathname + url.search + url.hash;
+        }
+      } catch {
+        // Invalid URL, ignore.
+      }
+    }
+    return fallback;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Object/model utilities
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Gets a value from an object using a dot-separated path.
+   *
+   * @param {object} obj - The object to read from.
+   * @param {string} path - Dot-separated path, e.g. "form.email".
+   * @returns {*} The value at the path, or undefined if not found.
+   */
+  function getModelValue(obj, path) {
+    return path.split(".").reduce((o, key) => o?.[key], obj);
+  }
+
+  /**
+   * Sets a value on an object using a dot-separated path.
+   *
+   * @param {object} obj - The object to modify.
+   * @param {string} path - Dot-separated path, e.g. "form.email".
+   * @param {*} value - The value to set.
+   */
+  function setModelValue(obj, path, value) {
+    const keys = path.split(".");
+    const last = keys.pop();
+    const target = keys.reduce((o, key) => o[key], obj);
+    target[last] = value;
+  }
+
+  // ---------------------------------------------------------------------------
+  // API error handling
+  // ---------------------------------------------------------------------------
+
+  /**
    * Maps API validation errors to field-keyed error messages.
    *
    * Extracts the field path from `loc` after stripping common prefixes like "body" and
@@ -129,65 +201,9 @@
     return result;
   }
 
-  /**
-   * Gets a value from an object using a dot-separated path.
-   *
-   * @param {object} obj - The object to read from.
-   * @param {string} path - Dot-separated path, e.g. "form.email".
-   * @returns {*} The value at the path, or undefined if not found.
-   */
-  function getModelValue(obj, path) {
-    return path.split(".").reduce((o, key) => o?.[key], obj);
-  }
-
-  /**
-   * Sets a value on an object using a dot-separated path.
-   *
-   * @param {object} obj - The object to modify.
-   * @param {string} path - Dot-separated path, e.g. "form.email".
-   * @param {*} value - The value to set.
-   */
-  function setModelValue(obj, path, value) {
-    const keys = path.split(".");
-    const last = keys.pop();
-    const target = keys.reduce((o, key) => o[key], obj);
-    target[last] = value;
-  }
-
-  /**
-   * Extracts the URL hash fragment and optionally clears it from the address bar.
-   *
-   * @param {boolean} [clear=true] - Whether to clear the hash from the URL.
-   * @returns {string} The hash value without the leading "#", or empty string if none.
-   */
-  function extractUrlHash(clear = true) {
-    const hash = window.location.hash.slice(1);
-    if (hash && clear) {
-      history.replaceState(null, "", window.location.pathname + window.location.search);
-    }
-    return hash;
-  }
-
-  /**
-   * Returns a safe redirect URL, validating that it's same-origin.
-   *
-   * @param {string|null} next - The requested redirect URL.
-   * @param {string} fallback - The fallback URL if next is invalid or missing.
-   * @returns {string} A safe same-origin URL to redirect to.
-   */
-  function safeRedirectUrl(next, fallback) {
-    if (next) {
-      try {
-        const url = new URL(next, window.location.origin);
-        if (url.origin === window.location.origin) {
-          return url.pathname + url.search + url.hash;
-        }
-      } catch {
-        // Invalid URL, ignore.
-      }
-    }
-    return fallback;
-  }
+  // ---------------------------------------------------------------------------
+  // Enum and lookup utilities
+  // ---------------------------------------------------------------------------
 
   /**
    * Looks up an enum label by its value.
@@ -222,6 +238,10 @@
     return regionsMap.get(code) || code;
   }
 
+  // ---------------------------------------------------------------------------
+  // Formatting utilities
+  // ---------------------------------------------------------------------------
+
   const dateFmt = {
     day: new Intl.DateTimeFormat("en-US", {day: "numeric"}),
     monthYear: new Intl.DateTimeFormat("en-US", {month: "long", year: "numeric"}),
@@ -231,6 +251,17 @@
       year: "numeric"
     }),
   };
+
+  /**
+   * Formats a date for display.
+   *
+   * @param {string} isoString - ISO date string.
+   * @returns {string} Formatted date (e.g., "11 Jan 2026"), or empty string if invalid.
+   */
+  function formatDate(isoString) {
+    if (!isoString) return "";
+    return dateFmt.full.format(new Date(isoString));
+  }
 
   /**
    * Formats a date range for display.
@@ -278,6 +309,23 @@
   }
 
   /**
+   * Formats a profile name from given and family name parts.
+   *
+   * Works with any object containing given_name and family_name fields,
+   * such as user profiles, paper authors, or reviewer candidates.
+   *
+   * @param {Object} profile - Object with given_name and family_name fields.
+   * @returns {string} Formatted name, or empty string if no name parts.
+   */
+  function formatProfileName(profile) {
+    return [profile?.given_name, profile?.family_name].filter(Boolean).join(" ");
+  }
+
+  // ---------------------------------------------------------------------------
+  // File validation
+  // ---------------------------------------------------------------------------
+
+  /**
    * Validates a file against upload constraints.
    *
    * @param {File} file - The file to validate.
@@ -301,16 +349,9 @@
     return null;
   }
 
-  /**
-   * Formats a date for display.
-   *
-   * @param {string} isoString - ISO date string.
-   * @returns {string} Formatted date (e.g., "11 Jan 2026"), or empty string if invalid.
-   */
-  function formatDate(isoString) {
-    if (!isoString) return "";
-    return dateFmt.full.format(new Date(isoString));
-  }
+  // ---------------------------------------------------------------------------
+  // Badge utilities
+  // ---------------------------------------------------------------------------
 
   /**
    * Returns the badge CSS class for a paper state value.
@@ -377,19 +418,6 @@
   }
 
   /**
-   * Formats a profile name from given and family name parts.
-   *
-   * Works with any object containing given_name and family_name fields,
-   * such as user profiles, paper authors, or reviewer candidates.
-   *
-   * @param {Object} profile - Object with given_name and family_name fields.
-   * @returns {string} Formatted name, or empty string if no name parts.
-   */
-  function formatProfileName(profile) {
-    return [profile?.given_name, profile?.family_name].filter(Boolean).join(" ");
-  }
-
-  /**
    * Returns badge class and label for a review state.
    *
    * The "Accepted" state is displayed as "In Progress" since it means
@@ -415,20 +443,42 @@
     return {class: cls, label: enumLabel(stateEnum, state) || state};
   }
 
-  window.urlTemplate = urlTemplate;
-  window.formatDate = formatDate;
-  window.mapErrors = mapErrors;
-  window.getModelValue = getModelValue;
-  window.setModelValue = setModelValue;
-  window.extractUrlHash = extractUrlHash;
-  window.safeRedirectUrl = safeRedirectUrl;
+  /**
+   * Returns badge class and label for a registration state.
+   *
+   * @param {string} state - The registration state value.
+   * @returns {{class: string, label: string}} Badge class and label.
+   */
+  function registrationStateBadge(state) {
+    const stateEnum = APP.enums.RegistrationState;
+    const classes = {
+      [stateEnum.PENDING.value]: "text-bg-warning",
+      [stateEnum.CONFIRMED.value]: "text-bg-success",
+      [stateEnum.CANCELLED.value]: "text-bg-secondary",
+    };
+    const cls = classes[state] || "text-bg-secondary";
+    return {class: cls, label: enumLabel(stateEnum, state) || state};
+  }
+
+  // ---------------------------------------------------------------------------
+  // Exports
+  // ---------------------------------------------------------------------------
+
   window.enumLabel = enumLabel;
-  window.regionName = regionName;
+  window.extractUrlHash = extractUrlHash;
+  window.formatDate = formatDate;
   window.formatDateRange = formatDateRange;
   window.formatFileSize = formatFileSize;
-  window.validateFile = validateFile;
+  window.formatProfileName = formatProfileName;
+  window.getModelValue = getModelValue;
+  window.mapErrors = mapErrors;
   window.paperStateBadge = paperStateBadge;
   window.paperStateBadgeAdmin = paperStateBadgeAdmin;
+  window.regionName = regionName;
+  window.registrationStateBadge = registrationStateBadge;
   window.reviewStateBadge = reviewStateBadge;
-  window.formatProfileName = formatProfileName;
+  window.safeRedirectUrl = safeRedirectUrl;
+  window.setModelValue = setModelValue;
+  window.urlTemplate = urlTemplate;
+  window.validateFile = validateFile;
 })();

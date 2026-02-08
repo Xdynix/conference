@@ -62,6 +62,21 @@ urlpatterns = [
         name="paper-feedback",
     ),
     path(
+        "<slug:conference_name>/registrations/",
+        protected_view(template_name="frontend/conference/registrations/list.html"),
+        name="registration-list",
+    ),
+    path(
+        "<slug:conference_name>/registrations/new/",
+        protected_view(template_name="frontend/conference/registrations/new.html"),
+        name="registration-new",
+    ),
+    path(
+        "<slug:conference_name>/registrations/<ulid:registration_uid>/",
+        protected_view(template_name="frontend/conference/registrations/detail.html"),
+        name="registration-detail",
+    ),
+    path(
         "<slug:conference_name>/review-preferences/",
         protected_view(template_name="frontend/conference/review-preferences.html"),
         name="review-preferences",

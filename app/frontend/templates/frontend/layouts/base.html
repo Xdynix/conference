@@ -184,6 +184,11 @@
           "conference_name",
           "paper_code",
         ),
+        registrationDetail: urlTemplate(
+          "{% url 'frontend:registration-detail' conference_name='__CONFERENCE_NAME__' registration_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
         reviewDetail: urlTemplate(
           "{% url 'frontend:review-detail' conference_name='__CONFERENCE_NAME__' review_uid='00000000000000000000000001' %}",
           "conference_name",
