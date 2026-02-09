@@ -66,6 +66,35 @@
                 <div x-text="formatDate(paper?.create_time)"></div>
               </div>
 
+              {# Registrations - conference admins only #}
+              <template x-if="$store.permissions.isConferenceAdmin">
+                <div class="mb-3">
+                  <label class="form-label text-muted mb-1">Registrations</label>
+                  <div x-show="loading" class="py-1">
+                    <div class="spinner-border spinner-border-sm" role="status">
+                      <span class="visually-hidden">Loading...</span>
+                    </div>
+                  </div>
+                  <template x-if="!loading && registrations.length === 0">
+                    <div class="text-muted small">None</div>
+                  </template>
+                  <template x-for="r in registrations" :key="r.uid">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                      <a
+                        :href="APP.urls.pages.adminRegistrationDetail('{{ params.conference_name }}', r.uid)"
+                        class="text-decoration-none small text-truncate me-2"
+                        x-text="formatProfileName(r) || r.reference_code"
+                      ></a>
+                      <span
+                        class="badge flex-shrink-0"
+                        :class="registrationStateBadge(r.state).class"
+                        x-text="registrationStateBadge(r.state).label"
+                      ></span>
+                    </div>
+                  </template>
+                </div>
+              </template>
+
               {# Announced status - for decided papers #}
               <template x-if="isDecided">
                 <div class="mb-3">
@@ -290,6 +319,7 @@
         saved: false,
         isDirty: false,
         submitting: false,
+        registrations: [],
         finalLimitForm: {
           count: 1,
           saving: false,
@@ -436,9 +466,23 @@
           this.isDirty = false;
         },
 
+        async fetchRegistrations() {
+          if (!this.$store.permissions.isConferenceAdmin) return;
+          try {
+            const paperCode = "{{ params.paper_code }}";
+            const url = "{% url 'api-1.0.0:list-registrations' params.conference_name %}";
+            const {data} = await api.get(url, {params: {search: paperCode, page_size: 1000}});
+            this.registrations = data.items.filter(
+              r => r.paper?.code === paperCode && r.state !== APP.enums.RegistrationState.CANCELLED.value,
+            );
+          } catch {
+            // Supplementary info; silently ignore errors.
+          }
+        },
+
         async init() {
           try {
-            await this.load();
+            await Promise.all([this.load(), this.fetchRegistrations()]);
             this.$nextTick(() => {
               this.isDirty = false;
               this.$watch('form', () => {
