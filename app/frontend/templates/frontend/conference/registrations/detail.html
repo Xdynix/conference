@@ -152,7 +152,7 @@
             const {data} = await api.get(url);
             this.registration = data;
             this.populateForm();
-            document.title = document.title.replace('Registration | ', `Registration: ${data.reference_code} | `);
+            document.title = document.title.replace('Registration | ', `Registration - ${data.reference_code} | `);
             this.$store.breadcrumb.set([
               {
                 label: 'My Registrations',

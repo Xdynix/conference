@@ -1,0 +1,280 @@
+{% comment %}
+Payment form component.
+
+This component expects the parent to spread paymentItems() and provide:
+  - form: Form data object bound to inputs
+  - errors: Validation errors keyed by field name
+  - allRegistrations: Array of registration objects (reference_code, given_name, family_name, uid)
+
+Usage in parent component:
+  function adminPaymentCreate() {
+    return {
+      ...paymentItems(),
+      form: { amount: '', currency: '', type: '', method: '', reference: '', note: '', items: [] },
+      // page-specific properties
+    };
+  }
+
+Provides:
+  - createEmptyItem(): Returns empty item object
+  - addItem(): Add new item to form.items
+  - removeItem(index): Remove item at index from form.items
+{% endcomment %}
+
+{# Amount + Currency #}
+<div class="row mb-3">
+  <div class="col-md-6">
+    <label for="amount" class="form-label text-muted">
+      Amount <span class="text-danger">*</span>
+    </label>
+    <input
+      id="amount"
+      type="number"
+      step="0.01"
+      min="0"
+      class="form-control"
+      :class="{'is-invalid': errors.amount}"
+      x-model="form.amount"
+      required
+    >
+    <div class="invalid-feedback" x-text="errors.amount"></div>
+  </div>
+  <div class="col-md-6">
+    <label for="currency" class="form-label text-muted">
+      Currency <span class="text-danger">*</span>
+    </label>
+    <select
+      id="currency"
+      class="form-select"
+      :class="{'is-invalid': errors.currency}"
+      x-model="form.currency"
+      required
+    >
+      <option value="">Select currency...</option>
+      <template x-for="c in Object.values(APP.enums.PaymentCurrency)" :key="c.value">
+        <option :value="c.value" x-text="c.label" :selected="c.value === form.currency"></option>
+      </template>
+    </select>
+    <div class="invalid-feedback" x-text="errors.currency"></div>
+  </div>
+</div>
+
+{# Type + Method #}
+<div class="row mb-3">
+  <div class="col-md-6">
+    <label for="type" class="form-label text-muted">
+      Type <span class="text-danger">*</span>
+    </label>
+    <select
+      id="type"
+      class="form-select"
+      :class="{'is-invalid': errors.type}"
+      x-model="form.type"
+      required
+    >
+      <option value="">Select type...</option>
+      <template x-for="t in Object.values(APP.enums.PaymentType)" :key="t.value">
+        <option :value="t.value" x-text="t.label" :selected="t.value === form.type"></option>
+      </template>
+    </select>
+    <div class="invalid-feedback" x-text="errors.type"></div>
+  </div>
+  <div class="col-md-6">
+    <label for="method" class="form-label text-muted">
+      Method <span class="text-danger">*</span>
+    </label>
+    <select
+      id="method"
+      class="form-select"
+      :class="{'is-invalid': errors.method}"
+      x-model="form.method"
+      required
+    >
+      <option value="">Select method...</option>
+      <template x-for="m in Object.values(APP.enums.PaymentMethod)" :key="m.value">
+        <option :value="m.value" x-text="m.label" :selected="m.value === form.method"></option>
+      </template>
+    </select>
+    <div class="invalid-feedback" x-text="errors.method"></div>
+  </div>
+</div>
+
+{# Reference #}
+<div class="mb-3">
+  <label for="reference" class="form-label text-muted">Reference</label>
+  <input
+    id="reference"
+    type="text"
+    class="form-control"
+    :class="{'is-invalid': errors.reference}"
+    x-model="form.reference"
+  >
+  <div class="invalid-feedback" x-text="errors.reference"></div>
+</div>
+
+{# Note #}
+<div class="mb-3">
+  <label for="note" class="form-label text-muted">Note</label>
+  <textarea
+    id="note"
+    class="form-control"
+    :class="{'is-invalid': errors.note}"
+    x-model="form.note"
+    rows="3"
+  ></textarea>
+  <div class="invalid-feedback" x-text="errors.note"></div>
+</div>
+
+{# Items #}
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <span class="fw-medium">Items</span>
+  <button type="button" class="btn btn-sm btn-outline-primary" @click="addItem()">
+    <i class="bi bi-plus"></i>
+    Add Item
+  </button>
+</div>
+<table class="table table-sm table-striped">
+  <thead>
+  <tr>
+    <th>Registration</th>
+    <th>Description</th>
+    <th style="width: 8.5rem;">Amount</th>
+    <th style="width: 2.5rem;"></th>
+    <th style="width: 2.5rem;"></th>
+  </tr>
+  </thead>
+  <tbody>
+  <template x-for="(item, index) in form.items" :key="item._key">
+    <tr>
+      <td>
+        <select
+          class="form-select form-select-sm"
+          :id="'item-' + index + '-registration'"
+          x-init="
+            $el._ts = new TomSelect($el, {
+              options: allRegistrations.map(r => ({
+                value: r.uid,
+                text: r.reference_code + ' · ' + r.given_name + ' ' + r.family_name
+              })),
+              maxOptions: null,
+              allowEmptyOption: true,
+              onChange: (v) => { item.registration = v; },
+            });
+            if (item.registration) $el._ts.setValue(item.registration, true);
+            $watch('item.registration', (v) => {
+              if ($el._ts.getValue() !== (v || '')) $el._ts.setValue(v || '', true);
+            });
+          "
+          x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors['items.' + index + '.registration'])"
+          required
+        >
+          <option value="">Select registration...</option>
+        </select>
+        <div
+          class="invalid-feedback"
+          :class="{'d-block': errors['items.' + index + '.registration']}"
+          x-text="errors['items.' + index + '.registration']"
+        ></div>
+      </td>
+      <td>
+        <input
+          type="text"
+          class="form-control form-control-sm"
+          :class="{'is-invalid': errors['items.' + index + '.description']}"
+          :id="'item-' + index + '-description'"
+          x-model="item.description"
+        >
+        <div class="invalid-feedback" x-text="errors['items.' + index + '.description']"></div>
+      </td>
+      <td>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          class="form-control form-control-sm"
+          :class="{'is-invalid': errors['items.' + index + '.amount']}"
+          :id="'item-' + index + '-amount'"
+          x-model="item.amount"
+        >
+        <div class="invalid-feedback" x-text="errors['items.' + index + '.amount']"></div>
+      </td>
+      <td class="text-center align-middle">
+        <template x-if="item.registration">
+          <a
+            :href="APP.urls.pages.adminRegistrationDetail(APP.params.conference_name, item.registration)"
+            target="_blank"
+            class="text-muted"
+            title="Open registration"
+          >
+            <i class="bi bi-box-arrow-up-right"></i>
+          </a>
+        </template>
+      </td>
+      <td class="text-center align-middle">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-danger border-0"
+          @click="removeItem(index)"
+          title="Remove item"
+        >
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </td>
+    </tr>
+  </template>
+  <template x-if="form.items.length === 0">
+    <tr>
+      <td colspan="5" class="text-muted text-center py-3">
+        No items added yet. Click "Add Item" to add one.
+      </td>
+    </tr>
+  </template>
+  </tbody>
+</table>
+
+<template x-if="errors.items">
+  <div class="alert alert-danger py-2 mt-2" x-text="errors.items"></div>
+</template>
+
+<template x-if="amountMismatch()">
+  <div class="alert alert-warning py-2 mt-2">
+    Item amounts total
+    <strong x-text="itemsTotal().toFixed(2)"></strong>
+    but the payment amount is
+    <strong x-text="(parseFloat(form.amount) || 0).toFixed(2)"></strong>.
+  </div>
+</template>
+
+<script>
+  function paymentItems() {
+    return {
+      itemsTotal() {
+        if (this.form.items.length === 0) return null;
+        return this.form.items.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+      },
+
+      amountMismatch() {
+        if (this.itemsTotal() === null) return false;
+        const payment = parseFloat(this.form.amount) || 0;
+        return Math.abs(payment - this.itemsTotal()) > 0.001;
+      },
+
+      createEmptyItem() {
+        return {
+          _key: crypto.randomUUID(),
+          registration: "",
+          description: "",
+          amount: "",
+        };
+      },
+
+      addItem() {
+        this.form.items.push(this.createEmptyItem());
+      },
+
+      removeItem(index) {
+        this.form.items.splice(index, 1);
+      },
+    };
+  }
+</script>

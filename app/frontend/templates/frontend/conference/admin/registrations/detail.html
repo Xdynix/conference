@@ -209,7 +209,7 @@
             this.populateForm();
 
             const refCode = this.registration.reference_code;
-            document.title = document.title.replace('Registration | ', `Registration: ${refCode} | `);
+            document.title = document.title.replace('Registration | ', `Registration - ${refCode} | `);
             this.$store.breadcrumb.set([
               {
                 label: 'Registrations',
