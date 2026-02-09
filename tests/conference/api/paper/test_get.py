@@ -9,6 +9,7 @@ from faker import Faker
 from pytest_mock import MockerFixture
 
 from app.conference.models import (
+    AttendanceType,
     Conference,
     ConferenceRole,
     ConferenceRoleAssignment,
@@ -21,6 +22,8 @@ from app.conference.models import (
     PaperState,
     PaperSubmission,
     Profile,
+    Registration,
+    RegistrationState,
     Review,
     ReviewState,
     Track,
@@ -559,6 +562,10 @@ class TestGetPaper:
                 "submitted_count": 0,
                 "cancelled_count": 0,
             },
+            "registration_stat": {
+                "pending_count": 0,
+                "confirmed_count": 0,
+            },
             "recommendation_summary": {},
             "labels": {},
             "has_ieee_ecopyright_consent": False,
@@ -852,6 +859,53 @@ class TestGetPaper:
             "accepted_count": 0,
             "submitted_count": 1,
             "cancelled_count": 0,
+        }
+
+    def test_registration_stat_counts_pending_and_confirmed(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        attendance_type = AttendanceType.objects.create(
+            conference=conference,
+            display_name="Oral",
+            admin_only=False,
+            paper_required=False,
+        )
+        Registration.objects.create(
+            conference=conference,
+            user=conference_chair,
+            attendance_type=attendance_type,
+            paper=paper,
+            state=RegistrationState.PENDING,
+        )
+        Registration.objects.create(
+            conference=conference,
+            user=conference_chair,
+            attendance_type=attendance_type,
+            paper=paper,
+            state=RegistrationState.CONFIRMED,
+        )
+        Registration.objects.create(
+            conference=conference,
+            user=conference_chair,
+            attendance_type=attendance_type,
+            paper=paper,
+            state=RegistrationState.CANCELLED,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["registration_stat"] == {
+            "pending_count": 1,
+            "confirmed_count": 1,
         }
 
     def test_recommendation_summary_no_reviews(

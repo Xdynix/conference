@@ -25,6 +25,7 @@ from app.conference.models import (
     PaperFinal,
     PaperSubmission,
     PaperVisibleState,
+    RegistrationState,
 )
 from app.conference.models.review import ReviewState
 from app.conference.services import ReviewService
@@ -114,6 +115,11 @@ class ReviewStat(Schema):
     cancelled_count: int = 0
 
 
+class RegistrationStat(Schema):
+    pending_count: int = 0
+    confirmed_count: int = 0
+
+
 class RecommendationSummary(Schema):
     submitted_average: float | None = Field(
         None,
@@ -132,6 +138,7 @@ class PaperResponse(BasePaperResponse):
     owner: ConferenceUser
     final_revision_limit: int
     review_stat: ReviewStat
+    registration_stat: RegistrationStat
     recommendation_summary: RecommendationSummary
     labels: dict[str, str]
     acceptance_letter_url: HttpUrl | None
@@ -154,6 +161,13 @@ class PaperResponse(BasePaperResponse):
             accepted_count=counts[ReviewState.ACCEPTED],
             submitted_count=counts[ReviewState.SUBMITTED],
             cancelled_count=counts[ReviewState.CANCELLED],
+        )
+
+    @staticmethod
+    def resolve_registration_stat(paper: Paper) -> RegistrationStat:
+        return RegistrationStat(
+            pending_count=paper.pending_registration_count,  # type: ignore[attr-defined]
+            confirmed_count=paper.confirmed_registration_count,  # type: ignore[attr-defined]
         )
 
     @staticmethod
@@ -202,7 +216,17 @@ async def with_paper_prefetch(
             has_ieee_ecopyright_consent=Exists(
                 IEEEeCopyrightConsent.objects.filter(paper=OuterRef("pk"))
             ),
-            final_count=Count("final"),
+            final_count=Count("final", distinct=True),
+            pending_registration_count=Count(
+                "registration",
+                filter=Q(registration__state=RegistrationState.PENDING),
+                distinct=True,
+            ),
+            confirmed_registration_count=Count(
+                "registration",
+                filter=Q(registration__state=RegistrationState.CONFIRMED),
+                distinct=True,
+            ),
             api_base_url=Value(
                 request.build_absolute_uri("/"),
                 output_field=CharField(),

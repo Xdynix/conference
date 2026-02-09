@@ -381,6 +381,10 @@
       'reviewers', '-reviewers',
       'submitted', '-submitted',
       'score', '-score',
+      'registered', '-registered',
+      'confirmed', '-confirmed',
+      'final', '-final',
+      'ecopyright', '-ecopyright',
     ];
 
     const adminPaperListStateOptions = Object.values(APP.enums.PaperState)
@@ -393,6 +397,7 @@
       'review-stats',
       'score',
       'letter',
+      'readiness',
     ];
 
     const adminPaperListSchema = {
@@ -601,21 +606,93 @@
             nowrap: true,
             center: true,
           },
+          {
+            key: 'registered',
+            label: 'Registered',
+            value: (p) => {
+              const stat = p?.registration_stat;
+              if (!stat) return '';
+              return (stat.pending_count || 0) + (stat.confirmed_count || 0);
+            },
+            sortValue: (p) => {
+              const stat = p?.registration_stat;
+              if (!stat) return 0;
+              return (stat.pending_count || 0) + (stat.confirmed_count || 0);
+            },
+            nowrap: true,
+            center: true,
+          },
+          {
+            key: 'confirmed',
+            label: 'Confirmed',
+            value: (p) => p?.registration_stat?.confirmed_count ?? '',
+            sortValue: (p) => p?.registration_stat?.confirmed_count ?? 0,
+            nowrap: true,
+            center: true,
+          },
+          {
+            key: 'final',
+            label: 'Final',
+            value: (p) => p?.final ? 'Yes' : '',
+            icon: (p) => p?.final ? 'bi-check-lg text-success' : '',
+            sortValue: (p) => p?.final ? 1 : 0,
+            nowrap: true,
+            center: true,
+          },
+          {
+            key: 'ecopyright',
+            label: 'eCopyright',
+            value: (p) => {
+              if (!p?.track?.uid) return '';
+              const tracks = Alpine.store('conference').detail?.tracks || [];
+              const track = tracks.find(t => t.uid === p.track.uid);
+              if (!track?.ieee_ecopyright_required) return '—';
+              return p.has_ieee_ecopyright_consent ? 'Yes' : '';
+            },
+            icon: (p) => {
+              if (!p?.track?.uid) return '';
+              const tracks = Alpine.store('conference').detail?.tracks || [];
+              const track = tracks.find(t => t.uid === p.track.uid);
+              if (!track?.ieee_ecopyright_required) return '';
+              return p.has_ieee_ecopyright_consent ? 'bi-check-lg text-success' : '';
+            },
+            sortValue: (p) => {
+              if (!p?.track?.uid) return 2;
+              const tracks = Alpine.store('conference').detail?.tracks || [];
+              const track = tracks.find(t => t.uid === p.track.uid);
+              if (!track?.ieee_ecopyright_required) return 2;
+              return p.has_ieee_ecopyright_consent ? 1 : 0;
+            },
+            muted: (p) => {
+              if (!p?.track?.uid) return true;
+              const tracks = Alpine.store('conference').detail?.tracks || [];
+              const track = tracks.find(t => t.uid === p.track.uid);
+              return !track?.ieee_ecopyright_required;
+            },
+            nowrap: true,
+            center: true,
+          },
         ],
 
         baseColumnKeys: ['checkbox', 'code', 'title', 'state', 'announced'],
 
-        // TODO: Add a "Readiness" optional column group for post-decision tracking.
-        // Columns: registered (has linked registration), paid (registration has payment),
-        // final (final version uploaded), eCopyright (eCopyright completed).
-        // Most useful when filtered to accepted/announced papers.
-        optionalColumns: [
-          {key: 'track', label: 'Track', columnKeys: ['track']},
-          {key: 'created', label: 'Created', columnKeys: ['created']},
-          {key: 'review-stats', label: 'Review Stats', columnKeys: ['reviewers', 'submitted']},
-          {key: 'score', label: 'Score', columnKeys: ['score']},
-          {key: 'letter', label: 'Letter', columnKeys: ['letter']},
-        ],
+        get optionalColumns() {
+          const columns = [
+            {key: 'track', label: 'Track', columnKeys: ['track']},
+            {key: 'created', label: 'Created', columnKeys: ['created']},
+            {key: 'review-stats', label: 'Review Stats', columnKeys: ['reviewers', 'submitted']},
+            {key: 'score', label: 'Score', columnKeys: ['score']},
+            {key: 'letter', label: 'Letter', columnKeys: ['letter']},
+          ];
+          if (this.$store.permissions.isConferenceAdmin) {
+            columns.push({
+              key: 'readiness',
+              label: 'Readiness',
+              columnKeys: ['registered', 'confirmed', 'final', 'ecopyright']
+            });
+          }
+          return columns;
+        },
 
         get visibleColumnKeys() {
           const keys = [...this.baseColumnKeys];

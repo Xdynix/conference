@@ -535,6 +535,10 @@ class TestListPapers:
                         "submitted_count": 0,
                         "cancelled_count": 0,
                     },
+                    "registration_stat": {
+                        "pending_count": 0,
+                        "confirmed_count": 0,
+                    },
                     "recommendation_summary": {},
                     "labels": {},
                     "has_ieee_ecopyright_consent": False,
