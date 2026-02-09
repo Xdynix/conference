@@ -216,7 +216,10 @@ class TestDownloadFinal:
         ("extension", "expected_content_type"),
         [
             (".zip", "application/zip"),
-            (".txt", "text/plain"),
+            (
+                ".docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ),
             (".unknownext", "application/octet-stream"),
         ],
     )
@@ -322,7 +325,7 @@ class TestDownloadFinalViewable:
         ("extension", "expected_content_type"),
         [
             (".pdf", "application/pdf"),
-            (".html", "text/html"),
+            (".doc", "application/msword"),
             (".unknownext", "application/octet-stream"),
         ],
     )
