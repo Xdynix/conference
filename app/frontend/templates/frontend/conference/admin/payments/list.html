@@ -131,7 +131,7 @@
               <input
                 type="text"
                 class="form-control border-0 rounded-0 ps-5"
-                placeholder="Search reference..."
+                placeholder="Search reference or paper..."
                 x-model="urlState.search"
               >
             </div>
@@ -302,6 +302,20 @@
             nowrap: true,
           },
           {
+            key: 'papers',
+            label: 'Papers',
+            value: (p) => {
+              if (!p) return '';
+              const codes = [...new Set(
+                p.items.map(i => i.registration.paper).filter(Boolean)
+              )];
+              return codes.join(', ');
+            },
+            mono: true,
+            flex: true,
+            truncate: true,
+          },
+          {
             key: 'items',
             label: 'Items',
             value: (p) => p ? p.items.length : '',
@@ -375,13 +389,14 @@
         get filteredPayments() {
           let payments = this.allPayments;
 
-          // Text search (reference + registration reference codes)
+          // Text search (reference, registration reference codes, paper codes)
           const search = this.urlState.search.toLowerCase().trim();
           if (search) {
             payments = payments.filter(p =>
               p.reference.toLowerCase().includes(search) ||
               p.items.some(item =>
-                item.registration.reference_code.toLowerCase().includes(search)
+                item.registration.reference_code.toLowerCase().includes(search) ||
+                (item.registration.paper && item.registration.paper.toLowerCase().includes(search))
               )
             );
           }
@@ -452,6 +467,7 @@
           if (col.width) {
             styles.push(`width: ${col.width}`, `min-width: ${col.width}`, `max-width: ${col.width}`);
           }
+          if (col.flex) styles.push('width: 100%');
           if (col.sticky) {
             const left = col.stickyLeft || '0';
             styles.push('position: sticky', `left: ${left}`, 'z-index: 1');
@@ -464,6 +480,7 @@
           const classes = [];
           if (col.nowrap) classes.push('text-nowrap');
           if (col.mono) classes.push('font-monospace');
+          if (col.truncate) classes.push('text-truncate');
           if (col.center) classes.push('text-center');
           if (col.right) classes.push('text-end');
           if (col.sticky) classes.push('bg-body');
@@ -475,6 +492,7 @@
           if (col.width) {
             styles.push(`width: ${col.width}`, `min-width: ${col.width}`, `max-width: ${col.width}`);
           }
+          if (col.truncate) styles.push('max-width: 0');
           if (col.sticky) {
             const left = col.stickyLeft || '0';
             styles.push('position: sticky', `left: ${left}`);
