@@ -35,11 +35,13 @@ class PaymentItemRegistrationResponse(ProfileSchema):
 
 
 class PaymentItemResponse(PaymentItemSchema):
+    formatted_amount: str
     registration: PaymentItemRegistrationResponse
 
 
 class PaymentResponse(PaymentSchema):
     uid: ULID
+    formatted_amount: str
     create_time: AwareDatetime
     update_time: AwareDatetime
     conference: ConferenceName

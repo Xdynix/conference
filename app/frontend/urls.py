@@ -138,6 +138,21 @@ urlpatterns = [
         name="admin-registration-detail",
     ),
     path(
+        "<slug:conference_name>/admin/payments/",
+        protected_view(template_name="frontend/conference/admin/payments/list.html"),
+        name="admin-payment-list",
+    ),
+    path(
+        "<slug:conference_name>/admin/payments/new/",
+        protected_view(template_name="frontend/conference/admin/payments/new.html"),
+        name="admin-payment-new",
+    ),
+    path(
+        "<slug:conference_name>/admin/payments/<ulid:payment_uid>/",
+        protected_view(template_name="frontend/conference/admin/payments/detail.html"),
+        name="admin-payment-detail",
+    ),
+    path(
         "<slug:conference_name>/admin/settings/",
         protected_view(template_name="frontend/conference/admin/settings.html"),
         name="admin-settings",

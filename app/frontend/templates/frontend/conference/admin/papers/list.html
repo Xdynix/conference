@@ -837,6 +837,7 @@
           if (col.nowrap) classes.push('text-nowrap');
           if (col.sortValue) classes.push('user-select-none');
           if (col.center) classes.push('text-center');
+          if (col.right) classes.push('text-end');
           if (col.sticky) classes.push('bg-body');
           return classes.join(' ');
         },
@@ -861,6 +862,7 @@
           if (col.mono) classes.push('font-monospace');
           if (col.truncate) classes.push('text-truncate');
           if (col.center) classes.push('text-center');
+          if (col.right) classes.push('text-end');
           if (col.sticky) {
             classes.push(paper && this.isSelected(paper) ? 'paper-row-selected' : 'bg-body');
           }

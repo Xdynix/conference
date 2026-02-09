@@ -1,0 +1,17 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Admin: Payment | {% endblock %}
+
+{% block content %}
+  <div
+    x-init="
+      $store.sidebar.setActive('admin-payments');
+      $store.breadcrumb.set([
+        {label: 'Payments', url: '{% url 'frontend:admin-payment-list' conference_name=params.conference_name %}'},
+        {label: 'Payment'}
+      ]);
+    "
+  >
+    <p class="text-muted">Coming soon.</p>
+  </div>
+{% endblock %}

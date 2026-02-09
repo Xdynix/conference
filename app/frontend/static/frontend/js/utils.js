@@ -460,6 +460,22 @@
     return {class: cls, label: enumLabel(stateEnum, state) || state};
   }
 
+  /**
+   * Returns badge class and label for a payment type.
+   *
+   * @param {string} type - The payment type value.
+   * @returns {{class: string, label: string}} Badge class and label.
+   */
+  function paymentTypeBadge(type) {
+    const typeEnum = APP.enums.PaymentType;
+    const classes = {
+      [typeEnum.PAYMENT.value]: "text-bg-success",
+      [typeEnum.REFUND.value]: "text-bg-warning",
+    };
+    const cls = classes[type] || "text-bg-secondary";
+    return {class: cls, label: enumLabel(typeEnum, type) || type};
+  }
+
   // ---------------------------------------------------------------------------
   // Exports
   // ---------------------------------------------------------------------------
@@ -475,6 +491,7 @@
   window.paperStateBadge = paperStateBadge;
   window.paperStateBadgeAdmin = paperStateBadgeAdmin;
   window.regionName = regionName;
+  window.paymentTypeBadge = paymentTypeBadge;
   window.registrationStateBadge = registrationStateBadge;
   window.reviewStateBadge = reviewStateBadge;
   window.safeRedirectUrl = safeRedirectUrl;

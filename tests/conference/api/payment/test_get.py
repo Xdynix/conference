@@ -60,6 +60,7 @@ class TestGetPayment:
             "conference": conference.name,
             "amount": "150.00",
             "currency": PaymentCurrency.USD,
+            "formatted_amount": "150.00 USD",
             "type": PaymentType.PAYMENT,
             "method": PaymentMethod.WIRE_TRANSFER,
             "reference": "TXN-001",
@@ -67,6 +68,7 @@ class TestGetPayment:
             "items": [
                 {
                     "amount": "150.00",
+                    "formatted_amount": "150.00 USD",
                     "description": "Registration fee",
                     "registration": {
                         "uid": str(registration.uid),

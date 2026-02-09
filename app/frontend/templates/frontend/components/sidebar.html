@@ -108,12 +108,11 @@
               Registrations
             </a>
           </li>
-          {# TODO: Add href when Payments page is implemented #}
           <li class="nav-item" x-show="$store.permissions.isConferenceAdmin" x-cloak>
             <a
               class="nav-link d-flex align-items-center gap-2"
               :class="{'active': $store.sidebar.active === 'admin-payments'}"
-              href="#"
+              href="{% url 'frontend:admin-payment-list' conference_name=params.conference_name %}"
             >
               <i class="bi-credit-card"></i>
               Payments

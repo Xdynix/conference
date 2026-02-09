@@ -221,6 +221,11 @@
           "conference_name",
           "ulid",
         ),
+        adminPaymentDetail: urlTemplate(
+          "{% url 'frontend:admin-payment-detail' conference_name='__CONFERENCE_NAME__' payment_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
         adminReviewDetail: urlTemplate(
           "{% url 'frontend:admin-review-detail' conference_name='__CONFERENCE_NAME__' paper_code='__PAPER_CODE__' review_uid='00000000000000000000000001' %}",
           "conference_name",
