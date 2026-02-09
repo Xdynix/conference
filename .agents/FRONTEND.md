@@ -455,6 +455,37 @@ APP.enums.ConferenceRole._collections.admins.includes(user.role)
 -> Implementation: `app/frontend/templatetags/frontend_tags.py` (`_enum_to_dict`,
 `enums_json`), `app/frontend/static/frontend/js/utils.js` (`enumLabel`)
 
+### Role-Based Permissions
+
+The `permissions` Alpine store (computed from the user's session and conference profile)
+provides boolean flags for UI gating:
+
+| Flag                | Meaning                                       |
+|---------------------|-----------------------------------------------|
+| `isChairRole`       | Superuser, global admin, or conference chair. |
+| `isConferenceAdmin` | Above, plus conference secretary.             |
+| `hasAdminRole`      | Above, plus track chair or secretary.         |
+| `canReview`         | Above, plus conference or track reviewer.     |
+
+Use these in templates to control visibility of admin pages, review sections, and other
+role-gated UI:
+
+```html
+<template x-if="$store.permissions.hasAdminRole">
+  <a href="...">Admin Settings</a>
+</template>
+```
+
+For finer-grained checks (e.g., specific track roles or role assignment UI), access the
+profile directly:
+
+```javascript
+const roles = $store.conference.profile?.conference_roles;
+const trackRoles = $store.conference.profile?.track_roles;
+```
+
+-> Implementation: `app/frontend/static/frontend/js/stores.js` (permissions effect).
+
 ## Utilities Reference
 
 Common utilities in `app/frontend/static/frontend/js/utils.js`:

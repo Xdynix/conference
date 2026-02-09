@@ -159,6 +159,96 @@ these results into appropriate HTTP responses with status codes.
 - **View Responsibilities**: Parse HTTP requests, call services, catch service
   exceptions, and translate results to `HttpError` responses.
 
+## Authorization
+
+The application uses layered authorization with roles at three scopes.
+
+### Role Hierarchy
+
+**Superuser** (`User.is_superuser`): Bypasses all permission checks unconditionally.
+
+**Global roles** (`GlobalRole` in `app/core/models.py`): Platform-wide, not scoped to
+any conference.
+
+- **ADMIN** — Platform operator. Full read/write access across all conferences.
+- **READ_ALL** — Auditor/observer. Cross-conference read access without write
+  privileges.
+
+Both are treated as "globally privileged" and receive full conference scope.
+
+**Conference roles** (`ConferenceRole` in `app/conference/models/role.py`): Scoped to
+one conference via `ConferenceRoleAssignment`.
+
+- **CHAIR** — The authority. Full administrative access, including the ability to
+  delegate admin power (assign any role, including Chair/Secretary).
+- **SECRETARY** — Operational admin. Same access as Chair for day-to-day operations, but
+  cannot escalate privileges (can only assign Reviewer/Member).
+- **REVIEWER** — Subject-matter expert. Participates in the review process but has no
+  administrative access.
+- **MEMBER** — Basic participant. Grants visibility into member-only resources. No admin
+  or review privileges.
+
+**Track roles** (`TrackRole` in `app/conference/models/role.py`): Same four roles as
+conference level, but scoped to a single track via `TrackRoleAssignment`. Track admins
+get scope over their tracks only, not the full conference.
+
+Both role enums provide grouping helpers: `admins()` returns [CHAIR, SECRETARY];
+`reviewers()` returns [CHAIR, SECRETARY, REVIEWER].
+
+### Two-Layer Enforcement
+
+**Layer 1 — API gate**: The `auth=` parameter on each endpoint controls entry using
+composable `SessionAuth` instances from `app/core/auth.py`:
+
+- `is_authenticated` — any active, logged-in user. Use when further scoping happens at
+  layer 2 (e.g., "list my papers").
+- `has_any_roles(GlobalRole.ADMIN)` — global admins only (superusers always pass).
+- `has_any_roles(GlobalRole.ADMIN, GlobalRole.READ_ALL)` — admins or read-all users.
+- Combine with `&` (all required) or `|` (any sufficient) for composed guards.
+
+**Layer 2 — data scoping**: Services use `ConferenceAccessService.context()` to build a
+`ConferenceAccessContext` and filter querysets by the user's effective scope.
+
+-> Implementation: `app/core/auth.py`, `app/conference/services/access.py`.
+
+### ConferenceAccessContext Pattern
+
+`ConferenceAccessService.context()` resolves a user's effective privileges for a
+conference into a frozen dataclass with these key fields:
+
+- `has_full_conference_scope` — `True` when the user is globally privileged (superuser
+  or global admin/read-all) or a conference admin (CHAIR or SECRETARY). Grants access to
+  all tracks.
+- `administered_track_ids` — tracks where the user is a track CHAIR or SECRETARY. Only
+  populated when `has_full_conference_scope` is `False`.
+
+Services use this to scope querysets:
+
+```python
+ctx = await ConferenceAccessService.context(conference=conference, user=user)
+if ctx.has_full_conference_scope:
+    return papers
+if not ctx.administered_track_ids:
+    return papers.none()
+return papers.filter(track_id__in=ctx.administered_track_ids)
+```
+
+-> Usage: `app/conference/services/paper.py`, `app/conference/services/review.py`.
+
+### Role Assignment Permissions
+
+Who can assign which roles (enforced by `ConferenceService.validate_can_assign_roles`):
+
+| Assigner                 | Conference roles | Track roles                   |
+|--------------------------|------------------|-------------------------------|
+| Superuser / Global Admin | Any              | Any                           |
+| Conference Chair         | Any              | Any                           |
+| Conference Secretary     | REVIEWER, MEMBER | REVIEWER, MEMBER              |
+| Track Chair              | None             | Any (own tracks)              |
+| Track Secretary          | None             | REVIEWER, MEMBER (own tracks) |
+
+-> Implementation: `app/conference/services/conference.py`.
+
 ## Schema Design
 
 - Resolver methods (`resolve_{field_name}`) belong only in response or request schemas,
