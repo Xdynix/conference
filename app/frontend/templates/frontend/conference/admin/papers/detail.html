@@ -117,7 +117,7 @@
                           <button
                             type="button"
                             class="btn btn-success"
-                            @click="submitPaper()"
+                            @click="if (confirm('Submit this paper for review? This cannot be undone.')) submitPaper()"
                             :disabled="submitting"
                           >
                             <span x-show="submitting" class="spinner-border spinner-border-sm me-1"></span>
