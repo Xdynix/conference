@@ -57,6 +57,25 @@
               <i class="bi-plus-lg"></i>
               New Paper
             </a>
+            <template x-if="$store.conference.detail?.ieee_ecopyright_config && $store.permissions.isChairRole">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2"
+                :disabled="actionRunning"
+                @click="refreshEcopyright()"
+              >
+                <span x-show="actionRunning" class="spinner-border spinner-border-sm"></span>
+                <i x-show="!actionRunning" class="bi-arrow-clockwise"></i>
+                Refresh eCopyright
+              </button>
+            </template>
+            <span
+              class="small"
+              :class="actionResult?.failed ? 'text-warning' : 'text-success'"
+              x-show="actionResult"
+              x-text="actionResult?.message"
+              x-transition.opacity
+            ></span>
           </div>
           <div class="d-flex align-items-center gap-2">
             <template x-if="hasActiveFilters">
@@ -440,6 +459,8 @@
         bulkAction: '',
         bulkRunning: false,
         bulkResult: null,
+        actionRunning: false,
+        actionResult: null,
 
         // ---------------------------------------------------------------------------
         // Bulk Actions
@@ -488,6 +509,36 @@
 
           // Reset bulk action selection
           this.bulkAction = '';
+        },
+
+        // ---------------------------------------------------------------------------
+        // Header Actions
+        // ---------------------------------------------------------------------------
+
+        showActionResult(message, failed = false) {
+          this.actionResult = {message, failed};
+          setTimeout(() => this.actionResult = null, 5000);
+        },
+
+        async refreshEcopyright() {
+          if (this.actionRunning) return;
+          this.actionRunning = true;
+          this.actionResult = null;
+
+          try {
+            const url = "{% url 'api-1.0.0:refresh-ieee-ecopyright-consents' params.conference_name %}";
+            const {data} = await api.post(url);
+            const unmatched = data.unmatched_codes?.length || 0;
+            const message = unmatched > 0
+              ? `Synced. ${unmatched} unmatched code${unmatched > 1 ? 's' : ''}.`
+              : 'Synced.';
+            this.showActionResult(message);
+            await this.fetchPapers();
+          } catch (e) {
+            this.showActionResult(e?.data?.message || 'Failed to refresh eCopyright consents.', true);
+          } finally {
+            this.actionRunning = false;
+          }
         },
 
         // ---------------------------------------------------------------------------
