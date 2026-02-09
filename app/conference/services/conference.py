@@ -325,6 +325,8 @@ class ConferenceService:
             ValueError: If tracks do not belong to the conference.
             InsufficientRolePermission: If user lacks permission to assign the roles.
         """
+        # Validation logic mirrored by frontend in
+        # frontend/conference/admin/members.html
         requested_conference_roles = set(conference_roles)
         requested_track_roles = {
             track: set(roles) for track, roles in (track_roles or {}).items()

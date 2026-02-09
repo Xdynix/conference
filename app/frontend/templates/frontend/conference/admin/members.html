@@ -1,0 +1,691 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Admin: Members | {% endblock %}
+
+{% block content %}
+  <div
+    x-data="adminMembers()"
+    x-init="
+      $store.sidebar.setActive('admin-members');
+      $store.breadcrumb.set([{label: 'Members'}]);
+    "
+    class="d-flex flex-column flex-grow-1 mx-auto w-100"
+    style="min-height: 0; max-width: 60rem;"
+  >
+    <h1 class="h3 mb-4">Members</h1>
+
+    <div x-show="$store.conference.loading || loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
+
+    <div x-show="!$store.conference.loading && !loading && error" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Failed to load members data.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && !error" x-cloak>
+      <ul class="nav nav-tabs" id="members-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link active"
+            id="role-assignments-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#role-assignments-pane"
+            type="button"
+            role="tab"
+            aria-controls="role-assignments-pane"
+            aria-selected="true"
+          >
+            Role Assignments
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button
+            class="nav-link"
+            id="invitations-tab"
+            data-bs-toggle="tab"
+            data-bs-target="#invitations-pane"
+            type="button"
+            role="tab"
+            aria-controls="invitations-pane"
+            aria-selected="false"
+          >
+            Invitations
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content pt-4">
+        <div
+          class="tab-pane fade show active"
+          id="role-assignments-pane"
+          role="tabpanel"
+          aria-labelledby="role-assignments-tab"
+          tabindex="0"
+          x-data="roleAssignmentsTab()"
+        >
+          <div
+            x-show="mutateError"
+            x-cloak
+            class="alert alert-danger alert-dismissible mb-3"
+            role="alert"
+          >
+            <span x-text="mutateError"></span>
+            <button
+              type="button"
+              class="btn-close"
+              aria-label="Close"
+              @click="mutateError = null"
+            ></button>
+          </div>
+
+          {# Search bar #}
+          <div class="mb-3">
+            <input
+              type="text"
+              class="form-control"
+              placeholder="Search members or type an email to add..."
+              x-model.debounce.300ms="search"
+              @input="closeEdit()"
+            >
+          </div>
+
+          {# Add-by-email hint #}
+          <div x-show="showAddPrompt && !lookupNotFound" x-cloak class="mb-3">
+            <div class="d-flex align-items-center gap-2 px-3 py-2 border rounded bg-body-tertiary small">
+              <i class="bi-info-circle text-primary"></i>
+              <span>
+                <span class="fw-medium" x-text="search.trim()"></span> has no roles assigned.
+              </span>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary ms-auto"
+                :disabled="lookingUp"
+                @click="lookupUser()"
+              >
+                <span x-show="lookingUp" class="spinner-border spinner-border-sm me-1"></span>
+                Look Up User
+              </button>
+            </div>
+          </div>
+          <div x-show="lookupNotFound" x-cloak class="mb-3">
+            <div class="d-flex align-items-center gap-2 px-3 py-2 border rounded bg-body-tertiary small text-muted">
+              <i class="bi-info-circle"></i>
+              <span x-text="lookupError"></span>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-primary ms-auto"
+                @click="switchToInvitations()"
+              >
+                Go to Invitations
+              </button>
+            </div>
+          </div>
+          <div
+            x-show="lookupError && !lookupNotFound"
+            x-cloak
+            class="text-danger small mb-3"
+            x-text="lookupError"
+          ></div>
+
+          {# Table header #}
+          <div class="d-flex align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted">
+            <span class="flex-grow-1">Name</span>
+            <span style="width: 14rem;">Email</span>
+            <span class="ms-2" style="width: 12rem;">Roles</span>
+            <span class="ms-3" style="width: 4rem;"></span>
+          </div>
+
+          {# Member rows #}
+          <template x-for="member in filteredMembers" :key="member.uid">
+            <div class="border-top">
+              {# Summary row #}
+              <div class="d-flex align-items-center px-3 py-2">
+                <div class="flex-grow-1 d-flex align-items-center min-w-0">
+                  <span
+                    class="fw-medium flex-shrink-0"
+                    x-text="formatProfileName(member.profile) || '(no name)'"
+                  ></span>
+                  <span x-show="isSelf(member)" class="badge text-bg-secondary ms-1 flex-shrink-0">you</span>
+                  <template x-if="member.profile?.affiliation">
+                    <span class="text-muted small ms-1 text-truncate" x-text="'· ' + member.profile.affiliation"></span>
+                  </template>
+                </div>
+                <span
+                  class="text-truncate small"
+                  style="width: 14rem;"
+                  x-text="member.email"
+                  :title="member.email"
+                ></span>
+                <span
+                  class="text-truncate text-muted small ms-2"
+                  style="width: 12rem;"
+                  x-text="rolesDisplay(member)"
+                  :title="rolesDisplay(member)"
+                ></span>
+                <div class="ms-3" style="width: 4rem;">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    :disabled="editing !== null && editing !== member.uid"
+                    @click="editing === member.uid ? closeEdit() : openEdit(member.uid)"
+                    x-text="editing === member.uid ? 'Close' : 'Edit'"
+                  ></button>
+                </div>
+              </div>
+
+              {# Expanded edit form #}
+              <div
+                x-show="editing === member.uid"
+                x-cloak
+                class="bg-body-tertiary px-3 py-3"
+              >
+                <div x-show="isSelf(member)" class="text-muted small mb-3">
+                  <i class="bi-info-circle me-1"></i>
+                  You cannot change your own roles.
+                </div>
+
+                {# Conference Roles #}
+                <div class="mb-3" x-show="canAssignAnyConferenceRole()" x-cloak>
+                  <label class="form-label small fw-semibold">
+                    Conference Roles
+                    <i
+                      class="bi-question-circle fw-normal ms-1"
+                      role="button"
+                      tabindex="0"
+                      x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: CONFERENCE_ROLES_HELP, container: 'body'})"
+                    ></i>
+                    <span x-show="mutating" class="spinner-border spinner-border-sm ms-1"></span>
+                  </label>
+                  <div class="d-flex flex-wrap gap-3">
+                    <template x-for="role in conferenceRoleOptions" :key="role.value">
+                      <div class="form-check">
+                        <input
+                          type="checkbox"
+                          class="form-check-input"
+                          :id="'conf-role-' + member.uid + '-' + role.value"
+                          :checked="hasConferenceRole(member, role.value)"
+                          :disabled="mutating || isSelf(member) || !canAssignConferenceRole(role.value)"
+                          @change="toggleConferenceRole(member, role.value, $event.target.checked)"
+                        >
+                        <label
+                          class="form-check-label"
+                          :for="'conf-role-' + member.uid + '-' + role.value"
+                          x-text="role.label"
+                        ></label>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                {# Track Roles #}
+                <hr class="my-2" x-show="canAssignAnyConferenceRole()" x-cloak>
+                <template x-for="track in $store.conference.detail?.tracks || []" :key="track.uid">
+                  <div class="mb-3" x-show="canAssignAnyTrackRole(track.uid)" x-cloak>
+                    <label class="form-label small fw-semibold">
+                      <span x-text="track.display_name"></span>
+                      <i
+                        class="bi-question-circle fw-normal ms-1"
+                        role="button"
+                        tabindex="0"
+                        x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: TRACK_ROLES_HELP, container: 'body'})"
+                      ></i>
+                    </label>
+                    <div class="d-flex flex-wrap gap-3">
+                      <template x-for="role in trackRoleOptions" :key="role.value">
+                        <div class="form-check">
+                          <input
+                            type="checkbox"
+                            class="form-check-input"
+                            :id="'track-role-' + member.uid + '-' + track.uid + '-' + role.value"
+                            :checked="hasTrackRole(member, track.uid, role.value)"
+                            :disabled="mutating || isSelf(member) || !canAssignTrackRole(track.uid, role.value)"
+                            @change="toggleTrackRole(member, track.uid, role.value, $event.target.checked)"
+                          >
+                          <label
+                            class="form-check-label"
+                            :for="'track-role-' + member.uid + '-' + track.uid + '-' + role.value"
+                            x-text="role.label"
+                          ></label>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+
+          {# No match message #}
+          <div
+            x-show="search.trim() && filteredMembers.length === 0 && editing !== 'new'"
+            x-cloak
+            class="text-muted text-center py-4 border-top"
+          >
+            No members match your search.
+          </div>
+
+          {# Empty state (no members at all) #}
+          <div
+            x-show="!search.trim() && members.length === 0"
+            x-cloak
+            class="text-muted text-center py-4 border-top"
+          >
+            No role assignments yet.
+          </div>
+
+
+          {# New member form (after lookup) #}
+          <div
+            x-show="editing === 'new' && newMember"
+            x-cloak
+            class="border-top"
+          >
+            <div class="d-flex align-items-center px-3 py-2">
+              <div class="flex-grow-1 text-truncate">
+                <span
+                  class="fw-medium"
+                  x-text="formatProfileName(newMember?.profile) || '(no name)'"
+                ></span>
+                <template x-if="newMember?.profile?.affiliation">
+                  <span class="text-muted small ms-1" x-text="'· ' + newMember.profile.affiliation"></span>
+                </template>
+              </div>
+              <span
+                class="text-truncate small"
+                style="width: 14rem;"
+                x-text="newMember?.email"
+              ></span>
+              <span class="text-muted small ms-2" style="width: 12rem;">(new)</span>
+              <div class="ms-3" style="width: 4rem;">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  @click="closeEdit()"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            <div class="bg-body-tertiary px-3 py-3">
+              {# Conference Roles #}
+              <div class="mb-3" x-show="canAssignAnyConferenceRole()" x-cloak>
+                <label class="form-label small fw-semibold">
+                  Conference Roles
+                  <i
+                    class="bi-question-circle fw-normal ms-1"
+                    role="button"
+                    tabindex="0"
+                    x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: CONFERENCE_ROLES_HELP, container: 'body'})"
+                  ></i>
+                  <span x-show="mutating" class="spinner-border spinner-border-sm ms-1"></span>
+                </label>
+                <div class="d-flex flex-wrap gap-3">
+                  <template x-for="role in conferenceRoleOptions" :key="role.value">
+                    <div class="form-check">
+                      <input
+                        type="checkbox"
+                        class="form-check-input"
+                        :id="'conf-role-new-' + role.value"
+                        :checked="hasConferenceRole(newMember, role.value)"
+                        :disabled="mutating || !canAssignConferenceRole(role.value)"
+                        @change="toggleConferenceRole(newMember, role.value, $event.target.checked)"
+                      >
+                      <label
+                        class="form-check-label"
+                        :for="'conf-role-new-' + role.value"
+                        x-text="role.label"
+                      ></label>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              {# Track Roles #}
+              <hr class="my-2" x-show="canAssignAnyConferenceRole()" x-cloak>
+              <template x-for="track in $store.conference.detail?.tracks || []" :key="track.uid">
+                <div class="mb-3" x-show="canAssignAnyTrackRole(track.uid)" x-cloak>
+                  <label class="form-label small fw-semibold">
+                    <span x-text="track.display_name"></span>
+                    <i
+                      class="bi-question-circle fw-normal ms-1"
+                      role="button"
+                      tabindex="0"
+                      x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: TRACK_ROLES_HELP, container: 'body'})"
+                    ></i>
+                  </label>
+                  <div class="d-flex flex-wrap gap-3">
+                    <template x-for="role in trackRoleOptions" :key="role.value">
+                      <div class="form-check">
+                        <input
+                          type="checkbox"
+                          class="form-check-input"
+                          :id="'track-role-new-' + track.uid + '-' + role.value"
+                          :checked="hasTrackRole(newMember, track.uid, role.value)"
+                          :disabled="mutating || !canAssignTrackRole(track.uid, role.value)"
+                          @change="toggleTrackRole(newMember, track.uid, role.value, $event.target.checked)"
+                        >
+                        <label
+                          class="form-check-label"
+                          :for="'track-role-new-' + track.uid + '-' + role.value"
+                          x-text="role.label"
+                        ></label>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div
+          class="tab-pane fade"
+          id="invitations-pane"
+          role="tabpanel"
+          aria-labelledby="invitations-tab"
+          tabindex="0"
+        >
+          <p class="text-muted">Invitations management coming soon.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Activate tab from hash immediately to avoid flash.
+    (function () {
+      const hash = window.location.hash.slice(1);
+      if (!hash) return;
+      const tabList = document.getElementById("members-tabs");
+      if (!tabList) return;
+      const tab = tabList.querySelector(`#${hash}-tab`);
+      if (!tab) return;
+      // Remove active state from default tab.
+      tabList.querySelector(".nav-link.active")?.classList.remove("active");
+      tab.classList.add("active");
+      tab.setAttribute("aria-selected", "true");
+      // Update panes: hide default, show target.
+      document.querySelector(".tab-pane.show.active")?.classList.remove("show", "active");
+      document.getElementById(`${hash}-pane`)?.classList.add("show", "active");
+    })();
+  </script>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    document.getElementById("members-tabs")?.addEventListener("shown.bs.tab", function (event) {
+      const id = event.target.id.replace("-tab", "");
+      history.replaceState(null, "", `#${id}`);
+    });
+
+    const CONFERENCE_ROLES_HELP = [
+      '<p class="mb-1"><strong>Chair</strong> - Full admin access. Can assign any role, manage settings, and make decisions.</p>',
+      '<p class="mb-1"><strong>Secretary</strong> - Day-to-day admin. Can assign Reviewer and Member only.</p>',
+      '<p class="mb-1"><strong>Reviewer</strong> - Reviews papers assigned by administrators.</p>',
+      '<p class="mb-0"><strong>Member</strong> - Access to member-only conferences.</p>',
+    ].join("");
+
+    const TRACK_ROLES_HELP = [
+      '<p class="mb-1"><strong>Chair</strong> - Manages papers and reviews. Can assign any track role.</p>',
+      '<p class="mb-1"><strong>Secretary</strong> - Manages papers and reviews. Can assign Reviewer and Member only.</p>',
+      '<p class="mb-1"><strong>Reviewer</strong> - Reviews papers assigned by track administrators.</p>',
+      '<p class="mb-0"><strong>Member</strong> - Access to member-only conferences and tracks.</p>',
+    ].join("");
+
+    function adminMembers() {
+      return {
+        members: [],
+        loading: true,
+        error: null,
+
+        async fetchMembers() {
+          const url = "{% url 'api-1.0.0:list-role-assignments' conference_name=params.conference_name %}";
+          const allItems = [];
+          let nextToken = null;
+
+          do {
+            const params = nextToken ? {page_token: nextToken} : {};
+            const {data} = await api.get(url, {params});
+            allItems.push(...data.items);
+            nextToken = data.next_page_token;
+          } while (nextToken);
+
+          this.members = allItems;
+        },
+
+        async init() {
+          try {
+            await this.fetchMembers();
+          } catch (e) {
+            this.error = e;
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+
+    function roleAssignmentsTab() {
+      return {
+        search: "",
+        editing: null,
+        newMember: null,
+        mutating: false,
+        mutateError: null,
+        lookingUp: false,
+        lookupError: null,
+        lookupNotFound: false,
+
+        get conferenceRoleOptions() {
+          return Object.values(APP.enums.ConferenceRole).filter(r => r.value && r.label);
+        },
+
+        get trackRoleOptions() {
+          return Object.values(APP.enums.TrackRole).filter(r => r.value && r.label);
+        },
+
+        {% comment %}
+        Role-assignment permission helpers.
+        Mirrors ConferenceService.validate_can_assign_roles in app/conference/services/conference.py.
+        Uses $store.permissions.isChairRole (defined in stores.js) for the superuser / global-admin / conference-chair check.
+        {% endcomment %}
+
+        get _isConferenceSecretary() {
+          const roles = this.$store.conference.profile?.conference_roles;
+          return roles?.includes(APP.enums.ConferenceRole.SECRETARY.value) ?? false;
+        },
+
+        canAssignConferenceRole(roleValue) {
+          if (this.$store.permissions.isChairRole) return true;
+          if (this._isConferenceSecretary) {
+            return roleValue === APP.enums.ConferenceRole.REVIEWER.value
+              || roleValue === APP.enums.ConferenceRole.MEMBER.value;
+          }
+          return false;
+        },
+
+        canAssignTrackRole(trackUid, roleValue) {
+          if (this.$store.permissions.isChairRole) return true;
+          const lowerRoles = [APP.enums.TrackRole.REVIEWER.value, APP.enums.TrackRole.MEMBER.value];
+          if (this._isConferenceSecretary) return lowerRoles.includes(roleValue);
+          const myTrackRoles = this.$store.conference.profile?.track_roles
+            ?.filter(tr => tr.track === trackUid) || [];
+          if (myTrackRoles.some(tr => tr.role === APP.enums.TrackRole.CHAIR.value)) return true;
+          if (myTrackRoles.some(tr => tr.role === APP.enums.TrackRole.SECRETARY.value)) {
+            return lowerRoles.includes(roleValue);
+          }
+          return false;
+        },
+
+        canAssignAnyConferenceRole() {
+          return this.conferenceRoleOptions.some(r => this.canAssignConferenceRole(r.value));
+        },
+
+        canAssignAnyTrackRole(trackUid) {
+          return this.trackRoleOptions.some(r => this.canAssignTrackRole(trackUid, r.value));
+        },
+
+        get filteredMembers() {
+          const q = this.search.trim().toLowerCase();
+          let list = [...this.members];
+
+          if (q) {
+            list = list.filter(m => {
+              const name = formatProfileName(m.profile).toLowerCase();
+              const email = (m.email || "").toLowerCase();
+              const affiliation = (m.profile?.affiliation || "").toLowerCase();
+              return name.includes(q) || email.includes(q) || affiliation.includes(q);
+            });
+          }
+
+          list.sort((a, b) => {
+            const nameA = formatProfileName(a.profile).toLowerCase();
+            const nameB = formatProfileName(b.profile).toLowerCase();
+            return nameA.localeCompare(nameB);
+          });
+
+          return list;
+        },
+
+        get showAddPrompt() {
+          const q = this.search.trim();
+          if (!q || this.editing === "new") return false;
+          if (!(q.includes("@") && q.includes("."))) return false;
+          const emailLower = q.toLowerCase();
+          return !this.members.some(m => (m.email || "").toLowerCase() === emailLower);
+        },
+
+        isSelf(member) {
+          return member?.uid === this.$store.session.user?.uid;
+        },
+
+        hasConferenceRole(member, roleValue) {
+          if (!member) return false;
+          return member.conference_roles.includes(roleValue);
+        },
+
+        hasTrackRole(member, trackUid, roleValue) {
+          if (!member) return false;
+          return member.track_roles.some(
+            tr => tr.track === trackUid && tr.role === roleValue
+          );
+        },
+
+        rolesDisplay(member) {
+          const parts = [];
+          for (const role of member.conference_roles) {
+            const label = enumLabel(APP.enums.ConferenceRole, role);
+            if (label) parts.push(label);
+          }
+          for (const tr of member.track_roles) {
+            const track = this.$store.conference.detail?.tracks?.find(t => t.uid === tr.track);
+            const trackLabel = track?.display_name || "Track";
+            const roleLabel = enumLabel(APP.enums.TrackRole, tr.role) || tr.role;
+            parts.push(`${trackLabel}: ${roleLabel}`);
+          }
+          return parts.join(", ") || "(none)";
+        },
+
+        openEdit(uid) {
+          this.editing = uid;
+          this.mutateError = null;
+        },
+
+        closeEdit() {
+          this.editing = null;
+          this.newMember = null;
+          this.lookupError = null;
+          this.lookupNotFound = false;
+        },
+
+        switchToInvitations() {
+          this.closeEdit();
+          this.search = "";
+          const tab = document.querySelector("#invitations-tab");
+          if (tab) bootstrap.Tab.getOrCreateInstance(tab).show();
+        },
+
+        async lookupUser() {
+          if (this.lookingUp) return;
+          this.lookupError = null;
+          this.lookupNotFound = false;
+          this.lookingUp = true;
+
+          try {
+            const email = this.search.trim();
+            const url = "{% url 'api-1.0.0:lookup-conference-user' conference_name=params.conference_name %}";
+            const {data} = await api.get(url, {params: {email}});
+            this.newMember = {
+              uid: data.uid,
+              email: data.email,
+              profile: data.profile || null,
+              conference_roles: [],
+              track_roles: [],
+            };
+            this.editing = "new";
+          } catch (e) {
+            const status = e.response?.status;
+            if (status === 404 || status === 422) {
+              this.lookupNotFound = true;
+              this.lookupError = "No registered user found with this email.";
+            } else {
+              this.lookupError = e.response?.data?.message || "Failed to look up user.";
+            }
+          } finally {
+            this.lookingUp = false;
+          }
+        },
+
+        async toggleConferenceRole(member, roleValue, checked) {
+          const action = checked ? "add_conference_role" : "remove_conference_role";
+          await this.updateMember(member, {action, role: roleValue});
+        },
+
+        async toggleTrackRole(member, trackUid, roleValue, checked) {
+          const action = checked ? "add_track_role" : "remove_track_role";
+          await this.updateMember(member, {action, role: roleValue, track: trackUid});
+        },
+
+        async updateMember(member, payload) {
+          if (this.mutating) return;
+          this.mutateError = null;
+          this.mutating = true;
+
+          try {
+            const url = APP.urls.roleAssignment.mutate(
+              APP.params.conference_name,
+              member.uid,
+            );
+            const {data} = await api.post(url, payload);
+
+            const updated = data;
+            const idx = this.members.findIndex(m => m.uid === updated.uid);
+            if (idx >= 0) {
+              this.members[idx] = updated;
+            } else {
+              this.members.push(updated);
+            }
+
+            if (this.editing === "new") {
+              this.newMember = null;
+              this.search = "";
+              this.editing = updated.uid;
+            }
+          } catch (e) {
+            const data = e.response?.data;
+            this.mutateError = data?.message || "Failed to update role assignment.";
+          } finally {
+            this.mutating = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}

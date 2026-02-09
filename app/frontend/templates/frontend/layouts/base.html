@@ -155,6 +155,13 @@
           "ulid",
         ),
       },
+      roleAssignment: {
+        mutate: urlTemplate(
+          "{% url 'api-1.0.0:mutate-role-assignment' conference_name='__CONFERENCE_NAME__' user_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+      },
       track: {
         update: urlTemplate(
           "{% url 'api-1.0.0:update-track' conference_name='__CONFERENCE_NAME__' track_uid='00000000000000000000000001' %}",

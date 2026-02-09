@@ -153,6 +153,11 @@ urlpatterns = [
         name="admin-payment-detail",
     ),
     path(
+        "<slug:conference_name>/admin/members/",
+        protected_view(template_name="frontend/conference/admin/members.html"),
+        name="admin-members",
+    ),
+    path(
         "<slug:conference_name>/admin/settings/",
         protected_view(template_name="frontend/conference/admin/settings.html"),
         name="admin-settings",

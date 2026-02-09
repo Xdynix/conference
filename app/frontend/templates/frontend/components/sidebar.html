@@ -118,12 +118,11 @@
               Payments
             </a>
           </li>
-          {# TODO: Add href when Members page is implemented #}
           <li class="nav-item">
             <a
               class="nav-link d-flex align-items-center gap-2"
               :class="{'active': $store.sidebar.active === 'admin-members'}"
-              href="#"
+              href="{% url 'frontend:admin-members' conference_name=params.conference_name %}"
             >
               <i class="bi-person-badge"></i>
               Members
