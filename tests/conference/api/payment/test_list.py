@@ -220,6 +220,67 @@ class TestListPayments:
         uids = {item["uid"] for item in response.json()["items"]}
         assert uids == {str(payment_a.uid), str(payment_b.uid)}
 
+    def test_filter_by_registration(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+        user: User,
+        attendance_type: AttendanceType,
+    ) -> None:
+        reg1 = Registration.objects.create(
+            conference=conference,
+            user=user,
+            attendance_type=attendance_type,
+            given_name="Alice",
+        )
+        reg2 = Registration.objects.create(
+            conference=conference,
+            user=user,
+            attendance_type=attendance_type,
+            given_name="Bob",
+        )
+        shared = create_payment(
+            conference,
+            amount=Decimal("200.00"),
+            reference="SHARED",
+        )
+        PaymentItem.objects.create(
+            payment=shared,
+            registration=reg1,
+            amount=Decimal("100.00"),
+        )
+        PaymentItem.objects.create(
+            payment=shared,
+            registration=reg2,
+            amount=Decimal("100.00"),
+        )
+
+        only_reg2 = create_payment(
+            conference,
+            amount=Decimal("50.00"),
+            reference="REG2",
+        )
+        PaymentItem.objects.create(
+            payment=only_reg2,
+            registration=reg2,
+            amount=Decimal("50.00"),
+        )
+
+        api_client.force_login(global_admin)
+
+        response = api_client.get(
+            self.path(conference.name),
+            {"registration": str(reg1.uid)},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        items = response.json()["items"]
+        assert len(items) == 1
+        assert items[0]["uid"] == str(shared.uid)
+        # Full payment items are returned, not just the filtered registration's items.
+        assert len(items[0]["items"]) == 2
+
     def test_excludes_soft_deleted_payments(
         self,
         api_client: Client,

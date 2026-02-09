@@ -74,10 +74,7 @@
               </template>
 
               {# Receipt #}
-              <div
-                class="mb-3"
-                x-show="registration?.state !== APP.enums.RegistrationState.CANCELLED.value"
-              >
+              <div class="mb-3" x-show="registration?.state !== APP.enums.RegistrationState.CANCELLED.value">
                 <label class="form-label text-muted mb-1">Receipt</label>
                 <div class="d-flex flex-column gap-1">
                   <button
@@ -94,6 +91,42 @@
                   </template>
                 </div>
               </div>
+
+              {# Payments #}
+              <template x-if="payments.length > 0">
+                <div class="mb-3">
+                  <label class="form-label text-muted mb-1">Payments</label>
+                  <template x-for="payment in payments" :key="payment.uid">
+                    <div class="d-flex justify-content-between align-items-start mb-1">
+                      <div>
+                        <a
+                          :href="APP.urls.pages.adminPaymentDetail(APP.params.conference_name, payment.uid)"
+                          class="small"
+                          x-text="payment.formatted_amount"
+                        ></a>
+                        <span
+                          class="badge ms-1"
+                          :class="paymentTypeBadge(payment.type).class"
+                          x-text="paymentTypeBadge(payment.type).label"
+                        ></span>
+                      </div>
+                      <div class="text-end">
+                        <template
+                          x-for="item in payment.items.filter(i => i.registration.uid === registration.uid)"
+                          :key="item._key"
+                        >
+                          <div class="text-muted small">
+                            <template x-if="item.description">
+                              <span x-text="item.description + ' - '"></span>
+                            </template>
+                            <span x-text="item.formatted_amount"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </template>
 
               {# Created by #}
               <div class="mb-3">
@@ -147,6 +180,7 @@
 
         registration: null,
         paperDetail: null,
+        payments: [],
         attendanceTypes: [],
         form: {
           state: '',
@@ -221,6 +255,7 @@
             if (this.registration.paper) {
               this.fetchPaperDetail(this.registration.paper.code);
             }
+            this.fetchPayments(this.registration.uid);
           } catch (e) {
             this.error = e;
           } finally {
@@ -242,6 +277,19 @@
             this.paperDetail = data;
           } catch {
             // Fail silently; paper info is supplementary.
+          }
+        },
+
+        async fetchPayments(registrationUid) {
+          try {
+            const url = "{% url 'api-1.0.0:list-payments' params.conference_name %}";
+            const {data} = await api.get(url, {params: {registration: registrationUid}});
+            this.payments = data.items.map(p => ({
+              ...p,
+              items: p.items.map(i => ({...i, _key: crypto.randomUUID()})),
+            }));
+          } catch {
+            // Fail silently; payment info is supplementary.
           }
         },
 

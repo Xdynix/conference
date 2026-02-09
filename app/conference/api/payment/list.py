@@ -1,5 +1,8 @@
+from typing import Annotated
+
 from django.db.models import QuerySet
 from django.shortcuts import aget_object_or_404
+from ninja import FilterLookup, FilterSchema, Query
 from ninja.pagination import paginate
 from ulid import ULID
 
@@ -11,6 +14,10 @@ from app.core.types import AuthedHttpRequest
 from app.ninja.pagination import cursor_pagination
 
 from .core import PaymentResponse, router, with_payment_prefetch
+
+
+class ListPaymentsFilters(FilterSchema):
+    registration: Annotated[ULID | None, FilterLookup("item__registration__uid")] = None
 
 
 @router.get(
@@ -26,6 +33,7 @@ from .core import PaymentResponse, router, with_payment_prefetch
 async def list_payments(
     request: AuthedHttpRequest,  # noqa: ARG001
     conference_name: str,
+    filters: Query[ListPaymentsFilters],
 ) -> QuerySet[Payment]:
     """Returns all payments for this conference."""
     conference = await aget_object_or_404(
@@ -34,5 +42,6 @@ async def list_payments(
     )
 
     payments = conference.payments.active()
+    payments = filters.filter(payments).distinct()
 
     return with_payment_prefetch(payments)
