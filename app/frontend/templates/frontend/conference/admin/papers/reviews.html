@@ -147,7 +147,18 @@
           </template>
         </section>
 
-        {# TODO: Add external review import section (modal or inline form) #}
+        {# Import External Review #}
+        <template x-if="canImportReview">
+          <div class="text-end mb-4">
+            <button
+              type="button"
+              class="btn btn-outline-primary btn-sm"
+              @click="openImportReview(async () => { try { await refreshData(); } catch { window.location.reload(); } })"
+            >
+              Import External Review
+            </button>
+          </div>
+        </template>
 
         {# Assign Reviewer #}
         <section class="d-flex flex-column flex-grow-1 border-top pt-4" style="min-height: 300px;">
@@ -245,6 +256,8 @@
         </section>
       </div>
     </div>
+
+    {% include "frontend/components/review/import-review-modal.html" %}
   </div>
 {% endblock %}
 
@@ -253,6 +266,7 @@
   <script>
     function adminPaperReviews() {
       return {
+        ...importReviewModal(),
         paper: null,
         reviews: [],
         candidates: [],
@@ -319,6 +333,12 @@
             return 'Cannot assign reviewers after decision announcement.';
           }
           return null;
+        },
+
+        get canImportReview() {
+          if (!this.paper) return false;
+          if (!this.$store.permissions.isConferenceAdmin) return false;
+          return this.paper.state !== APP.enums.PaperState.DRAFT.value;
         },
 
         get canCancelReview() {

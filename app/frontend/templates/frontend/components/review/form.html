@@ -2,7 +2,7 @@
 Review form component - displays review scores, recommendation, and comments.
 
 Required context from parent:
-  - mode: 'edit' or 'view'
+  - mode: 'edit', 'import', or 'view'
   - form: form object with score/text fields (edit mode)
   - review: review object for display values (view mode)
   - errors: validation errors object
@@ -16,7 +16,7 @@ Parent should spread reviewForm() to get required constants and helpers:
   }
 {% endcomment %}
 
-<template x-if="mode === 'edit'">
+<template x-if="mode === 'edit' || mode === 'import'">
   <div>
     <div class="mb-4">
       <h6 class="mb-3">Scores</h6>
@@ -38,7 +38,7 @@ Parent should spread reviewForm() to get required constants and helpers:
             <tr>
               <td>
                 <span x-text="score.label"></span>
-                <span class="text-danger">*</span>
+                <span class="text-danger" x-show="mode === 'edit'">*</span>
               </td>
               <template x-for="i in 5" :key="i">
                 <td class="text-center">
@@ -48,7 +48,7 @@ Parent should spread reviewForm() to get required constants and helpers:
                     :name="score.key"
                     :value="i"
                     x-model.number="form[score.key]"
-                    required
+                    :required="mode === 'edit'"
                   >
                 </td>
               </template>
@@ -62,7 +62,7 @@ Parent should spread reviewForm() to get required constants and helpers:
     <div class="mb-4">
       <h6 class="mb-3">
         Recommendation
-        <span class="text-danger">*</span>
+        <span class="text-danger" x-show="mode === 'edit'">*</span>
       </h6>
       <div class="table-responsive">
         <table class="table table-sm align-middle mb-0">
@@ -86,7 +86,7 @@ Parent should spread reviewForm() to get required constants and helpers:
                   name="recommendation"
                   :value="i"
                   x-model.number="form.recommendation"
-                  required
+                  :required="mode === 'edit'"
                 >
               </td>
             </template>
@@ -101,7 +101,7 @@ Parent should spread reviewForm() to get required constants and helpers:
     <div class="mb-4">
       <label for="contribution" class="form-label">
         Contribution Summary
-        <span class="text-danger">*</span>
+        <span class="text-danger" x-show="mode === 'edit'">*</span>
         <span class="small text-muted fw-normal">
           — Visible to authors anonymously
         </span>
@@ -112,7 +112,7 @@ Parent should spread reviewForm() to get required constants and helpers:
         :class="{ 'is-invalid': errors.contribution }"
         rows="4"
         x-model="form.contribution"
-        required
+        :required="mode === 'edit'"
       ></textarea>
       <div class="invalid-feedback" x-text="errors.contribution"></div>
     </div>
@@ -120,7 +120,7 @@ Parent should spread reviewForm() to get required constants and helpers:
     <div class="mb-4">
       <label for="decision-reason" class="form-label">
         Decision Reason
-        <span class="text-danger">*</span>
+        <span class="text-danger" x-show="mode === 'edit'">*</span>
         <span class="small text-muted fw-normal">
           — Visible to authors anonymously
         </span>
@@ -131,7 +131,7 @@ Parent should spread reviewForm() to get required constants and helpers:
         :class="{ 'is-invalid': errors.decision_reason }"
         rows="4"
         x-model="form.decision_reason"
-        required
+        :required="mode === 'edit'"
       ></textarea>
       <div class="invalid-feedback" x-text="errors.decision_reason"></div>
     </div>
