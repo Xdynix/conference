@@ -255,6 +255,10 @@
           "paper_code",
           "ulid",
         ),
+        adminSettings: urlTemplate(
+          "{% url 'frontend:admin-settings' conference_name='__CONFERENCE_NAME__' %}",
+          "conference_name",
+        ),
       },
     },
   };

@@ -4,7 +4,69 @@
 
 {% block content %}
   <div x-data="conferenceIndex()">
-    <h1 class="h4 mb-4 text-center">Select a conference</h1>
+    <div class="d-flex justify-content-center align-items-center mb-4">
+      <h1 class="h4 mb-0 text-center">Select a conference</h1>
+    </div>
+
+    <div x-data="createConference()">
+      <template x-if="isGlobalAdmin">
+        <div x-show="!open" x-cloak class="d-flex justify-content-end mb-3">
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            @click="start()"
+          >
+            <i class="bi-plus-lg me-1"></i> New
+          </button>
+        </div>
+      </template>
+
+      <div x-show="open" x-cloak class="card mb-3">
+        <div class="card-header">New Conference</div>
+        <div class="card-body">
+          <form @submit.prevent="submit()">
+            <div
+              x-show="errors._form"
+              x-cloak
+              class="alert alert-danger mb-3"
+              x-text="errors._form"
+            ></div>
+
+            <div class="mb-3">
+              <label for="new-conference-name" class="form-label">Name</label>
+              <input
+                type="text"
+                class="form-control"
+                id="new-conference-name"
+                x-model="form.name"
+                :class="{'is-invalid': errors.name}"
+                placeholder="e.g., MY-CONF-2026"
+                required
+              >
+              <div class="invalid-feedback" x-text="errors.name"></div>
+              <div class="form-text text-muted small">
+                Letters, numbers, underscores, or hyphens. Cannot be changed later.
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                @click="cancel()"
+                :disabled="saving"
+              >
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-primary" :disabled="saving">
+                <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
+                Create
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
 
     <template x-if="$store.conferences.loading">
       <div class="text-center py-4">
@@ -64,6 +126,59 @@
           const datePart = formatDateRange(conf.start_date, conf.end_date);
           const location = (conf.location || "").trim();
           return [datePart, location].filter(Boolean).join(", ");
+        },
+      };
+    }
+
+    function createConference() {
+      return {
+        open: false,
+        form: {name: ""},
+        errors: {},
+        saving: false,
+
+        get isGlobalAdmin() {
+          const user = this.$store.session.user;
+          return (
+            user?.is_superuser ||
+            user?.roles?.includes(APP.enums.GlobalRole.ADMIN.value)
+          );
+        },
+
+        start() {
+          this.open = true;
+          this.form = {name: ""};
+          this.errors = {};
+        },
+
+        cancel() {
+          this.open = false;
+        },
+
+        async submit() {
+          if (this.saving) return;
+          this.errors = {};
+          this.saving = true;
+
+          try {
+            const payload = {
+              name: this.form.name,
+              display_name: this.form.name,
+            };
+            const url = "{% url 'api-1.0.0:create-conference' %}";
+            await api.post(url, payload);
+            window.location.href = APP.urls.pages.adminSettings(this.form.name);
+          } catch (error) {
+            const data = error.response?.data;
+            if (error.response?.status === 409) {
+              this.errors.name = data?.message || "A conference with this name already exists.";
+            } else if (error.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred.";
+            }
+            this.saving = false;
+          }
         },
       };
     }
