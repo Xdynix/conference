@@ -133,63 +133,196 @@
             x-text="lookupError"
           ></div>
 
-          {# Table header #}
-          <div class="d-flex align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted">
-            <span class="flex-grow-1">Name</span>
-            <span style="width: 14rem;">Email</span>
-            <span class="ms-2" style="width: 12rem;">Roles</span>
-            <span class="ms-3" style="width: 4rem;"></span>
-          </div>
+          <div style="overflow-x: auto; --cols: minmax(10rem,1fr) 14rem 12rem 4rem;">
+            {# Table header #}
+            <div
+              class="d-grid align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted"
+              style="grid-template-columns: var(--cols); column-gap: 0.5rem;"
+            >
+              <span>Name</span>
+              <span>Email</span>
+              <span>Roles</span>
+              <span></span>
+            </div>
 
-          {# Member rows #}
-          <template x-for="member in filteredMembers" :key="member.uid">
-            <div class="border-top">
-              {# Summary row #}
-              <div class="d-flex align-items-center px-3 py-2">
-                <div class="flex-grow-1 d-flex align-items-center min-w-0">
+            {# Member rows #}
+            <template x-for="member in filteredMembers" :key="member.uid">
+              <div class="border-top">
+                {# Summary row #}
+                <div
+                  class="d-grid align-items-center px-3 py-2"
+                  style="grid-template-columns: var(--cols); column-gap: 0.5rem;"
+                >
+                  <div class="d-flex align-items-center min-w-0">
+                    <span
+                      class="fw-medium flex-shrink-0"
+                      x-text="formatProfileName(member.profile) || '(no name)'"
+                    ></span>
+                    <span x-show="isSelf(member)" class="badge text-bg-secondary ms-1 flex-shrink-0">you</span>
+                    <template x-if="member.profile?.affiliation">
+                      <span
+                        class="text-muted small ms-1 text-truncate"
+                        x-text="'· ' + member.profile.affiliation"
+                      ></span>
+                    </template>
+                  </div>
                   <span
-                    class="fw-medium flex-shrink-0"
-                    x-text="formatProfileName(member.profile) || '(no name)'"
+                    class="text-truncate small"
+                    x-text="member.email"
+                    :title="member.email"
                   ></span>
-                  <span x-show="isSelf(member)" class="badge text-bg-secondary ms-1 flex-shrink-0">you</span>
-                  <template x-if="member.profile?.affiliation">
-                    <span class="text-muted small ms-1 text-truncate" x-text="'· ' + member.profile.affiliation"></span>
+                  <span
+                    class="text-truncate text-muted small"
+                    x-text="rolesDisplay(member)"
+                    :title="rolesDisplay(member)"
+                  ></span>
+                  <div>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-primary"
+                      :disabled="editing !== null && editing !== member.uid"
+                      @click="editing === member.uid ? closeEdit() : openEdit(member.uid)"
+                      x-text="editing === member.uid ? 'Close' : 'Edit'"
+                    ></button>
+                  </div>
+                </div>
+
+                {# Expanded edit form #}
+                <div
+                  x-show="editing === member.uid"
+                  x-cloak
+                  class="bg-body-tertiary px-3 py-3"
+                >
+                  <div x-show="isSelf(member)" class="text-muted small mb-3">
+                    <i class="bi-info-circle me-1"></i>
+                    You cannot change your own roles.
+                  </div>
+
+                  {# Conference Roles #}
+                  <div class="mb-3" x-show="canAssignAnyConferenceRole()" x-cloak>
+                    <label class="form-label small fw-semibold">
+                      Conference Roles
+                      <i
+                        class="bi-question-circle fw-normal ms-1"
+                        role="button"
+                        tabindex="0"
+                        x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: CONFERENCE_ROLES_HELP, container: 'body'})"
+                      ></i>
+                      <span x-show="mutating" class="spinner-border spinner-border-sm ms-1"></span>
+                    </label>
+                    <div class="d-flex flex-wrap gap-3">
+                      <template x-for="role in conferenceRoleOptions" :key="role.value">
+                        <div class="form-check">
+                          <input
+                            type="checkbox"
+                            class="form-check-input"
+                            :id="'conf-role-' + member.uid + '-' + role.value"
+                            :checked="hasConferenceRole(member, role.value)"
+                            :disabled="mutating || isSelf(member) || !canAssignConferenceRole(role.value)"
+                            @change="toggleConferenceRole(member, role.value, $event.target.checked)"
+                          >
+                          <label
+                            class="form-check-label"
+                            :for="'conf-role-' + member.uid + '-' + role.value"
+                            x-text="role.label"
+                          ></label>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+
+                  {# Track Roles #}
+                  <hr class="my-2" x-show="canAssignAnyConferenceRole()" x-cloak>
+                  <template x-for="track in $store.conference.detail?.tracks || []" :key="track.uid">
+                    <div class="mb-3" x-show="canAssignAnyTrackRole(track.uid)" x-cloak>
+                      <label class="form-label small fw-semibold">
+                        <span x-text="track.display_name"></span>
+                        <i
+                          class="bi-question-circle fw-normal ms-1"
+                          role="button"
+                          tabindex="0"
+                          x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: TRACK_ROLES_HELP, container: 'body'})"
+                        ></i>
+                      </label>
+                      <div class="d-flex flex-wrap gap-3">
+                        <template x-for="role in trackRoleOptions" :key="role.value">
+                          <div class="form-check">
+                            <input
+                              type="checkbox"
+                              class="form-check-input"
+                              :id="'track-role-' + member.uid + '-' + track.uid + '-' + role.value"
+                              :checked="hasTrackRole(member, track.uid, role.value)"
+                              :disabled="mutating || isSelf(member) || !canAssignTrackRole(track.uid, role.value)"
+                              @change="toggleTrackRole(member, track.uid, role.value, $event.target.checked)"
+                            >
+                            <label
+                              class="form-check-label"
+                              :for="'track-role-' + member.uid + '-' + track.uid + '-' + role.value"
+                              x-text="role.label"
+                            ></label>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </template>
+
+            {# No match message #}
+            <div
+              x-show="search.trim() && filteredMembers.length === 0 && editing !== 'new'"
+              x-cloak
+              class="text-muted text-center py-4 border-top"
+            >
+              No members match your search.
+            </div>
+
+            {# Empty state (no members at all) #}
+            <div
+              x-show="!search.trim() && members.length === 0"
+              x-cloak
+              class="text-muted text-center py-4 border-top"
+            >
+              No role assignments yet.
+            </div>
+
+
+            {# New member form (after lookup) #}
+            <div
+              x-show="editing === 'new' && newMember"
+              x-cloak
+              class="border-top"
+            >
+              <div
+                class="d-grid align-items-center px-3 py-2"
+                style="grid-template-columns: var(--cols); column-gap: 0.5rem;"
+              >
+                <div class="text-truncate">
+                  <span
+                    class="fw-medium"
+                    x-text="formatProfileName(newMember?.profile) || '(no name)'"
+                  ></span>
+                  <template x-if="newMember?.profile?.affiliation">
+                    <span class="text-muted small ms-1" x-text="'· ' + newMember.profile.affiliation"></span>
                   </template>
                 </div>
                 <span
                   class="text-truncate small"
-                  style="width: 14rem;"
-                  x-text="member.email"
-                  :title="member.email"
+                  x-text="newMember?.email"
                 ></span>
-                <span
-                  class="text-truncate text-muted small ms-2"
-                  style="width: 12rem;"
-                  x-text="rolesDisplay(member)"
-                  :title="rolesDisplay(member)"
-                ></span>
-                <div class="ms-3" style="width: 4rem;">
+                <span class="text-muted small">(new)</span>
+                <div>
                   <button
                     type="button"
-                    class="btn btn-sm btn-outline-primary"
-                    :disabled="editing !== null && editing !== member.uid"
-                    @click="editing === member.uid ? closeEdit() : openEdit(member.uid)"
-                    x-text="editing === member.uid ? 'Close' : 'Edit'"
-                  ></button>
+                    class="btn btn-sm btn-outline-secondary"
+                    @click="closeEdit()"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
-
-              {# Expanded edit form #}
-              <div
-                x-show="editing === member.uid"
-                x-cloak
-                class="bg-body-tertiary px-3 py-3"
-              >
-                <div x-show="isSelf(member)" class="text-muted small mb-3">
-                  <i class="bi-info-circle me-1"></i>
-                  You cannot change your own roles.
-                </div>
-
+              <div class="bg-body-tertiary px-3 py-3">
                 {# Conference Roles #}
                 <div class="mb-3" x-show="canAssignAnyConferenceRole()" x-cloak>
                   <label class="form-label small fw-semibold">
@@ -208,14 +341,14 @@
                         <input
                           type="checkbox"
                           class="form-check-input"
-                          :id="'conf-role-' + member.uid + '-' + role.value"
-                          :checked="hasConferenceRole(member, role.value)"
-                          :disabled="mutating || isSelf(member) || !canAssignConferenceRole(role.value)"
-                          @change="toggleConferenceRole(member, role.value, $event.target.checked)"
+                          :id="'conf-role-new-' + role.value"
+                          :checked="hasConferenceRole(newMember, role.value)"
+                          :disabled="mutating || !canAssignConferenceRole(role.value)"
+                          @change="toggleConferenceRole(newMember, role.value, $event.target.checked)"
                         >
                         <label
                           class="form-check-label"
-                          :for="'conf-role-' + member.uid + '-' + role.value"
+                          :for="'conf-role-new-' + role.value"
                           x-text="role.label"
                         ></label>
                       </div>
@@ -242,14 +375,14 @@
                           <input
                             type="checkbox"
                             class="form-check-input"
-                            :id="'track-role-' + member.uid + '-' + track.uid + '-' + role.value"
-                            :checked="hasTrackRole(member, track.uid, role.value)"
-                            :disabled="mutating || isSelf(member) || !canAssignTrackRole(track.uid, role.value)"
-                            @change="toggleTrackRole(member, track.uid, role.value, $event.target.checked)"
+                            :id="'track-role-new-' + track.uid + '-' + role.value"
+                            :checked="hasTrackRole(newMember, track.uid, role.value)"
+                            :disabled="mutating || !canAssignTrackRole(track.uid, role.value)"
+                            @change="toggleTrackRole(newMember, track.uid, role.value, $event.target.checked)"
                           >
                           <label
                             class="form-check-label"
-                            :for="'track-role-' + member.uid + '-' + track.uid + '-' + role.value"
+                            :for="'track-role-new-' + track.uid + '-' + role.value"
                             x-text="role.label"
                           ></label>
                         </div>
@@ -258,128 +391,6 @@
                   </div>
                 </template>
               </div>
-            </div>
-          </template>
-
-          {# No match message #}
-          <div
-            x-show="search.trim() && filteredMembers.length === 0 && editing !== 'new'"
-            x-cloak
-            class="text-muted text-center py-4 border-top"
-          >
-            No members match your search.
-          </div>
-
-          {# Empty state (no members at all) #}
-          <div
-            x-show="!search.trim() && members.length === 0"
-            x-cloak
-            class="text-muted text-center py-4 border-top"
-          >
-            No role assignments yet.
-          </div>
-
-
-          {# New member form (after lookup) #}
-          <div
-            x-show="editing === 'new' && newMember"
-            x-cloak
-            class="border-top"
-          >
-            <div class="d-flex align-items-center px-3 py-2">
-              <div class="flex-grow-1 text-truncate">
-                <span
-                  class="fw-medium"
-                  x-text="formatProfileName(newMember?.profile) || '(no name)'"
-                ></span>
-                <template x-if="newMember?.profile?.affiliation">
-                  <span class="text-muted small ms-1" x-text="'· ' + newMember.profile.affiliation"></span>
-                </template>
-              </div>
-              <span
-                class="text-truncate small"
-                style="width: 14rem;"
-                x-text="newMember?.email"
-              ></span>
-              <span class="text-muted small ms-2" style="width: 12rem;">(new)</span>
-              <div class="ms-3" style="width: 4rem;">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-secondary"
-                  @click="closeEdit()"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-            <div class="bg-body-tertiary px-3 py-3">
-              {# Conference Roles #}
-              <div class="mb-3" x-show="canAssignAnyConferenceRole()" x-cloak>
-                <label class="form-label small fw-semibold">
-                  Conference Roles
-                  <i
-                    class="bi-question-circle fw-normal ms-1"
-                    role="button"
-                    tabindex="0"
-                    x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: CONFERENCE_ROLES_HELP, container: 'body'})"
-                  ></i>
-                  <span x-show="mutating" class="spinner-border spinner-border-sm ms-1"></span>
-                </label>
-                <div class="d-flex flex-wrap gap-3">
-                  <template x-for="role in conferenceRoleOptions" :key="role.value">
-                    <div class="form-check">
-                      <input
-                        type="checkbox"
-                        class="form-check-input"
-                        :id="'conf-role-new-' + role.value"
-                        :checked="hasConferenceRole(newMember, role.value)"
-                        :disabled="mutating || !canAssignConferenceRole(role.value)"
-                        @change="toggleConferenceRole(newMember, role.value, $event.target.checked)"
-                      >
-                      <label
-                        class="form-check-label"
-                        :for="'conf-role-new-' + role.value"
-                        x-text="role.label"
-                      ></label>
-                    </div>
-                  </template>
-                </div>
-              </div>
-
-              {# Track Roles #}
-              <hr class="my-2" x-show="canAssignAnyConferenceRole()" x-cloak>
-              <template x-for="track in $store.conference.detail?.tracks || []" :key="track.uid">
-                <div class="mb-3" x-show="canAssignAnyTrackRole(track.uid)" x-cloak>
-                  <label class="form-label small fw-semibold">
-                    <span x-text="track.display_name"></span>
-                    <i
-                      class="bi-question-circle fw-normal ms-1"
-                      role="button"
-                      tabindex="0"
-                      x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: TRACK_ROLES_HELP, container: 'body'})"
-                    ></i>
-                  </label>
-                  <div class="d-flex flex-wrap gap-3">
-                    <template x-for="role in trackRoleOptions" :key="role.value">
-                      <div class="form-check">
-                        <input
-                          type="checkbox"
-                          class="form-check-input"
-                          :id="'track-role-new-' + track.uid + '-' + role.value"
-                          :checked="hasTrackRole(newMember, track.uid, role.value)"
-                          :disabled="mutating || !canAssignTrackRole(track.uid, role.value)"
-                          @change="toggleTrackRole(newMember, track.uid, role.value, $event.target.checked)"
-                        >
-                        <label
-                          class="form-check-label"
-                          :for="'track-role-new-' + track.uid + '-' + role.value"
-                          x-text="role.label"
-                        ></label>
-                      </div>
-                    </template>
-                  </div>
-                </div>
-              </template>
             </div>
           </div>
         </div>
@@ -568,250 +579,259 @@
             </div>
           </div>
 
-          {# Column header row (grid overlay keeps height stable across both states) #}
-          <div class="d-flex align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted">
-            <div class="flex-shrink-0 me-2" style="width: 1.25rem;">
-              <input
-                type="checkbox"
-                class="form-check-input"
-                :checked="allVisibleSelected"
-                x-effect="$el.indeterminate = someVisibleSelected"
-                @click.stop="toggleSelectAll()"
-                @change.stop
-              >
-            </div>
-            <div class="d-grid flex-grow-1" style="grid-template: 1fr / 1fr;">
-              <div
-                style="grid-area: 1/1;"
-                class="d-flex align-items-center"
-                :class="selectedCount > 0 && 'invisible'"
-              >
-                <span class="flex-grow-1">Email</span>
-                <span style="width: 5rem;">State</span>
-                <span class="ms-2" style="width: 12rem;">Roles</span>
-                <span class="ms-2" style="width: 5rem;">Sent</span>
-                <span class="ms-2" style="width: 4rem;"></span>
+          <div style="overflow-x: auto; --inv-cols: minmax(10rem,1fr) 5rem 12rem 5rem 4rem;">
+            {# Column header row (grid overlay keeps height stable across both states) #}
+            <div class="d-flex align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted">
+              <div class="flex-shrink-0 me-2" style="width: 1.25rem;">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  :checked="allVisibleSelected"
+                  x-effect="$el.indeterminate = someVisibleSelected"
+                  @click.stop="toggleSelectAll()"
+                  @change.stop
+                >
               </div>
-              <div
-                style="grid-area: 1/1;"
-                class="d-flex align-items-center"
-                :class="selectedCount === 0 && 'invisible'"
-              >
-                <span class="fw-medium" x-text="selectedCount + ' selected'"></span>
-                <div class="ms-auto d-flex gap-2">
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-primary"
-                    x-show="$store.permissions.isChairRole || _isConferenceSecretary"
-                    @click="bulkSendEmails()"
-                  >
-                    Send Emails
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-danger"
-                    @click="bulkDelete()"
-                  >
-                    Delete
-                  </button>
+              <div class="d-grid flex-grow-1" style="grid-template: 1fr / 1fr;">
+                <div
+                  style="grid-area: 1/1; grid-template-columns: var(--inv-cols); column-gap: 0.5rem;"
+                  class="d-grid align-items-center"
+                  :class="selectedCount > 0 && 'invisible'"
+                >
+                  <span>Email</span>
+                  <span>State</span>
+                  <span>Roles</span>
+                  <span>Sent</span>
+                  <span></span>
                 </div>
-              </div>
-            </div>
-          </div>
-
-          {# Invitation rows #}
-          <template x-for="inv in filteredInvitations" :key="inv.uid">
-            <div class="border-top">
-              {# Summary row #}
-              <div
-                class="d-flex align-items-center px-3 py-2"
-                :style="isSelected(inv) && 'background-color: rgba(var(--bs-primary-rgb), .1)'"
-              >
-                <div class="flex-shrink-0 me-2" style="width: 1.25rem;">
-                  <input
-                    type="checkbox"
-                    class="form-check-input"
-                    :checked="isSelected(inv)"
-                    @click.stop="toggleSelection(inv)"
-                    @change.stop
-                  >
-                </div>
-                <div class="flex-grow-1 d-flex align-items-center min-w-0">
-                  <span class="fw-medium text-truncate" x-text="inv.invitee_email" :title="inv.invitee_email"></span>
-                  <template x-if="inv.given_name || inv.family_name">
-                    <span class="text-muted small ms-1 text-truncate" x-text="'· ' + formatProfileName(inv)"></span>
-                  </template>
-                </div>
-                <span style="width: 5rem;">
-                  <span
-                    class="badge"
-                    :class="stateBadgeClass(inv.state)"
-                    x-text="inv.state"
-                  ></span>
-                </span>
-                <span
-                  class="text-truncate text-muted small ms-2"
-                  style="width: 12rem;"
-                  x-text="rolesDisplay(inv)"
-                  :title="rolesDisplay(inv)"
-                ></span>
-                <span
-                  class="text-muted small ms-2"
-                  style="width: 5rem;"
-                  x-text="emailSendInfo(inv)"
-                ></span>
-                <div class="ms-2" style="width: 4rem;">
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-primary"
-                    :disabled="editing !== null && editing !== inv.uid"
-                    @click="editing === inv.uid ? cancelEdit() : startEdit(inv)"
-                    x-text="editing === inv.uid ? 'Close' : 'Edit'"
-                  ></button>
-                </div>
-              </div>
-
-              {# Expanded edit form #}
-              <div
-                x-show="editing === inv.uid"
-                x-cloak
-                class="bg-body-tertiary px-3 py-3"
-              >
-                <form @submit.prevent="saveEdit()">
-                  <div
-                    x-show="errors._form"
-                    x-cloak
-                    class="alert alert-danger mb-3"
-                    x-text="errors._form"
-                  ></div>
-
-                  <div
-                    x-show="inv.state === APP.enums.InvitationState.ACCEPTED.value"
-                    x-cloak
-                    class="text-muted small mb-3"
-                  >
-                    <i class="bi-info-circle me-1"></i>
-                    Accepted invitations cannot be modified.
+                <div
+                  style="grid-area: 1/1;"
+                  class="d-flex align-items-center"
+                  :class="selectedCount === 0 && 'invisible'"
+                >
+                  <span class="fw-medium" x-text="selectedCount + ' selected'"></span>
+                  <div class="ms-auto d-flex gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-primary"
+                      x-show="$store.permissions.isChairRole || _isConferenceSecretary"
+                      @click="bulkSendEmails()"
+                    >
+                      Send Emails
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      @click="bulkDelete()"
+                    >
+                      Delete
+                    </button>
                   </div>
+                </div>
+              </div>
+            </div>
 
-                  {# Conference Roles #}
-                  <div class="mb-3" x-show="canAssignAnyConferenceRole()" x-cloak>
-                    <label class="form-label small fw-semibold">
-                      Conference Roles
-                      <i
-                        class="bi-question-circle fw-normal ms-1"
-                        role="button"
-                        tabindex="0"
-                        x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: CONFERENCE_ROLES_HELP, container: 'body'})"
-                      ></i>
-                    </label>
-                    <div class="d-flex flex-wrap gap-3">
-                      <template x-for="role in conferenceRoleOptions" :key="role.value">
-                        <div class="form-check">
-                          <input
-                            type="checkbox"
-                            class="form-check-input"
-                            :id="'inv-conf-role-' + inv.uid + '-' + role.value"
-                            :checked="formHasConferenceRole(role.value)"
-                            :disabled="saving || inv.state === APP.enums.InvitationState.ACCEPTED.value || !canAssignConferenceRole(role.value)"
-                            @change="toggleFormConferenceRole(role.value, $event.target.checked)"
-                          >
-                          <label
-                            class="form-check-label"
-                            :for="'inv-conf-role-' + inv.uid + '-' + role.value"
-                            x-text="role.label"
-                          ></label>
-                        </div>
+            {# Invitation rows #}
+            <template x-for="inv in filteredInvitations" :key="inv.uid">
+              <div class="border-top">
+                {# Summary row #}
+                <div
+                  class="d-flex align-items-center px-3 py-2"
+                  :style="isSelected(inv) && 'background-color: rgba(var(--bs-primary-rgb), .1)'"
+                >
+                  <div class="flex-shrink-0 me-2" style="width: 1.25rem;">
+                    <input
+                      type="checkbox"
+                      class="form-check-input"
+                      :checked="isSelected(inv)"
+                      @click.stop="toggleSelection(inv)"
+                      @change.stop
+                    >
+                  </div>
+                  <div
+                    class="d-grid flex-grow-1 align-items-center"
+                    style="grid-template-columns: var(--inv-cols); column-gap: 0.5rem;"
+                  >
+                    <div class="d-flex align-items-center min-w-0">
+                      <span
+                        class="fw-medium text-truncate"
+                        x-text="inv.invitee_email"
+                        :title="inv.invitee_email"
+                      ></span>
+                      <template x-if="inv.given_name || inv.family_name">
+                        <span class="text-muted small ms-1 text-truncate" x-text="'· ' + formatProfileName(inv)"></span>
                       </template>
                     </div>
+                    <span>
+                      <span
+                        class="badge"
+                        :class="stateBadgeClass(inv.state)"
+                        x-text="inv.state"
+                      ></span>
+                    </span>
+                    <span
+                      class="text-truncate text-muted small"
+                      x-text="rolesDisplay(inv)"
+                      :title="rolesDisplay(inv)"
+                    ></span>
+                    <span
+                      class="text-muted small"
+                      x-text="emailSendInfo(inv)"
+                    ></span>
+                    <div>
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-primary"
+                        :disabled="editing !== null && editing !== inv.uid"
+                        @click="editing === inv.uid ? cancelEdit() : startEdit(inv)"
+                        x-text="editing === inv.uid ? 'Close' : 'Edit'"
+                      ></button>
+                    </div>
                   </div>
+                </div>
 
-                  {# Track Roles #}
-                  <hr class="my-2" x-show="canAssignAnyConferenceRole()" x-cloak>
-                  <template x-for="track in $store.conference.detail?.tracks || []" :key="track.uid">
-                    <div class="mb-3" x-show="canAssignAnyTrackRole(track.uid)" x-cloak>
+                {# Expanded edit form #}
+                <div
+                  x-show="editing === inv.uid"
+                  x-cloak
+                  class="bg-body-tertiary px-3 py-3"
+                >
+                  <form @submit.prevent="saveEdit()">
+                    <div
+                      x-show="errors._form"
+                      x-cloak
+                      class="alert alert-danger mb-3"
+                      x-text="errors._form"
+                    ></div>
+
+                    <div
+                      x-show="inv.state === APP.enums.InvitationState.ACCEPTED.value"
+                      x-cloak
+                      class="text-muted small mb-3"
+                    >
+                      <i class="bi-info-circle me-1"></i>
+                      Accepted invitations cannot be modified.
+                    </div>
+
+                    {# Conference Roles #}
+                    <div class="mb-3" x-show="canAssignAnyConferenceRole()" x-cloak>
                       <label class="form-label small fw-semibold">
-                        <span x-text="track.display_name"></span>
+                        Conference Roles
                         <i
                           class="bi-question-circle fw-normal ms-1"
                           role="button"
                           tabindex="0"
-                          x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: TRACK_ROLES_HELP, container: 'body'})"
+                          x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: CONFERENCE_ROLES_HELP, container: 'body'})"
                         ></i>
                       </label>
                       <div class="d-flex flex-wrap gap-3">
-                        <template x-for="role in trackRoleOptions" :key="role.value">
+                        <template x-for="role in conferenceRoleOptions" :key="role.value">
                           <div class="form-check">
                             <input
                               type="checkbox"
                               class="form-check-input"
-                              :id="'inv-track-role-' + inv.uid + '-' + track.uid + '-' + role.value"
-                              :checked="formHasTrackRole(track.uid, role.value)"
-                              :disabled="saving || inv.state === APP.enums.InvitationState.ACCEPTED.value || !canAssignTrackRole(track.uid, role.value)"
-                              @change="toggleFormTrackRole(track.uid, role.value, $event.target.checked)"
+                              :id="'inv-conf-role-' + inv.uid + '-' + role.value"
+                              :checked="formHasConferenceRole(role.value)"
+                              :disabled="saving || inv.state === APP.enums.InvitationState.ACCEPTED.value || !canAssignConferenceRole(role.value)"
+                              @change="toggleFormConferenceRole(role.value, $event.target.checked)"
                             >
                             <label
                               class="form-check-label"
-                              :for="'inv-track-role-' + inv.uid + '-' + track.uid + '-' + role.value"
+                              :for="'inv-conf-role-' + inv.uid + '-' + role.value"
                               x-text="role.label"
                             ></label>
                           </div>
                         </template>
                       </div>
                     </div>
-                  </template>
 
-                  <div class="d-flex align-items-center mt-3">
-                    <button
-                      type="button"
-                      class="btn btn-sm btn-outline-danger"
-                      :disabled="saving || deleting"
-                      @click="deleteInvitation(inv)"
-                    >
-                      <span x-show="deleting" class="spinner-border spinner-border-sm me-1"></span>
-                      Delete
-                    </button>
-                    <div class="d-flex justify-content-end gap-2 ms-auto">
+                    {# Track Roles #}
+                    <hr class="my-2" x-show="canAssignAnyConferenceRole()" x-cloak>
+                    <template x-for="track in $store.conference.detail?.tracks || []" :key="track.uid">
+                      <div class="mb-3" x-show="canAssignAnyTrackRole(track.uid)" x-cloak>
+                        <label class="form-label small fw-semibold">
+                          <span x-text="track.display_name"></span>
+                          <i
+                            class="bi-question-circle fw-normal ms-1"
+                            role="button"
+                            tabindex="0"
+                            x-init="new bootstrap.Popover($el, {trigger: 'focus', html: true, content: TRACK_ROLES_HELP, container: 'body'})"
+                          ></i>
+                        </label>
+                        <div class="d-flex flex-wrap gap-3">
+                          <template x-for="role in trackRoleOptions" :key="role.value">
+                            <div class="form-check">
+                              <input
+                                type="checkbox"
+                                class="form-check-input"
+                                :id="'inv-track-role-' + inv.uid + '-' + track.uid + '-' + role.value"
+                                :checked="formHasTrackRole(track.uid, role.value)"
+                                :disabled="saving || inv.state === APP.enums.InvitationState.ACCEPTED.value || !canAssignTrackRole(track.uid, role.value)"
+                                @change="toggleFormTrackRole(track.uid, role.value, $event.target.checked)"
+                              >
+                              <label
+                                class="form-check-label"
+                                :for="'inv-track-role-' + inv.uid + '-' + track.uid + '-' + role.value"
+                                x-text="role.label"
+                              ></label>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+
+                    <div class="d-flex align-items-center mt-3">
                       <button
                         type="button"
-                        class="btn btn-sm btn-outline-secondary"
-                        @click="cancelEdit()"
-                        :disabled="saving"
+                        class="btn btn-sm btn-outline-danger"
+                        :disabled="saving || deleting"
+                        @click="deleteInvitation(inv)"
                       >
-                        Cancel
+                        <span x-show="deleting" class="spinner-border spinner-border-sm me-1"></span>
+                        Delete
                       </button>
-                      <button
-                        x-show="inv.state !== APP.enums.InvitationState.ACCEPTED.value"
-                        type="submit"
-                        class="btn btn-sm btn-primary"
-                        :disabled="saving"
-                      >
-                        <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
-                        Save
-                      </button>
+                      <div class="d-flex justify-content-end gap-2 ms-auto">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-secondary"
+                          @click="cancelEdit()"
+                          :disabled="saving"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          x-show="inv.state !== APP.enums.InvitationState.ACCEPTED.value"
+                          type="submit"
+                          class="btn btn-sm btn-primary"
+                          :disabled="saving"
+                        >
+                          <span x-show="saving" class="spinner-border spinner-border-sm me-1"></span>
+                          Save
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </form>
+                  </form>
+                </div>
               </div>
+            </template>
+
+            {# No match message #}
+            <div
+              x-show="(search.trim() || stateFilter) && filteredInvitations.length === 0 && editing !== 'new'"
+              x-cloak
+              class="text-muted text-center py-4 border-top"
+            >
+              No invitations match your filters.
             </div>
-          </template>
 
-          {# No match message #}
-          <div
-            x-show="(search.trim() || stateFilter) && filteredInvitations.length === 0 && editing !== 'new'"
-            x-cloak
-            class="text-muted text-center py-4 border-top"
-          >
-            No invitations match your filters.
-          </div>
-
-          {# Empty state #}
-          <div
-            x-show="!search.trim() && !stateFilter && invitations.length === 0 && editing !== 'new'"
-            x-cloak
-            class="text-muted text-center py-4 border-top"
-          >
-            No invitations yet.
+            {# Empty state #}
+            <div
+              x-show="!search.trim() && !stateFilter && invitations.length === 0 && editing !== 'new'"
+              x-cloak
+              class="text-muted text-center py-4 border-top"
+            >
+              No invitations yet.
+            </div>
           </div>
 
           {% include "frontend/components/invitation/send-modal.html" %}

@@ -471,6 +471,7 @@ Use these in templates to control visibility of admin pages, review sections, an
 role-gated UI:
 
 ```html
+
 <template x-if="$store.permissions.hasAdminRole">
   <a href="...">Admin Settings</a>
 </template>
@@ -602,6 +603,72 @@ extract complex logic to `.js` files for linting.
   utilities (`d-block`, `d-grid`, etc.). Bootstrap uses `!important` which overrides
   Alpine's inline `display: none`. Use `x-if` with `<template>` instead, or put `x-show`
   on a parent/wrapper.
+
+## Table-Like List Layout
+
+Use CSS Grid for tabular data lists (e.g., members, tracks, code pools). The pattern
+uses a CSS custom property for column definitions so that headers and rows stay aligned.
+
+### Structure
+
+Wrap the table content (header + rows) in a scrollable container that defines the column
+variable:
+
+<!-- markdownlint-disable MD013 -->
+
+```html
+
+<div style="overflow-x: auto; --cols: minmax(10rem,1fr) 14rem 12rem 4rem;">
+  {# Header #}
+  <div
+    class="d-grid align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted"
+    style="grid-template-columns: var(--cols); column-gap: 0.5rem;"
+  >
+    <span>Name</span>
+    <span>Email</span>
+    ...
+  </div>
+
+  {# Rows #}
+  <template x-for="item in items" :key="item.uid">
+    <div class="border-top">
+      <div
+        class="d-grid align-items-center px-3 py-2"
+        style="grid-template-columns: var(--cols); column-gap: 0.5rem;"
+      >
+        <span class="fw-medium text-truncate" x-text="item.name"></span>
+        ...
+      </div>
+    </div>
+  </template>
+</div>
+```
+
+<!-- markdownlint-enable MD013 -->
+
+### Key Rules
+
+- **Use `minmax(Xrem, 1fr)` for the flexible column**, not `minmax(0, 1fr)`. A zero
+  minimum allows the column to collapse to nothing, which means `overflow-x: auto` never
+  triggers (the grid just squishes instead of overflowing). A reasonable minimum (e.g.,
+  `10rem`) ensures horizontal scroll kicks in when the container is too narrow.
+- **Role-conditional columns**: When columns differ by role, use Alpine's `:style` to
+  set
+  the custom property dynamically:
+
+<!-- markdownlint-disable MD013 -->
+
+  ```html
+  <div
+    style="overflow-x: auto;"
+    :style="{'--cols': isAdmin ? 'minmax(10rem,1fr) 8rem 10rem' : 'minmax(10rem,1fr) 8rem'}"
+  >
+  ```
+
+<!-- markdownlint-enable MD013 -->
+
+-> Example: `app/frontend/templates/frontend/conference/admin/members.html`,
+`app/frontend/templates/frontend/conference/admin/settings.html`
 
 ## Testing
 

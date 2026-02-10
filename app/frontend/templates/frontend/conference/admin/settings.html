@@ -409,28 +409,32 @@
               No code pools configured.
             </div>
 
-            <div x-show="codePools.length > 0">
+            <div
+              x-show="codePools.length > 0"
+              style="overflow-x: auto;"
+              :style="{'--cols': $store.permissions.isChairRole ? 'minmax(10rem,1fr) 8rem 10rem' : 'minmax(10rem,1fr) 8rem'}"
+            >
               {# Table header #}
-              <div class="d-flex align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted">
-                <span class="flex-grow-1">Name</span>
-                <span style="width: 8rem;">Prefix</span>
+              <div class="d-grid align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted" style="grid-template-columns: var(--cols); column-gap: 0.5rem;">
+                <span>Name</span>
+                <span>Prefix</span>
                 <template x-if="$store.permissions.isChairRole">
-                  <span class="ms-3" style="width: 10rem;"></span>
+                  <span></span>
                 </template>
               </div>
 
               <template x-for="pool in codePools" :key="pool.uid">
                 <div class="border-top">
                   {# Pool row #}
-                  <div class="d-flex align-items-center px-3 py-2">
+                  <div class="d-grid align-items-center px-3 py-2" style="grid-template-columns: var(--cols); column-gap: 0.5rem;">
                     <span
-                      class="fw-medium flex-grow-1 text-truncate"
+                      class="fw-medium text-truncate"
                       x-text="pool.name"
                       :title="pool.name"
                     ></span>
-                    <code class="small" style="width: 8rem;" x-text="pool.prefix"></code>
+                    <code class="small" x-text="pool.prefix"></code>
                     <template x-if="$store.permissions.isChairRole">
-                      <div class="d-flex align-items-center ms-3" style="width: 10rem;">
+                      <div class="d-flex align-items-center">
                         <button
                           type="button"
                           class="btn btn-sm btn-outline-primary me-1"
@@ -638,33 +642,36 @@
               No tracks configured.
             </div>
 
-            <div x-show="$store.conference.detail?.tracks?.length > 0">
+            <div
+              x-show="$store.conference.detail?.tracks?.length > 0"
+              style="overflow-x: auto;"
+              :style="{'--cols': $store.permissions.isChairRole ? 'minmax(10rem,1fr) 6.5rem 5rem 10rem 9.5rem' : 'minmax(10rem,1fr) 6.5rem 5rem 10rem'}"
+            >
               {# Table header #}
-              <div class="d-flex align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted">
-                <span class="flex-grow-1">Name</span>
-                <span class="text-center" style="width: 6.5rem;">Visibility</span>
-                <span class="text-center ms-2" style="width: 5rem;">Open</span>
-                <span class="ms-2" style="width: 10rem;">Code Pool</span>
+              <div class="d-grid align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted" style="grid-template-columns: var(--cols); column-gap: 0.5rem;">
+                <span>Name</span>
+                <span class="text-center">Visibility</span>
+                <span class="text-center">Open</span>
+                <span>Code Pool</span>
                 <template x-if="$store.permissions.isChairRole">
-                  <span class="ms-3" style="width: 9.5rem;"></span>
+                  <span></span>
                 </template>
               </div>
 
               <template x-for="(track, index) in $store.conference.detail?.tracks || []" :key="track.uid">
                 <div class="border-top">
                   {# Track summary row #}
-                  <div class="d-flex align-items-center px-3 py-2">
+                  <div class="d-grid align-items-center px-3 py-2" style="grid-template-columns: var(--cols); column-gap: 0.5rem;">
                     <span
-                      class="fw-medium flex-grow-1 text-truncate"
+                      class="fw-medium text-truncate"
                       x-text="track.display_name"
                       :title="track.display_name"
                     ></span>
                     <span
                       class="text-center small"
-                      style="width: 6.5rem;"
                       x-text="enumLabel(APP.enums.TrackVisibility, track.visibility)"
                     ></span>
-                    <span class="text-center ms-2" style="width: 5rem;">
+                    <span class="text-center">
                       <i
                         class="bi-check-lg"
                         :class="track.submissions_enabled ? 'text-success' : 'invisible'"
@@ -672,9 +679,8 @@
                     </span>
                     <template x-if="$store.permissions.isChairRole">
                       <select
-                        class="form-select form-select-sm ms-2"
+                        class="form-select form-select-sm"
                         :class="{'border-warning': track.submissions_enabled && !getTrackCodePool(track.uid)}"
-                        style="width: 10rem;"
                         :value="getTrackCodePool(track.uid)?.uid || ''"
                         @change="updateCodePoolAssignment(track.uid, $event.target.value || null)"
                         :disabled="editing || reordering || assigning || deleting"
@@ -687,13 +693,12 @@
                     </template>
                     <template x-if="!$store.permissions.isChairRole">
                       <span
-                        class="text-muted small ms-2"
-                        style="width: 10rem;"
+                        class="text-muted small"
                         x-text="getTrackCodePool(track.uid)?.name || '(none)'"
                       ></span>
                     </template>
                     <template x-if="$store.permissions.isChairRole">
-                      <div class="d-flex align-items-center ms-3">
+                      <div class="d-flex align-items-center">
                         <div class="btn-group btn-group-sm me-2">
                           <button
                             type="button"
@@ -991,40 +996,44 @@
               No attendance types defined.
             </div>
 
-            <div x-show="attendanceTypes.length > 0">
+            <div
+              x-show="attendanceTypes.length > 0"
+              style="overflow-x: auto;"
+              :style="{'--cols': $store.permissions.isChairRole ? 'minmax(10rem,1fr) 6rem 6rem 9.5rem' : 'minmax(10rem,1fr) 6rem 6rem'}"
+            >
               {# Table header #}
-              <div class="d-flex align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted">
-                <span class="flex-grow-1">Name</span>
-                <span class="text-center" style="width: 6rem;">Admin Only</span>
-                <span class="text-center ms-2" style="width: 6rem;">Paper Req.</span>
+              <div class="d-grid align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted" style="grid-template-columns: var(--cols); column-gap: 0.5rem;">
+                <span>Name</span>
+                <span class="text-center">Admin Only</span>
+                <span class="text-center">Paper Req.</span>
                 <template x-if="$store.permissions.isChairRole">
-                  <span class="ms-3" style="width: 9.5rem;"></span>
+                  <span></span>
                 </template>
               </div>
 
               <template x-for="(type, index) in attendanceTypes" :key="type.uid">
                 <div class="border-top">
                   {# Type row #}
-                  <div class="d-flex align-items-center px-3 py-2">
+                  <div class="d-grid align-items-center px-3 py-2" style="grid-template-columns: var(--cols); column-gap: 0.5rem;">
                     <span
-                      class="fw-medium flex-grow-1 text-truncate"
+                      class="fw-medium text-truncate"
                       x-text="type.display_name"
                       :title="type.display_name"
                     ></span>
-                    <span class="text-center" style="width: 6rem;">
+                    <span class="text-center">
                       <i
                         class="bi-check-lg"
                         :class="type.admin_only ? 'text-success' : 'invisible'"
                       ></i>
                     </span>
-                    <span class="text-center ms-2" style="width: 6rem;">
+                    <span class="text-center">
                       <i
                         class="bi-check-lg"
                         :class="type.paper_required ? 'text-success' : 'invisible'"
                       ></i>
                     </span>
                     <template x-if="$store.permissions.isChairRole">
-                      <div class="d-flex align-items-center ms-3">
+                      <div class="d-flex align-items-center">
                         <div class="btn-group btn-group-sm me-2">
                           <button
                             type="button"
