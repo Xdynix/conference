@@ -97,7 +97,7 @@
           tabindex="0"
           x-data="settingsGeneralTab()"
         >
-          <form @submit.prevent="save()" :class="{'mb-5 pb-4': isDirty}">
+          <form @submit.prevent="save()" class="mb-5 pb-4">
             <div
               x-show="errors._form"
               x-cloak
@@ -303,6 +303,46 @@
               </div>
             </div>
           </form>
+
+          {# Danger Zone #}
+          <template x-if="$store.session.user?.is_superuser || $store.session.user?.roles?.includes(APP.enums.GlobalRole.ADMIN.value)">
+            <div x-data="dangerZoneSection()" class="mt-5 pt-4 border-top">
+              <h6 class="text-danger fw-semibold mb-3">Danger Zone</h6>
+              <div
+                x-show="error"
+                x-cloak
+                class="alert alert-danger alert-dismissible mb-3"
+                role="alert"
+              >
+                <span x-text="error"></span>
+                <button
+                  type="button"
+                  class="btn-close"
+                  aria-label="Close"
+                  @click="error = null"
+                ></button>
+              </div>
+              <div class="card border-danger-subtle">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                  <div>
+                    <h6 class="card-title mb-1">Delete this conference</h6>
+                    <p class="card-text text-muted small mb-0">
+                      This will deactivate the conference and hide it from all users.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-outline-danger ms-3 flex-shrink-0"
+                    @click="deleteConference()"
+                    :disabled="deleting"
+                  >
+                    <span x-show="deleting" class="spinner-border spinner-border-sm me-1"></span>
+                    Delete Conference
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
 
         <div
@@ -1466,6 +1506,31 @@
             }
           } finally {
             this.saving = false;
+          }
+        },
+      };
+    }
+
+    function dangerZoneSection() {
+      return {
+        deleting: false,
+        error: null,
+
+        async deleteConference() {
+          if (this.deleting) return;
+          const name = this.$store.conference.detail?.display_name;
+          if (!confirm(`Delete conference "${name}"? This will deactivate it and hide it from all users.`)) return;
+
+          this.deleting = true;
+          this.error = null;
+          try {
+            const url = "{% url 'api-1.0.0:delete-conference' conference_name=params.conference_name %}";
+            await api.delete(url);
+            window.location.href = "{% url 'frontend:index' %}";
+          } catch (e) {
+            this.error = e.response?.data?.message || "Failed to delete conference.";
+          } finally {
+            this.deleting = false;
           }
         },
       };
