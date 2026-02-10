@@ -162,6 +162,18 @@
           "ulid",
         ),
       },
+      invitation: {
+        update: urlTemplate(
+          "{% url 'api-1.0.0:update-invitation' conference_name='__CONFERENCE_NAME__' invitation_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+        delete: urlTemplate(
+          "{% url 'api-1.0.0:delete-invitation' conference_name='__CONFERENCE_NAME__' invitation_uid='00000000000000000000000001' %}",
+          "conference_name",
+          "ulid",
+        ),
+      },
       track: {
         update: urlTemplate(
           "{% url 'api-1.0.0:update-track' conference_name='__CONFERENCE_NAME__' track_uid='00000000000000000000000001' %}",

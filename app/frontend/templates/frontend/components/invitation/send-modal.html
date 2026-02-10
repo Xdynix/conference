@@ -1,0 +1,353 @@
+{% comment %}
+Send Invitations Email Modal
+
+A reusable modal for sending invitation emails to one or more invitations.
+
+Usage:
+  1. Spread sendInvitationsModal() into the parent component's x-data
+  2. Include this template in your page
+  3. Call openSendModal(uids) to show the modal
+
+Example:
+  <div x-data="{...sendInvitationsModal(), ...otherData}">
+    <button @click="openSendModal([inv.uid])">Send Email</button>
+    {% include "frontend/components/invitation/send-modal.html" %}
+  </div>
+{% endcomment %}
+
+<div
+  class="modal fade"
+  id="send-invitations-modal"
+  tabindex="-1"
+  aria-hidden="true"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false"
+>
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Send Invitation Emails</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+          x-show="!sendModal.sending"
+        ></button>
+      </div>
+      <div class="modal-body">
+        {# Done state #}
+        <template x-if="sendModal.done">
+          <div class="text-center py-3">
+            <div class="text-success mb-3">
+              <i class="bi bi-check-circle fs-1"></i>
+            </div>
+            <p class="fw-medium mb-1" x-text="sendModal.resultSummary"></p>
+            <template x-if="sendModal.skippedCount > 0">
+              <p class="text-muted small mb-0">
+                <span x-text="sendModal.skippedCount"></span> skipped
+              </p>
+            </template>
+            <template x-if="sendModal.failedCount > 0">
+              <p class="text-danger small mb-0">
+                <span x-text="sendModal.failedCount"></span> failed
+              </p>
+            </template>
+          </div>
+        </template>
+
+        {# Form state #}
+        <template x-if="!sendModal.done">
+          <div>
+            {# Count indicator #}
+            <div class="mb-3">
+              <span class="badge bg-secondary" x-text="sendModal.countLabel"></span>
+            </div>
+
+            {# Form-level error alert #}
+            <div
+              x-show="sendModal.errors._form"
+              x-cloak
+              class="alert alert-danger mb-3"
+              x-text="sendModal.errors._form"
+            ></div>
+
+            {# Subject #}
+            <div class="mb-3">
+              <label class="form-label" for="send-inv-subject">
+                Subject <span class="text-danger">*</span>
+              </label>
+              <template x-if="!sendModal.previewMode">
+                <div>
+                  <input
+                    type="text"
+                    id="send-inv-subject"
+                    class="form-control"
+                    :class="{'is-invalid': sendModal.errors.subject}"
+                    x-model="sendModal.subject"
+                    :disabled="sendModal.sending"
+                    placeholder="Email subject (Jinja2 template)"
+                  >
+                  <div class="invalid-feedback" x-text="sendModal.errors.subject"></div>
+                </div>
+              </template>
+              <template x-if="sendModal.previewMode && sendModal.previewResult">
+                <div class="form-control bg-body-tertiary" x-text="sendModal.previewResult.subject"></div>
+              </template>
+            </div>
+
+            {# Body with Write/Preview toggle #}
+            <div class="mb-3">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <label class="form-label mb-0" for="send-inv-body">
+                  Body <span class="text-danger">*</span>
+                </label>
+                <div class="btn-group btn-group-sm" role="group">
+                  <button
+                    type="button"
+                    class="btn"
+                    :class="!sendModal.previewMode ? 'btn-primary' : 'btn-outline-secondary'"
+                    :disabled="sendModal.sending || sendModal.previewing"
+                    @click="sendModal.previewMode = false; sendModal.previewResult = null;"
+                  >
+                    Write
+                  </button>
+                  <button
+                    type="button"
+                    class="btn"
+                    :class="sendModal.previewMode ? 'btn-primary' : 'btn-outline-secondary'"
+                    :disabled="sendModal.sending || sendModal.previewing || !sendModal.body.trim()"
+                    @click="previewEmail()"
+                  >
+                    <span x-show="sendModal.previewing" class="spinner-border spinner-border-sm me-1"></span>
+                    Preview
+                  </button>
+                </div>
+              </div>
+
+              <template x-if="!sendModal.previewMode">
+                <div>
+                  <textarea
+                    id="send-inv-body"
+                    class="form-control font-monospace"
+                    :class="{'is-invalid': sendModal.errors.body}"
+                    rows="10"
+                    x-model="sendModal.body"
+                    :disabled="sendModal.sending"
+                    placeholder="Email body (Jinja2 template)"
+                  ></textarea>
+                  <div class="invalid-feedback" x-text="sendModal.errors.body"></div>
+                  <div class="form-text">
+                    Available variables:
+                    <code>site_name</code>,
+                    <code>conference_name</code>,
+                    <code>conference_display_name</code>,
+                    <code>given_name</code>,
+                    <code>family_name</code>,
+                    <code>affiliation</code>,
+                    <code>accept_url</code>,
+                    <code>reject_url</code>
+                  </div>
+                </div>
+              </template>
+              <template x-if="sendModal.previewMode && sendModal.previewResult">
+                <div
+                  class="form-control bg-body-tertiary"
+                  style="min-height: 10rem; white-space: pre-wrap; overflow-y: auto; max-height: 20rem;"
+                  x-text="sendModal.previewResult.body"
+                ></div>
+              </template>
+            </div>
+
+            {# Force-send checkboxes #}
+            <div class="d-flex flex-wrap gap-3 mb-3">
+              <div class="form-check">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  id="send-inv-force-rejected"
+                  x-model="sendModal.forceSendToRejected"
+                  :disabled="sendModal.sending"
+                >
+                <label class="form-check-label" for="send-inv-force-rejected">
+                  Include rejected invitations
+                </label>
+              </div>
+              <div class="form-check">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  id="send-inv-force-recent"
+                  x-model="sendModal.forceSendToRecent"
+                  :disabled="sendModal.sending"
+                >
+                <label class="form-check-label" for="send-inv-force-recent">
+                  Include recently emailed
+                </label>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+      <div class="modal-footer">
+        <template x-if="sendModal.done">
+          <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+            Done
+          </button>
+        </template>
+        <template x-if="!sendModal.done">
+          <div class="d-flex gap-2">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+              :disabled="sendModal.sending"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              @click="sendEmails()"
+              :disabled="sendModal.sending || !sendModal.subject.trim() || !sendModal.body.trim()"
+            >
+              <span x-show="sendModal.sending" class="spinner-border spinner-border-sm me-1"></span>
+              <span x-text="sendModal.sending ? 'Sending...' : 'Send'"></span>
+            </button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function sendInvitationsModal() {
+    return {
+      sendModal: {
+        invitationUids: [],
+        subject: "",
+        body: "",
+        sending: false,
+        previewing: false,
+        done: false,
+        errors: {},
+        previewResult: null,
+        previewMode: false,
+        forceSendToRejected: false,
+        forceSendToRecent: false,
+        results: [],
+      },
+
+      openSendModal(uids) {
+        this.sendModal = {
+          invitationUids: uids,
+          subject: "",
+          body: "",
+          sending: false,
+          previewing: false,
+          done: false,
+          errors: {},
+          previewResult: null,
+          previewMode: false,
+          forceSendToRejected: false,
+          forceSendToRecent: false,
+          results: [],
+        };
+        // Copy computed property to receiptModal for template access
+        Object.defineProperty(this.sendModal, "countLabel", {
+          get: () => {
+            const count = this.sendModal.invitationUids.length;
+            return count === 1 ? "1 invitation" : `${count} invitations`;
+          },
+        });
+        Object.defineProperty(this.sendModal, "sentCount", {
+          get: () => this.sendModal.results.filter(r => r.status === "sent").length,
+        });
+        Object.defineProperty(this.sendModal, "skippedCount", {
+          get: () => this.sendModal.results.filter(r => r.status === "skipped").length,
+        });
+        Object.defineProperty(this.sendModal, "failedCount", {
+          get: () => this.sendModal.results.filter(r => r.status === "failed" || r.status === "not_found").length,
+        });
+        Object.defineProperty(this.sendModal, "resultSummary", {
+          get: () => {
+            const sent = this.sendModal.sentCount;
+            const total = this.sendModal.results.length;
+            if (total === 1) {
+              return sent === 1 ? "Email sent successfully." : "Failed to send email.";
+            }
+            return `${sent} of ${total} emails sent.`;
+          },
+        });
+        new bootstrap.Modal(document.getElementById("send-invitations-modal")).show();
+      },
+
+      async previewEmail() {
+        if (this.sendModal.previewing) return;
+        this.sendModal.previewing = true;
+        this.sendModal.errors = {};
+
+        try {
+          const url = "{% url 'api-1.0.0:preview-invitation-email' conference_name=params.conference_name %}";
+          const {data} = await api.post(url, {
+            subject: this.sendModal.subject,
+            body: this.sendModal.body,
+          });
+          this.sendModal.previewResult = data;
+          this.sendModal.previewMode = true;
+        } catch (e) {
+          const data = e.response?.data;
+          if (e.response?.status === 422 && data?.details?.length) {
+            this.sendModal.errors = mapErrors(data.details);
+          } else {
+            this.sendModal.errors._form = data?.message || "Failed to preview email.";
+          }
+        } finally {
+          this.sendModal.previewing = false;
+        }
+      },
+
+      async sendEmails() {
+        if (this.sendModal.sending) return;
+        if (!this.sendModal.subject.trim() || !this.sendModal.body.trim()) return;
+
+        this.sendModal.sending = true;
+        this.sendModal.errors = {};
+
+        try {
+          const url = "{% url 'api-1.0.0:send-invitations' conference_name=params.conference_name %}";
+          const {data} = await api.post(url, {
+            subject: this.sendModal.subject,
+            body: this.sendModal.body,
+            invitations: this.sendModal.invitationUids,
+            force_send_to_rejected: this.sendModal.forceSendToRejected,
+            force_send_to_recent: this.sendModal.forceSendToRecent,
+          });
+          this.sendModal.results = data.results;
+          this.sendModal.done = true;
+
+          // Refresh invitations list to update send counts.
+          try {
+            await this.fetchInvitations();
+          } catch {
+            // Ignore refresh failure; the send itself succeeded.
+          }
+        } catch (e) {
+          const data = e.response?.data;
+          if (e.response?.status === 422 && data?.details?.length) {
+            this.sendModal.errors = mapErrors(data.details);
+          } else {
+            this.sendModal.errors._form = data?.message || "Failed to send emails.";
+          }
+        } finally {
+          this.sendModal.sending = false;
+        }
+      },
+
+      bulkSendEmails() {
+        this.openSendModal([...this.selectedUids]);
+      },
+    };
+  }
+</script>
