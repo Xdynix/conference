@@ -494,6 +494,49 @@
                   </div>
                 </div>
 
+                {# Profile fields #}
+                <div class="row mb-3">
+                  <div class="col-sm-6 mb-3 mb-sm-0">
+                    <label for="new-inv-given-name" class="form-label">Given name</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="new-inv-given-name"
+                      x-model="form.givenName"
+                      :class="{'is-invalid': errors.given_name}"
+                      :disabled="saving"
+                      autocomplete="off"
+                    >
+                    <div class="invalid-feedback" x-text="errors.given_name"></div>
+                  </div>
+                  <div class="col-sm-6">
+                    <label for="new-inv-family-name" class="form-label">Family name</label>
+                    <input
+                      type="text"
+                      class="form-control"
+                      id="new-inv-family-name"
+                      x-model="form.familyName"
+                      :class="{'is-invalid': errors.family_name}"
+                      :disabled="saving"
+                      autocomplete="off"
+                    >
+                    <div class="invalid-feedback" x-text="errors.family_name"></div>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label for="new-inv-affiliation" class="form-label">Affiliation</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="new-inv-affiliation"
+                    x-model="form.affiliation"
+                    :class="{'is-invalid': errors.affiliation}"
+                    :disabled="saving"
+                    autocomplete="off"
+                  >
+                  <div class="invalid-feedback" x-text="errors.affiliation"></div>
+                </div>
+
                 {# Conference Roles #}
                 <div class="mb-3" x-show="canAssignAnyConferenceRole()" x-cloak>
                   <label class="form-label small fw-semibold">
@@ -711,6 +754,49 @@
                     >
                       <i class="bi-info-circle me-1"></i>
                       Accepted invitations cannot be modified.
+                    </div>
+
+                    {# Profile fields #}
+                    <div class="row mb-3">
+                      <div class="col-sm-6 mb-3 mb-sm-0">
+                        <label :for="'inv-given-name-' + inv.uid" class="form-label">Given name</label>
+                        <input
+                          type="text"
+                          class="form-control"
+                          :id="'inv-given-name-' + inv.uid"
+                          x-model="form.givenName"
+                          :class="{'is-invalid': errors.given_name}"
+                          :disabled="saving || inv.state === APP.enums.InvitationState.ACCEPTED.value"
+                          autocomplete="off"
+                        >
+                        <div class="invalid-feedback" x-text="errors.given_name"></div>
+                      </div>
+                      <div class="col-sm-6">
+                        <label :for="'inv-family-name-' + inv.uid" class="form-label">Family name</label>
+                        <input
+                          type="text"
+                          class="form-control"
+                          :id="'inv-family-name-' + inv.uid"
+                          x-model="form.familyName"
+                          :class="{'is-invalid': errors.family_name}"
+                          :disabled="saving || inv.state === APP.enums.InvitationState.ACCEPTED.value"
+                          autocomplete="off"
+                        >
+                        <div class="invalid-feedback" x-text="errors.family_name"></div>
+                      </div>
+                    </div>
+                    <div class="mb-3">
+                      <label :for="'inv-affiliation-' + inv.uid" class="form-label">Affiliation</label>
+                      <input
+                        type="text"
+                        class="form-control"
+                        :id="'inv-affiliation-' + inv.uid"
+                        x-model="form.affiliation"
+                        :class="{'is-invalid': errors.affiliation}"
+                        :disabled="saving || inv.state === APP.enums.InvitationState.ACCEPTED.value"
+                        autocomplete="off"
+                      >
+                      <div class="invalid-feedback" x-text="errors.affiliation"></div>
                     </div>
 
                     {# Conference Roles #}
@@ -1157,6 +1243,9 @@
         editing: null,
         form: {
           inviteeEmail: "",
+          givenName: "",
+          familyName: "",
+          affiliation: "",
           conferenceRoles: [],
           trackRoles: [],
         },
@@ -1265,7 +1354,14 @@
 
         // Form lifecycle
         resetForm() {
-          this.form = {inviteeEmail: "", conferenceRoles: [], trackRoles: []};
+          this.form = {
+            inviteeEmail: "",
+            givenName: "",
+            familyName: "",
+            affiliation: "",
+            conferenceRoles: [],
+            trackRoles: []
+          };
           this.errors = {};
           this.lookupHint = null;
           this.lookupChecking = false;
@@ -1279,6 +1375,9 @@
         startEdit(inv) {
           this.form = {
             inviteeEmail: inv.invitee_email,
+            givenName: inv.given_name || "",
+            familyName: inv.family_name || "",
+            affiliation: inv.affiliation || "",
             conferenceRoles: [...inv.conference_roles],
             trackRoles: inv.track_roles.map(tr => ({track: tr.track, role: tr.role})),
           };
@@ -1372,6 +1471,9 @@
             const url = "{% url 'api-1.0.0:create-invitation' conference_name=params.conference_name %}";
             const {data} = await api.post(url, {
               invitee_email: this.form.inviteeEmail,
+              given_name: this.form.givenName,
+              family_name: this.form.familyName,
+              affiliation: this.form.affiliation,
               conference_roles: this.form.conferenceRoles,
               track_roles: this.form.trackRoles,
             });
@@ -1402,6 +1504,9 @@
           try {
             const url = APP.urls.invitation.update(APP.params.conference_name, this.editing);
             const {data} = await api.patch(url, {
+              given_name: this.form.givenName,
+              family_name: this.form.familyName,
+              affiliation: this.form.affiliation,
               conference_roles: this.form.conferenceRoles,
               track_roles: this.form.trackRoles,
             });
