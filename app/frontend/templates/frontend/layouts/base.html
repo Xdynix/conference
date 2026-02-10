@@ -215,6 +215,10 @@
           "{% url 'frontend:conference-home' conference_name='__CONFERENCE_NAME__' %}",
           "conference_name",
         ),
+        reviewPreferences: urlTemplate(
+          "{% url 'frontend:review-preferences' conference_name='__CONFERENCE_NAME__' %}",
+          "conference_name",
+        ),
         paperDetail: urlTemplate(
           "{% url 'frontend:paper-detail' conference_name='__CONFERENCE_NAME__' paper_code='__PAPER_CODE__' %}",
           "conference_name",

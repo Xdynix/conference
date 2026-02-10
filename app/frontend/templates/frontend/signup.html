@@ -318,7 +318,11 @@
             this.$store.session.update(data);
 
             if (this.invitation) {
-              window.location.href = "{% url 'frontend:index' %}";
+              if (this.invitation.grants_reviewer_role) {
+                window.location.href = APP.urls.pages.reviewPreferences(this.invitation.conference.name);
+              } else {
+                window.location.href = APP.urls.pages.conferenceHome(this.invitation.conference.name);
+              }
             } else {
               const next = new URLSearchParams(window.location.search).get("{% redirect_field_name %}");
               window.location.href = safeRedirectUrl(next, "{% url 'frontend:index' %}");

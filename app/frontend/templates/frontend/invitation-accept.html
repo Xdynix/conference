@@ -139,12 +139,7 @@
       </div>
 
       <div class="d-grid">
-        <a
-          :href="APP.urls.pages.conferenceHome(invitation?.conference?.name)"
-          class="btn btn-primary"
-        >
-          Go to Conference
-        </a>
+        <a :href="successUrl()" class="btn btn-primary" x-text="successButtonLabel"></a>
       </div>
     </div>
   </div>
@@ -199,6 +194,20 @@
 
         signUpUrl() {
           return `{% url 'frontend:signup' %}#${this.token}`;
+        },
+
+        successUrl() {
+          const name = this.invitation?.conference.name;
+          if (this.invitation?.grants_reviewer_role) {
+            return APP.urls.pages.reviewPreferences(name);
+          }
+          return APP.urls.pages.conferenceHome(name);
+        },
+
+        get successButtonLabel() {
+          return this.invitation?.grants_reviewer_role
+            ? "Set Review Preferences"
+            : "Go to Conference";
         },
 
         async accept() {

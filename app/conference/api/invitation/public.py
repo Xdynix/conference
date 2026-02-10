@@ -9,7 +9,7 @@ from ninja import Schema
 from ninja.errors import HttpError
 from ulid import ULID
 
-from app.conference.models import Invitation
+from app.conference.models import ConferenceRole, Invitation, TrackRole
 from app.conference.services import InvitationService
 from app.conference.types import (
     ConferenceDisplayName,
@@ -40,7 +40,16 @@ class InvitationSummary(InvitationUrlsMixin, UserConferenceProfile, Profile):
     invitee_email: EmailStr
     has_existing_account: bool
     conference: ConferenceSummary
+    grants_reviewer_role: bool
     verified_email_token: str | None = None
+
+    @staticmethod
+    def resolve_grants_reviewer_role(invitation: Invitation) -> bool:
+        conference_roles = {e.role for e in invitation.conference_role_entries.all()}
+        if conference_roles & set(ConferenceRole.reviewers()):
+            return True
+        track_roles = {e.role for e in invitation.active_track_role_entries}  # type: ignore[attr-defined]
+        return bool(track_roles & set(TrackRole.reviewers()))
 
     @staticmethod
     def resolve_interested_keywords(invitation: Invitation) -> list[str]:

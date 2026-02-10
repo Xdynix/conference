@@ -10,7 +10,15 @@ from faker import Faker
 from pytest_mock import MockerFixture
 from ulid import ULID
 
-from app.conference.models import Conference, Invitation
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    Invitation,
+    InvitationConferenceRoleEntry,
+    InvitationTrackRoleEntry,
+    Track,
+    TrackRole,
+)
 from app.conference.services import InvitationService
 from app.core.models import User
 from app.verikit.services import EmailVerificationService
@@ -57,6 +65,7 @@ class TestLookupInvitation:
                 "display_name": conference.display_name,
             },
             "has_existing_account": False,
+            "grants_reviewer_role": False,
             "verified_email_token": any_str,
             "token": token,
             "accept_url": (
@@ -139,6 +148,74 @@ class TestLookupInvitation:
         assert response.status_code == HTTPStatus.OK
 
         assert response.json()["has_existing_account"] is True
+
+    def test_grants_reviewer_role_true_for_conference_reviewer(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        invitation = Invitation.objects.create(
+            conference=conference,
+            invitee_email=faker.email(),
+        )
+        InvitationConferenceRoleEntry.objects.create(
+            invitation=invitation,
+            role=ConferenceRole.REVIEWER,
+        )
+        token = InvitationService.get_invitation_token(invitation)
+
+        response = api_client.post(self.path, data={"invitation_token": token})
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["grants_reviewer_role"] is True
+
+    def test_grants_reviewer_role_true_for_track_reviewer(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        invitation = Invitation.objects.create(
+            conference=conference,
+            invitee_email=faker.email(),
+        )
+        track = Track.objects.create(
+            conference=conference,
+            display_name=faker.word(),
+        )
+        InvitationTrackRoleEntry.objects.create(
+            invitation=invitation,
+            track=track,
+            role=TrackRole.REVIEWER,
+        )
+        token = InvitationService.get_invitation_token(invitation)
+
+        response = api_client.post(self.path, data={"invitation_token": token})
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["grants_reviewer_role"] is True
+
+    def test_grants_reviewer_role_false_for_member_only(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        invitation = Invitation.objects.create(
+            conference=conference,
+            invitee_email=faker.email(),
+        )
+        InvitationConferenceRoleEntry.objects.create(
+            invitation=invitation,
+            role=ConferenceRole.MEMBER,
+        )
+        token = InvitationService.get_invitation_token(invitation)
+
+        response = api_client.post(self.path, data={"invitation_token": token})
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["grants_reviewer_role"] is False
 
     def test_verified_email_token_is_valid(
         self,
