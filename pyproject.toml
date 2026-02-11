@@ -23,6 +23,7 @@ dependencies = [
     "python-ulid-django>=1.2.1",
     "python-ulid[pydantic]>=3.0.0",
     "pyyaml>=6.0.2",
+    "sentry-sdk>=2.52.0",
     "servestatic[brotli]>=3.1.0",
 ]
 
@@ -46,6 +47,7 @@ test = [
     "pytest-asyncio>=1.1.0",
     "pytest-cov>=6.2.1",
     "pytest-django>=4.11.1",
+    "pytest-env>=1.2.0",
     "pytest-mock>=3.14.1",
     "pytest-randomly>=3.16.0",
     "pytest-xdist>=3.8.0",
@@ -124,6 +126,7 @@ addopts = [
 ]
 asyncio_mode = "auto"
 DJANGO_SETTINGS_MODULE = "app.settings"
+env = ["SENTRY_DSN="]
 
 [tool.coverage.run]
 branch = true

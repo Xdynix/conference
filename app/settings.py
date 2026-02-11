@@ -237,10 +237,12 @@ DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="no-reply@localhost")
 LOGGING_CONFIG = None
 
 _log_dir = config("LOG_DIR", default="")
+_sentry_dsn = config("SENTRY_DSN", default="")
 
 configure_logging(
     log_dir=Path(_log_dir) if _log_dir else None,
     debug=DEBUG,
+    sentry_dsn=_sentry_dsn,
 )
 
 # django-stubs

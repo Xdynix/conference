@@ -4,12 +4,18 @@ This module is imported while Django settings are being configured, before Djang
 fully initialized.
 """
 
+__all__ = ("configure_logging",)
+
 import inspect
 import logging
 import sys
 from pathlib import Path
 
+import sentry_sdk
 from loguru import logger
+from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.loguru import LoguruIntegration
+from sentry_sdk.types import Event, Hint
 
 
 # Intercept standard logging messages to Loguru.
@@ -38,7 +44,25 @@ class InterceptHandler(logging.Handler):  # pragma: no cover
         )
 
 
-def configure_logging(log_dir: Path | None, debug: bool) -> None:
+def sentry_before_send(event: Event, hint: Hint) -> Event | None:  # pragma: no cover
+    """Filter out events that should not be sent to Sentry."""
+    # Ignore KeyboardInterrupt used to stop the server.
+    if "exc_info" in hint:
+        _, exc_value, _ = hint["exc_info"]
+        if isinstance(exc_value, KeyboardInterrupt):
+            return None
+    # Django's `log_response` logs all 4xx/5xx via the `django.request` stdlib logger,
+    # which duplicates events already captured by the application error handler.
+    if event.get("logger") == "django.utils.log":
+        return None
+    return event
+
+
+def configure_logging(
+    log_dir: Path | None,
+    debug: bool,
+    sentry_dsn: str = "",
+) -> None:  # pragma: no cover
     # Route built-in logging to Loguru.
     intercept_handler = InterceptHandler()
     logging.basicConfig(handlers=[intercept_handler], level=logging.NOTSET, force=True)
@@ -65,7 +89,7 @@ def configure_logging(log_dir: Path | None, debug: bool) -> None:
         diagnose=debug,
     )
 
-    if log_dir is not None:  # pragma: no cover
+    if log_dir is not None:
         logger.add(
             log_dir / "{time:YYYY-MM-DD}.log",
             format=log_format,
@@ -77,4 +101,25 @@ def configure_logging(log_dir: Path | None, debug: bool) -> None:
             enqueue=True,
         )
 
-    # TODO: Integrate Sentry.
+    if sentry_dsn:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            integrations=[
+                # Use a format function (not a string) so loguru does not append the
+                # exception traceback to the message; Sentry captures it separately
+                # via the structured exception data.
+                LoguruIntegration(
+                    event_format=lambda _: "{message}",
+                    breadcrumb_format=lambda _: "{message}",
+                ),
+            ],
+            # Fully disable `LoggingIntegration` to prevent it from monkey-patching
+            # stdlib `callHandlers`. The `LoguruIntegration` above handles event capture
+            # through `loguru`, and the `InterceptHandler` routes all stdlib logging
+            # there.
+            disabled_integrations=[LoggingIntegration()],
+            before_send=sentry_before_send,
+            environment="development" if debug else "production",
+            send_default_pii=False,
+            traces_sample_rate=1.0,
+        )
