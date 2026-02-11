@@ -1,10 +1,6 @@
 (function () {
   "use strict";
 
-  if (!window.APP?.config?.csrf?.token || !window.APP?.config?.csrf?.header) {
-    throw new Error("APP.config.csrf not configured.");
-  }
-
   const SAFE_METHODS = ["get", "head", "options"];
 
   let pendingMutations = 0;
@@ -13,14 +9,15 @@
     timeout: 30_000,
     headers: {
       "Content-Type": "application/json",
-    }
+    },
+    xsrfCookieName: APP.config.csrf.cookie,
+    xsrfHeaderName: APP.config.csrf.header,
   });
 
   api.interceptors.request.use(function (config) {
     if (!SAFE_METHODS.includes(config.method?.toLowerCase())) {
       pendingMutations++;
     }
-    config.headers[APP.config.csrf.header] = APP.config.csrf.token;
     return config;
   });
 

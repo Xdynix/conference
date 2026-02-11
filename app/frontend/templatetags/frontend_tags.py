@@ -93,6 +93,11 @@ def branding() -> dict[str, Any]:
 
 
 @register.simple_tag
+def csrf_cookie_name() -> str:
+    return settings.CSRF_COOKIE_NAME
+
+
+@register.simple_tag
 def csrf_header_name() -> str:
     return settings.CSRF_HEADER_NAME.removeprefix("HTTP_").replace("_", "-")
 

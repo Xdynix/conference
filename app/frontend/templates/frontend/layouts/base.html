@@ -67,7 +67,7 @@
   window.APP = {
     config: {
       csrf: {
-        token: "{{ csrf_token }}",
+        cookie: "{% csrf_cookie_name %}",
         header: "{% csrf_header_name %}",
       },
       cfTurnstile: {
