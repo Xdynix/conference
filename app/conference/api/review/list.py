@@ -15,8 +15,6 @@ from app.core.types import AuthedHttpRequest
 
 from .core import ReviewResponse, UserReviewResponse, router, with_review_prefetch
 
-# TODO: Filtering
-
 
 @router.get(
     "/conferences/{slug:conference_name}/my-reviews",

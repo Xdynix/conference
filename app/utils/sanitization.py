@@ -4,7 +4,6 @@ __all__ = (
     "sanitize_text",
 )
 
-
 import unicodedata
 from typing import Any
 

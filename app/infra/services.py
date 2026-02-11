@@ -1,6 +1,5 @@
 __all__ = ("scheduler",)
 
-
 from typing import Any
 
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED

@@ -3,7 +3,6 @@ __all__ = (
     "VerifiedEmailStr",
 )
 
-
 from typing import Annotated
 
 from django.contrib.auth import get_user_model

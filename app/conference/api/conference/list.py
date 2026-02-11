@@ -9,8 +9,6 @@ from app.ninja.pagination import cursor_pagination
 
 from .core import ConferenceResponse, router, with_conference_prefetch
 
-# TODO: Filtering and searching.
-
 
 @router.get(
     "/conferences",

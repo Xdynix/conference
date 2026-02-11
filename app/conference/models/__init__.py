@@ -43,7 +43,6 @@ __all__ = (
     "UserConferenceProfile",
 )
 
-
 from .conference import (
     CodePool,
     Conference,

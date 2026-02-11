@@ -1,6 +1,5 @@
 __all__ = ("router",)
 
-
 from . import (  # noqa: F401
     attendance_type,
     cancel,

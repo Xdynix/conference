@@ -21,7 +21,7 @@ class KeywordSetSchema(Schema):
     "/keyword-sets",
     response=list[KeywordSetSchema],
     summary="List Keyword Sets",
-    auth=None,  # TODO: Config auth.
+    auth=None,
 )
 async def list_keyword_sets(*_: Any) -> list[KeywordSet]:
     """Return all keyword sets and their keywords."""

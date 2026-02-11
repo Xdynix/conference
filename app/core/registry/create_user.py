@@ -3,7 +3,6 @@ __all__ = (
     "create_user_registry",
 )
 
-
 from collections.abc import Callable
 from typing import Any
 

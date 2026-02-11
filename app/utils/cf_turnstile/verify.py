@@ -48,7 +48,6 @@ async def verify_cf_turnstile_response(
     if idempotency_key is not None:
         payload["idempotency_key"] = str(idempotency_key)
 
-    # TODO: Share client instance between function calls.
     async with httpx.AsyncClient(
         transport=httpx.AsyncHTTPTransport(retries=2),
         timeout=3,

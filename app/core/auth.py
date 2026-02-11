@@ -17,7 +17,6 @@ __all__ = (
     "is_superuser",
 )
 
-
 from collections.abc import Awaitable, Callable
 from typing import Any
 

@@ -211,7 +211,6 @@ async def refresh_ieee_ecopyright_consents(
 
     url = IEEE_ECOPYRIGHT_API_URL.format(article_source=config.article_source)
     try:
-        # TODO: Share client instance between function calls.
         async with httpx.AsyncClient(
             transport=httpx.AsyncHTTPTransport(retries=2),
             timeout=30,
