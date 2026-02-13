@@ -36,6 +36,7 @@ __all__ = (
     "Review",
     "ReviewAssignmentLevel",
     "ReviewState",
+    "ReviewerNotificationLog",
     "Track",
     "TrackRole",
     "TrackRoleAssignment",
@@ -77,7 +78,13 @@ from .registration import (
     RegistrationState,
     RegistrationTitle,
 )
-from .review import AdminComment, Review, ReviewAssignmentLevel, ReviewState
+from .review import (
+    AdminComment,
+    Review,
+    ReviewAssignmentLevel,
+    ReviewerNotificationLog,
+    ReviewState,
+)
 from .role import (
     ConferenceRole,
     ConferenceRoleAssignment,

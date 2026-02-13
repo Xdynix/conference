@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from app.conference.models import AdminComment, Review
+from app.conference.models import AdminComment, Review, ReviewerNotificationLog
 
 
 @admin.register(Review)
@@ -109,3 +109,12 @@ class AdminCommentAdmin(admin.ModelAdmin[AdminComment]):
         "paper__title",
         "author__email",
     )
+
+
+@admin.register(ReviewerNotificationLog)
+class ReviewerNotificationLogAdmin(admin.ModelAdmin[ReviewerNotificationLog]):
+    autocomplete_fields = ("conference", "reviewer")
+    list_display = ("reviewer", "conference", "last_notification_time")
+    list_filter = ("conference",)
+    list_select_related = ("conference", "reviewer")
+    search_fields = ("reviewer__email",)

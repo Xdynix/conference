@@ -258,3 +258,42 @@ class AdminComment(TimeStampedModel, ULIDModel):
     def __str__(self) -> str:
         author_display = self.author or "(Unknown)"
         return f"{self.paper} - {author_display}"
+
+
+class ReviewerNotificationLog(models.Model):
+    conference = models.ForeignKey(
+        "Conference",
+        on_delete=models.CASCADE,
+        related_name="reviewer_notification_logs",
+        related_query_name="reviewer_notification_log",
+        verbose_name=_("conference"),
+    )
+    reviewer = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="reviewer_notification_logs",
+        related_query_name="reviewer_notification_log",
+        verbose_name=_("reviewer"),
+    )
+    last_notification_time = models.DateTimeField(
+        _("last notification time"),
+        help_text=_("When the reviewer was last sent a notification."),
+    )
+
+    class Meta:
+        verbose_name = _("reviewer notification log")
+        verbose_name_plural = _("reviewer notification logs")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("conference", "reviewer"),
+                name="unique_reviewer_notification_log",
+                violation_error_code="unique",
+                violation_error_message=_(
+                    "A notification log for this conference and reviewer "
+                    "already exists."
+                ),
+            ),
+        )
+
+    def __str__(self) -> str:
+        return f"{self.reviewer} @ {self.conference}"

@@ -2,7 +2,13 @@ import pytest
 from django.db import IntegrityError
 from faker import Faker
 
-from app.conference.models import Conference, Paper, Review, Track
+from app.conference.models import (
+    Conference,
+    Paper,
+    Review,
+    ReviewerNotificationLog,
+    Track,
+)
 from app.conference.models.review import MAX_SCORE, MIN_SCORE, AdminComment, ReviewState
 from app.core.models import User
 
@@ -187,3 +193,10 @@ class TestAdminComment:
     def test_str_without_author(self, paper: Paper) -> None:
         comment = AdminComment(paper=paper, content="Looks good.")
         assert str(comment) == f"{paper} - (Unknown)"
+
+
+@pytest.mark.django_db
+class TestReviewerNotificationLog:
+    def test_str(self, user: User, conference: Conference) -> None:
+        log = ReviewerNotificationLog(conference=conference, reviewer=user)
+        assert str(log) == f"{user} @ {conference}"
