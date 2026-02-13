@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 from faker import Faker
 from pytest_mock import MockerFixture
 
@@ -15,6 +16,7 @@ from app.conference.models import (
     Paper,
     Profile,
     Review,
+    ReviewerNotificationLog,
     ReviewState,
     Track,
     TrackRole,
@@ -23,6 +25,7 @@ from app.conference.models import (
 )
 from app.conference.services import PaperService
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from tests.helpers import ApproxDatetime
 
 
 @pytest.fixture(autouse=True)
@@ -465,4 +468,338 @@ class TestListReviewerCandidates:
         api_client.force_login(user)
 
         response = api_client.get(self.path(conference.name, "PAPER-001"))
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestListReviewers:
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse(
+            "api-1.0.0:list-reviewers",
+            args=[conference_name],
+        )
+
+    def test_happy_path(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+    ) -> None:
+        reviewer = User.objects.create_user(
+            username=faker.user_name(),
+            email=faker.email(),
+        )
+        Profile.objects.create(
+            user=reviewer,
+            given_name="Alice",
+            family_name="Reviewer",
+            affiliation="University",
+        )
+        review = Review.objects.create(
+            paper=paper,
+            reviewer=reviewer,
+            state=ReviewState.PENDING,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        [entry] = data
+        assert entry == {
+            "uid": str(reviewer.uid),
+            "email": reviewer.email,
+            "profile": {
+                "given_name": "Alice",
+                "family_name": "Reviewer",
+                "affiliation": "University",
+                "region_code": "",
+            },
+            "workload": {
+                "pending_count": 1,
+                "accepted_count": 0,
+                "submitted_count": 0,
+                "desired_count": 0,
+            },
+            "last_assignment_time": ApproxDatetime(review.create_time),
+        }
+
+    def test_excludes_reviewers_with_only_cancelled_reviews(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        conference_reviewer: User,
+        paper: Paper,
+    ) -> None:
+        Review.objects.create(
+            paper=paper,
+            reviewer=conference_reviewer,
+            state=ReviewState.CANCELLED,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        uids = [r["uid"] for r in data]
+        assert str(conference_reviewer.uid) not in uids
+
+    def test_includes_reviewer_with_non_cancelled_reviews(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        conference_reviewer: User,
+        track: Track,
+        paper: Paper,
+    ) -> None:
+        other_paper = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=conference_chair,
+            code="P2",
+        )
+        Review.objects.create(
+            paper=paper,
+            reviewer=conference_reviewer,
+            state=ReviewState.CANCELLED,
+        )
+        Review.objects.create(
+            paper=other_paper,
+            reviewer=conference_reviewer,
+            state=ReviewState.PENDING,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        uids = [r["uid"] for r in data]
+        assert str(conference_reviewer.uid) in uids
+
+    def test_workload_counts(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        conference_reviewer: User,
+        track: Track,
+        paper: Paper,
+    ) -> None:
+        other_paper1 = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=conference_chair,
+            code="P2",
+        )
+        other_paper2 = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=conference_chair,
+            code="P3",
+        )
+        Review.objects.create(
+            paper=paper,
+            reviewer=conference_reviewer,
+            state=ReviewState.PENDING,
+        )
+        Review.objects.create(
+            paper=other_paper1,
+            reviewer=conference_reviewer,
+            state=ReviewState.ACCEPTED,
+        )
+        Review.objects.create(
+            paper=other_paper2,
+            reviewer=conference_reviewer,
+            state=ReviewState.SUBMITTED,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        entry = next(r for r in data if r["uid"] == str(conference_reviewer.uid))
+        assert entry["workload"] == {
+            "pending_count": 1,
+            "accepted_count": 1,
+            "submitted_count": 1,
+            "desired_count": 0,
+        }
+
+    def test_desired_count_from_profile(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        conference_reviewer: User,
+        paper: Paper,
+    ) -> None:
+        Review.objects.create(
+            paper=paper,
+            reviewer=conference_reviewer,
+            state=ReviewState.PENDING,
+        )
+        UserConferenceProfile.objects.create(
+            user=conference_reviewer,
+            conference=conference,
+            desired_paper_count=5,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        entry = next(r for r in data if r["uid"] == str(conference_reviewer.uid))
+        assert entry["workload"]["desired_count"] == 5
+
+    def test_last_notification_time_present(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        conference_reviewer: User,
+        paper: Paper,
+    ) -> None:
+        Review.objects.create(
+            paper=paper,
+            reviewer=conference_reviewer,
+            state=ReviewState.PENDING,
+        )
+        log = ReviewerNotificationLog.objects.create(
+            conference=conference,
+            reviewer=conference_reviewer,
+            last_notification_time=timezone.now(),
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        entry = next(r for r in data if r["uid"] == str(conference_reviewer.uid))
+        assert entry["last_notification_time"] == ApproxDatetime(
+            log.last_notification_time
+        )
+
+    def test_last_notification_time_absent(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        conference_reviewer: User,
+        paper: Paper,
+    ) -> None:
+        Review.objects.create(
+            paper=paper,
+            reviewer=conference_reviewer,
+            state=ReviewState.PENDING,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        entry = next(r for r in data if r["uid"] == str(conference_reviewer.uid))
+        assert "last_notification_time" not in entry
+
+    def test_conference_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path("nonexistent"))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_authorization_unauthenticated(
+        self,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_authorization_user_without_roles(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_authorization_global_admin(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+    def test_authorization_global_read_all(
+        self,
+        api_client: Client,
+        global_read_all: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(global_read_all)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+    @pytest.mark.parametrize("conference_role", ConferenceRole.admins())
+    def test_authorization_conference_admin(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        conference_role: ConferenceRole,
+    ) -> None:
+        admin = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=admin,
+            role=conference_role,
+        )
+        api_client.force_login(admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+    @pytest.mark.parametrize(
+        "non_admin_role",
+        [role for role in ConferenceRole if role not in ConferenceRole.admins()],
+    )
+    def test_authorization_conference_non_admin_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        non_admin_role: ConferenceRole,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=user,
+            role=non_admin_role,
+        )
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
         assert response.status_code == HTTPStatus.FORBIDDEN
