@@ -420,6 +420,11 @@ INVITATION_EMAIL_INTERVAL = config(
     default=3600,
     cast=seconds,
 )
+REVIEWER_NOTIFICATION_EMAIL_INTERVAL = config(
+    "REVIEWER_NOTIFICATION_EMAIL_INTERVAL",
+    default=3600,
+    cast=seconds,
+)
 
 MAX_SUBMISSION_SIZE = 20 * 1024 * 1024
 

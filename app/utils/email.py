@@ -64,6 +64,7 @@ class EmailFormat(ABC):
         to: Sequence[str],
         cc: Sequence[str],
         bcc: Sequence[str],
+        reply_to: Sequence[str],
         from_email: str | None,
     ) -> DjangoEmailMessage:
         """Build a Django ``EmailMessage`` from rendered content."""
@@ -100,6 +101,7 @@ class TextFormat(EmailFormat):
         to: Sequence[str],
         cc: Sequence[str],
         bcc: Sequence[str],
+        reply_to: Sequence[str],
         from_email: str | None,
     ) -> DjangoEmailMessage:
         return DjangoEmailMessage(
@@ -109,6 +111,7 @@ class TextFormat(EmailFormat):
             to=to,
             cc=cc,
             bcc=bcc,
+            reply_to=reply_to,
         )
 
     @classmethod
@@ -161,6 +164,7 @@ class RenderedEmail(BaseModel):
         to: str | Sequence[str],
         cc: str | Sequence[str] = (),
         bcc: str | Sequence[str] = (),
+        reply_to: str | Sequence[str] = (),
         from_email: str | None = None,
     ) -> DjangoEmailMessage:
         """Build a Django ``EmailMessage`` for sending."""
@@ -170,6 +174,8 @@ class RenderedEmail(BaseModel):
             cc = [cc]
         if isinstance(bcc, str):
             bcc = [bcc]
+        if isinstance(reply_to, str):
+            reply_to = [reply_to]
         format_cls = EMAIL_FORMATS[self.format]
         return format_cls.build_message(
             subject=self.subject,
@@ -177,6 +183,7 @@ class RenderedEmail(BaseModel):
             to=to,
             cc=cc,
             bcc=bcc,
+            reply_to=reply_to,
             from_email=from_email,
         )
 

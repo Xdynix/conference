@@ -44,7 +44,7 @@ class TestInvitationEmailContextSample:
         )
 
         assert context.site_name == site_name
-        assert context.conference_name == "Sample Conference"
+        assert context.conference_name == "CONF-2025"
         assert context.conference_display_name == "Sample Conference 2025"
         assert context.given_name == "John"
         assert context.family_name == "Doe"
@@ -63,7 +63,7 @@ class TestInvitationEmailContextSample:
 
         rendered = template.render(context)
 
-        assert "Sample Conference" in rendered.subject
+        assert "CONF-2025" in rendered.subject
         assert "John" in rendered.body
         assert "https://example.com/accept#sample-token" in rendered.body
 
@@ -265,9 +265,9 @@ class TestInvitationServiceSendInvitation:
 
     def test_passes_cc_to_email(
         self,
+        mocker: MockerFixture,
         invitation: Invitation,
         template: EmailTemplate,
-        mocker: MockerFixture,
     ) -> None:
         mock_build = mocker.patch(
             "app.utils.email.RenderedEmail.build_message",

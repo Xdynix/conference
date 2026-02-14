@@ -1,9 +1,15 @@
-from collections.abc import Collection
-from typing import Literal
+from collections.abc import Collection, Sequence
+from enum import StrEnum
+from typing import Literal, Self
 
-from django.db.models import QuerySet
+from django.conf import settings
+from django.db import transaction
+from django.db.models import Count, Q, QuerySet
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from loguru import logger
+from pydantic import BaseModel, ConfigDict
+from ulid import ULID
 
 from app.conference.models import (
     Conference,
@@ -12,12 +18,14 @@ from app.conference.models import (
     Paper,
     PaperState,
     Review,
+    ReviewerNotificationLog,
     TrackRole,
     TrackRoleAssignment,
 )
 from app.conference.models.review import ReviewAssignmentLevel, ReviewState
 from app.core.models import GlobalRole, User
 from app.infra.models import Mutex
+from app.utils.email import EmailContext, EmailTemplate
 
 from .access import ConferenceAccessService
 from .paper import PaperStateError, PaperWithdrawnError
@@ -462,3 +470,211 @@ class ReviewService:
                 review.save(update_fields=[*update_fields, "update_time"])
 
             return review
+
+
+class ReviewerNotificationContext(EmailContext):
+    """Template context for reviewer notification emails."""
+
+    site_name: str
+    conference_name: str
+    conference_display_name: str
+    given_name: str
+    family_name: str
+    affiliation: str
+    pending_review_count: int
+    accepted_review_count: int
+
+    @classmethod
+    def sample(cls) -> Self:
+        return cls(
+            site_name=settings.SITE_NAME,
+            conference_name="CONF-2025",
+            conference_display_name="Sample Conference 2025",
+            given_name="John",
+            family_name="Doe",
+            affiliation="Sample University",
+            pending_review_count=3,
+            accepted_review_count=1,
+        )
+
+
+class SendNotificationStatus(StrEnum):
+    SENT = "sent"
+    SKIPPED = "skipped"
+    NOT_FOUND = "not_found"
+    FAILED = "failed"
+
+
+class SendNotificationResult(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    reviewer: ULID
+    status: SendNotificationStatus
+    reviewer_email: str | None = None
+    reason: str | None = None
+
+
+class ReviewerNotificationService:
+    @classmethod
+    def send_notification(
+        cls,
+        conference: Conference,
+        reviewer_uid: ULID,
+        *,
+        template: EmailTemplate,
+        reply_to: str | None = None,
+        force_send_to_recent: bool = False,
+    ) -> tuple[bool, str]:
+        """Send a notification email to a reviewer and update tracking.
+
+        Returns:
+            Tuple of ``(sent, reviewer_email)`` where ``sent`` is ``True`` if email was
+            sent, ``False`` if skipped (no actionable reviews or rate limited).
+
+        Raises:
+            User.DoesNotExist: If the user is not found.
+        """
+        with Mutex.lock_in_transaction(
+            f"{conference.pk}:{reviewer_uid}",
+            namespace="reviewer_notification",
+        ):
+            reviewer = (
+                User.objects.active().select_related("profile").get(uid=reviewer_uid)
+            )
+
+            counts = (
+                Review.objects.active()
+                .filter(
+                    paper__conference=conference,
+                    reviewer=reviewer,
+                    state__in=[ReviewState.PENDING, ReviewState.ACCEPTED],
+                )
+                .aggregate(
+                    pending_review_count=Count(
+                        "pk",
+                        filter=Q(state=ReviewState.PENDING),
+                    ),
+                    accepted_review_count=Count(
+                        "pk",
+                        filter=Q(state=ReviewState.ACCEPTED),
+                    ),
+                )
+            )
+            pending_review_count: int = counts["pending_review_count"]
+            accepted_review_count: int = counts["accepted_review_count"]
+
+            if pending_review_count == 0 and accepted_review_count == 0:
+                return False, reviewer.email
+
+            now = timezone.now()
+            log = ReviewerNotificationLog.objects.filter(
+                conference=conference,
+                reviewer=reviewer,
+            ).first()
+            if (
+                log is not None
+                and (now - log.last_notification_time)
+                <= settings.REVIEWER_NOTIFICATION_EMAIL_INTERVAL
+                and not force_send_to_recent
+            ):
+                return False, reviewer.email
+
+            profile = getattr(reviewer, "profile", None)
+            context = ReviewerNotificationContext(
+                site_name=settings.SITE_NAME,
+                conference_name=conference.name,
+                conference_display_name=conference.display_name,
+                given_name=profile.given_name if profile else "",
+                family_name=profile.family_name if profile else "",
+                affiliation=profile.affiliation if profile else "",
+                pending_review_count=pending_review_count,
+                accepted_review_count=accepted_review_count,
+            )
+            rendered = template.render(context)
+            email_message = rendered.build_message(
+                to=reviewer.email,
+                reply_to=reply_to or (),
+            )
+
+            if log is not None:
+                log.last_notification_time = now
+                log.save(update_fields=["last_notification_time"])
+            else:
+                ReviewerNotificationLog.objects.create(
+                    conference=conference,
+                    reviewer=reviewer,
+                    last_notification_time=now,
+                )
+
+            transaction.on_commit(email_message.send)
+
+            return True, reviewer.email
+
+    @classmethod
+    def send_notifications(
+        cls,
+        conference: Conference,
+        reviewer_uids: Sequence[ULID],
+        *,
+        template: EmailTemplate,
+        reply_to: str | None = None,
+        force_send_to_recent: bool = False,
+    ) -> list[SendNotificationResult]:
+        """Send notification emails to multiple reviewers.
+
+        Each reviewer is processed in its own transaction. Failures are isolated and
+        do not affect other reviewers.
+        """
+        results: list[SendNotificationResult] = []
+
+        for uid in reviewer_uids:
+            try:
+                sent, reviewer_email = cls.send_notification(
+                    conference,
+                    uid,
+                    template=template,
+                    reply_to=reply_to,
+                    force_send_to_recent=force_send_to_recent,
+                )
+            except User.DoesNotExist:
+                results.append(
+                    SendNotificationResult(
+                        reviewer=uid,
+                        status=SendNotificationStatus.NOT_FOUND,
+                        reason=_("Reviewer not found."),
+                    )
+                )
+            except Exception:
+                logger.exception(
+                    "Unknown error when sending reviewer notification.",
+                    reviewer_uid=uid,
+                )
+                results.append(
+                    SendNotificationResult(
+                        reviewer=uid,
+                        status=SendNotificationStatus.FAILED,
+                        reason=_("An unexpected error has occurred."),
+                    )
+                )
+            else:
+                if sent:
+                    results.append(
+                        SendNotificationResult(
+                            reviewer=uid,
+                            status=SendNotificationStatus.SENT,
+                            reviewer_email=reviewer_email,
+                        )
+                    )
+                else:
+                    results.append(
+                        SendNotificationResult(
+                            reviewer=uid,
+                            status=SendNotificationStatus.SKIPPED,
+                            reviewer_email=reviewer_email,
+                            reason=_(
+                                "Skipped due to no actionable reviews or rate limiting."
+                            ),
+                        )
+                    )
+
+        return results

@@ -43,6 +43,7 @@ class TestTextFormat:
             to=["user@example.com"],
             cc=["cc@example.com"],
             bcc=["bcc@example.com"],
+            reply_to=["reply@example.com"],
             from_email="admin@example.com",
         )
         assert isinstance(msg, EmailMessage)
@@ -51,6 +52,7 @@ class TestTextFormat:
         assert msg.to == ["user@example.com"]
         assert msg.cc == ["cc@example.com"]
         assert msg.bcc == ["bcc@example.com"]
+        assert msg.reply_to == ["reply@example.com"]
         assert msg.from_email == "admin@example.com"
         assert msg.content_subtype == "plain"
 
@@ -143,10 +145,12 @@ class TestRenderedEmail:
             to="user@example.com",
             cc="cc@example.com",
             bcc="bcc@example.com",
+            reply_to="reply@example.com",
         )
         assert msg.to == ["user@example.com"]
         assert msg.cc == ["cc@example.com"]
         assert msg.bcc == ["bcc@example.com"]
+        assert msg.reply_to == ["reply@example.com"]
         assert msg.subject == "Subject"
         assert msg.body == "Body"
 
@@ -160,10 +164,12 @@ class TestRenderedEmail:
             to=["to@example.com"],
             cc=["cc@example.com"],
             bcc=["bcc@example.com"],
+            reply_to=["reply@example.com"],
         )
         assert msg.to == ["to@example.com"]
         assert msg.cc == ["cc@example.com"]
         assert msg.bcc == ["bcc@example.com"]
+        assert msg.reply_to == ["reply@example.com"]
 
     def test_invalid_format(self, mocker: MockerFixture) -> None:
         mocker.patch.dict(EMAIL_FORMATS, clear=True)

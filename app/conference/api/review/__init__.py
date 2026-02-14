@@ -6,6 +6,7 @@ from . import (  # noqa: F401
     create,
     get,
     list,
+    notify,
     reviewer,
     submit,
     update,

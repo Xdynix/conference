@@ -61,7 +61,7 @@ class InvitationEmailContext(EmailContext):
     ) -> Self:
         return cls(
             site_name=settings.SITE_NAME,
-            conference_name="Sample Conference",
+            conference_name="CONF-2025",
             conference_display_name="Sample Conference 2025",
             given_name="John",
             family_name="Doe",
