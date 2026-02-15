@@ -9,11 +9,12 @@ from django.db import IntegrityError
 from django.db.models import ProtectedError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import PatchDict, Schema
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import AttendanceType, Conference, ConferenceRole
 from app.conference.services import ConferenceService
@@ -105,12 +106,12 @@ async def create_attendance_type(
             _("An attendance type with this name already exists for this conference."),
         ) from exc
 
-    user = await request.auser()
-    logger.info(
-        "Attendance type created.",
-        attendance_type_uid=attendance_type.uid,
-        conference_name=conference.name,
-        actor_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.ATTENDANCE_TYPE_CREATE,
+        resource=attendance_type,
+        scope=conference.name,
+        payload=payload,
     )
 
     return HTTPStatus.CREATED, attendance_type
@@ -163,12 +164,12 @@ async def update_attendance_type(
                 ),
             ) from exc
 
-    user = await request.auser()
-    logger.info(
-        "Attendance type updated.",
-        attendance_type_uid=attendance_type.uid,
-        conference_name=conference.name,
-        actor_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.ATTENDANCE_TYPE_UPDATE,
+        resource=attendance_type,
+        scope=conference.name,
+        payload=payload,
     )
 
     return attendance_type
@@ -211,12 +212,11 @@ async def delete_attendance_type(
             ),
         ) from exc
 
-    user = await request.auser()
-    logger.info(
-        "Attendance type deleted.",
-        attendance_type_uid=attendance_type_uid,
-        conference_name=conference.name,
-        actor_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.ATTENDANCE_TYPE_DELETE,
+        resource=attendance_type,
+        scope=conference.name,
     )
 
     return HTTPStatus.NO_CONTENT, None
@@ -286,11 +286,12 @@ async def reorder_attendance_types(
             attendance_type.ordering = ordering
             await attendance_type.asave(update_fields=["ordering"])
 
-    user = await request.auser()
-    logger.info(
-        "Attendance types reordered.",
-        conference_name=conference.name,
-        actor_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.ATTENDANCE_TYPE_REORDER,
+        resource=AuditResource.ATTENDANCE_TYPE,
+        scope=conference.name,
+        payload={"uids": [str(uid) for uid in payload]},
     )
 
     return [existing_types[uid] for uid in payload]

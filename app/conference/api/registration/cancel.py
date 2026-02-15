@@ -2,10 +2,11 @@ from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.models import Registration
 from app.conference.services import ConferenceService, RegistrationService
 from app.conference.services.registration import InvalidRegistrationStateError
@@ -52,11 +53,11 @@ async def cancel_my_registration(
     except InvalidRegistrationStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Registration cancelled.",
-        registration_uid=str(registration.uid),
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.REGISTRATION_CANCEL,
+        resource=cancelled,
+        scope=conference.name,
     )
 
     return await prefetch_registration(cancelled, request)
