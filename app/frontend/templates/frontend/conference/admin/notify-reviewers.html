@@ -1,0 +1,275 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Admin: Notify Reviewers | {% endblock %}
+
+{% block content %}
+  <div
+    x-data="notifyReviewers()"
+    x-init="
+      $store.sidebar.setActive('admin-papers');
+      $store.breadcrumb.set([
+        {label: 'Papers', href: '{% url "frontend:admin-paper-list" conference_name=params.conference_name %}'},
+        {label: 'Notify Reviewers'},
+      ]);
+    "
+    class="d-flex flex-column flex-grow-1 mx-auto w-100"
+    style="min-height: 0; max-width: 60rem;"
+  >
+    <h1 class="h3 mb-4">Notify Reviewers</h1>
+
+    <div x-show="$store.conference.loading || loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
+
+    <div x-show="!$store.conference.loading && !loading && error" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Failed to load reviewer data.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && !error" x-cloak>
+      {# Toolbar: search + filter + send button #}
+      <div class="d-flex gap-2 mb-3">
+        <input
+          type="text"
+          class="form-control flex-grow-1"
+          placeholder="Search by name or email..."
+          x-model.debounce.300ms="search"
+        >
+        <select
+          class="form-select"
+          style="width: auto;"
+          x-model="statusFilter"
+        >
+          <option value="">All reviewers</option>
+          <option value="never_notified">Never notified</option>
+          <option value="new_assignments">New assignments</option>
+          <option value="has_actionable">Has actionable reviews</option>
+        </select>
+        <button
+          type="button"
+          class="btn btn-primary flex-shrink-0"
+          :disabled="selectedCount === 0"
+          @click="openSendModal([...selectedUids])"
+        >
+          Send Notification
+        </button>
+      </div>
+
+      <div style="overflow-x: auto; --cols: minmax(10rem,1fr) minmax(10rem,1fr) 4.5rem 6.5rem 7.5rem 7.5rem;">
+        {# Column header row #}
+        <div class="d-flex align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted">
+          <div class="flex-shrink-0 me-2" style="width: 1.25rem;">
+            <input
+              type="checkbox"
+              class="form-check-input"
+              :checked="allVisibleSelected"
+              x-effect="$el.indeterminate = someVisibleSelected"
+              @click.stop="toggleSelectAll()"
+              @change.stop
+            >
+          </div>
+          <div class="d-grid flex-grow-1" style="grid-template: 1fr / 1fr;">
+            <div
+              style="grid-area: 1/1; grid-template-columns: var(--cols); column-gap: 0.5rem;"
+              class="d-grid align-items-center"
+              :class="selectedCount > 0 && 'invisible'"
+            >
+              <span>Name</span>
+              <span>Email</span>
+              <span>Pending</span>
+              <span>In Progress</span>
+              <span>Last Assigned</span>
+              <span>Last Notified</span>
+            </div>
+            <div
+              style="grid-area: 1/1;"
+              class="d-flex align-items-center"
+              :class="selectedCount === 0 && 'invisible'"
+            >
+              <span class="fw-medium" x-text="selectedCount + ' selected'"></span>
+            </div>
+          </div>
+        </div>
+
+        {# Reviewer rows #}
+        <template x-for="r in filteredReviewers" :key="r.uid">
+          <div class="border-top">
+            <div
+              class="d-flex align-items-center px-3 py-2"
+              :style="isSelected(r) && 'background-color: rgba(var(--bs-primary-rgb), .1)'"
+            >
+              <div class="flex-shrink-0 me-2" style="width: 1.25rem;">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  :checked="isSelected(r)"
+                  @click.stop="toggleSelection(r)"
+                  @change.stop
+                >
+              </div>
+              <div
+                class="d-grid flex-grow-1 align-items-center"
+                style="grid-template-columns: var(--cols); column-gap: 0.5rem;"
+              >
+                <div class="d-flex align-items-center min-w-0">
+                  <span
+                    class="fw-medium text-truncate"
+                    x-text="formatProfileName(r.profile) || '(no name)'"
+                  ></span>
+                  <template x-if="r.profile?.affiliation">
+                    <span class="text-muted small ms-1 text-truncate" x-text="'· ' + r.profile.affiliation"></span>
+                  </template>
+                </div>
+                <span class="text-truncate small" x-text="r.email" :title="r.email"></span>
+                <span class="text-center" x-text="r.workload.pending_count"></span>
+                <span class="text-center" x-text="r.workload.accepted_count"></span>
+                <span class="text-muted small text-nowrap" x-text="formatDate(r.last_assignment_time)"></span>
+                <span class="text-muted small text-nowrap" x-text="notificationInfo(r)"></span>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        {# No match message #}
+        <div
+          x-show="(search.trim() || statusFilter) && filteredReviewers.length === 0"
+          x-cloak
+          class="text-muted text-center py-4 border-top"
+        >
+          No reviewers match your filters.
+        </div>
+
+        {# Empty state #}
+        <div
+          x-show="!search.trim() && !statusFilter && reviewers.length === 0"
+          x-cloak
+          class="text-muted text-center py-4 border-top"
+        >
+          No reviewers with assignments yet.
+        </div>
+      </div>
+
+      {% include "frontend/components/review/send-notification-modal.html" %}
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function notifyReviewers() {
+      return {
+        ...sendNotificationModal(),
+
+        reviewers: [],
+        loading: true,
+        error: null,
+        search: "",
+        statusFilter: "",
+        selectedUids: new Set(),
+
+        get filteredReviewers() {
+          let list = [...this.reviewers];
+
+          if (this.statusFilter === "never_notified") {
+            list = list.filter(r => !r.last_notification_time);
+          } else if (this.statusFilter === "new_assignments") {
+            list = list.filter(r =>
+              !r.last_notification_time
+              || r.last_assignment_time > r.last_notification_time
+            );
+          } else if (this.statusFilter === "has_actionable") {
+            list = list.filter(r =>
+              r.workload.pending_count + r.workload.accepted_count > 0
+            );
+          }
+
+          const q = this.search.trim().toLowerCase();
+          if (q) {
+            list = list.filter(r => {
+              const name = formatProfileName(r.profile).toLowerCase();
+              const email = (r.email || "").toLowerCase();
+              return name.includes(q) || email.includes(q);
+            });
+          }
+
+          return list;
+        },
+
+        notificationInfo(r) {
+          if (!r.last_notification_time) return "Never";
+          return formatDate(r.last_notification_time);
+        },
+
+        // Selection
+        isSelected(r) {
+          return this.selectedUids.has(r.uid);
+        },
+
+        toggleSelection(r) {
+          if (this.selectedUids.has(r.uid)) {
+            this.selectedUids.delete(r.uid);
+          } else {
+            this.selectedUids.add(r.uid);
+          }
+          this.selectedUids = new Set(this.selectedUids);
+        },
+
+        get allVisibleSelected() {
+          const visible = this.filteredReviewers;
+          return visible.length > 0 && visible.every(r => this.isSelected(r));
+        },
+
+        get someVisibleSelected() {
+          const visible = this.filteredReviewers;
+          return visible.some(r => this.isSelected(r)) && !this.allVisibleSelected;
+        },
+
+        toggleSelectAll() {
+          if (this.allVisibleSelected) {
+            for (const r of this.filteredReviewers) {
+              this.selectedUids.delete(r.uid);
+            }
+          } else {
+            for (const r of this.filteredReviewers) {
+              this.selectedUids.add(r.uid);
+            }
+          }
+          this.selectedUids = new Set(this.selectedUids);
+        },
+
+        clearSelection() {
+          this.selectedUids = new Set();
+        },
+
+        get selectedCount() {
+          return this.selectedUids.size;
+        },
+
+        async fetchReviewers() {
+          const url = "{% url 'api-1.0.0:list-reviewers' conference_name=params.conference_name %}";
+          const {data} = await api.get(url);
+          this.reviewers = data;
+        },
+
+        async init() {
+          try {
+            await this.fetchReviewers();
+          } catch (e) {
+            this.error = e;
+          } finally {
+            this.loading = false;
+          }
+
+          this.$watch("search", () => this.clearSelection());
+          this.$watch("statusFilter", () => this.clearSelection());
+        },
+      };
+    }
+  </script>
+{% endblock %}

@@ -97,6 +97,11 @@ urlpatterns = [
         name="admin-paper-list",
     ),
     path(
+        "<slug:conference_name>/admin/papers/notify-reviewers/",
+        protected_view(template_name="frontend/conference/admin/notify-reviewers.html"),
+        name="admin-notify-reviewers",
+    ),
+    path(
         "<slug:conference_name>/admin/papers/new/",
         protected_view(template_name="frontend/conference/admin/papers/new.html"),
         name="admin-paper-new",
