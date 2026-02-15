@@ -10,6 +10,8 @@ from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from pydantic import AwareDatetime, StringConstraints
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 from app.utils.throttling import AnonThrottle, SimpleThrottle, throttling
@@ -41,7 +43,7 @@ class CreateEmailVerificationResponse(Schema):
 @decorate_view(throttling(AnonThrottle("100/min")))
 @decorate_view(cf_turnstile_required)
 async def create_email_verification(
-    request: HttpRequest,  # noqa: ARG001
+    request: HttpRequest,
     payload: CreateEmailVerificationRequest,
 ) -> tuple[int, EmailVerification] | JsonResponse:
     """Issue a verification code for the given email address.
@@ -60,6 +62,14 @@ async def create_email_verification(
             status=HTTPStatus.TOO_MANY_REQUESTS,
             headers={"Retry-After": str(interval_seconds)},
         )
+
+    await audit(
+        request=request,
+        action=AuditAction.EMAIL_VERIFICATION_ISSUE_CODE,
+        resource=AuditResource.EMAIL_VERIFICATION,
+        resource_id=payload.email,
+    )
+
     return HTTPStatus.CREATED, email_verification
 
 
@@ -108,7 +118,7 @@ class PayloadEmailThrottle(SimpleThrottle):
 @decorate_view(cf_turnstile_required)
 @throttling(PayloadEmailThrottle("20/min"))
 async def verify_email_verification(
-    request: HttpRequest,  # noqa: ARG001
+    request: HttpRequest,
     payload: VerifyEmailVerificationRequest,
 ) -> VerifyEmailVerificationResponse:
     """Verify a verification code and return a signed verification token.
@@ -124,6 +134,13 @@ async def verify_email_verification(
             HTTPStatus.BAD_REQUEST,
             _("Invalid or expired verification code."),
         )
+
+    await audit(
+        request=request,
+        action=AuditAction.EMAIL_VERIFICATION_VERIFY_CODE,
+        resource=AuditResource.EMAIL_VERIFICATION,
+        resource_id=payload.email,
+    )
 
     return VerifyEmailVerificationResponse(
         email=payload.email,

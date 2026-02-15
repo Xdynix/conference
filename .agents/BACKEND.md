@@ -318,20 +318,80 @@ except PaperStateError as exc:
 
 ### Logging Practices
 
-- Use loguru logger (`from loguru import logger`) throughout the application.
-- Log all unexpected errors, important state changes, and security-relevant events.
-- Use appropriate log levels: `logger.info()` for operations, `logger.error()` for
-  errors, `logger.exception()` for caught exceptions.
-- Include structured business context (actor, target, change summary when light):
+- Use loguru logger (`from loguru import logger`) for unexpected errors, warnings, and
+  diagnostics that don't fit the audit log (e.g., infrastructure issues, background job
+  progress).
+- Use appropriate log levels: `logger.info()` for operations, `logger.warning()` for
+  suspicious conditions, `logger.error()` for errors, `logger.exception()` for caught
+  exceptions.
+- Do not add `logger.info()` calls for successful mutations in API views or services;
+  the audit log covers these. The `audit()` helper emits its own structured log line.
+
+### Audit Logging
+
+All mutation API endpoints must call `audit()` from `app.audit.services` to record who
+did what. The audit helper writes to both the database and the application logger, so no
+separate `logger.info()` is needed for audited actions.
+
+**Imports**:
 
 ```python
-logger.info(
-    "Paper submitted by owner.",
-    paper_code=paper.code,
-    conference_name=conference.name,
-    user_uid=str(user.uid),
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
+```
+
+**Adding new resources and actions**: Add enum members to `AuditResource` and
+`AuditAction` in `app/audit/types.py`. These are plain `StrEnum` (no migration needed).
+Actions follow `resource.verb` naming (e.g., `paper.submit`, `user.set_password`).
+Resource members and action sections are alphabetical.
+
+**Basic call pattern**:
+
+```python
+await audit(
+    request=request,
+    action=AuditAction.PAPER_SUBMIT,
+    resource=paper,          # Auditable instance; extracts metadata automatically
+    scope=conference.name,   # conference-scoped; omit for global endpoints
+    payload=payload,         # BaseModel or dict; auto-serialized
 )
 ```
+
+**With explicit resource metadata** (when the model doesn't implement `Auditable`):
+
+```python
+await audit(
+    request=request,
+    action=AuditAction.USER_CREATE,
+    resource=AuditResource.USER,
+    resource_id=str(user.uid),
+    resource_label=user.email or user.username,
+    payload=payload,
+)
+```
+
+**Key conventions**:
+
+- **Scope**: Pass `scope=conference.name` for conference-scoped endpoints. Global
+  endpoints (user management, sessions, password reset) omit it.
+- **Resource ID**: Always `str(instance.uid)` for ULID-based models. Leave empty for
+  batch operations with no single target.
+- **Payload**: Pass the request payload directly. `SecretStr` fields (passwords)
+  serialize as masked values automatically. Omit when the payload only contains data
+  already captured in resource metadata.
+- **Detail**: Use for results, outcomes, and side effects that aren't part of the
+  request input (e.g., `detail={"state_before": previous_state}`,
+  `detail={"sent_count": 5}`).
+- **Actor**: Resolved from `request.auser()` automatically. Only pass `actor=`
+  explicitly when the endpoint changes the session user (logout, assume, revert).
+- **Failed attempts**: Security-relevant failures (e.g., failed login, invitation
+  conflict) should be audited with a dedicated `_FAILED` action (e.g.,
+  `SESSION_CREATE_FAILED`, `INVITATION_REDEEM_FAILED`).
+
+**Auditable mixin**: Models frequently passed to `audit()` should implement `Auditable`
+from `app/audit/types.py` to centralize resource metadata. Do not add `Auditable` to
+models in foundational packages (`app/core/`) to avoid circular dependencies; pass
+`AuditResource` enum explicitly instead.
 
 ## API View Conventions
 

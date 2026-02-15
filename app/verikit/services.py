@@ -8,7 +8,6 @@ from django.core.signing import BadSignature, SignatureExpired, Signer, Timestam
 from django.db import transaction
 from django.db.models import QuerySet
 from django.db.models.functions import Now
-from loguru import logger
 
 from app.infra.models import Mutex
 from app.utils.email import EmailContext, EmailFormatName, EmailTemplate
@@ -71,7 +70,6 @@ class EmailVerificationService:
             # Refresh to load database-generated fields (create_time, expire_time with
             # database functions) before passing to the on_commit callback.
             email_verification.refresh_from_db()
-            logger.info("Verification code issued.", email=email)
             # Defer email sending until after transaction commits. If the transaction
             # rolls back, we don't want to send emails for data that was never
             # persisted.
@@ -103,7 +101,6 @@ class EmailVerificationService:
 
             cls.active_verifications(email).update(verify_time=Now())
 
-            logger.info("Verification code verified.", email=email)
             return cls.issue_token(email)
 
     @classmethod
@@ -168,8 +165,6 @@ class EmailVerificationService:
             code=code,
         )
         rendered = cls.verification_email_template.render(context)
-
-        logger.info("Sending verification email.", email=email)
         rendered.build_message(to=email).send()
 
     @classmethod
