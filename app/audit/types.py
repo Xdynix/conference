@@ -103,6 +103,7 @@ class AuditAction(StrEnum):
 
     # User
     USER_CREATE = "user.create"
+    USER_MUTATE_ROLE_ASSIGNMENT = "user.mutate_role_assignment"
     USER_UPDATE = "user.update"
     USER_SET_PASSWORD = "user.set_password"  # noqa: S105
     USER_SET_ROLES = "user.set_roles"

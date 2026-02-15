@@ -5,12 +5,13 @@ from typing import Annotated, Literal, assert_never
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Schema
 from ninja.errors import HttpError
 from pydantic import Field
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import Conference, ConferenceRole, Track, TrackRole
 from app.conference.services import RoleAssignmentService
@@ -151,14 +152,14 @@ async def mutate_role_assignment(
             message=_("Invalid track UID."),
         ) from exc
 
-    logger.info(
-        "Role assignment mutated.",
-        action=payload.action,
-        conference_name=conference.name,
-        target_user_uid=target_user.uid,
-        requesting_user_uid=user.uid,
-        role=payload.role,
-        track_uid=payload.track if isinstance(payload, TrackRoleAction) else None,
+    await audit(
+        request=request,
+        action=AuditAction.USER_MUTATE_ROLE_ASSIGNMENT,
+        resource=AuditResource.USER,
+        resource_id=str(target_user.uid),
+        resource_label=target_user.email or target_user.username,
+        scope=conference.name,
+        payload=payload,
     )
 
     qs = await with_role_assignment_prefetch(
