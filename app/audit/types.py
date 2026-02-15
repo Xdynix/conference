@@ -3,11 +3,16 @@ from typing import TypedDict
 
 
 class AuditResource(StrEnum):
-    pass
+    SESSION = "session"
 
 
 class AuditAction(StrEnum):
-    pass
+    # Session
+    SESSION_CREATE = "session.create"
+    SESSION_CREATE_FAILED = "session.create_failed"
+    SESSION_DELETE = "session.delete"
+    SESSION_ASSUME = "session.assume"
+    SESSION_REVERT = "session.revert"
 
 
 class AuditResourceInfo(TypedDict):

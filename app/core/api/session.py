@@ -6,11 +6,12 @@ from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import ensure_csrf_cookie
-from loguru import logger
 from ninja import Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.core.auth import is_superuser
 from app.core.models import User
 from app.core.registry.user_response import user_response_registry
@@ -84,14 +85,25 @@ async def create_session(
         password=payload.password.get_secret_value(),
     )
     if user is None:
-        logger.info("Failed login attempt.", username=payload.username)
+        await audit(
+            request=request,
+            action=AuditAction.SESSION_CREATE_FAILED,
+            resource=AuditResource.SESSION,
+            payload=payload,
+        )
         raise HttpError(
             status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
             message=_("Invalid credentials."),
         )
     await alogin(request, user)
 
-    logger.info("User logged in.", user_uid=user.uid)
+    await audit(
+        request=request,
+        action=AuditAction.SESSION_CREATE,
+        resource=AuditResource.SESSION,
+        resource_id=str(user.uid),
+        payload=payload,
+    )
 
     return await Session.from_request(request)
 
@@ -106,7 +118,12 @@ async def delete_session(request: HttpRequest) -> Session:
     if (user := await request.auser()).is_authenticated:
         await alogout(request)
 
-        logger.info("User logged out.", user_uid=user.uid)
+        await audit(
+            request=request,
+            action=AuditAction.SESSION_DELETE,
+            resource=AuditResource.SESSION,
+            actor=user,
+        )
 
     return await Session.from_request(request)
 
@@ -156,10 +173,13 @@ async def assume_session(
     await alogin(request, impersonated)
     request.session[Session.Key.IMPERSONATOR_ID] = str(impersonator.id)
 
-    logger.info(
-        "Impersonation started.",
-        impersonator_uid=impersonator.uid,
-        impersonated_uid=impersonated.uid,
+    await audit(
+        request=request,
+        action=AuditAction.SESSION_ASSUME,
+        resource=AuditResource.SESSION,
+        resource_id=str(impersonated.uid),
+        actor=impersonator,
+        payload=payload,
     )
 
     return await Session.from_request(request)
@@ -187,17 +207,21 @@ async def revert_session(request: HttpRequest) -> Session:
         impersonated = cast(User, await request.auser())
         await alogin(request, impersonator)
 
-        logger.info(
-            "Impersonation stopped.",
-            impersonator_uid=impersonator.uid,
-            impersonated_uid=impersonated.uid,
+        await audit(
+            request=request,
+            action=AuditAction.SESSION_REVERT,
+            resource=AuditResource.SESSION,
+            actor=impersonator,
+            detail={"impersonated_uid": str(impersonated.uid)},
         )
     else:
         await alogout(request)
 
-        logger.error(
-            "Impersonator not found.",
-            impersonator_id=impersonator_id,
+        await audit(
+            request=request,
+            action=AuditAction.SESSION_REVERT,
+            resource=AuditResource.SESSION,
+            detail={"impersonator_id": impersonator_id},
         )
 
     return await Session.from_request(request)
