@@ -4,7 +4,6 @@ from asgiref.sync import sync_to_async
 from django.http import Http404
 from django.utils import timezone
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Schema
 from ninja.errors import HttpError
 from ulid import ULID
@@ -115,11 +114,11 @@ async def redeem_invitation(
 
     user = await request.auser()
     if invitation.invitee_user_id and invitation.invitee_user_id != user.id:
-        logger.warning(
-            "Invitation already redeemed by another user.",
-            invitation_uid=invitation.uid,
-            attempted_user_uid=user.uid,
-            invitee_user_id=invitation.invitee_user_id,
+        await audit(
+            request=request,
+            action=AuditAction.INVITATION_REDEEM_FAILED,
+            resource=invitation,
+            scope=invitation.conference.name,
         )
         raise HttpError(
             HTTPStatus.CONFLICT,
@@ -133,7 +132,6 @@ async def redeem_invitation(
         action=AuditAction.INVITATION_REDEEM,
         resource=invitation,
         scope=invitation.conference.name,
-        payload=payload,
     )
 
     return HTTPStatus.NO_CONTENT, None

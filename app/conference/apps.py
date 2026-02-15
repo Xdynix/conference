@@ -18,7 +18,6 @@ class ConferenceConfig(AppConfig):
 
 def register_create_user() -> None:
     from django.utils.translation import gettext as _
-    from loguru import logger
 
     from app.conference.models import Profile
     from app.conference.services import InvitationService
@@ -52,12 +51,6 @@ def register_create_user() -> None:
                 path="invitation_token",
                 message=_("Invitation already redeemed."),
             )
-        logger.info(
-            "Invitation redeemed during user creation.",
-            invitation_uid=invitation.uid,
-            conference_id=invitation.conference_id,
-            user_uid=user.uid,
-        )
 
     create_user_registry.register(
         "profile",

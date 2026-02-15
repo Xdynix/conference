@@ -16,6 +16,7 @@ from app.verikit.models import EmailVerification
 from app.verikit.services import EmailVerificationService
 
 
+@pytest.mark.django_db
 class TestCreateEmailVerification:
     path = reverse("api-1.0.0:create-email-verification")
 
@@ -82,6 +83,7 @@ class TestCreateEmailVerification:
         assert settings.CF_TURNSTILE_RESPONSE_HEADER_NAME in response.json()["message"]
 
 
+@pytest.mark.django_db
 class TestVerifyEmailVerification:
     path = reverse("api-1.0.0:verify-email-verification")
 

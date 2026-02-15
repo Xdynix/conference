@@ -7,6 +7,7 @@ class AuditResource(StrEnum):
     ATTENDANCE_TYPE = "attendance_type"
     CODE_POOL = "code_pool"
     CONFERENCE = "conference"
+    EMAIL_VERIFICATION = "email_verification"
     INVITATION = "invitation"
     PAPER = "paper"
     PAYMENT = "payment"
@@ -41,10 +42,15 @@ class AuditAction(StrEnum):
     CONFERENCE_UPDATE_ECOPYRIGHT_CONFIG = "conference.update_ecopyright_config"
     CONFERENCE_REFRESH_ECOPYRIGHT_CONSENTS = "conference.refresh_ecopyright_consents"
 
+    # Email Verification
+    EMAIL_VERIFICATION_ISSUE_CODE = "email_verification.issue_code"
+    EMAIL_VERIFICATION_VERIFY_CODE = "email_verification.verify_code"
+
     # Invitation
     INVITATION_CREATE = "invitation.create"
     INVITATION_DELETE = "invitation.delete"
     INVITATION_REDEEM = "invitation.redeem"
+    INVITATION_REDEEM_FAILED = "invitation.redeem_failed"
     INVITATION_REJECT = "invitation.reject"
     INVITATION_SEND = "invitation.send"
     INVITATION_UPDATE = "invitation.update"

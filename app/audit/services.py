@@ -1,12 +1,12 @@
 from typing import Any
 
+from django.http import HttpRequest
 from loguru import logger
 from pydantic import BaseModel
 
 from app.audit.models import AuditLog
 from app.audit.types import Auditable, AuditAction, AuditResource
 from app.core.models import User
-from app.core.types import HttpRequest
 from app.utils.orjson import serializer as json_serializer
 
 
