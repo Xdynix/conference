@@ -3,12 +3,13 @@ from typing import Annotated, Literal
 
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Schema
 from ninja.errors import HttpError
 from pydantic import StringConstraints
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.models import (
     AttendanceType,
     Paper,
@@ -155,12 +156,12 @@ async def create_my_registration(
         self_introduction=payload.self_introduction,
     )
 
-    logger.info(
-        "Registration created.",
-        registration_uid=str(registration.uid),
-        reference_code=registration.reference_code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.REGISTRATION_CREATE,
+        resource=registration,
+        scope=conference.name,
+        payload=payload,
     )
 
     return HTTPStatus.CREATED, await prefetch_registration(registration, request)

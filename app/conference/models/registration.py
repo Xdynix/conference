@@ -4,6 +4,7 @@ from django.contrib.auth import get_user_model
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from app.audit.types import Auditable, AuditResource, AuditResourceInfo
 from app.utils.models import TimeStampedModel, ULIDModel
 
 from .conference import Conference
@@ -13,7 +14,7 @@ from .profile import AbstractProfile
 User = get_user_model()
 
 
-class AttendanceType(ULIDModel):
+class AttendanceType(Auditable, ULIDModel):
     conference = models.ForeignKey(
         Conference,
         on_delete=models.CASCADE,
@@ -62,6 +63,13 @@ class AttendanceType(ULIDModel):
     def __str__(self) -> str:
         return self.display_name
 
+    def audit_resource_info(self) -> AuditResourceInfo:
+        return AuditResourceInfo(
+            resource=AuditResource.ATTENDANCE_TYPE,
+            resource_id=str(self.uid),
+            resource_label=self.display_name,
+        )
+
 
 def generate_reference_code() -> str:
     return f"{secrets.randbelow(100_000_000):08d}"
@@ -80,7 +88,7 @@ class RegistrationTitle(models.TextChoices):
     MS = "Ms.", _("Ms.")
 
 
-class Registration(AbstractProfile, TimeStampedModel, ULIDModel):
+class Registration(Auditable, AbstractProfile, TimeStampedModel, ULIDModel):
     conference = models.ForeignKey(
         Conference,
         on_delete=models.CASCADE,
@@ -160,3 +168,10 @@ class Registration(AbstractProfile, TimeStampedModel, ULIDModel):
     def __str__(self) -> str:
         name = f"{self.given_name} {self.family_name}".strip()
         return name or self.reference_code
+
+    def audit_resource_info(self) -> AuditResourceInfo:
+        return AuditResourceInfo(
+            resource=AuditResource.REGISTRATION,
+            resource_id=str(self.uid),
+            resource_label=str(self),
+        )

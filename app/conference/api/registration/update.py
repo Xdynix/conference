@@ -4,12 +4,13 @@ from typing import Annotated, Literal
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import PatchDict, Schema
 from ninja.errors import HttpError
 from pydantic import StringConstraints
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import (
     AttendanceType,
@@ -120,11 +121,12 @@ async def update_my_registration(
     except InvalidRegistrationStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Registration updated.",
-        registration_uid=str(registration.uid),
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.REGISTRATION_UPDATE,
+        resource=updated,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_registration(updated, request)
@@ -160,7 +162,6 @@ async def update_registration(
     attendance type can be changed if compatible with the registration's paper presence.
     All fields are optional; omitted fields retain their existing values.
     """
-    user = await request.auser()
     conference = await aget_object_or_404(
         Conference.objects.active(),
         name=conference_name,
@@ -190,11 +191,12 @@ async def update_registration(
             message=str(exc),
         ) from exc
 
-    logger.info(
-        "Registration updated by admin.",
-        registration_uid=str(registration.uid),
-        conference_name=conference.name,
-        admin_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.REGISTRATION_UPDATE,
+        resource=updated,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_registration(updated, request)

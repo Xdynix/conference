@@ -5,11 +5,12 @@ from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from jinja2 import StrictUndefined, TemplateSyntaxError, UndefinedError
 from jinja2.sandbox import SandboxedEnvironment
-from loguru import logger
 from ninja import Field, Schema
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import (
     Conference,
@@ -70,7 +71,6 @@ async def generate_receipt(
     Renders the provided Jinja2 template with registration context and stores the
     result. Regenerating replaces any existing receipt.
     """
-    user = await request.auser()
     conference = await aget_object_or_404(
         Conference.objects.active(),
         name=conference_name,
@@ -112,11 +112,12 @@ async def generate_receipt(
         defaults={"rendered_html": rendered_html},
     )
 
-    logger.info(
-        "Receipt generated.",
-        registration_uid=str(registration.uid),
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.REGISTRATION_GENERATE_RECEIPT,
+        resource=registration,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_registration(registration, request)
