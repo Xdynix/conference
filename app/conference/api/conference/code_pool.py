@@ -6,12 +6,13 @@ from django.db import IntegrityError
 from django.db.models import ProtectedError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Field, PatchDict, Schema
 from ninja.errors import HttpError
 from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import CodePool, Conference, ConferenceRole, Track
 from app.core.auth import has_any_roles
@@ -117,12 +118,12 @@ async def create_code_pool(
             _("A code pool with this prefix already exists for this conference."),
         ) from exc
 
-    user = await request.auser()
-    logger.info(
-        "Code pool created.",
-        code_pool_uid=pool.uid,
-        conference_name=conference.name,
-        actor_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.CODE_POOL_CREATE,
+        resource=pool,
+        scope=conference.name,
+        payload=payload,
     )
 
     return HTTPStatus.CREATED, pool
@@ -171,12 +172,12 @@ async def update_code_pool(
                 _("A code pool with this prefix already exists for this conference."),
             ) from exc
 
-    user = await request.auser()
-    logger.info(
-        "Code pool updated.",
-        code_pool_uid=pool.uid,
-        conference_name=conference.name,
-        actor_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.CODE_POOL_UPDATE,
+        resource=pool,
+        scope=conference.name,
+        payload=payload,
     )
 
     return pool
@@ -216,12 +217,11 @@ async def delete_code_pool(
             _("Cannot delete code pool: it is still referenced by one or more tracks."),
         ) from exc
 
-    user = await request.auser()
-    logger.info(
-        "Code pool deleted.",
-        code_pool_uid=code_pool_uid,
-        conference_name=conference.name,
-        actor_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.CODE_POOL_DELETE,
+        resource=pool,
+        scope=conference.name,
     )
 
     return HTTPStatus.NO_CONTENT, None
@@ -359,11 +359,12 @@ async def update_track_code_pool_assignments(
     except ValueError as exc:
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
 
-    user = await request.auser()
-    logger.info(
-        "Track code pool assignments updated.",
-        conference_name=conference.name,
-        actor_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.CODE_POOL_ASSIGN_TRACKS,
+        resource=AuditResource.CODE_POOL,
+        scope=conference.name,
+        payload={"assignments": [e.model_dump(mode="json") for e in payload]},
     )
 
     return tracks

@@ -4,6 +4,7 @@ from django.db import models
 from django.db.models import F
 from django.utils.translation import gettext_lazy as _
 
+from app.audit.types import Auditable, AuditResource, AuditResourceInfo
 from app.infra.models import Mutex
 from app.utils.markdown import render as render_markdown
 from app.utils.models import TimeStampedModel, ULIDModel
@@ -22,7 +23,7 @@ class ConferenceQuerySet(models.QuerySet["Conference"]):
         return self.filter(active=True)
 
 
-class Conference(TimeStampedModel):
+class Conference(Auditable, TimeStampedModel):
     name = models.SlugField(
         _("name"),
         max_length=255,
@@ -147,8 +148,15 @@ class Conference(TimeStampedModel):
     def paper_final_instructions_html(self) -> str:
         return render_markdown(self.paper_final_instructions)
 
+    def audit_resource_info(self) -> AuditResourceInfo:
+        return AuditResourceInfo(
+            resource=AuditResource.CONFERENCE,
+            resource_id=self.name,
+            resource_label=self.display_name,
+        )
 
-class CodePool(TimeStampedModel, ULIDModel):
+
+class CodePool(Auditable, TimeStampedModel, ULIDModel):
     conference = models.ForeignKey(
         Conference,
         on_delete=models.CASCADE,
@@ -207,6 +215,13 @@ class CodePool(TimeStampedModel, ULIDModel):
             # pool). If wider padding is needed, add a `sequence_width` field.
             return f"{self.prefix}{sequence:03d}"
 
+    def audit_resource_info(self) -> AuditResourceInfo:
+        return AuditResourceInfo(
+            resource=AuditResource.CODE_POOL,
+            resource_id=str(self.uid),
+            resource_label=self.name,
+        )
+
 
 class TrackVisibility(models.TextChoices):
     PUBLIC = "Public", _("Public")
@@ -222,7 +237,7 @@ class TrackQuerySet(models.QuerySet["Track"]):
         )
 
 
-class Track(TimeStampedModel, ULIDModel):
+class Track(Auditable, TimeStampedModel, ULIDModel):
     conference = models.ForeignKey(
         Conference,
         on_delete=models.CASCADE,
@@ -307,3 +322,10 @@ class Track(TimeStampedModel, ULIDModel):
         submissions require a code pool to allocate paper codes.
         """
         return self.submissions_enabled and self.code_pool_id is not None
+
+    def audit_resource_info(self) -> AuditResourceInfo:
+        return AuditResourceInfo(
+            resource=AuditResource.TRACK,
+            resource_id=str(self.uid),
+            resource_label=self.display_name,
+        )

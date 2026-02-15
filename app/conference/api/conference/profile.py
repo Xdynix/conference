@@ -1,10 +1,11 @@
 from typing import Any
 
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja import Field, PatchDict, Schema
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import (
     Conference,
@@ -162,10 +163,14 @@ async def update_current_user_conference_profile(
                 message=str(exc),
             ) from exc
 
-    logger.info(
-        "User updated conference profile.",
-        user_uid=user.uid,
-        conference_name=conference.name,
+    await audit(
+        request=request,
+        action=AuditAction.USER_UPDATE_CONFERENCE_PROFILE,
+        resource=AuditResource.USER,
+        resource_id=str(user.uid),
+        resource_label=user.email or user.username,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_user_profile(profile, user)
@@ -214,12 +219,15 @@ async def update_user_conference_profile(
                 message=str(exc),
             ) from exc
 
-    actor = await request.auser()
-    logger.info(
-        "Conference profile updated by admin.",
-        actor_uid=actor.uid,
-        user_uid=user.uid,
-        conference_name=conference.name,
+    await audit(
+        request=request,
+        action=AuditAction.USER_UPDATE_CONFERENCE_PROFILE,
+        resource=AuditResource.USER,
+        resource_id=str(user.uid),
+        resource_label=user.email or user.username,
+        scope=conference.name,
+        payload=payload,
     )
 
+    actor = await request.auser()
     return await prefetch_user_profile(profile, actor)
