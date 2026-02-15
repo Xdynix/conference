@@ -3,11 +3,12 @@ from http import HTTPStatus
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Field, PatchDict
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, Payment
 from app.conference.services import PaymentService
@@ -92,12 +93,12 @@ async def update_payment(
             message=_("Registration not found in this conference."),
         ) from exc
 
-    user = await request.auser()
-    logger.info(
-        "Payment updated.",
-        payment_uid=str(payment.uid),
-        conference_name=conference.name,
-        admin_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAYMENT_UPDATE,
+        resource=payment,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_payment(payment)
