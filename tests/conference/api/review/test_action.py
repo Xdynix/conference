@@ -309,6 +309,7 @@ class TestCancelReview:
         mock_visible_reviews: AsyncMock,
     ) -> None:
         def cancel_side_effect(r: Review, *, mode: str) -> Review:  # noqa: ARG001
+            r = Review.objects.select_related("paper", "reviewer").get(pk=r.pk)
             r.state = ReviewState.CANCELLED
             r.save(update_fields=["state"])
             return r

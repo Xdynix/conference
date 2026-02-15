@@ -4,18 +4,20 @@ from typing import Any
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from jinja2 import UndefinedError
-from loguru import logger
 from ninja import Schema
 from ninja.errors import HttpError
 from pydantic import EmailStr, Field
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole
 from app.conference.services.review import (
     ReviewerNotificationContext,
     ReviewerNotificationService,
     SendNotificationResult,
+    SendNotificationStatus,
 )
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
@@ -98,7 +100,6 @@ async def send_reviewer_notifications(
     Each reviewer is processed independently; individual failures do not affect other
     reviewers in the batch.
     """
-    user = await request.auser()
     conference = await aget_object_or_404(
         Conference.objects.active(),
         name=conference_name,
@@ -113,11 +114,20 @@ async def send_reviewer_notifications(
         force_send_to_recent=payload.force_send_to_recent,
     )
 
-    logger.info(
-        "Reviewer notifications sent.",
-        user=user,
-        conference_name=conference.name,
-        count=len(results),
+    status_counts = {status.value: 0 for status in SendNotificationStatus}
+    for result in results:
+        status_counts[result.status] += 1
+
+    await audit(
+        request=request,
+        action=AuditAction.REVIEW_SEND_NOTIFICATIONS,
+        resource=AuditResource.REVIEW,
+        scope=conference.name,
+        payload=payload,
+        detail={
+            "targeted_count": len(payload.reviewers),
+            **status_counts,
+        },
     )
 
     return {"results": results}

@@ -62,6 +62,7 @@ class TestSubmitMyReview:
         review_service_submit: MagicMock,
     ) -> None:
         def submit_side_effect(r: Review, *_: Any, **__: Any) -> Review:
+            r = Review.objects.select_related("paper", "reviewer").get(pk=r.pk)
             r.state = ReviewState.SUBMITTED
             r.save(update_fields=["state"])
             return r
@@ -220,6 +221,7 @@ class TestSubmitReview:
         mock_visible_reviews: AsyncMock,
     ) -> None:
         def submit_side_effect(r: Review, *_: Any, **__: Any) -> Review:
+            r = Review.objects.select_related("paper", "reviewer").get(pk=r.pk)
             r.state = ReviewState.SUBMITTED
             r.save(update_fields=["state"])
             return r
@@ -444,6 +446,7 @@ class TestUnsubmitReview:
         mock_visible_reviews: AsyncMock,
     ) -> None:
         def unsubmit_side_effect(r: Review, *, mode: str) -> Review:  # noqa: ARG001
+            r = Review.objects.select_related("paper", "reviewer").get(pk=r.pk)
             r.state = ReviewState.ACCEPTED
             r.submit_time = None
             r.save(update_fields=["state", "submit_time"])

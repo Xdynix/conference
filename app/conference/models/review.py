@@ -6,6 +6,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
+from app.audit.types import Auditable, AuditResource, AuditResourceInfo
 from app.utils.models import TimeStampedModel, ULIDModel
 
 from .paper import Paper
@@ -47,7 +48,7 @@ class ReviewQuerySet(models.QuerySet["Review"]):
         )
 
 
-class Review(TimeStampedModel, ULIDModel):
+class Review(Auditable, TimeStampedModel, ULIDModel):
     paper = models.ForeignKey(
         Paper,
         on_delete=models.CASCADE,
@@ -226,8 +227,16 @@ class Review(TimeStampedModel, ULIDModel):
         reviewer_display = self.reviewer or self.offline_reviewer_name or "(Unassigned)"
         return f"{self.paper} - {reviewer_display}"
 
+    def audit_resource_info(self) -> AuditResourceInfo:
+        reviewer_display = self.reviewer or self.offline_reviewer_name or "(Unassigned)"
+        return AuditResourceInfo(
+            resource=AuditResource.REVIEW,
+            resource_id=str(self.uid),
+            resource_label=f"{self.paper.code} - {reviewer_display}",
+        )
 
-class AdminComment(TimeStampedModel, ULIDModel):
+
+class AdminComment(Auditable, TimeStampedModel, ULIDModel):
     paper = models.ForeignKey(
         Paper,
         on_delete=models.CASCADE,
@@ -258,6 +267,14 @@ class AdminComment(TimeStampedModel, ULIDModel):
     def __str__(self) -> str:
         author_display = self.author or "(Unknown)"
         return f"{self.paper} - {author_display}"
+
+    def audit_resource_info(self) -> AuditResourceInfo:
+        author_display = self.author or "(Unknown)"
+        return AuditResourceInfo(
+            resource=AuditResource.ADMIN_COMMENT,
+            resource_id=str(self.uid),
+            resource_label=f"{self.paper.code} - {author_display}",
+        )
 
 
 class ReviewerNotificationLog(models.Model):

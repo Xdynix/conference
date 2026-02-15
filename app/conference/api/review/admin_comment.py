@@ -2,11 +2,12 @@ from http import HTTPStatus
 from typing import Annotated
 
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja import Schema
 from pydantic import AwareDatetime, StringConstraints
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import AdminComment, Conference, ConferenceRole
 from app.conference.types import ConferenceUser, ReviewComment
@@ -91,12 +92,12 @@ async def create_admin_comment(
         content=payload.content,
     )
 
-    logger.info(
-        "Admin comment created.",
-        conference_name=conference.name,
-        paper_code=paper.code,
-        comment_uid=comment.uid,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.ADMIN_COMMENT_CREATE,
+        resource=comment,
+        scope=conference.name,
+        payload=payload,
     )
 
     return HTTPStatus.CREATED, await AdminComment.objects.select_related(
@@ -119,24 +120,25 @@ async def delete_admin_comment(
     comment_uid: ULID,
 ) -> tuple[int, None]:
     """Deletes an admin comment."""
-    user = await request.auser()
     conference = await aget_object_or_404(
         Conference.objects.active(),
         name=conference_name,
     )
 
     comment = await aget_object_or_404(
-        AdminComment.objects.filter(paper__conference=conference),
+        AdminComment.objects.filter(paper__conference=conference).select_related(
+            "paper", "author"
+        ),
         uid=comment_uid,
     )
 
     await comment.adelete()
 
-    logger.info(
-        "Admin comment deleted.",
-        conference_name=conference.name,
-        comment_uid=comment_uid,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.ADMIN_COMMENT_DELETE,
+        resource=comment,
+        scope=conference.name,
     )
 
     return HTTPStatus.NO_CONTENT, None
