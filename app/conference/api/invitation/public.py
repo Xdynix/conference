@@ -9,6 +9,8 @@ from ninja import Schema
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.models import ConferenceRole, Invitation, TrackRole
 from app.conference.services import InvitationService
 from app.conference.types import (
@@ -126,11 +128,12 @@ async def redeem_invitation(
 
     await sync_to_async(InvitationService.redeem_invitation)(invitation, user)
 
-    logger.info(
-        "Invitation redeemed via token.",
-        invitation_uid=invitation.uid,
-        conference_id=invitation.conference_id,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.INVITATION_REDEEM,
+        resource=invitation,
+        scope=invitation.conference.name,
+        payload=payload,
     )
 
     return HTTPStatus.NO_CONTENT, None
@@ -142,7 +145,7 @@ async def redeem_invitation(
     summary="Reject Invitation",
 )
 async def reject_invitation(
-    request: HttpRequest,  # noqa: ARG001
+    request: HttpRequest,
     payload: InvitationTokenPayload,
 ) -> tuple[int, None]:
     """Reject an invitation."""
@@ -155,5 +158,12 @@ async def reject_invitation(
     if invitation.state != Invitation.State.ACCEPTED and invitation.reject_time is None:
         invitation.reject_time = timezone.now()
         await invitation.asave(update_fields=["reject_time", "update_time"])
+
+    await audit(
+        request=request,
+        action=AuditAction.INVITATION_REJECT,
+        resource=invitation,
+        scope=invitation.conference.name,
+    )
 
     return HTTPStatus.NO_CONTENT, None

@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.db.models.functions import Lower
 from django.utils.translation import gettext_lazy as _
 
+from app.audit.types import Auditable, AuditResource, AuditResourceInfo
 from app.utils.models import TimeStampedModel, ULIDModel
 
 from .conference import Conference, Track
@@ -16,6 +17,7 @@ User = get_user_model()
 
 
 class Invitation(
+    Auditable,
     AbstractUserConferenceProfile,
     AbstractProfile,
     TimeStampedModel,
@@ -131,6 +133,13 @@ class Invitation(
         remain mutable.
         """
         return self.state != self.State.ACCEPTED
+
+    def audit_resource_info(self) -> AuditResourceInfo:
+        return AuditResourceInfo(
+            resource=AuditResource.INVITATION,
+            resource_id=str(self.uid),
+            resource_label=self.invitee_email,
+        )
 
 
 class InvitationConferenceRoleEntry(models.Model):

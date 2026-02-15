@@ -3,10 +3,11 @@ from http import HTTPStatus
 from asgiref.sync import sync_to_async
 from django.http import Http404
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import Conference, ConferenceRole, TrackRole
 from app.conference.services import InvitationService
@@ -52,18 +53,18 @@ async def delete_invitation(
         raise Http404
 
     try:
-        await sync_to_async(InvitationService.delete_invitation)(
+        invitation = await sync_to_async(InvitationService.delete_invitation)(
             invitation_uid=invitation_uid,
             user=user,
         )
     except InsufficientRolePermission as exc:
         raise HttpError(HTTPStatus.FORBIDDEN, str(exc)) from exc
 
-    logger.info(
-        "Invitation deleted.",
-        conference_name=conference.name,
-        invitation_uid=invitation_uid,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.INVITATION_DELETE,
+        resource=invitation,
+        scope=conference.name,
     )
 
     return HTTPStatus.NO_CONTENT, None
