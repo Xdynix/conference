@@ -3,10 +3,11 @@ from typing import Literal
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import (
     has_any_conference_or_track_roles,
     has_any_conference_roles,
@@ -83,11 +84,11 @@ async def submit_my_review(
             details=exc.errors,
         )
 
-    logger.info(
-        "Review submitted by reviewer.",
-        review_uid=str(review.uid),
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.REVIEW_SUBMIT,
+        resource=review,
+        scope=conference.name,
     )
 
     return HTTPStatus.OK, await prefetch_review(review, request)
@@ -126,11 +127,11 @@ async def submit_review(
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Review submitted by admin.",
-        review_uid=str(review.uid),
-        conference_name=conference.name,
-        admin_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.REVIEW_SUBMIT,
+        resource=review,
+        scope=conference.name,
     )
 
     return await prefetch_review(review, request)
@@ -186,11 +187,11 @@ async def unsubmit_review(
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Review unsubmitted by admin.",
-        review_uid=str(review.uid),
-        conference_name=conference.name,
-        admin_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.REVIEW_UNSUBMIT,
+        resource=review,
+        scope=conference.name,
     )
 
     return await prefetch_review(review, request)

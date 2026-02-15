@@ -206,7 +206,11 @@ class ReviewService:
             raise ValueError(f"Invalid response: {response}.")
 
         with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
-            review = Review.objects.active().get(pk=review.pk)
+            review = (
+                Review.objects.active()
+                .select_related("paper", "reviewer")
+                .get(pk=review.pk)
+            )
 
             if review.state != ReviewState.PENDING:
                 raise InvalidReviewStateError(
@@ -239,7 +243,11 @@ class ReviewService:
                 contains a list of error dictionaries.
         """
         with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
-            review = Review.objects.active().get(pk=review.pk)
+            review = (
+                Review.objects.active()
+                .select_related("paper", "reviewer")
+                .get(pk=review.pk)
+            )
 
             if review.state != ReviewState.ACCEPTED:
                 raise InvalidReviewStateError(
@@ -302,7 +310,11 @@ class ReviewService:
                 been announced.
         """
         with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
-            review = Review.objects.active().select_related("paper").get(pk=review.pk)
+            review = (
+                Review.objects.active()
+                .select_related("paper", "reviewer")
+                .get(pk=review.pk)
+            )
 
             if review.reviewer_id is None:
                 raise InvalidReviewStateError(
@@ -356,7 +368,11 @@ class ReviewService:
         }
 
         with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
-            review = Review.objects.active().select_related("paper").get(pk=review.pk)
+            review = (
+                Review.objects.active()
+                .select_related("paper", "reviewer")
+                .get(pk=review.pk)
+            )
 
             if review.state not in cancellable_states:
                 raise InvalidReviewStateError(
@@ -428,7 +444,11 @@ class ReviewService:
             allowed_states = {ReviewState.ACCEPTED}
 
         with Mutex.lock_in_transaction(str(review.pk), namespace="review"):
-            review = Review.objects.active().get(pk=review.pk)
+            review = (
+                Review.objects.active()
+                .select_related("paper", "reviewer")
+                .get(pk=review.pk)
+            )
 
             if review.state not in allowed_states:
                 if mode == "admin":

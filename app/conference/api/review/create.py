@@ -6,11 +6,12 @@ from django.db import IntegrityError
 from django.shortcuts import aget_object_or_404
 from django.utils import timezone
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Schema
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import (
     Conference,
@@ -117,12 +118,12 @@ async def assign_review(
             _("Reviewer already has an active review for this paper."),
         ) from exc
 
-    logger.info(
-        "Reviewer assigned.",
-        conference_name=conference.name,
-        paper_code=paper.code,
-        reviewer_uid=reviewer.uid,
-        assigner_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.REVIEW_ASSIGN,
+        resource=review,
+        scope=conference.name,
+        payload=payload,
     )
 
     return HTTPStatus.CREATED, await prefetch_review(review, request)
@@ -203,6 +204,7 @@ async def import_review(
             offline_reviewer_name=payload.offline_reviewer_name,
             defaults=defaults,
         )
+        review.paper = paper
     else:
         review = await Review.objects.acreate(
             paper=paper,
@@ -212,13 +214,13 @@ async def import_review(
         )
         created = True
 
-    logger.info(
-        "Review imported.",
-        conference_name=conference.name,
-        paper_code=paper.code,
-        offline_reviewer_name=payload.offline_reviewer_name,
-        importer_uid=user.uid,
-        created=created,
+    await audit(
+        request=request,
+        action=AuditAction.REVIEW_IMPORT,
+        resource=review,
+        scope=conference.name,
+        payload=payload,
+        detail={"created": created},
     )
 
     status = HTTPStatus.CREATED if created else HTTPStatus.OK

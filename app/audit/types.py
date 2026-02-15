@@ -3,6 +3,7 @@ from typing import TypedDict
 
 
 class AuditResource(StrEnum):
+    ADMIN_COMMENT = "admin_comment"
     ATTENDANCE_TYPE = "attendance_type"
     CODE_POOL = "code_pool"
     CONFERENCE = "conference"
@@ -10,12 +11,17 @@ class AuditResource(StrEnum):
     PAPER = "paper"
     PAYMENT = "payment"
     REGISTRATION = "registration"
+    REVIEW = "review"
     SESSION = "session"
     TRACK = "track"
     USER = "user"
 
 
 class AuditAction(StrEnum):
+    # Admin Comment
+    ADMIN_COMMENT_CREATE = "admin_comment.create"
+    ADMIN_COMMENT_DELETE = "admin_comment.delete"
+
     # Attendance Type
     ATTENDANCE_TYPE_CREATE = "attendance_type.create"
     ATTENDANCE_TYPE_DELETE = "attendance_type.delete"
@@ -64,6 +70,17 @@ class AuditAction(StrEnum):
     PAYMENT_CREATE = "payment.create"
     PAYMENT_DELETE = "payment.delete"
     PAYMENT_UPDATE = "payment.update"
+
+    # Review
+    REVIEW_ACCEPT = "review.accept"
+    REVIEW_ASSIGN = "review.assign"
+    REVIEW_CANCEL = "review.cancel"
+    REVIEW_DECLINE = "review.decline"
+    REVIEW_IMPORT = "review.import"
+    REVIEW_SEND_NOTIFICATIONS = "review.send_notifications"
+    REVIEW_SUBMIT = "review.submit"
+    REVIEW_UNSUBMIT = "review.unsubmit"
+    REVIEW_UPDATE = "review.update"
 
     # Registration
     REGISTRATION_CANCEL = "registration.cancel"

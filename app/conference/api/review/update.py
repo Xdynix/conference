@@ -2,11 +2,12 @@ from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja import PatchDict, Schema
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import Conference, ConferenceRole, Review, ReviewState
 from app.conference.services import ConferenceService, ReviewService
@@ -82,11 +83,12 @@ async def update_my_review(
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Review draft saved.",
-        review_uid=str(review.uid),
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.REVIEW_UPDATE,
+        resource=updated,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_review(updated, request)
@@ -134,11 +136,12 @@ async def update_review(
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Review updated by admin.",
-        review_uid=str(review.uid),
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.REVIEW_UPDATE,
+        resource=updated,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_review(updated, request)

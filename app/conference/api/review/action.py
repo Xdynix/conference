@@ -3,10 +3,11 @@ from typing import Literal
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import (
     Conference,
@@ -71,11 +72,11 @@ async def accept_review(
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Review assignment accepted.",
-        conference_name=conference.name,
-        review_uid=review.uid,
-        reviewer_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.REVIEW_ACCEPT,
+        resource=review,
+        scope=conference.name,
     )
 
     return await prefetch_review(review, request)
@@ -118,11 +119,11 @@ async def decline_review(
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Review assignment declined.",
-        conference_name=conference.name,
-        review_uid=review.uid,
-        reviewer_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.REVIEW_DECLINE,
+        resource=review,
+        scope=conference.name,
     )
 
     return await prefetch_review(review, request)
@@ -179,11 +180,11 @@ async def cancel_review(
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Review cancelled by admin.",
-        review_uid=str(review.uid),
-        conference_name=conference.name,
-        admin_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.REVIEW_CANCEL,
+        resource=review,
+        scope=conference.name,
     )
 
     return await prefetch_review(review, request)
