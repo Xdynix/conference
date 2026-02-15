@@ -3,10 +3,11 @@ from http import HTTPStatus
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Field
 from ninja.errors import HttpError
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import Conference, ConferenceRole, Invitation, TrackRole
 from app.conference.services import InvitationService, KeywordService
@@ -102,11 +103,12 @@ async def create_invitation(
     except InsufficientRolePermission as exc:
         raise HttpError(HTTPStatus.FORBIDDEN, str(exc)) from exc
 
-    logger.info(
-        "Invitation created.",
-        invitation_uid=invitation.uid,
-        conference_name=conference.name,
-        inviter_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.INVITATION_CREATE,
+        resource=invitation,
+        scope=conference.name,
+        payload=payload,
     )
 
     return HTTPStatus.CREATED, await prefetch_invitation(invitation, request)

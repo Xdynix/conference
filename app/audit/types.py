@@ -5,6 +5,7 @@ from typing import TypedDict
 class AuditResource(StrEnum):
     CODE_POOL = "code_pool"
     CONFERENCE = "conference"
+    INVITATION = "invitation"
     SESSION = "session"
     TRACK = "track"
     USER = "user"
@@ -23,6 +24,14 @@ class AuditAction(StrEnum):
     CONFERENCE_DELETE = "conference.delete"
     CONFERENCE_UPDATE_ECOPYRIGHT_CONFIG = "conference.update_ecopyright_config"
     CONFERENCE_REFRESH_ECOPYRIGHT_CONSENTS = "conference.refresh_ecopyright_consents"
+
+    # Invitation
+    INVITATION_CREATE = "invitation.create"
+    INVITATION_DELETE = "invitation.delete"
+    INVITATION_REDEEM = "invitation.redeem"
+    INVITATION_REJECT = "invitation.reject"
+    INVITATION_SEND = "invitation.send"
+    INVITATION_UPDATE = "invitation.update"
 
     # Session
     SESSION_CREATE = "session.create"

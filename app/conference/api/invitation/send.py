@@ -6,18 +6,20 @@ from django.shortcuts import aget_object_or_404
 from django.urls import reverse
 from django.utils.translation import gettext as _
 from jinja2 import UndefinedError
-from loguru import logger
 from ninja import Schema
 from ninja.errors import HttpError
 from pydantic import Field
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole
 from app.conference.services import InvitationService
 from app.conference.services.invitation import (
     InvitationEmailContext,
     SendInvitationResult,
+    SendInvitationStatus,
 )
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
@@ -154,11 +156,20 @@ async def send_invitations(
         force_send_to_recent=payload.force_send_to_recent,
     )
 
-    logger.info(
-        "Invitations sent.",
-        user=user,
-        conference_name=conference.name,
-        count=len(results),
+    status_counts = {status.value: 0 for status in SendInvitationStatus}
+    for result in results:
+        status_counts[result.status] += 1
+
+    await audit(
+        request=request,
+        action=AuditAction.INVITATION_SEND,
+        resource=AuditResource.INVITATION,
+        scope=conference.name,
+        payload=payload,
+        detail={
+            "targeted_count": len(payload.invitations),
+            **status_counts,
+        },
     )
 
     return {"results": results}

@@ -3,11 +3,12 @@ from http import HTTPStatus
 from asgiref.sync import sync_to_async
 from django.http import Http404
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja import Field, PatchDict
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import Conference, ConferenceRole, Invitation, TrackRole
 from app.conference.services import InvitationService, KeywordService
@@ -111,11 +112,12 @@ async def update_invitation(
     except InsufficientRolePermission as exc:
         raise HttpError(HTTPStatus.FORBIDDEN, str(exc)) from exc
 
-    logger.info(
-        "Invitation updated.",
-        invitation_uid=invitation.uid,
-        conference_name=conference.name,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.INVITATION_UPDATE,
+        resource=invitation,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_invitation(invitation, request)

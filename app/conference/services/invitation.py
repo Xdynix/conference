@@ -301,7 +301,7 @@ class InvitationService:
             return invitation
 
     @classmethod
-    def delete_invitation(cls, *, invitation_uid: ULID, user: User) -> None:
+    def delete_invitation(cls, *, invitation_uid: ULID, user: User) -> Invitation:
         """Delete an invitation after validating management permissions.
 
         Raises:
@@ -326,6 +326,7 @@ class InvitationService:
                 ) from exc
 
             invitation.delete()
+            return invitation
 
     @classmethod
     def get_invitation_roles(
@@ -532,10 +533,14 @@ class InvitationService:
         except BadSignature:
             return None
 
-        return Invitation.objects.filter(
-            uid=invitation_uid,
-            conference__active=True,
-        ).first()
+        return (
+            Invitation.objects.select_related("conference")
+            .filter(
+                uid=invitation_uid,
+                conference__active=True,
+            )
+            .first()
+        )
 
     @classmethod
     def redeem_invitation(cls, invitation: Invitation, user: User) -> bool:
