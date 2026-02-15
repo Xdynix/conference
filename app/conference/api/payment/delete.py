@@ -2,9 +2,10 @@ from http import HTTPStatus
 
 from django.shortcuts import aget_object_or_404
 from django.utils import timezone
-from loguru import logger
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole
 from app.core.auth import has_any_roles
@@ -42,12 +43,11 @@ async def delete_payment(
     payment.delete_time = timezone.now()
     await payment.asave(update_fields=["delete_time", "update_time"])
 
-    user = await request.auser()
-    logger.info(
-        "Payment deleted.",
-        payment_uid=str(payment.uid),
-        conference_name=conference.name,
-        admin_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAYMENT_DELETE,
+        resource=payment,
+        scope=conference.name,
     )
 
     return HTTPStatus.NO_CONTENT, None

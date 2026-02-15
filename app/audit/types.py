@@ -7,6 +7,7 @@ class AuditResource(StrEnum):
     CONFERENCE = "conference"
     INVITATION = "invitation"
     PAPER = "paper"
+    PAYMENT = "payment"
     SESSION = "session"
     TRACK = "track"
     USER = "user"
@@ -50,6 +51,11 @@ class AuditAction(StrEnum):
     PAPER_UPLOAD_FINAL = "paper.upload_final"
     PAPER_UPLOAD_SUBMISSION = "paper.upload_submission"
     PAPER_WITHDRAW = "paper.withdraw"
+
+    # Payment
+    PAYMENT_CREATE = "payment.create"
+    PAYMENT_DELETE = "payment.delete"
+    PAYMENT_UPDATE = "payment.update"
 
     # Session
     SESSION_CREATE = "session.create"

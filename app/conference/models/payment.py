@@ -5,6 +5,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
+from app.audit.types import Auditable, AuditResource, AuditResourceInfo
 from app.utils.models import TimeStampedModel, ULIDModel
 
 from .conference import Conference
@@ -70,7 +71,7 @@ class PaymentQuerySet(models.QuerySet["Payment"]):
         )
 
 
-class Payment(TimeStampedModel, ULIDModel):
+class Payment(Auditable, TimeStampedModel, ULIDModel):
     conference = models.ForeignKey(
         Conference,
         on_delete=models.CASCADE,
@@ -130,6 +131,13 @@ class Payment(TimeStampedModel, ULIDModel):
     def formatted_amount(self) -> str:
         """Return the amount formatted with currency code for display."""
         return format_amount(self.amount, self.currency)
+
+    def audit_resource_info(self) -> AuditResourceInfo:
+        return AuditResourceInfo(
+            resource=AuditResource.PAYMENT,
+            resource_id=str(self.uid),
+            resource_label=self.reference,
+        )
 
 
 class PaymentItem(models.Model):
