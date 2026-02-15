@@ -2,10 +2,11 @@ from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Field, Schema
 from ninja.errors import HttpError
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.models import (
     Conference,
     ConferenceVisibility,
@@ -85,11 +86,13 @@ async def create_conference(
         message = _("A conference with that name already exists.")
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
-    user = await request.auser()
-    logger.info(
-        "Conference created.",
-        conference_name=conference.name,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.CONFERENCE_CREATE,
+        resource=conference,
+        scope=conference.name,
+        payload=payload,
     )
 
+    user = await request.auser()
     return HTTPStatus.CREATED, await prefetch_conference(conference, user)

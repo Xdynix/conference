@@ -4,10 +4,11 @@ from typing import Literal
 
 from asgiref.sync import sync_to_async
 from django.http import Http404
-from loguru import logger
 from ninja import Field, PatchDict, Schema
 from pydantic import ValidationInfo, field_validator
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, ConferenceVisibility
 from app.conference.services import ConferenceService, KeywordService
@@ -105,11 +106,13 @@ async def update_conference(
     except Conference.DoesNotExist as exc:
         raise Http404 from exc
 
-    user = await request.auser()
-    logger.info(
-        "Conference updated.",
-        conference_name=conference.name,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.CONFERENCE_UPDATE,
+        resource=conference,
+        scope=conference.name,
+        payload=payload,
     )
 
+    user = await request.auser()
     return await prefetch_conference(conference, user)

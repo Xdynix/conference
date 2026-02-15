@@ -2,8 +2,9 @@ from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.http import Http404
-from loguru import logger
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.models import Conference
 from app.conference.services import ConferenceService
 from app.core.auth import has_any_roles
@@ -31,11 +32,11 @@ async def delete_conference(
     except Conference.DoesNotExist as exc:
         raise Http404 from exc
 
-    user = await request.auser()
-    logger.info(
-        "Conference deleted.",
-        conference_name=conference.name,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.CONFERENCE_DELETE,
+        resource=conference,
+        scope=conference.name,
     )
 
     return HTTPStatus.NO_CONTENT, None

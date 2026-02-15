@@ -2,10 +2,11 @@ from http import HTTPStatus
 from typing import Any
 
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja import PatchDict, Router
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import ConferenceRole, Profile, TrackRole
 from app.conference.types import ConferenceUser
@@ -75,7 +76,14 @@ async def update_current_user_profile(
 
     await patch_profile(user, payload)
 
-    logger.info("User updated profile.", user_uid=user.uid)
+    await audit(
+        request=request,
+        action=AuditAction.USER_UPDATE_PROFILE,
+        resource=AuditResource.USER,
+        resource_id=str(user.uid),
+        resource_label=user.email or user.username,
+        payload=payload,
+    )
 
     return await user_response_registry.dump(user)
 
@@ -99,11 +107,13 @@ async def update_profile(
 
     await patch_profile(user, payload)
 
-    actor = await request.auser()
-    logger.info(
-        "Admin updated user profile.",
-        user_uid=user.uid,
-        actor_uid=actor.uid,
+    await audit(
+        request=request,
+        action=AuditAction.USER_UPDATE_PROFILE,
+        resource=AuditResource.USER,
+        resource_id=str(user.uid),
+        resource_label=user.email or user.username,
+        payload=payload,
     )
 
     return await user_response_registry.dump(user)

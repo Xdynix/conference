@@ -10,6 +10,8 @@ from ninja.errors import HttpError
 from pydantic import Field
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import (
     Conference,
@@ -75,7 +77,7 @@ async def get_ieee_ecopyright_config(
     ),
 )
 async def update_ieee_ecopyright_config(
-    request: AuthedHttpRequest,  # noqa: ARG001
+    request: AuthedHttpRequest,
     conference_name: str,
     payload: PatchDict[IEEEeCopyrightConfigSchema],
 ) -> IEEEeCopyrightConfig:
@@ -151,6 +153,14 @@ async def update_ieee_ecopyright_config(
         else:
             await config.exempt_tracks.aclear()
 
+    await audit(
+        request=request,
+        action=AuditAction.CONFERENCE_UPDATE_ECOPYRIGHT_CONFIG,
+        resource=conference,
+        scope=conference.name,
+        payload=payload,
+    )
+
     return await IEEEeCopyrightConfig.objects.prefetch_related("exempt_tracks").aget(
         pk=config.pk
     )
@@ -183,7 +193,7 @@ class RefreshIEEEeCopyrightConsentsResponse(Schema):
     ),
 )
 async def refresh_ieee_ecopyright_consents(
-    request: AuthedHttpRequest,  # noqa: ARG001
+    request: AuthedHttpRequest,
     conference_name: str,
 ) -> RefreshIEEEeCopyrightConsentsResponse:
     """Fetch eCopyright consent status from IEEE and create local consent records.
@@ -290,4 +300,16 @@ async def refresh_ieee_ecopyright_consents(
         await IEEEeCopyrightConsent.objects.abulk_create(consents_to_create)
 
     unmatched_codes = [code for code in codes if code not in papers]
+
+    await audit(
+        request=request,
+        action=AuditAction.CONFERENCE_REFRESH_ECOPYRIGHT_CONSENTS,
+        resource=conference,
+        scope=conference.name,
+        detail={
+            "created_count": len(consents_to_create),
+            "unmatched_count": len(unmatched_codes),
+        },
+    )
+
     return RefreshIEEEeCopyrightConsentsResponse(unmatched_codes=unmatched_codes)

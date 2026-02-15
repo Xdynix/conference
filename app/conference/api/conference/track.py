@@ -2,11 +2,12 @@ from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.http import Http404
-from loguru import logger
 from ninja import PatchDict, Schema
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, Track, TrackVisibility
 from app.conference.services import TrackService
@@ -47,16 +48,17 @@ async def create_track(
     except Conference.DoesNotExist as exc:
         raise Http404 from exc
 
-    user = await request.auser()
     conference = track.conference
 
-    logger.info(
-        "Track created.",
-        conference_name=conference.name,
-        track_uid=track.uid,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.TRACK_CREATE,
+        resource=track,
+        scope=conference.name,
+        payload=payload,
     )
 
+    user = await request.auser()
     return HTTPStatus.CREATED, await prefetch_conference(conference, user)
 
 
@@ -90,16 +92,17 @@ async def update_track(
     except Track.DoesNotExist as exc:
         raise Http404 from exc
 
-    user = await request.auser()
     conference = track.conference
 
-    logger.info(
-        "Track updated.",
-        conference_name=conference.name,
-        track_uid=track.uid,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.TRACK_UPDATE,
+        resource=track,
+        scope=conference.name,
+        payload=payload,
     )
 
+    user = await request.auser()
     return await prefetch_conference(conference, user)
 
 
@@ -125,16 +128,16 @@ async def delete_track(
     except Track.DoesNotExist as exc:
         raise Http404 from exc
 
-    user = await request.auser()
     conference = track.conference
 
-    logger.info(
-        "Track deleted.",
-        conference_name=conference.name,
-        track_uid=track.uid,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.TRACK_DELETE,
+        resource=track,
+        scope=conference.name,
     )
 
+    user = await request.auser()
     return await prefetch_conference(conference, user)
 
 
@@ -168,11 +171,13 @@ async def reorder_tracks(
     except ValueError as exc:
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, message=str(exc)) from exc
 
-    user = await request.auser()
-    logger.info(
-        "Tracks reordered.",
-        conference_name=conference.name,
-        user_uid=user.uid,
+    await audit(
+        request=request,
+        action=AuditAction.TRACK_REORDER,
+        resource=AuditResource.TRACK,
+        scope=conference.name,
+        payload={"track_uids": [str(uid) for uid in payload]},
     )
 
+    user = await request.auser()
     return await prefetch_conference(conference, user)
