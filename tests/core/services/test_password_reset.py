@@ -7,7 +7,7 @@ from asgiref.sync import sync_to_async
 from django.conf import LazySettings
 from django.utils import timezone
 from faker import Faker
-from pydantic import HttpUrl
+from pydantic import HttpUrl, SecretStr
 from pytest_mock import MockerFixture
 
 from app.core.models import PasswordResetToken, User
@@ -209,7 +209,7 @@ class TestPasswordResetServiceConsumeToken:
 
         result = PasswordResetService.consume_token(
             user,
-            token,
+            SecretStr(token),
             Password(new_password),
         )
         assert result is True
@@ -235,7 +235,7 @@ class TestPasswordResetServiceConsumeToken:
 
         result = PasswordResetService.consume_token(
             user,
-            wrong_token,
+            SecretStr(wrong_token),
             Password(new_password),
         )
         assert result is False
@@ -264,7 +264,7 @@ class TestPasswordResetServiceConsumeToken:
 
         result = PasswordResetService.consume_token(
             user,
-            token,
+            SecretStr(token),
             Password(new_password),
         )
         assert result is False
@@ -293,7 +293,7 @@ class TestPasswordResetServiceConsumeToken:
 
         result = PasswordResetService.consume_token(
             user,
-            token,
+            SecretStr(token),
             Password(new_password),
         )
         assert result is False
@@ -317,7 +317,7 @@ class TestPasswordResetServiceConsumeToken:
 
         result = PasswordResetService.consume_token(
             user,
-            token1,
+            SecretStr(token1),
             Password(new_password),
         )
         assert result is True
@@ -357,7 +357,7 @@ class TestPasswordResetServiceConsumeToken:
         with pytest.raises(Exception, match="Password update failed"):
             PasswordResetService.consume_token(
                 user,
-                token,
+                SecretStr(token),
                 Password(new_password),
             )
 
@@ -382,7 +382,7 @@ class TestPasswordResetServiceConsumeToken:
         async def consume_task() -> bool:
             return await sync_to_async(PasswordResetService.consume_token)(
                 user,
-                token,
+                SecretStr(token),
                 Password(new_password),
             )
 

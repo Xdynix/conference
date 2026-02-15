@@ -6,7 +6,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models.functions import Now
 from loguru import logger
-from pydantic import HttpUrl
+from pydantic import HttpUrl, SecretStr
 
 from app.core.models import PasswordResetToken, User
 from app.core.types import Password
@@ -86,7 +86,12 @@ class PasswordResetService:
             return password_reset_token
 
     @classmethod
-    def consume_token(cls, user: User, token: str, new_password: Password) -> bool:
+    def consume_token(
+        cls,
+        user: User,
+        token: SecretStr,
+        new_password: Password,
+    ) -> bool:
         """Consume a password reset token and set new password for the given user.
 
         Returns:
@@ -105,9 +110,9 @@ class PasswordResetService:
             normalize_email(user.email),
             namespace=cls.__name__,
         ):
-            updated = active_tokens.filter(token_hash=cls.hash_token(token)).update(
-                consume_time=Now()
-            )
+            updated = active_tokens.filter(
+                token_hash=cls.hash_token(token.get_secret_value())
+            ).update(consume_time=Now())
             if not updated:
                 return False
 

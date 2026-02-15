@@ -9,6 +9,7 @@ from django.core.mail import EmailMessage
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
+from pydantic import SecretStr
 from pytest_mock import MockerFixture
 from ulid import ULID
 
@@ -227,7 +228,11 @@ class TestConsumePasswordReset:
         assert response.status_code == HTTPStatus.NO_CONTENT
 
         mock_validate_password.assert_called_once_with(new_password, user=user)
-        mock_consume_token.assert_called_once_with(user, token, Password(new_password))
+        mock_consume_token.assert_called_once_with(
+            user,
+            SecretStr(token),
+            Password(new_password),
+        )
 
     def test_user_not_found(
         self,
@@ -278,7 +283,11 @@ class TestConsumePasswordReset:
         assert data["message"] == "Invalid or expired password reset token."
 
         mock_validate_password.assert_called_once_with(new_password, user=user)
-        mock_consume_token.assert_called_once_with(user, token, Password(new_password))
+        mock_consume_token.assert_called_once_with(
+            user,
+            SecretStr(token),
+            Password(new_password),
+        )
 
     def test_invalid_new_password(
         self,

@@ -11,9 +11,11 @@ from django.utils.translation import gettext as _
 from ninja import Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
-from pydantic import StringConstraints
+from pydantic import SecretStr, StringConstraints
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.core.models import User
 from app.core.services import PasswordResetService
 from app.core.types import EmailStr, HttpRequest, Password
@@ -80,13 +82,23 @@ async def create_password_reset(
                 status=HTTPStatus.TOO_MANY_REQUESTS,
                 headers={"Retry-After": str(interval_seconds)},
             )
+
+        await audit(
+            request=request,
+            action=AuditAction.USER_REQUEST_PASSWORD_RESET,
+            resource=AuditResource.USER,
+            resource_id=str(user.uid),
+            resource_label=user.email or user.username,
+            payload=payload,
+        )
+
     return HTTPStatus.CREATED, CreatePasswordResetResponse()
 
 
 class ConsumePasswordResetRequest(Schema):
     user: ULID
     token: Annotated[
-        str,
+        SecretStr,
         StringConstraints(min_length=1, max_length=128),
     ]
     new_password: Password
@@ -102,7 +114,7 @@ class ConsumePasswordResetRequest(Schema):
     summary="Reset Password",
 )
 async def consume_password_reset(
-    request: HttpRequest,  # noqa: ARG001
+    request: HttpRequest,
     payload: ConsumePasswordResetRequest,
 ) -> tuple[int, None]:
     """Reset a user's password using a valid password reset token.
@@ -120,6 +132,13 @@ async def consume_password_reset(
     except User.DoesNotExist as exc:
         # Returns the same response as invalid token path to avoid leaking user
         # existence.
+        await audit(
+            request=request,
+            action=AuditAction.USER_RESET_PASSWORD_FAILED,
+            resource=AuditResource.USER,
+            resource_id=str(payload.user),
+            payload=payload,
+        )
         raise HttpError(HTTPStatus.BAD_REQUEST, error_msg) from exc
 
     token = payload.token
@@ -135,6 +154,23 @@ async def consume_password_reset(
         token,
         new_password,
     ):
+        await audit(
+            request=request,
+            action=AuditAction.USER_RESET_PASSWORD_FAILED,
+            resource=AuditResource.USER,
+            resource_id=str(user.uid),
+            resource_label=user.email or user.username,
+            payload=payload,
+        )
         raise HttpError(HTTPStatus.BAD_REQUEST, error_msg)
+
+    await audit(
+        request=request,
+        action=AuditAction.USER_RESET_PASSWORD,
+        resource=AuditResource.USER,
+        resource_id=str(user.uid),
+        resource_label=user.email or user.username,
+        payload=payload,
+    )
 
     return HTTPStatus.NO_CONTENT, None

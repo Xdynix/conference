@@ -2,10 +2,11 @@ from typing import Annotated, Any
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja import Body, Field
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole, User
 from app.core.registry.user_response import user_response_registry
@@ -39,12 +40,13 @@ async def update_user_roles(
 
     await sync_to_async(UserService.set_roles)(user=user, roles=payload)
 
-    actor = await request.auser()
-    logger.info(
-        "Admin updated user roles.",
-        user_uid=user.uid,
-        actor_uid=actor.uid,
-        roles=payload,
+    await audit(
+        request=request,
+        action=AuditAction.USER_SET_ROLES,
+        resource=AuditResource.USER,
+        resource_id=str(user.uid),
+        resource_label=user.email or user.username,
+        payload={"roles": payload},
     )
 
     return await user_response_registry.dump(user)

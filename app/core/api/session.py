@@ -6,6 +6,7 @@ from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import ensure_csrf_cookie
+from loguru import logger
 from ninja import Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
@@ -217,6 +218,7 @@ async def revert_session(request: HttpRequest) -> Session:
     else:
         await alogout(request)
 
+        logger.error("Impersonator not found.", impersonator_id=impersonator_id)
         await audit(
             request=request,
             action=AuditAction.SESSION_REVERT,
