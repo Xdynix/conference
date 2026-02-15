@@ -3,11 +3,12 @@ from http import HTTPStatus
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Schema
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, Paper
 from app.conference.services import PaperService
@@ -67,12 +68,12 @@ async def relocate_paper(
     except ValueError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Paper relocated.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        target_track_uid=str(target_track.uid),
-        actor_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_RELOCATE,
+        resource=paper,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_paper(conference, paper, user, request)

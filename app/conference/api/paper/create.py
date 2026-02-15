@@ -4,10 +4,11 @@ from typing import Literal
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Field, Schema
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import Conference, ConferenceRole, Paper, Track, TrackRole
 from app.conference.services import (
@@ -153,12 +154,12 @@ async def create_draft(
 
     paper = await persist_paper_entry(user, conference, payload, flow="author")
 
-    logger.info(
-        "Draft created.",
-        paper_code=paper.code,
-        conference_name=conference_name,
-        track_uid=str(paper.track.uid),
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_CREATE,
+        resource=paper,
+        scope=conference.name,
+        payload=payload,
     )
 
     return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
@@ -197,12 +198,12 @@ async def create_paper(
 
     paper = await persist_paper_entry(user, conference, payload, flow="admin")
 
-    logger.info(
-        "Paper created by admin.",
-        paper_code=paper.code,
-        conference_name=conference_name,
-        track_uid=str(paper.track.uid),
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_CREATE,
+        resource=paper,
+        scope=conference.name,
+        payload=payload,
     )
 
     return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)

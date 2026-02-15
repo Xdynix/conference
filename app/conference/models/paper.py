@@ -8,6 +8,7 @@ from django.db.models import F, Prefetch, Q, Window
 from django.db.models.functions import RowNumber
 from django.utils.translation import gettext_lazy as _
 
+from app.audit.types import Auditable, AuditResource, AuditResourceInfo
 from app.utils.label_selector import LabelSelector
 from app.utils.models import LabelModel, TimeStampedModel, ULIDModel
 
@@ -57,7 +58,7 @@ class PaperQuerySet(models.QuerySet["Paper"]):
         )
 
 
-class Paper(TimeStampedModel, ULIDModel):
+class Paper(Auditable, TimeStampedModel, ULIDModel):
     conference = models.ForeignKey(
         Conference,
         on_delete=models.CASCADE,
@@ -182,6 +183,13 @@ class Paper(TimeStampedModel, ULIDModel):
         if self.state == PaperState.ACCEPTED_REVISION_NEEDED:
             return PaperState.ACCEPTED
         return PaperState(self.state)
+
+    def audit_resource_info(self) -> AuditResourceInfo:
+        return AuditResourceInfo(
+            resource=AuditResource.PAPER,
+            resource_id=str(self.uid),
+            resource_label=self.code,
+        )
 
 
 class PaperAuthor(AbstractProfile):

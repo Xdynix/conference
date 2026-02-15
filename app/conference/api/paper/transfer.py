@@ -2,9 +2,10 @@ from http import HTTPStatus
 
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Schema
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, Paper
 from app.core.auth import has_any_roles
@@ -62,12 +63,12 @@ async def transfer_paper(
     # Note: this does not lock the paper row, so a concurrent soft delete can win.
     await Paper.objects.filter(pk=paper.pk).aupdate(owner=new_owner)
 
-    logger.info(
-        "Paper ownership transferred.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        new_owner_uid=str(new_owner.uid),
-        actor_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_TRANSFER,
+        resource=paper,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_paper(conference, paper, user, request)

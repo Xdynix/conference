@@ -1,8 +1,9 @@
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja import Body
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, Paper
 from app.conference.services import PaperService
@@ -42,11 +43,12 @@ async def update_paper_labels(
 
     await sync_to_async(PaperService.set_paper_labels)(paper, **payload)  # type: ignore[misc]
 
-    logger.info(
-        "Paper labels updated.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_SET_LABELS,
+        resource=paper,
+        scope=conference.name,
+        payload={str(k): str(v) for k, v in payload.items()},
     )
 
     return await prefetch_paper(conference, paper, user, request)
