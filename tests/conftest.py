@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from functools import partial
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -9,6 +10,7 @@ from django.conf import LazySettings
 from django.db import models
 from django.test import Client
 from django.utils import timezone
+from loguru import logger
 from pytest_mock import MockerFixture
 
 from app.ninja.core import AppNinjaAPI
@@ -84,3 +86,24 @@ def mock_cf_turnstile(mocker: MockerFixture) -> MagicMock:
 @pytest.fixture
 def test_data_dir() -> Path:
     return Path(__file__).parent / "data"
+
+
+@pytest.fixture(autouse=True)
+def fail_on_audit_errors(request: pytest.FixtureRequest) -> Iterator[None]:
+    """Fail the test if the audit module logs an error.
+
+    The audit service swallows exceptions to avoid breaking business responses. This
+    fixture ensures those silent failures surface during testing. Mark a test with
+    ``@pytest.mark.expect_audit_error`` to opt out (e.g. when testing the error path
+    itself).
+    """
+    errors: list[str] = []
+    sink_id = logger.add(
+        lambda msg: errors.append(str(msg)),
+        level="ERROR",
+        filter="app.audit.services",
+    )
+    yield
+    logger.remove(sink_id)
+    if not request.node.get_closest_marker("expect_audit_error"):
+        assert not errors, f"Unexpected audit error logged: {errors[0]}"

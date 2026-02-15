@@ -91,6 +91,7 @@ INSTALLED_APPS = [
     "mailer",
     "ninja",
     "app.admin",
+    "app.audit",
     "app.conference",
     "app.core",
     "app.frontend",
