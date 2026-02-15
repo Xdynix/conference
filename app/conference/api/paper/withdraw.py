@@ -2,9 +2,10 @@ from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja.errors import HttpError
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, Paper
 from app.conference.services import ConferenceService, PaperService
@@ -52,11 +53,11 @@ async def withdraw_my_paper(
     except PaperWithdrawnError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Paper withdrawn by owner.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_WITHDRAW,
+        resource=paper,
+        scope=conference.name,
     )
 
     return await prefetch_paper(conference, paper, user, request)
@@ -99,11 +100,11 @@ async def withdraw_paper(
     except PaperWithdrawnError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Paper withdrawn by chair.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_WITHDRAW,
+        resource=paper,
+        scope=conference.name,
     )
 
     return await prefetch_paper(conference, paper, user, request)

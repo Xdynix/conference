@@ -1,7 +1,8 @@
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja import Field, Schema
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole
 from app.conference.services import PaperService
@@ -37,7 +38,6 @@ async def announce_papers(
     a decision, is not withdrawn, is not already announced, and has an acceptance
     letter (for accepted papers only). Returns the codes of papers that were announced.
     """
-    user = await request.auser()
     conference = await aget_object_or_404(
         Conference.objects.active(),
         name=conference_name,
@@ -45,12 +45,16 @@ async def announce_papers(
 
     announced_codes = await PaperService.announce_papers(conference, payload.codes)
 
-    logger.info(
-        "Papers announced.",
-        conference_name=conference.name,
-        requested_count=len(payload.codes),
-        announced_count=len(announced_codes),
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_ANNOUNCE,
+        resource=AuditResource.PAPER,
+        scope=conference.name,
+        payload=payload,
+        detail={
+            "requested_count": len(payload.codes),
+            "announced_count": len(announced_codes),
+        },
     )
 
     return announced_codes

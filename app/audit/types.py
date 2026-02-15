@@ -6,6 +6,7 @@ class AuditResource(StrEnum):
     CODE_POOL = "code_pool"
     CONFERENCE = "conference"
     INVITATION = "invitation"
+    PAPER = "paper"
     SESSION = "session"
     TRACK = "track"
     USER = "user"
@@ -32,6 +33,23 @@ class AuditAction(StrEnum):
     INVITATION_REJECT = "invitation.reject"
     INVITATION_SEND = "invitation.send"
     INVITATION_UPDATE = "invitation.update"
+
+    # Paper
+    PAPER_ANNOUNCE = "paper.announce"
+    PAPER_CREATE = "paper.create"
+    PAPER_DECIDE = "paper.decide"
+    PAPER_DELETE = "paper.delete"
+    PAPER_GENERATE_ACCEPTANCE_LETTER = "paper.generate_acceptance_letter"
+    PAPER_RELOCATE = "paper.relocate"
+    PAPER_SET_FINAL_LIMIT = "paper.set_final_limit"
+    PAPER_SET_LABELS = "paper.set_labels"
+    PAPER_SUBMIT = "paper.submit"
+    PAPER_TRANSFER = "paper.transfer"
+    PAPER_UNSUBMIT = "paper.unsubmit"
+    PAPER_UPDATE = "paper.update"
+    PAPER_UPLOAD_FINAL = "paper.upload_final"
+    PAPER_UPLOAD_SUBMISSION = "paper.upload_submission"
+    PAPER_WITHDRAW = "paper.withdraw"
 
     # Session
     SESSION_CREATE = "session.create"

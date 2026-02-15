@@ -5,11 +5,12 @@ from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from jinja2 import StrictUndefined, TemplateSyntaxError, UndefinedError
 from jinja2.sandbox import SandboxedEnvironment
-from loguru import logger
 from ninja import Field, Schema
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import (
     AcceptanceLetter,
@@ -113,11 +114,12 @@ async def generate_acceptance_letter(
         defaults={"rendered_html": rendered_html},
     )
 
-    logger.info(
-        "Acceptance letter generated.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_GENERATE_ACCEPTANCE_LETTER,
+        resource=paper,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_paper(conference, paper, user, request)

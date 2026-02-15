@@ -3,10 +3,11 @@ from typing import Any, Literal
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja import Field, PatchDict, Schema
 from ninja.errors import HttpError
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import Conference, ConferenceRole, Paper, TrackRole
 from app.conference.services import (
@@ -109,11 +110,12 @@ async def update_my_paper(
 
     updated = await apply_paper_update(paper, payload, mode="author")
 
-    logger.info(
-        "Paper updated by owner.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_UPDATE,
+        resource=paper,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_paper(conference, updated, user, request)
@@ -170,11 +172,12 @@ async def update_paper(
 
     updated = await apply_paper_update(paper, payload, mode=mode)
 
-    logger.info(
-        "Paper updated by admin.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_UPDATE,
+        resource=paper,
+        scope=conference.name,
+        payload=payload,
     )
 
     return await prefetch_paper(conference, updated, user, request)

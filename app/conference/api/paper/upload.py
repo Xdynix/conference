@@ -4,11 +4,12 @@ from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import File
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import (
     has_any_conference_or_track_roles,
     has_any_conference_roles,
@@ -36,6 +37,11 @@ from app.utils.files import UploadValidationError
 from .core import PaperDetailResponse, UserPaperDetailResponse, prefetch_paper, router
 
 # TODO: Implement virus and malicious file scanning on the uploaded files.
+
+
+def file_meta(file: UploadedFile) -> dict[str, str | int]:
+    """Extract auditable metadata from an uploaded file."""
+    return {"name": file.name or "", "size": file.size or 0}
 
 
 @router.post(
@@ -93,12 +99,13 @@ async def create_my_submission(
     except UploadValidationError as exc:
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
 
-    logger.info(
-        "Submission uploaded.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        revision=submission.revision,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_UPLOAD_SUBMISSION,
+        resource=paper,
+        scope=conference.name,
+        payload={"file": file_meta(file)},
+        detail={"revision": submission.revision},
     )
 
     return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
@@ -173,12 +180,13 @@ async def create_submission(
     except UploadValidationError as exc:
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
 
-    logger.info(
-        "Submission uploaded by admin.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        revision=submission.revision,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_UPLOAD_SUBMISSION,
+        resource=paper,
+        scope=conference.name,
+        payload={"file": file_meta(file)},
+        detail={"revision": submission.revision},
     )
 
     return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
@@ -252,12 +260,16 @@ async def create_my_final(
     except UploadValidationError as exc:
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
 
-    logger.info(
-        "Final uploaded.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        revision=final.revision,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_UPLOAD_FINAL,
+        resource=paper,
+        scope=conference.name,
+        payload={
+            "source_file": file_meta(source_file),
+            "viewable_file": file_meta(viewable_file) if viewable_file else None,
+        },
+        detail={"revision": final.revision},
     )
 
     return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
@@ -319,12 +331,16 @@ async def create_final(
     except UploadValidationError as exc:
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
 
-    logger.info(
-        "Final uploaded by admin.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        revision=final.revision,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_UPLOAD_FINAL,
+        resource=paper,
+        scope=conference.name,
+        payload={
+            "source_file": file_meta(source_file),
+            "viewable_file": file_meta(viewable_file) if viewable_file else None,
+        },
+        detail={"revision": final.revision},
     )
 
     return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)

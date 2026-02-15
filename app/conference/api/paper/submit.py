@@ -2,9 +2,10 @@ from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja.errors import HttpError
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import Conference, ConferenceRole, Paper, TrackRole
 from app.conference.services import ConferenceService, PaperService
@@ -58,11 +59,11 @@ async def submit_my_paper(
             details=exc.errors,
         )
 
-    logger.info(
-        "Paper submitted by owner.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_SUBMIT,
+        resource=paper,
+        scope=conference.name,
     )
 
     return HTTPStatus.OK, await prefetch_paper(conference, paper, user, request)
@@ -103,11 +104,11 @@ async def unsubmit_my_paper(
     except PaperStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Paper unsubmitted by owner.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_UNSUBMIT,
+        resource=paper,
+        scope=conference.name,
     )
 
     return await prefetch_paper(conference, paper, user, request)
@@ -160,11 +161,11 @@ async def submit_paper(
             details=exc.errors,
         )
 
-    logger.info(
-        "Paper submitted by admin.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_SUBMIT,
+        resource=paper,
+        scope=conference.name,
     )
 
     return HTTPStatus.OK, await prefetch_paper(conference, paper, user, request)

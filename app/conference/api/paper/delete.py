@@ -3,9 +3,10 @@ from typing import Literal
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from loguru import logger
 from ninja.errors import HttpError
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import Conference, ConferenceRole, TrackRole
 from app.conference.services import (
@@ -57,11 +58,11 @@ async def delete_my_paper(
     except PaperStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Paper deleted by owner.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_DELETE,
+        resource=paper,
+        scope=conference.name,
     )
 
     return HTTPStatus.NO_CONTENT, None
@@ -118,11 +119,11 @@ async def delete_paper(
     except PaperStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
-    logger.info(
-        "Paper deleted by admin.",
-        paper_code=paper.code,
-        conference_name=conference.name,
-        user_uid=str(user.uid),
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_DELETE,
+        resource=paper,
+        scope=conference.name,
     )
 
     return HTTPStatus.NO_CONTENT, None
