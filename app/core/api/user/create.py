@@ -4,11 +4,12 @@ from typing import Any, Literal
 from asgiref.sync import sync_to_async
 from django.contrib.auth import alogin
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.core.api.session import Session
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
@@ -72,7 +73,14 @@ async def create_account(
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
     await alogin(request, user)
 
-    logger.info("Account created and logged in.", user_uid=user.uid)
+    await audit(
+        request=request,
+        action=AuditAction.USER_CREATE,
+        resource=AuditResource.USER,
+        resource_id=str(user.uid),
+        resource_label=user.email or user.username,
+        payload=payload,
+    )
 
     return HTTPStatus.CREATED, await Session.from_request(request)
 
@@ -122,11 +130,13 @@ async def create_user(
         message = _("A user with that username or email already exists.")
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
-    actor = await request.auser()
-    logger.info(
-        "Admin created user.",
-        user_uid=user.uid,
-        actor_uid=actor.uid,
+    await audit(
+        request=request,
+        action=AuditAction.USER_CREATE,
+        resource=AuditResource.USER,
+        resource_id=str(user.uid),
+        resource_label=user.email or user.username,
+        payload=payload,
     )
 
     return HTTPStatus.CREATED, await user_response_registry.dump(user)

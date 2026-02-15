@@ -3,11 +3,12 @@ from typing import Any
 
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from loguru import logger
 from ninja import Schema
 from ninja.errors import HttpError
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction, AuditResource
 from app.core.auth import has_any_roles, is_authenticated
 from app.core.models import GlobalRole, User
 from app.core.registry.user_response import user_response_registry
@@ -62,7 +63,14 @@ async def update_current_user(
         message = _("A user with that username or email already exists.")
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
-    logger.info("User updated account.", user_uid=user.uid)
+    await audit(
+        request=request,
+        action=AuditAction.USER_UPDATE,
+        resource=AuditResource.USER,
+        resource_id=str(user.uid),
+        resource_label=user.email or user.username,
+        payload=payload,
+    )
 
     return await user_response_registry.dump(user)
 
@@ -108,11 +116,13 @@ async def update_user(
         message = _("A user with that username or email already exists.")
         raise HttpError(HTTPStatus.CONFLICT, message) from exc
 
-    actor = await request.auser()
-    logger.info(
-        "Admin updated user account.",
-        user_uid=user.uid,
-        actor_uid=actor.uid,
+    await audit(
+        request=request,
+        action=AuditAction.USER_UPDATE,
+        resource=AuditResource.USER,
+        resource_id=str(user.uid),
+        resource_label=user.email or user.username,
+        payload=payload,
     )
 
     return await user_response_registry.dump(user)
