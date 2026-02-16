@@ -12,7 +12,7 @@ def default(obj: Any) -> Any:
         case ULID() | HttpUrl() | Decimal():
             return str(obj)
         case _:  # pragma: no cover
-            raise TypeError
+            raise TypeError(f"Object of type {type(obj).__name__} is not serializable.")
 
 
 class ORJSONSerializer:
