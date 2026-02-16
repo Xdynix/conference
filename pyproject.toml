@@ -25,6 +25,7 @@ dependencies = [
     "pyyaml>=6.0.2",
     "sentry-sdk>=2.52.0",
     "servestatic[brotli]>=3.1.0",
+    "typst>=0.14.8",
 ]
 
 [dependency-groups]
