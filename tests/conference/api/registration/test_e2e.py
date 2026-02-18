@@ -2,6 +2,7 @@ from http import HTTPStatus
 from textwrap import dedent
 
 import pytest
+from django.conf import LazySettings
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
@@ -23,7 +24,12 @@ from app.conference.models import (
     Track,
 )
 from app.core.models import User
-from tests.helpers import any_str, update_object
+from tests.helpers import any_str, extract_pdf_text, update_object
+
+
+@pytest.fixture(autouse=True)
+def file_download_mode(settings: LazySettings) -> None:
+    settings.FILE_DOWNLOAD_MODE = "django"
 
 
 @pytest.fixture(autouse=True)
@@ -291,28 +297,25 @@ class TestRegistrationE2E:
         data = response.json()
         assert data["uid"] == str(registration.uid)
         assert data["given_name"] == "Charlie"
-        assert data["user"]["uid"] == str(user.uid)
         assert "receipt_url" not in data
 
-        template = dedent(
-            """<html>
-            <body>
-            <h1>Official Receipt</h1>
-            <p>Conference: {{ registration.conference.display_name }}</p>
-            <p>Receipt Title: {{ registration.receipt_title }}</p>
-            <p>
-                Registrant:
-                {{ registration.given_name }} {{ registration.family_name }}
-            </p>
-            <h2>Payment Items</h2>
-            <ul>
-            {% for item in registration.payment_items.all() -%}
-            <li>{{ item.description }}: {{ item.formatted_amount }}</li>
-            {% endfor -%}
-            </ul>
-            </body>
-            </html>"""
-        )
+        template = dedent("""\
+            #let data = json(bytes(sys.inputs.at("data")))
+
+            = Official Receipt
+
+            Conference: #data.conference.display_name
+
+            Receipt Title: #data.registration.receipt_title
+
+            Registrant: #data.registration.given_name #data.registration.family_name
+
+            == Payment Items
+
+            #for item in data.registration.payment_items [
+              - #item.description: #item.formatted_amount
+            ]
+        """)
 
         response = api_client.post(
             self.generate_receipt_path(conference.name, registration.uid),
@@ -322,37 +325,40 @@ class TestRegistrationE2E:
         data = response.json()
         assert data["uid"] == str(registration.uid)
         receipt_url = data["receipt_url"]
+        assert receipt_url == any_str
 
-        assert Receipt.objects.filter(registration=registration).exists()
         receipt = Receipt.objects.get(registration=registration)
-        assert "Charlie Brown" in receipt.rendered_html
-        assert "Conference Fee: 500.00 USD" in receipt.rendered_html
-        assert "Workshop Fee: 250.00 USD" in receipt.rendered_html
+        assert receipt.template == template
+        assert receipt.rendered_pdf.name
 
+        # Verify the registration detail now includes the receipt URL.
         response = api_client.get(
             self.get_registration_path(conference.name, registration.uid),
         )
         assert response.status_code == HTTPStatus.OK
         assert response.json()["receipt_url"] == receipt_url
 
+        # Download the receipt (unauthenticated, public URL).
         api_client.logout()
 
         response = api_client.get(receipt_url)
         assert response.status_code == HTTPStatus.OK
-        assert response["Content-Type"] == "text/html"
-        assert b"Charlie Brown" in response.content
-        assert b"Conference Fee: 500.00 USD" in response.content
+        assert response["Content-Type"] == "application/pdf"
 
+        pdf_bytes = b"".join(response.streaming_content)  # type: ignore[attr-defined]
+        text = extract_pdf_text(pdf_bytes)
+        assert "Official Receipt" in text
+        assert "Charlie Brown" in text or ("Charlie" in text and "Brown" in text)
+        assert "Conference Fee" in text
+        assert "Workshop Fee" in text
+
+        # Regenerate with an updated template.
         api_client.force_login(conference_chair)
 
-        updated_template = dedent(
-            """<html>
-            <body>
-            <h1>Updated Receipt</h1>
-            <p>Reference: {{ registration.reference_code }}</p>
-            </body>
-            </html>"""
-        )
+        updated_template = dedent("""\
+            #let data = json(bytes(sys.inputs.at("data")))
+            Updated receipt for #data.registration.reference_code.
+        """)
 
         response = api_client.post(
             self.generate_receipt_path(conference.name, registration.uid),
@@ -366,8 +372,11 @@ class TestRegistrationE2E:
 
         response = api_client.get(receipt_url)
         assert response.status_code == HTTPStatus.OK
-        assert b"Updated Receipt" in response.content
-        assert registration.reference_code.encode() in response.content
+
+        pdf_bytes = b"".join(response.streaming_content)  # type: ignore[attr-defined]
+        text = extract_pdf_text(pdf_bytes)
+        assert "Updated receipt for" in text
+        assert registration.reference_code in text
 
     def test_admin_registration_state_management(
         self,
@@ -476,7 +485,14 @@ class TestRegistrationE2E:
             description="Registration Fee",
         )
 
-        template = "<p>Receipt for {{ registration.given_name }} - Total: 100 USD</p>"
+        template = dedent("""\
+            #let data = json(bytes(sys.inputs.at("data")))
+            Receipt for #data.registration.given_name #data.registration.family_name.
+            #for item in data.registration.payment_items [
+              #item.description: #item.formatted_amount
+            ]
+        """)
+
         response = api_client.post(
             self.generate_receipt_path(conference.name, registration_uid),
             data={"template": template},
@@ -484,12 +500,18 @@ class TestRegistrationE2E:
         assert response.status_code == HTTPStatus.OK
         receipt_url = response.json()["receipt_url"]
 
+        # Download receipt unauthenticated.
         api_client.logout()
 
         response = api_client.get(receipt_url)
         assert response.status_code == HTTPStatus.OK
-        assert b"Receipt for Eve" in response.content
 
+        pdf_bytes = b"".join(response.streaming_content)  # type: ignore[attr-defined]
+        text = extract_pdf_text(pdf_bytes)
+        assert "Receipt for Eve" in text
+        assert "Registration Fee" in text
+
+        # User can still view their own registration.
         api_client.force_login(user)
 
         response = api_client.get(

@@ -1,10 +1,15 @@
+import asyncio
+import json
 from http import HTTPStatus
+from typing import Any
 
-from django.http import HttpRequest, HttpResponse
+from asgiref.sync import sync_to_async
+from django.core.files.base import ContentFile
+from django.db import transaction
+from django.db.models import Prefetch
+from django.http import Http404, HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from jinja2 import StrictUndefined, TemplateSyntaxError, UndefinedError
-from jinja2.sandbox import SandboxedEnvironment
 from ninja import Field, Schema
 from ninja.errors import HttpError
 from ulid import ULID
@@ -15,6 +20,7 @@ from app.conference.auth import has_any_conference_roles
 from app.conference.models import (
     Conference,
     ConferenceRole,
+    PaymentItem,
     Receipt,
     Registration,
     RegistrationState,
@@ -23,22 +29,13 @@ from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse, make_validation_error
+from app.utils.enums import Region
+from app.utils.files import build_file_download_response
+from app.utils.typst import CompilationError, compile_template, typst_json_default
 
 from .core import RegistrationResponse, prefetch_registration, router
 
-# TODO: Add PDF generation for receipts. Current gap: HTML to PDF conversion requires
-#  either OS-level libraries (xhtml2pdf, WeasyPrint with system deps) or a headless
-#  browser (Playwright, Puppeteer), with no elegant pure Python solution.
-#
-# TODO: Add receipt email sending endpoint.
-#
-# TODO: Add endpoint to upload externally generated PDF to be sent with the email, as a
-#  workaround until PDF generation is implemented.
-
-jinja_env = SandboxedEnvironment(
-    autoescape=True,
-    undefined=StrictUndefined,
-)
+COMPILE_TIMEOUT = 5.0
 
 
 class GenerateReceiptRequest(Schema):
@@ -68,8 +65,8 @@ async def generate_receipt(
 ) -> Registration:
     """Generate a receipt for a registration.
 
-    Renders the provided Jinja2 template with registration context and stores the
-    result. Regenerating replaces any existing receipt.
+    Compiles the provided typst template with registration context and stores the
+    resulting PDF. Regenerating replaces any existing receipt.
     """
     conference = await aget_object_or_404(
         Conference.objects.active(),
@@ -80,10 +77,13 @@ async def generate_receipt(
         conference.registrations.select_related(
             "conference",
             "user__profile",
-            "paper__track__conference",
+            "paper__track",
             "attendance_type",
         ).prefetch_related(
-            "payment_items__payment",
+            Prefetch(
+                "payment_items",
+                queryset=PaymentItem.objects.select_related("payment").order_by("id"),
+            ),
             "paper__authors",
         ),
         uid=registration_uid,
@@ -95,22 +95,110 @@ async def generate_receipt(
             _("Cannot generate receipt for cancelled registration."),
         )
 
-    try:
-        jinja_env.parse(payload.template)
-    except TemplateSyntaxError as exc:
-        raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+    paper_data = None
+    if registration.paper is not None:
+        paper = registration.paper
+        paper_data = {
+            "code": paper.code,
+            "title": paper.title,
+            "track": {"display_name": paper.track.display_name},
+            "authors": [
+                {
+                    "given_name": a.given_name,
+                    "family_name": a.family_name,
+                    "affiliation": a.affiliation,
+                    "region_code": a.region_code,
+                    "region_name": Region.get_label(a.region_code),
+                    "email": a.email,
+                    "phone": a.phone,
+                    "corresponding": a.corresponding,
+                }
+                for a in paper.authors.all()
+            ],
+        }
+    profile = getattr(registration.user, "profile", None)
+    context: dict[str, Any] = {
+        "conference": {
+            "name": registration.conference.name,
+            "display_name": registration.conference.display_name,
+            "start_date": registration.conference.start_date,
+            "end_date": registration.conference.end_date,
+            "location": registration.conference.location,
+        },
+        "registration": {
+            "uid": registration.uid,
+            "create_date": registration.create_time.date(),
+            "reference_code": registration.reference_code,
+            "title": registration.get_title_display(),
+            "given_name": registration.given_name,
+            "family_name": registration.family_name,
+            "affiliation": registration.affiliation,
+            "region_code": registration.region_code,
+            "region_name": Region.get_label(registration.region_code),
+            "email": registration.email,
+            "phone": registration.phone,
+            "receipt_title": registration.receipt_title,
+            "attendance_type": {
+                "display_name": registration.attendance_type.display_name,
+            },
+            "user": {
+                "given_name": getattr(profile, "given_name", ""),
+                "family_name": getattr(profile, "family_name", ""),
+                "affiliation": getattr(profile, "affiliation", ""),
+                "region_code": getattr(profile, "region_code", ""),
+                "region_name": Region.get_label(getattr(profile, "region_code", "")),
+                "email": registration.user.email,
+            },
+            "paper": paper_data,
+            "payment_items": [
+                {
+                    "description": item.description,
+                    "amount": item.amount,
+                    "formatted_amount": item.formatted_amount,
+                }
+                for item in registration.payment_items.all()
+            ],
+        },
+    }
+    context = json.loads(json.dumps(context, default=typst_json_default))
+
+    def compile_pdf() -> bytes:
+        return compile_template(payload.template, context)
 
     try:
-        rendered_html = jinja_env.from_string(payload.template).render(
-            registration=registration,
+        pdf_bytes = await asyncio.wait_for(
+            sync_to_async(compile_pdf)(),
+            timeout=COMPILE_TIMEOUT,
         )
-    except UndefinedError as exc:
+    except CompilationError as exc:
         raise make_validation_error(path="template", message=str(exc)) from exc
+    except TimeoutError as exc:
+        raise make_validation_error(
+            path="template",
+            message=_("Template compilation timed out."),
+        ) from exc
 
-    await Receipt.objects.aupdate_or_create(
-        registration=registration,
-        defaults={"rendered_html": rendered_html},
-    )
+    @sync_to_async
+    def save_receipt() -> None:
+        with transaction.atomic():
+            old_pdf_name = (
+                Receipt.objects.filter(registration=registration)
+                .values_list("rendered_pdf", flat=True)
+                .first()
+            )
+
+            receipt, __ = Receipt.objects.update_or_create(
+                registration=registration,
+                defaults={"template": payload.template, "context": context},
+            )
+            receipt.rendered_pdf.save("receipt.pdf", ContentFile(pdf_bytes), save=False)
+            receipt.save(update_fields=["rendered_pdf"])
+
+            if old_pdf_name and old_pdf_name != receipt.rendered_pdf.name:
+                storage = receipt.rendered_pdf.storage
+                transaction.on_commit(lambda: storage.delete(old_pdf_name))
+
+    await save_receipt()
 
     await audit(
         request=request,
@@ -118,6 +206,7 @@ async def generate_receipt(
         resource=registration,
         scope=conference.name,
         payload=payload,
+        detail={"context": context},
     )
 
     return await prefetch_registration(registration, request)
@@ -126,7 +215,9 @@ async def generate_receipt(
 GET_RECEIPT_OPENAPI_EXTRA = {
     "responses": {
         200: {
-            "content": {"text/html": {"schema": {"type": "string"}}},
+            "content": {
+                "application/pdf": {"schema": {"type": "string", "format": "binary"}},
+            },
         }
     }
 }
@@ -141,7 +232,29 @@ GET_RECEIPT_OPENAPI_EXTRA = {
 async def get_receipt(
     request: HttpRequest,  # noqa: ARG001
     uid: ULID,
-) -> HttpResponse:
+) -> HttpResponse | StreamingHttpResponse:
     """Retrieve the rendered receipt for a registration."""
     receipt = await aget_object_or_404(Receipt, registration__uid=uid)
-    return HttpResponse(receipt.rendered_html, content_type="text/html")
+    try:
+        return build_file_download_response(
+            receipt.rendered_pdf,
+            filename="receipt.pdf",
+            content_type="application/pdf",
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        raise Http404 from exc
+
+
+@router.get(
+    "/conferences/-/registrations/{ulid:uid}/receipt/{str:filename}",
+    openapi_extra=GET_RECEIPT_OPENAPI_EXTRA,
+    summary="Get Receipt",
+    auth=None,
+)
+async def get_receipt_ex(
+    request: HttpRequest,
+    uid: ULID,
+    filename: str,  # noqa: ARG001
+) -> HttpResponse | StreamingHttpResponse:
+    """Retrieve the rendered receipt with a decorative filename segment."""
+    return await get_receipt(request, uid)

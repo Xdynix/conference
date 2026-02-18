@@ -1,28 +1,39 @@
+from collections.abc import Coroutine
 from http import HTTPStatus
-from textwrap import dedent
+from pathlib import Path
+from typing import Any, NoReturn
+from unittest.mock import MagicMock
 
 import pytest
+from django.conf import LazySettings
+from django.core.files.base import ContentFile
 from django.test import Client
 from django.urls import reverse
+from pytest_mock import MockerFixture
 from ulid import ULID
 
 from app.conference.models import (
     AttendanceType,
     Conference,
     Paper,
+    PaperAuthor,
     PaperState,
     Payment,
-    PaymentCurrency,
     PaymentItem,
-    PaymentMethod,
-    PaymentType,
+    Profile,
     Receipt,
     Registration,
     RegistrationState,
+    RegistrationTitle,
     Track,
 )
 from app.core.models import User
+from app.utils.enums import Region
+from app.utils.typst import CompilationError
 from tests.helpers import update_object
+
+FAKE_PDF = b"%PDF-fake-receipt"
+TEMPLATE = "#set page(width: auto)\nReceipt template"
 
 
 @pytest.fixture
@@ -31,7 +42,7 @@ def attendance_type(conference: Conference) -> AttendanceType:
         conference=conference,
         display_name="Oral Presentation",
         admin_only=False,
-        paper_required=False,
+        paper_required=True,
     )
 
 
@@ -42,7 +53,7 @@ def paper(conference: Conference, track: Track, user: User) -> Paper:
         track=track,
         owner=user,
         code="PAPER-001",
-        title="A Novel Approach to Machine Learning",
+        title="Test Paper",
         state=PaperState.ACCEPTED,
     )
 
@@ -51,19 +62,55 @@ def paper(conference: Conference, track: Track, user: User) -> Paper:
 def registration(
     conference: Conference,
     user: User,
-    paper: Paper,
     attendance_type: AttendanceType,
+    paper: Paper,
 ) -> Registration:
     return Registration.objects.create(
         conference=conference,
         user=user,
         paper=paper,
         attendance_type=attendance_type,
-        given_name="Alice",
-        family_name="Smith",
-        email="alice@example.com",
+        state=RegistrationState.CONFIRMED,
+        title=RegistrationTitle.DR,
+        given_name="John",
+        family_name="Doe",
+        affiliation="University of Testing",
+        region_code="US",
+        email="john@example.com",
+        phone="+1234567890",
         receipt_title="University of Testing",
     )
+
+
+@pytest.fixture
+def registration_no_paper(
+    conference: Conference,
+    user: User,
+    attendance_type: AttendanceType,
+) -> Registration:
+    return Registration.objects.create(
+        conference=conference,
+        user=user,
+        paper=None,
+        attendance_type=attendance_type,
+        state=RegistrationState.CONFIRMED,
+        given_name="Jane",
+        family_name="Doe",
+        email="jane@example.com",
+    )
+
+
+@pytest.fixture
+def compile_template(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch(
+        "app.conference.api.registration.receipt.compile_template",
+        return_value=FAKE_PDF,
+    )
+
+
+@pytest.fixture(autouse=True)
+def file_download_mode(settings: LazySettings) -> None:
+    settings.FILE_DOWNLOAD_MODE = "django"
 
 
 @pytest.mark.django_db
@@ -81,204 +128,302 @@ class TestGenerateReceipt:
         conference: Conference,
         conference_chair: User,
         registration: Registration,
-        paper: Paper,
+        compile_template: MagicMock,
     ) -> None:
-        payment = Payment.objects.create(
-            conference=conference,
-            amount=500,
-            currency=PaymentCurrency.USD,
-            type=PaymentType.PAYMENT,
-            method=PaymentMethod.WIRE_TRANSFER,
-            reference="TXN-12345",
-        )
-        PaymentItem.objects.create(
-            payment=payment,
-            registration=registration,
-            amount=300,
-            description="Registration Fee",
-        )
-        PaymentItem.objects.create(
-            payment=payment,
-            registration=registration,
-            amount=200,
-            description="Banquet",
-        )
-
-        template = dedent(
-            """<html>
-            <body>
-            <h1>Receipt</h1>
-            <p>Conference: {{ registration.conference.display_name }}</p>
-            <p>Receipt Title: {{ registration.receipt_title }}</p>
-            <p>
-                Registrant:
-                {{ registration.given_name }} {{ registration.family_name }}
-            </p>
-            <p>Attendance Type: {{ registration.attendance_type.display_name }}</p>
-            <h2>Paper</h2>
-            <p>Code: {{ registration.paper.code }}</p>
-            <p>Title: {{ registration.paper.title }}</p>
-            <p>Track: {{ registration.paper.track.display_name }}</p>
-            <h2>Payment Items</h2>
-            <ul>
-            {% for item in registration.payment_items.all() -%}
-            <li>{{ item.description }}: {{ item.formatted_amount }}</li>
-            {% endfor -%}
-            </ul>
-            </body>
-            </html>"""
-        )
         api_client.force_login(conference_chair)
 
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": template},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
         assert data["uid"] == str(registration.uid)
 
-        receipt = Receipt.objects.get(registration=registration)
-        expected_html = dedent(
-            f"""<html>
-            <body>
-            <h1>Receipt</h1>
-            <p>Conference: {conference.display_name}</p>
-            <p>Receipt Title: University of Testing</p>
-            <p>
-                Registrant:
-                Alice Smith
-            </p>
-            <p>Attendance Type: {registration.attendance_type.display_name}</p>
-            <h2>Paper</h2>
-            <p>Code: PAPER-001</p>
-            <p>Title: A Novel Approach to Machine Learning</p>
-            <p>Track: {paper.track.display_name}</p>
-            <h2>Payment Items</h2>
-            <ul>
-            <li>Registration Fee: 300.00 USD</li>
-            <li>Banquet: 200.00 USD</li>
-            </ul>
-            </body>
-            </html>"""
-        )
-        assert receipt.rendered_html == expected_html
+        compile_template.assert_called_once()
+        call_args = compile_template.call_args
+        assert call_args[0][0] == TEMPLATE
 
-    def test_regenerating_replaces_existing_receipt(
+        receipt = Receipt.objects.get(registration=registration)
+        assert receipt.template == TEMPLATE
+        assert receipt.rendered_pdf.name
+
+    def test_context_structure(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        registration: Registration,
+        compile_template: MagicMock,
+    ) -> None:
+        Profile.objects.create(
+            user=registration.user,
+            given_name="Profile John",
+            family_name="Profile Doe",
+            affiliation="Profile University",
+            region_code="US",
+        )
+        PaperAuthor.objects.create(
+            paper=paper,
+            given_name="Bob",
+            family_name="Author",
+            affiliation="Stanford",
+            region_code="US",
+            email="bob@example.com",
+            corresponding=True,
+            ordering=1,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name, registration.uid),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        context = compile_template.call_args[0][1]
+
+        assert context["conference"]["name"] == conference.name
+        assert context["conference"]["display_name"] == conference.display_name
+
+        reg = context["registration"]
+        assert reg["uid"] == str(registration.uid)
+        assert reg["create_date"] == {
+            "year": registration.create_time.year,
+            "month": registration.create_time.month,
+            "day": registration.create_time.day,
+        }
+        assert reg["reference_code"] == registration.reference_code
+        assert reg["given_name"] == "John"
+        assert reg["family_name"] == "Doe"
+        assert reg["region_name"] == Region.get_label("US")
+        assert reg["receipt_title"] == "University of Testing"
+        assert reg["attendance_type"]["display_name"] == "Oral Presentation"
+
+        assert reg["user"]["given_name"] == "Profile John"
+        assert reg["user"]["family_name"] == "Profile Doe"
+
+        assert reg["paper"] is not None
+        assert reg["paper"]["code"] == "PAPER-001"
+        assert len(reg["paper"]["authors"]) == 1
+        assert reg["paper"]["authors"][0]["given_name"] == "Bob"
+
+    def test_context_without_paper(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        registration_no_paper: Registration,
+        compile_template: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name, registration_no_paper.uid),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        context = compile_template.call_args[0][1]
+        assert context["registration"]["paper"] is None
+
+    def test_context_payment_items(
         self,
         api_client: Client,
         conference: Conference,
         conference_chair: User,
         registration: Registration,
+        compile_template: MagicMock,
     ) -> None:
-        Receipt.objects.create(registration=registration, rendered_html="<p>Old</p>")
+        payment = Payment.objects.create(
+            conference=conference,
+            amount=500_00,
+            currency="USD",
+        )
+        PaymentItem.objects.create(
+            payment=payment,
+            registration=registration,
+            amount=300_00,
+            description="Registration Fee",
+        )
+        PaymentItem.objects.create(
+            payment=payment,
+            registration=registration,
+            amount=200_00,
+            description="Extra Page Fee",
+        )
         api_client.force_login(conference_chair)
 
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "<p>{{ registration.reference_code }}</p>"},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.OK
 
+        context = compile_template.call_args[0][1]
+        items = context["registration"]["payment_items"]
+        assert len(items) == 2
+        assert items[0]["description"] == "Registration Fee"
+        assert items[1]["description"] == "Extra Page Fee"
+
+    def test_regeneration_replaces_existing(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        registration: Registration,
+        compile_template: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        api_client.post(
+            self.path(conference.name, registration.uid),
+            data={"template": "first template"},
+        )
+        response = api_client.post(
+            self.path(conference.name, registration.uid),
+            data={"template": "second template"},
+        )
+        assert response.status_code == HTTPStatus.OK
         assert Receipt.objects.filter(registration=registration).count() == 1
-        receipt = Receipt.objects.get(registration=registration)
-        assert receipt.rendered_html == f"<p>{registration.reference_code}</p>"
-
-    def test_escapes_html_in_template_variables(
-        self,
-        api_client: Client,
-        conference: Conference,
-        conference_chair: User,
-        registration: Registration,
-    ) -> None:
-        update_object(registration, receipt_title="<script>alert('xss')</script>")
-        api_client.force_login(conference_chair)
-
-        response = api_client.post(
-            self.path(conference.name, registration.uid),
-            data={"template": "<p>{{ registration.receipt_title }}</p>"},
-        )
-        assert response.status_code == HTTPStatus.OK
 
         receipt = Receipt.objects.get(registration=registration)
-        assert (
-            receipt.rendered_html
-            == "<p>&lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;</p>"
-        )
+        assert receipt.template == "second template"
 
-    def test_template_syntax_error(
+        compile_template.assert_called()
+
+    @pytest.mark.django_db(transaction=True)
+    def test_regeneration_deletes_old_file(
         self,
         api_client: Client,
+        media_root: Path,
         conference: Conference,
         conference_chair: User,
         registration: Registration,
+        compile_template: MagicMock,
     ) -> None:
         api_client.force_login(conference_chair)
 
-        response = api_client.post(
+        api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "{{ unclosed"},
+            data={"template": "first template"},
         )
-        assert response.status_code == HTTPStatus.BAD_REQUEST
-        assert "unexpected" in response.json()["message"].lower()
+        old_receipt = Receipt.objects.get(registration=registration)
+        old_file = media_root / old_receipt.rendered_pdf.name
+        assert old_file.exists()
 
-    def test_undefined_variable_error(
+        compile_template.return_value = b"%PDF-second"
+        api_client.post(
+            self.path(conference.name, registration.uid),
+            data={"template": "second template"},
+        )
+
+        new_receipt = Receipt.objects.get(registration=registration)
+        new_file = media_root / new_receipt.rendered_pdf.name
+        assert new_file.exists()
+        assert not old_file.exists()
+
+    def test_cancelled_registration_rejected(
         self,
         api_client: Client,
         conference: Conference,
         conference_chair: User,
         registration: Registration,
-    ) -> None:
-        api_client.force_login(conference_chair)
-
-        response = api_client.post(
-            self.path(conference.name, registration.uid),
-            data={"template": "{{ undefined_var }}"},
-        )
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-
-        [error] = response.json()["details"]
-        assert error["loc"] == ["body", "payload", "template"]
-        assert "undefined_var" in error["msg"]
-
-    def test_rejects_cancelled_registration(
-        self,
-        api_client: Client,
-        conference: Conference,
-        conference_chair: User,
-        registration: Registration,
+        compile_template: MagicMock,
     ) -> None:
         update_object(registration, state=RegistrationState.CANCELLED)
         api_client.force_login(conference_chair)
 
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "{{ registration.reference_code }}"},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.BAD_REQUEST
         assert "cancelled" in response.json()["message"].lower()
+        compile_template.assert_not_called()
 
-    @pytest.mark.parametrize(
-        "state",
-        [RegistrationState.PENDING, RegistrationState.CONFIRMED],
-    )
-    def test_allows_pending_and_confirmed_registrations(
+    def test_pending_registration_allowed(
         self,
         api_client: Client,
         conference: Conference,
         conference_chair: User,
         registration: Registration,
-        state: RegistrationState,
+        compile_template: MagicMock,
     ) -> None:
-        update_object(registration, state=state)
+        update_object(registration, state=RegistrationState.PENDING)
         api_client.force_login(conference_chair)
 
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "{{ registration.reference_code }}"},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.OK
+
+        compile_template.assert_called_once()
+
+    def test_compilation_error(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        registration: Registration,
+        compile_template: MagicMock,
+    ) -> None:
+        compile_template.side_effect = CompilationError(
+            "undefined variable",
+            diagnostic="error at line 1",
+            hints=[],
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name, registration.uid),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        [error] = response.json()["details"]
+        assert error["loc"] == ["body", "payload", "template"]
+        assert "undefined variable" in error["msg"]
+
+    def test_compilation_timeout(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        registration: Registration,
+        mocker: MockerFixture,
+    ) -> None:
+        mocker.patch(
+            "app.conference.api.registration.receipt.compile_template",
+            return_value=FAKE_PDF,
+        )
+
+        async def raise_timeout(
+            coro: Coroutine[Any, Any, Any],
+            *_: Any,
+            **__: Any,
+        ) -> NoReturn:
+            coro.close()
+            raise TimeoutError
+
+        mocker.patch(
+            "app.conference.api.registration.receipt.asyncio.wait_for",
+            side_effect=raise_timeout,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name, registration.uid),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        [error] = response.json()["details"]
+        assert error["loc"] == ["body", "payload", "template"]
+        assert "timed out" in error["msg"].lower()
 
     def test_validates_template_required(
         self,
@@ -310,20 +455,6 @@ class TestGenerateReceipt:
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-    def test_registration_not_found(
-        self,
-        api_client: Client,
-        conference: Conference,
-        conference_chair: User,
-    ) -> None:
-        api_client.force_login(conference_chair)
-
-        response = api_client.post(
-            self.path(conference.name, ULID()),
-            data={"template": "test"},
-        )
-        assert response.status_code == HTTPStatus.NOT_FOUND
-
     def test_conference_not_found(
         self,
         api_client: Client,
@@ -334,7 +465,7 @@ class TestGenerateReceipt:
 
         response = api_client.post(
             self.path("nonexistent", registration.uid),
-            data={"template": "test"},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
@@ -350,7 +481,21 @@ class TestGenerateReceipt:
 
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "test"},
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_registration_not_found(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name, ULID()),
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.NOT_FOUND
 
@@ -362,7 +507,7 @@ class TestGenerateReceipt:
     ) -> None:
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "test"},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.UNAUTHORIZED
 
@@ -377,7 +522,7 @@ class TestGenerateReceipt:
 
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "test"},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
 
@@ -387,14 +532,17 @@ class TestGenerateReceipt:
         conference: Conference,
         global_admin: User,
         registration: Registration,
+        compile_template: MagicMock,
     ) -> None:
         api_client.force_login(global_admin)
 
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "{{ registration.reference_code }}"},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.OK
+
+        compile_template.assert_called_once()
 
     def test_authorization_conference_chair(
         self,
@@ -402,14 +550,17 @@ class TestGenerateReceipt:
         conference: Conference,
         conference_chair: User,
         registration: Registration,
+        compile_template: MagicMock,
     ) -> None:
         api_client.force_login(conference_chair)
 
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "{{ registration.reference_code }}"},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.OK
+
+        compile_template.assert_called_once()
 
     def test_authorization_conference_secretary(
         self,
@@ -417,14 +568,17 @@ class TestGenerateReceipt:
         conference: Conference,
         conference_secretary: User,
         registration: Registration,
+        compile_template: MagicMock,
     ) -> None:
         api_client.force_login(conference_secretary)
 
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "{{ registration.reference_code }}"},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.OK
+
+        compile_template.assert_called_once()
 
     def test_authorization_conference_reviewer_forbidden(
         self,
@@ -437,7 +591,7 @@ class TestGenerateReceipt:
 
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "test"},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
 
@@ -452,7 +606,7 @@ class TestGenerateReceipt:
 
         response = api_client.post(
             self.path(conference.name, registration.uid),
-            data={"template": "test"},
+            data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
 
@@ -465,52 +619,73 @@ class TestGetReceipt:
 
     def test_happy_path(
         self,
-        client: Client,
+        api_client: Client,
         registration: Registration,
     ) -> None:
-        Receipt.objects.create(
+        receipt = Receipt.objects.create(
             registration=registration,
-            rendered_html="<html><body><h1>Receipt</h1></body></html>",
+            template=TEMPLATE,
+            context={},
         )
+        receipt.rendered_pdf.save("receipt.pdf", ContentFile(FAKE_PDF), save=True)
 
-        response = client.get(self.path(registration.uid))
-
+        response = api_client.get(self.path(registration.uid))
         assert response.status_code == HTTPStatus.OK
-        assert response["Content-Type"] == "text/html"
-        assert response.content == b"<html><body><h1>Receipt</h1></body></html>"
+        assert response["Content-Type"] == "application/pdf"
+        assert b"".join(response.streaming_content) == FAKE_PDF  # type: ignore[attr-defined]
 
-    def test_returns_full_rendered_content(
-        self,
-        client: Client,
-        registration: Registration,
-    ) -> None:
-        html_content = dedent(
-            """<!DOCTYPE html>
-            <html>
-            <head><title>Receipt</title></head>
-            <body>
-            <h1>Official Receipt</h1>
-            <p>Amount: $500.00</p>
-            <img src="data:image/png;base64,iVBORw0KGgo=" alt="Stamp">
-            </body>
-            </html>
-            """
-        )
-        Receipt.objects.create(registration=registration, rendered_html=html_content)
-
-        response = client.get(self.path(registration.uid))
-
-        assert response.status_code == HTTPStatus.OK
-        assert response.content.decode() == html_content
-
-    def test_receipt_not_found(
-        self,
-        client: Client,
-        registration: Registration,
-    ) -> None:
-        response = client.get(self.path(registration.uid))
+    def test_not_found(self, api_client: Client) -> None:
+        response = api_client.get(self.path(ULID()))
         assert response.status_code == HTTPStatus.NOT_FOUND
 
-    def test_registration_not_found(self, client: Client) -> None:
-        response = client.get(self.path(ULID()))
+    def test_receipt_not_generated(
+        self, api_client: Client, registration: Registration
+    ) -> None:
+        response = api_client.get(self.path(registration.uid))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_missing_file_returns_not_found(
+        self,
+        api_client: Client,
+        media_root: Path,
+        registration: Registration,
+    ) -> None:
+        receipt = Receipt.objects.create(
+            registration=registration,
+            template=TEMPLATE,
+            context={},
+        )
+        receipt.rendered_pdf.save("receipt.pdf", ContentFile(FAKE_PDF), save=True)
+        file_path = media_root / receipt.rendered_pdf.name
+        file_path.unlink()
+
+        response = api_client.get(self.path(registration.uid))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+@pytest.mark.django_db
+class TestGetReceiptDecorated:
+    @classmethod
+    def path(cls, uid: ULID, filename: str) -> str:
+        return reverse("api-1.0.0:get-receipt-ex", args=[uid, filename])
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        registration: Registration,
+    ) -> None:
+        receipt = Receipt.objects.create(
+            registration=registration,
+            template=TEMPLATE,
+            context={},
+        )
+        receipt.rendered_pdf.save("receipt.pdf", ContentFile(FAKE_PDF), save=True)
+
+        response = api_client.get(self.path(registration.uid, "receipt.pdf"))
+        assert response.status_code == HTTPStatus.OK
+        assert response["Content-Type"] == "application/pdf"
+        assert b"".join(response.streaming_content) == FAKE_PDF  # type: ignore[attr-defined]
+
+    def test_not_found(self, api_client: Client) -> None:
+        response = api_client.get(self.path(ULID(), "receipt.pdf"))
         assert response.status_code == HTTPStatus.NOT_FOUND

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -7,6 +9,12 @@ from .paper import Paper
 from .registration import Registration
 
 
+def acceptance_letter_path(instance: "AcceptanceLetter", filename: str) -> str:
+    ext = Path(filename).suffix.lower()[:10]
+    paper = instance.paper
+    return f"{paper.conference.name}/{paper.code}/acceptance-letter{ext}"
+
+
 class AcceptanceLetter(TimeStampedModel):
     paper = models.OneToOneField(
         Paper,
@@ -14,7 +22,9 @@ class AcceptanceLetter(TimeStampedModel):
         related_name="acceptance_letter",
         verbose_name=_("paper"),
     )
-    rendered_html = models.TextField(_("rendered html"), blank=True, default="")
+    rendered_pdf = models.FileField(_("rendered PDF"), upload_to=acceptance_letter_path)
+    template = models.TextField(_("template"))
+    context = models.JSONField(_("context"))
 
     class Meta:
         verbose_name = _("acceptance letter")
@@ -24,6 +34,12 @@ class AcceptanceLetter(TimeStampedModel):
         return f"Acceptance letter for {self.paper}"
 
 
+def receipt_path(instance: "Receipt", filename: str) -> str:
+    ext = Path(filename).suffix.lower()[:10]
+    registration = instance.registration
+    return f"{registration.conference.name}/receipts/{registration.uid}{ext}"
+
+
 class Receipt(TimeStampedModel):
     registration = models.OneToOneField(
         Registration,
@@ -31,7 +47,9 @@ class Receipt(TimeStampedModel):
         related_name="receipt",
         verbose_name=_("registration"),
     )
-    rendered_html = models.TextField(_("rendered html"), blank=True, default="")
+    rendered_pdf = models.FileField(_("rendered PDF"), upload_to=receipt_path)
+    template = models.TextField(_("template"))
+    context = models.JSONField(_("context"))
 
     class Meta:
         verbose_name = _("receipt")

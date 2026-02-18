@@ -149,7 +149,10 @@ class PaperResponse(BasePaperResponse):
         if not paper.has_acceptance_letter:  # type: ignore[attr-defined]
             return None
         base_url: str = paper.api_base_url  # type: ignore[attr-defined]
-        path = reverse("api-1.0.0:get-acceptance-letter", args=[paper.uid])
+        path = reverse(
+            "api-1.0.0:get-acceptance-letter-ex",
+            args=[paper.uid, "acceptance-letter.pdf"],
+        )
         return HttpUrl(urljoin(base_url, path))
 
     @staticmethod

@@ -46,7 +46,9 @@ class TestPaperServiceAnnouncePapers:
         await a_update_object(paper, state=state)
         await AcceptanceLetter.objects.acreate(
             paper=paper,
-            rendered_html="<p>Congrats!</p>",
+            rendered_pdf="fake.pdf",
+            template="Congrats!",
+            context={},
         )
 
         result = await PaperService.announce_papers(conference, ["PAPER-001"])
@@ -79,7 +81,9 @@ class TestPaperServiceAnnouncePapers:
         )
         await AcceptanceLetter.objects.acreate(
             paper=paper_b,
-            rendered_html="<p>Yes!</p>",
+            rendered_pdf="fake.pdf",
+            template="Yes!",
+            context={},
         )
 
         result = await PaperService.announce_papers(conference, ["PAPER-A", "PAPER-B"])
@@ -237,7 +241,10 @@ class TestPaperServiceAnnouncePapers:
             state=PaperState.ACCEPTED,
         )
         await AcceptanceLetter.objects.acreate(
-            paper=accepted_with_letter, rendered_html="<p>Yes!</p>"
+            paper=accepted_with_letter,
+            rendered_pdf="fake.pdf",
+            template="Yes!",
+            context={},
         )
         accepted_no_letter = await Paper.objects.acreate(
             conference=conference,
