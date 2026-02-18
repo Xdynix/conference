@@ -464,6 +464,12 @@ BRANDING_PARENT_URL = config("BRANDING_PARENT_URL", default="")
 
 BRANDING_FAVICON_URL = config("BRANDING_FAVICON_URL", default="")
 
+TYPST_FONT_DIR: Path = config(
+    "TYPST_FONT_DIR",
+    default=BASE_DIR / "etc" / "fonts",
+    cast=Path,
+)
+
 # Monkeypatch
 
 monkeypatch_django_async_auth()

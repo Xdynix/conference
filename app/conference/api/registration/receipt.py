@@ -4,6 +4,7 @@ from http import HTTPStatus
 from typing import Any
 
 from asgiref.sync import sync_to_async
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Prefetch
@@ -163,7 +164,11 @@ async def generate_receipt(
     context = json.loads(json.dumps(context, default=typst_json_default))
 
     def compile_pdf() -> bytes:
-        return compile_template(payload.template, context)
+        return compile_template(
+            payload.template,
+            context,
+            font_paths=[settings.TYPST_FONT_DIR],
+        )
 
     try:
         pdf_bytes = await asyncio.wait_for(

@@ -111,6 +111,7 @@ def compile_template(
     *,
     output: str | Path,
     files: dict[str, bytes] | None = None,
+    font_paths: list[str | Path] | None = None,
     json_default: Callable[[Any], Any] = typst_json_default,
     validate_only: Literal[False] = False,
 ) -> None: ...
@@ -123,6 +124,7 @@ def compile_template(
     *,
     output: None = None,
     files: dict[str, bytes] | None = None,
+    font_paths: list[str | Path] | None = None,
     json_default: Callable[[Any], Any] = typst_json_default,
     validate_only: Literal[True],
 ) -> None: ...
@@ -135,6 +137,7 @@ def compile_template(
     *,
     output: None = None,
     files: dict[str, bytes] | None = None,
+    font_paths: list[str | Path] | None = None,
     json_default: Callable[[Any], Any] = typst_json_default,
     validate_only: Literal[False] = False,
 ) -> bytes: ...
@@ -146,6 +149,7 @@ def compile_template(
     *,
     output: str | Path | None = None,
     files: dict[str, bytes] | None = None,
+    font_paths: list[str | Path] | None = None,
     json_default: Callable[[Any], Any] = typst_json_default,
     validate_only: bool = False,
 ) -> bytes | None:
@@ -155,6 +159,10 @@ def compile_template(
     JSON-serialized and passed via ``sys_inputs`` so templates access it with
     ``json(bytes(sys.inputs.at("data")))``. Pass *json_default* to handle types that
     ``json.dumps`` cannot serialize natively (e.g., ``Decimal``, ``ULID``).
+
+    Pass *font_paths* to make additional font directories available to the compiler.
+    Custom fonts are discovered regardless of ``ignore_system_fonts``; the flag only
+    controls system font scanning.
 
     Three modes of operation, selected by the keyword arguments:
 
@@ -206,6 +214,7 @@ def compile_template(
                 output=str(output) if output is not None else None,
                 root=sandbox,
                 ignore_system_fonts=True,
+                font_paths=[str(p) for p in font_paths] if font_paths else [],
                 sys_inputs=sys_inputs,
             )
         except typst.TypstError as exc:
