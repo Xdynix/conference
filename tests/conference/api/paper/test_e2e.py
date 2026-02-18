@@ -22,7 +22,7 @@ from app.conference.models import (
     TrackVisibility,
 )
 from app.core.models import User
-from tests.helpers import any_str, approx_now, extract_pdf_text
+from tests.helpers import any_str, approx_now, extract_pdf_fonts, extract_pdf_text
 
 
 @pytest.fixture(autouse=True)
@@ -289,6 +289,7 @@ class TestPaperE2E:
         assert "acceptance_letter_url" not in response.json()
 
         template = dedent("""\
+            #set text(font: "Inter")
             #let data = json(bytes(sys.inputs.at("data")))
 
             = Acceptance Letter
@@ -333,6 +334,7 @@ class TestPaperE2E:
         assert "PAPER-001" in text
         assert "Alice Smith" in text
         assert "Bob Jones" in text
+        assert any("Inter" in f for f in extract_pdf_fonts(pdf_bytes))
 
         # Regenerate with an updated template; the URL stays the same.
         api_client.force_login(conference_chair)

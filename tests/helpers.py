@@ -90,3 +90,22 @@ def extract_pdf_text(content: bytes) -> str:
     """Extract all text from a PDF byte string using pypdf."""
     reader = PdfReader(io.BytesIO(content))
     return "\n".join(page.extract_text() or "" for page in reader.pages)
+
+
+def extract_pdf_fonts(content: bytes) -> list[str]:
+    """Extract BaseFont names from PDF page resources via pypdf."""
+    reader = PdfReader(io.BytesIO(content))
+    fonts: list[str] = []
+    for page in reader.pages:
+        resources = page.get("/Resources")
+        if resources is None:
+            continue
+        font_dict = resources.get("/Font")
+        if font_dict is None:
+            continue
+        for font_ref in font_dict.values():
+            font_obj = font_ref.get_object()
+            base_font = font_obj.get("/BaseFont")
+            if base_font:
+                fonts.append(str(base_font))
+    return fonts

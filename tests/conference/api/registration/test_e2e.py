@@ -24,7 +24,7 @@ from app.conference.models import (
     Track,
 )
 from app.core.models import User
-from tests.helpers import any_str, extract_pdf_text, update_object
+from tests.helpers import any_str, extract_pdf_fonts, extract_pdf_text, update_object
 
 
 @pytest.fixture(autouse=True)
@@ -300,6 +300,7 @@ class TestRegistrationE2E:
         assert "receipt_url" not in data
 
         template = dedent("""\
+            #set text(font: "Inter")
             #let data = json(bytes(sys.inputs.at("data")))
 
             = Official Receipt
@@ -351,6 +352,7 @@ class TestRegistrationE2E:
         assert "Charlie Brown" in text or ("Charlie" in text and "Brown" in text)
         assert "Conference Fee" in text
         assert "Workshop Fee" in text
+        assert any("Inter" in f for f in extract_pdf_fonts(pdf_bytes))
 
         # Regenerate with an updated template.
         api_client.force_login(conference_chair)
@@ -486,6 +488,7 @@ class TestRegistrationE2E:
         )
 
         template = dedent("""\
+            #set text(font: "Inter")
             #let data = json(bytes(sys.inputs.at("data")))
             Receipt for #data.registration.given_name #data.registration.family_name.
             #for item in data.registration.payment_items [
@@ -510,6 +513,7 @@ class TestRegistrationE2E:
         text = extract_pdf_text(pdf_bytes)
         assert "Receipt for Eve" in text
         assert "Registration Fee" in text
+        assert any("Inter" in f for f in extract_pdf_fonts(pdf_bytes))
 
         # User can still view their own registration.
         api_client.force_login(user)

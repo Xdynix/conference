@@ -6,13 +6,16 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
+from django.conf import settings
 from faker import Faker
 from pydantic import HttpUrl
 from ulid import ULID
 
 from app.utils.typst import CompilationError, compile_template, typst_json_default
+from tests.helpers import extract_pdf_fonts
 
 MINIMAL_TEMPLATE = b'#let data = json(bytes(sys.inputs.at("data")))\nHello'
+FONT_DIR = Path(settings.BASE_DIR) / "etc" / "fonts"
 
 
 class TestTypstJsonDefault:
@@ -205,3 +208,32 @@ class TestCompileTemplateSecurity:
         template = b'#plugin("exploit.wasm")'
         with pytest.raises(CompilationError):
             compile_template(template, {}, files={"exploit.wasm": wasm})
+
+
+class TestCompileTemplateFonts:
+    def test_custom_font_used(self) -> None:
+        template = (
+            b'#set text(font: "Inter")\n'
+            b'#let data = json(bytes(sys.inputs.at("data")))\n'
+            b"Hello Inter"
+        )
+        result = compile_template(template, {}, font_paths=[FONT_DIR])
+        assert result is not None
+        fonts = extract_pdf_fonts(result)
+        assert any("Inter" in f for f in fonts)
+
+    def test_fallback_without_font_paths(self) -> None:
+        template = (
+            b'#set text(font: "Inter")\n'
+            b'#let data = json(bytes(sys.inputs.at("data")))\n'
+            b"Hello fallback"
+        )
+        result = compile_template(template, {}, font_paths=None)
+        assert result is not None
+        fonts = extract_pdf_fonts(result)
+        assert not any("Inter" in f for f in fonts)
+
+    def test_none_font_paths_produces_valid_pdf(self) -> None:
+        result = compile_template(MINIMAL_TEMPLATE, {}, font_paths=None)
+        assert isinstance(result, bytes)
+        assert result[:5] == b"%PDF-"
