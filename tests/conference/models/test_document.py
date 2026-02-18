@@ -6,6 +6,7 @@ from app.conference.models import (
     Registration,
     Track,
 )
+from app.conference.models.document import acceptance_letter_path, receipt_path
 from app.core.models import User
 
 
@@ -17,6 +18,36 @@ class TestAcceptanceLetter:
         paper = Paper(conference=conference, track=track, code="PAPER-001", owner=user)
         letter = AcceptanceLetter(paper=paper)
         assert str(letter) == "Acceptance letter for [CBPK-2024 - Main] PAPER-001"
+
+
+class TestAcceptanceLetterPath:
+    def test_generates_path(self) -> None:
+        conference = Conference(name="CONF-2025")
+        track = Track(conference=conference, display_name="Main")
+        user = User(username="alice")
+        paper = Paper(conference=conference, track=track, code="PAPER-001", owner=user)
+        letter = AcceptanceLetter(paper=paper)
+        path = acceptance_letter_path(letter, "document.pdf")
+        assert path == "CONF-2025/PAPER-001/acceptance-letter.pdf"
+
+    def test_lowercases_extension(self) -> None:
+        conference = Conference(name="CONF-2025")
+        track = Track(conference=conference, display_name="Main")
+        user = User(username="alice")
+        paper = Paper(conference=conference, track=track, code="PAPER-001", owner=user)
+        letter = AcceptanceLetter(paper=paper)
+        path = acceptance_letter_path(letter, "document.PDF")
+        assert path.endswith(".pdf")
+
+    def test_truncates_long_extension(self) -> None:
+        conference = Conference(name="CONF-2025")
+        track = Track(conference=conference, display_name="Main")
+        user = User(username="alice")
+        paper = Paper(conference=conference, track=track, code="PAPER-001", owner=user)
+        letter = AcceptanceLetter(paper=paper)
+        path = acceptance_letter_path(letter, "file.very-long-extension")
+        ext = path.split(".")[-1]
+        assert len(ext) < 10
 
 
 class TestReceipt:
@@ -45,3 +76,41 @@ class TestReceipt:
         )
         receipt = Receipt(registration=registration)
         assert str(receipt) == "Receipt for 12345678"
+
+
+class TestReceiptPath:
+    def test_generates_path(self) -> None:
+        conference = Conference(name="CONF-2025")
+        user = User(username="alice")
+        registration = Registration(
+            conference=conference,
+            user=user,
+            reference_code="12345678",
+        )
+        path = receipt_path(Receipt(registration=registration), "receipt.pdf")
+        assert path == f"CONF-2025/receipts/{registration.uid}.pdf"
+
+    def test_lowercases_extension(self) -> None:
+        conference = Conference(name="CONF-2025")
+        user = User(username="alice")
+        registration = Registration(
+            conference=conference,
+            user=user,
+            reference_code="12345678",
+        )
+        path = receipt_path(Receipt(registration=registration), "receipt.PDF")
+        assert path.endswith(".pdf")
+
+    def test_truncates_long_extension(self) -> None:
+        conference = Conference(name="CONF-2025")
+        user = User(username="alice")
+        registration = Registration(
+            conference=conference,
+            user=user,
+            reference_code="12345678",
+        )
+        path = receipt_path(
+            Receipt(registration=registration), "file.very-long-extension"
+        )
+        ext = path.split(".")[-1]
+        assert len(ext) < 10

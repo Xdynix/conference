@@ -22,7 +22,7 @@ from app.conference.models import (
     TrackVisibility,
 )
 from app.core.models import User
-from tests.helpers import any_str, approx_now
+from tests.helpers import any_str, approx_now, extract_pdf_text
 
 
 @pytest.fixture(autouse=True)
@@ -288,21 +288,22 @@ class TestPaperE2E:
         assert response.json()["state"] == PaperState.ACCEPTED
         assert "acceptance_letter_url" not in response.json()
 
-        template = dedent(
-            """<html>
-            <body>
-            <h1>Acceptance Letter</h1>
-            <p>Dear Authors,</p>
-            <p>Your paper "{{ paper.title }}" ({{ paper.code }}) has been accepted.</p>
-            <h2>Authors</h2>
-            <ul>
-            {% for author in paper.authors.all() -%}
-            <li>{{ author.given_name }} {{ author.family_name }}</li>
-            {% endfor -%}
-            </ul>
-            </body>
-            </html>"""
-        )
+        template = dedent("""\
+            #let data = json(bytes(sys.inputs.at("data")))
+
+            = Acceptance Letter
+
+            Dear Authors,
+
+            Your paper *#data.paper.title* (#data.paper.code) has been accepted
+            to #data.conference.display_name in the #data.track.display_name track.
+
+            == Authors
+
+            #for author in data.paper.authors [
+              - #author.given_name #author.family_name (#author.affiliation)
+            ]
+        """)
 
         response = api_client.post(
             self.generate_acceptance_letter_path(conference.name, paper.code),
@@ -315,32 +316,32 @@ class TestPaperE2E:
         acceptance_letter_url = data["acceptance_letter_url"]
 
         letter = AcceptanceLetter.objects.get(paper=paper)
-        expected_html = dedent(
-            """<html>
-            <body>
-            <h1>Acceptance Letter</h1>
-            <p>Dear Authors,</p>
-            <p>Your paper "A Novel Approach to Distributed Systems" (PAPER-001) has been accepted.</p>
-            <h2>Authors</h2>
-            <ul>
-            <li>Alice Smith</li>
-            <li>Bob Jones</li>
-            </ul>
-            </body>
-            </html>"""  # noqa: E501
-        )
-        assert letter.rendered_html == expected_html
+        assert letter.template == template
+        assert letter.rendered_pdf.name
 
+        # Download the letter (unauthenticated, public URL).
         api_client.logout()
 
         response = api_client.get(acceptance_letter_url)
         assert response.status_code == HTTPStatus.OK
-        assert response["Content-Type"] == "text/html"
-        assert response.content.decode() == expected_html
+        assert response["Content-Type"] == "application/pdf"
 
+        pdf_bytes = b"".join(response.streaming_content)  # type: ignore[attr-defined]
+        text = extract_pdf_text(pdf_bytes)
+        assert "Acceptance Letter" in text
+        assert "A Novel Approach to Distributed Systems" in text
+        assert "PAPER-001" in text
+        assert "Alice Smith" in text
+        assert "Bob Jones" in text
+
+        # Regenerate with an updated template; the URL stays the same.
         api_client.force_login(conference_chair)
 
-        updated_template = "<p>Updated: {{ paper.code }}</p>"
+        updated_template = dedent("""\
+            #let data = json(bytes(sys.inputs.at("data")))
+            Updated letter for #data.paper.code.
+        """)
+
         response = api_client.post(
             self.generate_acceptance_letter_path(conference.name, paper.code),
             data={"template": updated_template},
@@ -351,8 +352,12 @@ class TestPaperE2E:
 
         response = api_client.get(acceptance_letter_url)
         assert response.status_code == HTTPStatus.OK
-        assert response.content == b"<p>Updated: PAPER-001</p>"
 
+        pdf_bytes = b"".join(response.streaming_content)  # type: ignore[attr-defined]
+        text = extract_pdf_text(pdf_bytes)
+        assert "Updated letter for PAPER-001" in text
+
+        # Announce the paper.
         api_client.force_login(conference_chair)
 
         assert paper.announce_time is None
@@ -367,6 +372,7 @@ class TestPaperE2E:
         paper.refresh_from_db()
         assert paper.announce_time == approx_now()
 
+        # Second announce is idempotent.
         response = api_client.post(
             self.announce_path(conference.name),
             data={"codes": [paper.code]},

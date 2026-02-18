@@ -71,19 +71,13 @@ Example:
                 rows="12"
                 x-model="receiptModal.template"
                 :disabled="receiptModal.generating"
-                placeholder="Enter Jinja2 template..."
+                placeholder="Enter Typst template..."
               ></textarea>
+              {# TODO: Research UX for communicating available template context variables. #}
               <div class="form-text">
-                Jinja2 template. Available context:
-                <code>registration</code>
-                (with
-                <code>registration.reference_code</code>,
-                <code>registration.given_name</code>,
-                <code>registration.family_name</code>,
-                <code>registration.attendance_type</code>,
-                <code>registration.paper</code>,
-                <code>registration.payment_items</code>,
-                etc.)
+                Typst template compiled to PDF. Context variables:
+                <code>conference</code>,
+                <code>registration</code>.
               </div>
               <div class="invalid-feedback" x-text="receiptModal.error"></div>
             </div>

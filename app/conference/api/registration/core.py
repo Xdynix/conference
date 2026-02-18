@@ -32,7 +32,10 @@ class RegistrationResponse(BaseRegistrationResponse):
         if not registration.has_receipt:  # type: ignore[attr-defined]
             return None
         base_url: str = registration.api_base_url  # type: ignore[attr-defined]
-        path = reverse("api-1.0.0:get-receipt", args=[registration.uid])
+        path = reverse(
+            "api-1.0.0:get-receipt-ex",
+            args=[registration.uid, "receipt.pdf"],
+        )
         return HttpUrl(urljoin(base_url, path))
 
 

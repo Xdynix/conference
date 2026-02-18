@@ -1,10 +1,14 @@
+import asyncio
+import json
 from http import HTTPStatus
+from typing import Any
 
-from django.http import HttpRequest, HttpResponse
+from asgiref.sync import sync_to_async
+from django.core.files.base import ContentFile
+from django.db import transaction
+from django.http import Http404, HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from jinja2 import StrictUndefined, TemplateSyntaxError, UndefinedError
-from jinja2.sandbox import SandboxedEnvironment
 from ninja import Field, Schema
 from ninja.errors import HttpError
 from ulid import ULID
@@ -16,6 +20,7 @@ from app.conference.models import (
     AcceptanceLetter,
     Conference,
     ConferenceRole,
+    IEEEeCopyrightConfig,
     Paper,
     PaperState,
 )
@@ -23,22 +28,13 @@ from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse, make_validation_error
+from app.utils.enums import Region
+from app.utils.files import build_file_download_response
+from app.utils.typst import CompilationError, compile_template, typst_json_default
 
 from .core import PaperDetailResponse, prefetch_paper, router
 
-# TODO: Add PDF generation for acceptance letters. Current gap: HTML to PDF conversion
-#  requires either OS-level libraries (xhtml2pdf, WeasyPrint with system deps) or a
-#  headless browser (Playwright, Puppeteer), with no elegant pure Python solution.
-#
-# TODO: Add acceptance letter email sending endpoint.
-#
-# TODO: Add endpoint to upload externally generated PDF to be sent with the email, as a
-#  workaround until PDF generation is implemented.
-
-jinja_env = SandboxedEnvironment(
-    autoescape=True,
-    undefined=StrictUndefined,
-)
+COMPILE_TIMEOUT = 5.0
 
 
 class GenerateAcceptanceLetterRequest(Schema):
@@ -68,8 +64,8 @@ async def generate_acceptance_letter(
 ) -> Paper:
     """Generate an acceptance letter for a paper.
 
-    Renders the provided Jinja2 template with paper context and stores the result.
-    Regenerating replaces any existing letter.
+    Compiles the provided typst template with paper context and stores the resulting
+    PDF. Regenerating replaces any existing letter.
     """
     user = await request.auser()
     conference = await aget_object_or_404(
@@ -79,8 +75,8 @@ async def generate_acceptance_letter(
 
     paper = await aget_object_or_404(
         conference.papers.active()
-        .select_related("conference", "track__conference", "owner__profile")
-        .prefetch_related("authors", "keywords"),
+        .select_related("conference", "track", "owner__profile")
+        .prefetch_related("authors"),
         code=paper_code,
     )
 
@@ -99,20 +95,96 @@ async def generate_acceptance_letter(
             ),
         )
 
-    try:
-        jinja_env.parse(payload.template)
-    except TemplateSyntaxError as exc:
-        raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
-
-    try:
-        rendered_html = jinja_env.from_string(payload.template).render(paper=paper)
-    except UndefinedError as exc:
-        raise make_validation_error(path="template", message=str(exc)) from exc
-
-    await AcceptanceLetter.objects.aupdate_or_create(
-        paper=paper,
-        defaults={"rendered_html": rendered_html},
+    ieee_ecopyright_required = (
+        await IEEEeCopyrightConfig.objects.filter(conference_id=paper.conference_id)
+        .exclude(exempt_tracks=paper.track)
+        .aexists()
     )
+
+    owner_profile = getattr(paper.owner, "profile", None)
+    context: dict[str, Any] = {
+        "conference": {
+            "name": paper.conference.name,
+            "display_name": paper.conference.display_name,
+            "start_date": paper.conference.start_date,
+            "end_date": paper.conference.end_date,
+            "location": paper.conference.location,
+        },
+        "track": {
+            "display_name": paper.track.display_name,
+            "ieee_ecopyright_required": ieee_ecopyright_required,
+        },
+        "paper": {
+            "code": paper.code,
+            "title": paper.title,
+            "user": {
+                "given_name": getattr(owner_profile, "given_name", ""),
+                "family_name": getattr(owner_profile, "family_name", ""),
+                "affiliation": getattr(owner_profile, "affiliation", ""),
+                "region_code": getattr(owner_profile, "region_code", ""),
+                "region_name": Region.get_label(
+                    getattr(owner_profile, "region_code", "")
+                ),
+                "email": paper.owner.email,
+            },
+            "authors": [
+                {
+                    "given_name": a.given_name,
+                    "family_name": a.family_name,
+                    "affiliation": a.affiliation,
+                    "region_code": a.region_code,
+                    "region_name": Region.get_label(a.region_code),
+                    "email": a.email,
+                    "phone": a.phone,
+                    "corresponding": a.corresponding,
+                }
+                for a in paper.authors.all()
+            ],
+        },
+    }
+    context = json.loads(json.dumps(context, default=typst_json_default))
+
+    def compile_pdf() -> bytes:
+        return compile_template(payload.template, context)
+
+    try:
+        pdf_bytes = await asyncio.wait_for(
+            sync_to_async(compile_pdf)(),
+            timeout=COMPILE_TIMEOUT,
+        )
+    except CompilationError as exc:
+        raise make_validation_error(path="template", message=str(exc)) from exc
+    except TimeoutError as exc:
+        raise make_validation_error(
+            path="template",
+            message=_("Template compilation timed out."),
+        ) from exc
+
+    @sync_to_async
+    def save_letter() -> None:
+        with transaction.atomic():
+            old_pdf_name = (
+                AcceptanceLetter.objects.filter(paper=paper)
+                .values_list("rendered_pdf", flat=True)
+                .first()
+            )
+
+            letter, __ = AcceptanceLetter.objects.update_or_create(
+                paper=paper,
+                defaults={"template": payload.template, "context": context},
+            )
+            letter.rendered_pdf.save(
+                "acceptance-letter.pdf",
+                ContentFile(pdf_bytes),
+                save=False,
+            )
+            letter.save(update_fields=["rendered_pdf"])
+
+            if old_pdf_name and old_pdf_name != letter.rendered_pdf.name:
+                storage = letter.rendered_pdf.storage
+                transaction.on_commit(lambda: storage.delete(old_pdf_name))
+
+    await save_letter()
 
     await audit(
         request=request,
@@ -120,6 +192,7 @@ async def generate_acceptance_letter(
         resource=paper,
         scope=conference.name,
         payload=payload,
+        detail={"context": context},
     )
 
     return await prefetch_paper(conference, paper, user, request)
@@ -128,7 +201,9 @@ async def generate_acceptance_letter(
 GET_ACCEPTANCE_LETTER_OPENAPI_EXTRA = {
     "responses": {
         200: {
-            "content": {"text/html": {"schema": {"type": "string"}}},
+            "content": {
+                "application/pdf": {"schema": {"type": "string", "format": "binary"}},
+            },
         }
     }
 }
@@ -143,7 +218,29 @@ GET_ACCEPTANCE_LETTER_OPENAPI_EXTRA = {
 async def get_acceptance_letter(
     request: HttpRequest,  # noqa: ARG001
     uid: ULID,
-) -> HttpResponse:
+) -> HttpResponse | StreamingHttpResponse:
     """Retrieve the rendered acceptance letter for a paper."""
     letter = await aget_object_or_404(AcceptanceLetter, paper__uid=uid)
-    return HttpResponse(letter.rendered_html, content_type="text/html")
+    try:
+        return build_file_download_response(
+            letter.rendered_pdf,
+            filename="acceptance-letter.pdf",
+            content_type="application/pdf",
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        raise Http404 from exc
+
+
+@router.get(
+    "/conferences/-/papers/{ulid:uid}/acceptance-letter/{str:filename}",
+    openapi_extra=GET_ACCEPTANCE_LETTER_OPENAPI_EXTRA,
+    summary="Get Acceptance Letter",
+    auth=None,
+)
+async def get_acceptance_letter_ex(
+    request: HttpRequest,
+    uid: ULID,
+    filename: str,  # noqa: ARG001
+) -> HttpResponse | StreamingHttpResponse:
+    """Retrieve the rendered acceptance letter with a decorative filename segment."""
+    return await get_acceptance_letter(request, uid)

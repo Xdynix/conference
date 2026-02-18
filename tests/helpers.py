@@ -1,3 +1,4 @@
+import io
 from contextlib import suppress
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -6,6 +7,7 @@ from typing import Any
 from asgiref.sync import sync_to_async
 from django.db.models import Model
 from django.utils import timezone
+from pypdf import PdfReader
 
 
 def update_object[MT: Model](obj: MT, **updates: Any) -> MT:
@@ -82,3 +84,9 @@ class ApproxDatetime:
 def approx_now() -> ApproxDatetime:
     """Shorthand for comparing a time or time string to approximately equal now."""
     return ApproxDatetime()
+
+
+def extract_pdf_text(content: bytes) -> str:
+    """Extract all text from a PDF byte string using pypdf."""
+    reader = PdfReader(io.BytesIO(content))
+    return "\n".join(page.extract_text() or "" for page in reader.pages)

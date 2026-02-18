@@ -269,3 +269,20 @@ class Region(StrEnum):
     YE = "Yemen"
     ZM = "Zambia"
     ZW = "Zimbabwe"
+
+    @classmethod
+    def get_label(cls, code: str) -> str:
+        """Resolve a region code to its display label, falling back to itself.
+
+        Examples:
+            >>> Region.get_label("US")
+            'United States'
+            >>> Region.get_label("DE")
+            'Germany'
+            >>> Region.get_label("XX")
+            'XX'
+        """
+        try:
+            return cls[code].value
+        except KeyError:
+            return code
