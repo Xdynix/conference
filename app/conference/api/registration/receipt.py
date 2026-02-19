@@ -56,12 +56,14 @@ PREVIEW_OPENAPI_EXTRA = {
 
 class GenerateReceiptRequest(Schema):
     template: str = Field(min_length=1, max_length=500_000)
+    extra_context: dict[str, Any] = Field(default_factory=dict)
 
 
 async def _resolve_and_compile_receipt(
     conference_name: str,
     registration_uid: ULID,
     template: str,
+    extra_context: dict[str, Any],
 ) -> tuple[Conference, Registration, bytes, dict[str, Any]]:
     conference = await aget_object_or_404(
         Conference.objects.active(),
@@ -154,6 +156,7 @@ async def _resolve_and_compile_receipt(
                 for item in registration.payment_items.all()
             ],
         },
+        "extra": extra_context,
     }
     context = json.loads(json.dumps(context, default=typst_json_default))
 
@@ -211,6 +214,7 @@ async def generate_receipt(
         conference_name,
         registration_uid,
         payload.template,
+        payload.extra_context,
     )
 
     @sync_to_async
@@ -274,6 +278,7 @@ async def preview_receipt(
         conference_name,
         registration_uid,
         payload.template,
+        payload.extra_context,
     )
     return HttpResponse(pdf_bytes, content_type="application/pdf")
 
