@@ -162,6 +162,30 @@ class TestGenerateAcceptanceLetter:
         author = context["paper"]["authors"][0]
         assert author["given_name"] == "Bob"
         assert author["corresponding"] is True
+        assert context["extra"] == {}
+
+    def test_extra_context(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        compile_template: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_chair)
+        extra = {"registration_due": "2026-04-01", "note": "Early bird"}
+
+        response = api_client.post(
+            self.path(conference.name, paper.code),
+            data={"template": TEMPLATE, "extra_context": extra},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        context = compile_template.call_args[0][1]
+        assert context["extra"] == extra
+
+        letter = AcceptanceLetter.objects.get(paper=paper)
+        assert letter.context["extra"] == extra
 
     def test_ieee_ecopyright_required(
         self,

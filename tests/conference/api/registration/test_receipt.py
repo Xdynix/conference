@@ -210,6 +210,31 @@ class TestGenerateReceipt:
         assert len(reg["paper"]["authors"]) == 1
         assert reg["paper"]["authors"][0]["given_name"] == "Bob"
 
+        assert context["extra"] == {}
+
+    def test_extra_context(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        registration: Registration,
+        compile_template: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_chair)
+        extra = {"invoice_number": "INV-2026-001", "note": "Paid in full"}
+
+        response = api_client.post(
+            self.path(conference.name, registration.uid),
+            data={"template": TEMPLATE, "extra_context": extra},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        context = compile_template.call_args[0][1]
+        assert context["extra"] == extra
+
+        receipt = Receipt.objects.get(registration=registration)
+        assert receipt.context["extra"] == extra
+
     def test_context_without_paper(
         self,
         api_client: Client,
