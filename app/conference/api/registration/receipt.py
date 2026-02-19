@@ -1,7 +1,7 @@
 import asyncio
 import json
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
@@ -13,6 +13,7 @@ from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from ninja import Field, Schema
 from ninja.errors import HttpError
+from pydantic import AwareDatetime
 from ulid import ULID
 
 from app.audit.services import audit
@@ -329,3 +330,49 @@ async def get_receipt_ex(
 ) -> HttpResponse | StreamingHttpResponse:
     """Retrieve the rendered receipt with a decorative filename segment."""
     return await get_receipt(request, uid)
+
+
+class ReceiptResponse(Schema):
+    registration_uid: ULID
+    registration_reference_code: str
+    extra: dict[str, Any]
+    create_time: AwareDatetime
+    update_time: AwareDatetime
+
+    @staticmethod
+    def resolve_registration_uid(receipt: Receipt) -> ULID:
+        return cast(ULID, receipt.registration.uid)
+
+    @staticmethod
+    def resolve_registration_reference_code(receipt: Receipt) -> str:
+        return receipt.registration.reference_code
+
+    @staticmethod
+    def resolve_extra(receipt: Receipt) -> dict[str, Any]:
+        return cast(dict[str, Any], receipt.context.get("extra", {}))
+
+
+@router.get(
+    "/conferences/{slug:conference_name}/registrations/-/receipt",
+    response=list[ReceiptResponse],
+    summary="List Receipts",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def list_receipts(
+    request: AuthedHttpRequest,  # noqa: ARG001
+    conference_name: str,
+) -> list[Receipt]:
+    """List all receipts for a conference."""
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+    return [
+        receipt
+        async for receipt in Receipt.objects.filter(
+            registration__conference=conference
+        ).select_related("registration")
+    ]

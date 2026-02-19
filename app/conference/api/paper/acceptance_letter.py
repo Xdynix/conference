@@ -1,7 +1,7 @@
 import asyncio
 import json
 from http import HTTPStatus
-from typing import Any
+from typing import Any, cast
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
@@ -12,6 +12,7 @@ from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from ninja import Field, Schema
 from ninja.errors import HttpError
+from pydantic import AwareDatetime
 from ulid import ULID
 
 from app.audit.services import audit
@@ -315,3 +316,49 @@ async def get_acceptance_letter_ex(
 ) -> HttpResponse | StreamingHttpResponse:
     """Retrieve the rendered acceptance letter with a decorative filename segment."""
     return await get_acceptance_letter(request, uid)
+
+
+class AcceptanceLetterResponse(Schema):
+    paper_uid: ULID
+    paper_code: str
+    extra: dict[str, Any]
+    create_time: AwareDatetime
+    update_time: AwareDatetime
+
+    @staticmethod
+    def resolve_paper_uid(letter: AcceptanceLetter) -> ULID:
+        return cast(ULID, letter.paper.uid)
+
+    @staticmethod
+    def resolve_paper_code(letter: AcceptanceLetter) -> str:
+        return letter.paper.code
+
+    @staticmethod
+    def resolve_extra(letter: AcceptanceLetter) -> dict[str, Any]:
+        return cast(dict[str, Any], letter.context.get("extra", {}))
+
+
+@router.get(
+    "/conferences/{slug:conference_name}/papers/-/acceptance-letter",
+    response=list[AcceptanceLetterResponse],
+    summary="List Acceptance Letters",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def list_acceptance_letters(
+    request: AuthedHttpRequest,  # noqa: ARG001
+    conference_name: str,
+) -> list[AcceptanceLetter]:
+    """List all acceptance letters for a conference."""
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+    return [
+        letter
+        async for letter in AcceptanceLetter.objects.filter(
+            paper__conference=conference
+        ).select_related("paper")
+    ]

@@ -841,3 +841,211 @@ class TestPreviewAcceptanceLetter:
             data={"template": TEMPLATE},
         )
         assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestListAcceptanceLetters:
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:list-acceptance-letters", args=[conference_name])
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+    ) -> None:
+        letter = AcceptanceLetter.objects.create(
+            paper=paper,
+            template=TEMPLATE,
+            context={"extra": {"registration_due": "2026-04-01"}},
+        )
+        letter.rendered_pdf.save(
+            "acceptance-letter.pdf", ContentFile(FAKE_PDF), save=True
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()
+        assert data["paper_uid"] == str(paper.uid)
+        assert data["paper_code"] == paper.code
+        assert data["extra"] == {"registration_due": "2026-04-01"}
+        assert data["create_time"] is not None
+        assert data["update_time"] is not None
+
+    def test_empty_list(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == []
+
+    def test_extra_defaults_to_empty_dict(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+    ) -> None:
+        letter = AcceptanceLetter.objects.create(
+            paper=paper,
+            template=TEMPLATE,
+            context={},
+        )
+        letter.rendered_pdf.save(
+            "acceptance-letter.pdf",
+            ContentFile(FAKE_PDF),
+            save=True,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()[0]["extra"] == {}
+
+    def test_excludes_other_conferences(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+    ) -> None:
+        other_conference = Conference.objects.create(
+            name="other-conf",
+            display_name="Other Conference",
+        )
+        other_track = Track.objects.create(
+            conference=other_conference,
+            display_name="Other Track",
+        )
+        other_paper = Paper.objects.create(
+            conference=other_conference,
+            track=other_track,
+            owner=paper.owner,
+            code="OTHER-001",
+            title="Other Paper",
+            state=PaperState.ACCEPTED,
+        )
+        other_letter = AcceptanceLetter.objects.create(
+            paper=other_paper,
+            template=TEMPLATE,
+            context={},
+        )
+        other_letter.rendered_pdf.save(
+            "acceptance-letter.pdf",
+            ContentFile(FAKE_PDF),
+            save=True,
+        )
+
+        letter = AcceptanceLetter.objects.create(
+            paper=paper,
+            template=TEMPLATE,
+            context={},
+        )
+        letter.rendered_pdf.save(
+            "acceptance-letter.pdf",
+            ContentFile(FAKE_PDF),
+            save=True,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()
+        assert data["paper_uid"] == str(paper.uid)
+
+    def test_conference_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path("nonexistent"))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_inactive_conference_not_found(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+    ) -> None:
+        update_object(conference, active=False)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_authorization_unauthenticated(
+        self,
+        api_client: Client,
+        conference: Conference,
+    ) -> None:
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_authorization_user_without_roles(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_authorization_global_admin(
+        self,
+        api_client: Client,
+        conference: Conference,
+        global_admin: User,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+    def test_authorization_conference_chair(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+    def test_authorization_conference_secretary(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_secretary: User,
+    ) -> None:
+        api_client.force_login(conference_secretary)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+    def test_authorization_conference_reviewer_forbidden(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_reviewer: User,
+    ) -> None:
+        api_client.force_login(conference_reviewer)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.FORBIDDEN
