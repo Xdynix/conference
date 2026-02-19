@@ -32,7 +32,7 @@ Example:
           class="btn-close"
           data-bs-dismiss="modal"
           aria-label="Close"
-          x-show="!receiptModal.generating"
+          x-show="!receiptModal.generating && !receiptModal.previewing"
         ></button>
       </div>
       <div class="modal-body">
@@ -70,7 +70,7 @@ Example:
                 :class="{'is-invalid': receiptModal.error}"
                 rows="12"
                 x-model="receiptModal.template"
-                :disabled="receiptModal.generating"
+                :disabled="receiptModal.generating || receiptModal.previewing"
                 placeholder="Enter Typst template..."
               ></textarea>
               {# TODO: Research UX for communicating available template context variables. #}
@@ -113,15 +113,24 @@ Example:
               type="button"
               class="btn btn-secondary"
               data-bs-dismiss="modal"
-              :disabled="receiptModal.generating"
+              :disabled="receiptModal.generating || receiptModal.previewing"
             >
               Cancel
             </button>
             <button
               type="button"
+              class="btn btn-outline-primary"
+              @click="previewReceipt()"
+              :disabled="receiptModal.generating || receiptModal.previewing || !receiptModal.template.trim()"
+            >
+              <span x-show="receiptModal.previewing" class="spinner-border spinner-border-sm me-1"></span>
+              <span x-text="receiptModal.previewing ? 'Loading...' : 'Preview'"></span>
+            </button>
+            <button
+              type="button"
               class="btn btn-primary"
               @click="generateReceipts()"
-              :disabled="receiptModal.generating || !receiptModal.template.trim()"
+              :disabled="receiptModal.generating || receiptModal.previewing || !receiptModal.template.trim()"
             >
               <span x-show="receiptModal.generating" class="spinner-border spinner-border-sm me-1"></span>
               <span x-text="receiptModal.generating ? 'Generating...' : 'Generate'"></span>
@@ -140,6 +149,8 @@ Example:
         uids: [],
         template: '',
         generating: false,
+        previewing: false,
+        previewUrl: null,
         done: false,
         error: null,
         processedCount: 0,
@@ -149,10 +160,15 @@ Example:
       },
 
       openReceiptModal(uids, onSuccess = null) {
+        if (this.receiptModal.previewUrl) {
+          URL.revokeObjectURL(this.receiptModal.previewUrl);
+        }
         this.receiptModal = {
           uids: uids,
           template: '',
           generating: false,
+          previewing: false,
+          previewUrl: null,
           done: false,
           error: null,
           processedCount: 0,
@@ -186,8 +202,57 @@ Example:
         new bootstrap.Modal(document.getElementById('receipt-modal')).show();
       },
 
+      async previewReceipt() {
+        if (this.receiptModal.previewing || this.receiptModal.generating) return;
+        if (!this.receiptModal.template.trim()) return;
+
+        this.receiptModal.previewing = true;
+        this.receiptModal.error = null;
+
+        for (const uid of this.receiptModal.uids) {
+          const url = APP.urls.registration.previewReceipt(APP.params.conference_name, uid);
+          try {
+            const response = await api.post(url, {template: this.receiptModal.template}, {responseType: 'blob'});
+            if (this.receiptModal.previewUrl) {
+              URL.revokeObjectURL(this.receiptModal.previewUrl);
+            }
+            this.receiptModal.previewUrl = URL.createObjectURL(response.data);
+            window.open(this.receiptModal.previewUrl, '_blank');
+            this.receiptModal.previewing = false;
+            return;
+          } catch (e) {
+            const status = e.response?.status;
+            if (status === 422) {
+              // Template compilation error; parse the blob to extract the message.
+              try {
+                const text = await e.response.data.text();
+                const data = JSON.parse(text);
+                const details = data.details || [];
+                const msgs = details.map(d => d.msg).filter(Boolean);
+                this.receiptModal.error = msgs.join(' ') || 'Template compilation failed.';
+              } catch {
+                this.receiptModal.error = 'Template compilation failed.';
+              }
+              this.receiptModal.previewing = false;
+              return;
+            }
+            if (status === 400 || status === 404) {
+              // Item not eligible, try next
+              continue;
+            }
+            // Unexpected error (5xx, network, etc.); surface it.
+            this.receiptModal.error = 'An unexpected error occurred.';
+            this.receiptModal.previewing = false;
+            return;
+          }
+        }
+
+        this.receiptModal.error = 'No eligible registrations found for preview.';
+        this.receiptModal.previewing = false;
+      },
+
       async generateReceipts() {
-        if (this.receiptModal.generating) return;
+        if (this.receiptModal.generating || this.receiptModal.previewing) return;
         if (!this.receiptModal.template.trim()) return;
 
         this.receiptModal.generating = true;

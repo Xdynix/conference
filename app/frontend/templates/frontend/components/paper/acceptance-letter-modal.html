@@ -32,7 +32,7 @@ Example:
           class="btn-close"
           data-bs-dismiss="modal"
           aria-label="Close"
-          x-show="!letterModal.generating"
+          x-show="!letterModal.generating && !letterModal.previewing"
         ></button>
       </div>
       <div class="modal-body">
@@ -70,7 +70,7 @@ Example:
                 :class="{'is-invalid': letterModal.error}"
                 rows="12"
                 x-model="letterModal.template"
-                :disabled="letterModal.generating"
+                :disabled="letterModal.generating || letterModal.previewing"
                 placeholder="Enter Typst template..."
               ></textarea>
               {# TODO: Research UX for communicating available template context variables. #}
@@ -114,15 +114,24 @@ Example:
               type="button"
               class="btn btn-secondary"
               data-bs-dismiss="modal"
-              :disabled="letterModal.generating"
+              :disabled="letterModal.generating || letterModal.previewing"
             >
               Cancel
             </button>
             <button
               type="button"
+              class="btn btn-outline-primary"
+              @click="previewLetter()"
+              :disabled="letterModal.generating || letterModal.previewing || !letterModal.template.trim()"
+            >
+              <span x-show="letterModal.previewing" class="spinner-border spinner-border-sm me-1"></span>
+              <span x-text="letterModal.previewing ? 'Loading...' : 'Preview'"></span>
+            </button>
+            <button
+              type="button"
               class="btn btn-primary"
               @click="generateLetters()"
-              :disabled="letterModal.generating || !letterModal.template.trim()"
+              :disabled="letterModal.generating || letterModal.previewing || !letterModal.template.trim()"
             >
               <span x-show="letterModal.generating" class="spinner-border spinner-border-sm me-1"></span>
               <span x-text="letterModal.generating ? 'Generating...' : 'Generate'"></span>
@@ -141,6 +150,8 @@ Example:
         paperCodes: [],
         template: '',
         generating: false,
+        previewing: false,
+        previewUrl: null,
         done: false,
         error: null,
         processedCount: 0,
@@ -150,10 +161,15 @@ Example:
       },
 
       openLetterModal(paperCodes, onSuccess = null) {
+        if (this.letterModal.previewUrl) {
+          URL.revokeObjectURL(this.letterModal.previewUrl);
+        }
         this.letterModal = {
           paperCodes: paperCodes,
           template: '',
           generating: false,
+          previewing: false,
+          previewUrl: null,
           done: false,
           error: null,
           processedCount: 0,
@@ -187,8 +203,57 @@ Example:
         new bootstrap.Modal(document.getElementById('acceptance-letter-modal')).show();
       },
 
+      async previewLetter() {
+        if (this.letterModal.previewing || this.letterModal.generating) return;
+        if (!this.letterModal.template.trim()) return;
+
+        this.letterModal.previewing = true;
+        this.letterModal.error = null;
+
+        for (const code of this.letterModal.paperCodes) {
+          const url = APP.urls.paper.previewAcceptanceLetter(APP.params.conference_name, code);
+          try {
+            const response = await api.post(url, {template: this.letterModal.template}, {responseType: 'blob'});
+            if (this.letterModal.previewUrl) {
+              URL.revokeObjectURL(this.letterModal.previewUrl);
+            }
+            this.letterModal.previewUrl = URL.createObjectURL(response.data);
+            window.open(this.letterModal.previewUrl, '_blank');
+            this.letterModal.previewing = false;
+            return;
+          } catch (e) {
+            const status = e.response?.status;
+            if (status === 422) {
+              // Template compilation error; parse the blob to extract the message.
+              try {
+                const text = await e.response.data.text();
+                const data = JSON.parse(text);
+                const details = data.details || [];
+                const msgs = details.map(d => d.msg).filter(Boolean);
+                this.letterModal.error = msgs.join(' ') || 'Template compilation failed.';
+              } catch {
+                this.letterModal.error = 'Template compilation failed.';
+              }
+              this.letterModal.previewing = false;
+              return;
+            }
+            if (status === 400 || status === 404) {
+              // Item not eligible, try next
+              continue;
+            }
+            // Unexpected error (5xx, network, etc.); surface it.
+            this.letterModal.error = 'An unexpected error occurred.';
+            this.letterModal.previewing = false;
+            return;
+          }
+        }
+
+        this.letterModal.error = 'No eligible papers found for preview.';
+        this.letterModal.previewing = false;
+      },
+
       async generateLetters() {
-        if (this.letterModal.generating) return;
+        if (this.letterModal.generating || this.letterModal.previewing) return;
         if (!this.letterModal.template.trim()) return;
 
         this.letterModal.generating = true;
