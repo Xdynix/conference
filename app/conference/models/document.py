@@ -1,3 +1,8 @@
+# TODO: if per-conference asset management is needed (e.g. different logos per
+#  conference), consider adding a ConferenceAsset model with a FileField scoped to
+#  conference. Currently, shared template assets live in etc/assets/ and are loaded at
+#  compile time via load_assets().
+
 from pathlib import Path
 
 from django.db import models

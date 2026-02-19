@@ -11,7 +11,12 @@ from faker import Faker
 from pydantic import HttpUrl
 from ulid import ULID
 
-from app.utils.typst import CompilationError, compile_template, typst_json_default
+from app.utils.typst import (
+    CompilationError,
+    compile_template,
+    load_assets,
+    typst_json_default,
+)
 from tests.helpers import extract_pdf_fonts
 
 MINIMAL_TEMPLATE = b'#let data = json(bytes(sys.inputs.at("data")))\nHello'
@@ -114,6 +119,12 @@ class TestCompileTemplate:
         helper = b'#let greeting = "Hello"'
         template = b'#import "helper.typ": greeting\n#greeting World'
         result = compile_template(template, {}, files={"helper.typ": helper})
+        assert result[:5] == b"%PDF-"
+
+    def test_files_binary_image(self) -> None:
+        image = (Path(settings.BASE_DIR) / "tests" / "data" / "sample.png").read_bytes()
+        template = b'#image("sample.png", width: 50%)'
+        result = compile_template(template, {}, files={"sample.png": image})
         assert result[:5] == b"%PDF-"
 
     def test_files_rejects_main_typ(self) -> None:
@@ -237,3 +248,48 @@ class TestCompileTemplateFonts:
         result = compile_template(MINIMAL_TEMPLATE, {}, font_paths=None)
         assert isinstance(result, bytes)
         assert result[:5] == b"%PDF-"
+
+
+class TestLoadAssets:
+    def test_loads_files_from_directory(self, tmp_path: Path) -> None:
+        (tmp_path / "logo.png").write_bytes(b"png-data")
+        (tmp_path / "bg.jpg").write_bytes(b"jpg-data")
+
+        result = load_assets(tmp_path)
+
+        assert result == {"bg.jpg": b"jpg-data", "logo.png": b"png-data"}
+
+    def test_skips_hidden_files(self, tmp_path: Path) -> None:
+        (tmp_path / ".gitkeep").write_bytes(b"")
+        (tmp_path / "logo.png").write_bytes(b"png-data")
+
+        result = load_assets(tmp_path)
+
+        assert result == {"logo.png": b"png-data"}
+
+    def test_returns_empty_for_missing_directory(self, tmp_path: Path) -> None:
+        result = load_assets(tmp_path / "nonexistent")
+
+        assert result == {}
+
+    def test_returns_empty_for_empty_directory(self, tmp_path: Path) -> None:
+        result = load_assets(tmp_path)
+
+        assert result == {}
+
+    def test_skips_subdirectories(self, tmp_path: Path) -> None:
+        (tmp_path / "subdir").mkdir()
+        (tmp_path / "logo.png").write_bytes(b"png-data")
+
+        result = load_assets(tmp_path)
+
+        assert result == {"logo.png": b"png-data"}
+
+    def test_ignores_files_in_subdirectories(self, tmp_path: Path) -> None:
+        (tmp_path / "subdir").mkdir()
+        (tmp_path / "subdir" / "nested.png").write_bytes(b"nested-data")
+        (tmp_path / "logo.png").write_bytes(b"png-data")
+
+        result = load_assets(tmp_path)
+
+        assert result == {"logo.png": b"png-data"}

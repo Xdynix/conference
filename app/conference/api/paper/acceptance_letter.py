@@ -31,7 +31,12 @@ from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse, make_validation_error
 from app.utils.enums import Region
 from app.utils.files import build_file_download_response
-from app.utils.typst import CompilationError, compile_template, typst_json_default
+from app.utils.typst import (
+    CompilationError,
+    compile_template,
+    load_assets,
+    typst_json_default,
+)
 
 from .core import PaperDetailResponse, prefetch_paper, router
 
@@ -149,6 +154,7 @@ async def generate_acceptance_letter(
         return compile_template(
             payload.template,
             context,
+            files=load_assets(settings.TYPST_ASSET_DIR),
             font_paths=[settings.TYPST_FONT_DIR],
         )
 
