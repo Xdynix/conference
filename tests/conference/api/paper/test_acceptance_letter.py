@@ -662,3 +662,158 @@ class TestGetAcceptanceLetterDecorated:
     def test_not_found(self, api_client: Client) -> None:
         response = api_client.get(self.path(ULID(), "letter.pdf"))
         assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+@pytest.mark.django_db
+class TestPreviewAcceptanceLetter:
+    @classmethod
+    def path(cls, conference_name: str, paper_code: str) -> str:
+        return reverse(
+            "api-1.0.0:preview-acceptance-letter",
+            args=[conference_name, paper_code],
+        )
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        compile_template: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name, paper.code),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.OK
+        assert response["Content-Type"] == "application/pdf"
+        assert response.content == FAKE_PDF
+
+        compile_template.assert_called_once()
+
+    def test_no_save(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        compile_template: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name, paper.code),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.OK
+        assert not AcceptanceLetter.objects.exists()
+
+        compile_template.assert_called_once()
+
+    def test_compilation_error(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        compile_template: MagicMock,
+    ) -> None:
+        compile_template.side_effect = CompilationError(
+            "undefined variable",
+            diagnostic="error at line 1",
+            hints=[],
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name, paper.code),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        [error] = response.json()["details"]
+        assert error["loc"] == ["body", "payload", "template"]
+        assert "undefined variable" in error["msg"]
+
+    def test_authorization_unauthenticated(
+        self,
+        api_client: Client,
+        conference: Conference,
+        paper: Paper,
+    ) -> None:
+        response = api_client.post(
+            self.path(conference.name, paper.code),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_authorization_global_admin(
+        self,
+        api_client: Client,
+        conference: Conference,
+        global_admin: User,
+        paper: Paper,
+        compile_template: MagicMock,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(conference.name, paper.code),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        compile_template.assert_called_once()
+
+    def test_authorization_conference_chair(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        compile_template: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name, paper.code),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        compile_template.assert_called_once()
+
+    def test_authorization_conference_secretary(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_secretary: User,
+        paper: Paper,
+        compile_template: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_secretary)
+
+        response = api_client.post(
+            self.path(conference.name, paper.code),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        compile_template.assert_called_once()
+
+    def test_authorization_conference_reviewer_forbidden(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_reviewer: User,
+        paper: Paper,
+    ) -> None:
+        api_client.force_login(conference_reviewer)
+
+        response = api_client.post(
+            self.path(conference.name, paper.code),
+            data={"template": TEMPLATE},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN

@@ -43,37 +43,26 @@ from .core import RegistrationResponse, prefetch_registration, router
 
 COMPILE_TIMEOUT = 5.0
 
+PREVIEW_OPENAPI_EXTRA = {
+    "responses": {
+        200: {
+            "content": {
+                "application/pdf": {"schema": {"type": "string", "format": "binary"}},
+            },
+        }
+    }
+}
+
 
 class GenerateReceiptRequest(Schema):
     template: str = Field(min_length=1, max_length=500_000)
 
 
-@router.post(
-    (
-        "/conferences/{slug:conference_name}/registrations/{ulid:registration_uid}"
-        "/receipt:generate"
-    ),
-    response={
-        HTTPStatus.OK: RegistrationResponse,
-        HTTPStatus.BAD_REQUEST: ErrorResponse,
-    },
-    summary="Generate Receipt",
-    auth=(
-        has_any_roles(GlobalRole.ADMIN)
-        | has_any_conference_roles(*ConferenceRole.admins())
-    ),
-)
-async def generate_receipt(
-    request: AuthedHttpRequest,
+async def _resolve_and_compile_receipt(
     conference_name: str,
     registration_uid: ULID,
-    payload: GenerateReceiptRequest,
-) -> Registration:
-    """Generate a receipt for a registration.
-
-    Compiles the provided typst template with registration context and stores the
-    resulting PDF. Regenerating replaces any existing receipt.
-    """
+    template: str,
+) -> tuple[Conference, Registration, bytes, dict[str, Any]]:
     conference = await aget_object_or_404(
         Conference.objects.active(),
         name=conference_name,
@@ -170,7 +159,7 @@ async def generate_receipt(
 
     def compile_pdf() -> bytes:
         return compile_template(
-            payload.template,
+            template,
             context,
             files=load_assets(settings.TYPST_ASSET_DIR),
             font_paths=[settings.TYPST_FONT_DIR],
@@ -188,6 +177,41 @@ async def generate_receipt(
             path="template",
             message=_("Template compilation timed out."),
         ) from exc
+
+    return conference, registration, pdf_bytes, context
+
+
+@router.post(
+    (
+        "/conferences/{slug:conference_name}/registrations/{ulid:registration_uid}"
+        "/receipt:generate"
+    ),
+    response={
+        HTTPStatus.OK: RegistrationResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
+    },
+    summary="Generate Receipt",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def generate_receipt(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    registration_uid: ULID,
+    payload: GenerateReceiptRequest,
+) -> Registration:
+    """Generate a receipt for a registration.
+
+    Compiles the provided typst template with registration context and stores the
+    resulting PDF. Regenerating replaces any existing receipt.
+    """
+    conference, registration, pdf_bytes, context = await _resolve_and_compile_receipt(
+        conference_name,
+        registration_uid,
+        payload.template,
+    )
 
     @sync_to_async
     def save_receipt() -> None:
@@ -221,6 +245,37 @@ async def generate_receipt(
     )
 
     return await prefetch_registration(registration, request)
+
+
+@router.post(
+    (
+        "/conferences/{slug:conference_name}/registrations/{ulid:registration_uid}"
+        "/receipt:preview"
+    ),
+    openapi_extra=PREVIEW_OPENAPI_EXTRA,
+    summary="Preview Receipt",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def preview_receipt(
+    request: AuthedHttpRequest,  # noqa: ARG001
+    conference_name: str,
+    registration_uid: ULID,
+    payload: GenerateReceiptRequest,
+) -> HttpResponse:
+    """Preview a receipt without saving.
+
+    Compiles the provided typst template with registration context and returns the
+    resulting PDF bytes directly.
+    """
+    __, ___, pdf_bytes, ____ = await _resolve_and_compile_receipt(
+        conference_name,
+        registration_uid,
+        payload.template,
+    )
+    return HttpResponse(pdf_bytes, content_type="application/pdf")
 
 
 GET_RECEIPT_OPENAPI_EXTRA = {
