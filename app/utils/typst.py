@@ -2,6 +2,7 @@ __all__ = (
     "CompilationError",
     "TypstError",
     "compile_template",
+    "load_assets",
     "typst_json_default",
 )
 
@@ -104,6 +105,22 @@ class CompilationError(TypstError):
         self.hints = hints or []
 
 
+def load_assets(directory: Path) -> dict[str, bytes]:
+    """Read all files from *directory* into a name-to-bytes mapping.
+
+    Intended for loading static assets (images, etc.) into the typst virtual filesystem.
+    Skips hidden files (names starting with ``'.'``). Returns an empty ``dict`` if the
+    directory does not exist or is empty.
+    """
+    if not directory.is_dir():
+        return {}
+    return {
+        p.name: p.read_bytes()
+        for p in sorted(directory.iterdir())
+        if p.is_file() and not p.name.startswith(".")
+    }
+
+
 @overload
 def compile_template(
     template: str | bytes,
@@ -148,6 +165,9 @@ def compile_template(
     data: dict[str, Any],
     *,
     output: str | Path | None = None,
+    # TODO: accept Path values in `files` (e.g. dict[str, bytes | Path]) so callers can
+    #  pass asset directories directly, avoiding the load-into-memory + write-to-temp
+    #  cycle on every request.
     files: dict[str, bytes] | None = None,
     font_paths: list[str | Path] | None = None,
     json_default: Callable[[Any], Any] = typst_json_default,
@@ -155,10 +175,12 @@ def compile_template(
 ) -> bytes | None:
     """Compile a typst template with data, returning or writing PDF bytes.
 
-    The template source is combined with *files* into a virtual filesystem. *data* is
-    JSON-serialized and passed via ``sys_inputs`` so templates access it with
-    ``json(bytes(sys.inputs.at("data")))``. Pass *json_default* to handle types that
-    ``json.dumps`` cannot serialize natively (e.g., ``Decimal``, ``ULID``).
+    The template source is passed via a virtual filesystem dict while *files* (images,
+    helper modules, etc.) are written to a temporary sandbox directory that serves as
+    the typst ``root``. This avoids the VFS UTF-8 restriction that rejects binary
+    content. *data* is JSON-serialized and passed via ``sys_inputs`` so templates access
+    it with ``json(bytes(sys.inputs.at("data")))``. Pass *json_default* to handle types
+    that ``json.dumps`` cannot serialize natively (e.g., ``Decimal``, ``ULID``).
 
     Pass *font_paths* to make additional font directories available to the compiler.
     Custom fonts are discovered regardless of ``ignore_system_fonts``; the flag only
@@ -200,12 +222,13 @@ def compile_template(
 
     source = template.encode() if isinstance(template, str) else template
     vfs: dict[str, bytes] = {"main.typ": source}
-    if files is not None:
-        vfs.update(files)
 
     sys_inputs = {"data": json.dumps(data, default=json_default)}
 
     with tempfile.TemporaryDirectory(prefix="typst-") as sandbox:
+        if files is not None:
+            for name, content in files.items():
+                (Path(sandbox) / name).write_bytes(content)
         if validate_only:
             output = f"{sandbox}/out.pdf"
         try:
