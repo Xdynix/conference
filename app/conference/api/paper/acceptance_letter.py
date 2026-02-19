@@ -42,38 +42,26 @@ from .core import PaperDetailResponse, prefetch_paper, router
 
 COMPILE_TIMEOUT = 5.0
 
+PREVIEW_OPENAPI_EXTRA = {
+    "responses": {
+        200: {
+            "content": {
+                "application/pdf": {"schema": {"type": "string", "format": "binary"}},
+            },
+        }
+    }
+}
+
 
 class GenerateAcceptanceLetterRequest(Schema):
     template: str = Field(min_length=1, max_length=500_000)
 
 
-@router.post(
-    (
-        "/conferences/{slug:conference_name}/papers/{slug:paper_code}"
-        "/acceptance-letter:generate"
-    ),
-    response={
-        HTTPStatus.OK: PaperDetailResponse,
-        HTTPStatus.BAD_REQUEST: ErrorResponse,
-    },
-    summary="Generate Acceptance Letter",
-    auth=(
-        has_any_roles(GlobalRole.ADMIN)
-        | has_any_conference_roles(*ConferenceRole.admins())
-    ),
-)
-async def generate_acceptance_letter(
-    request: AuthedHttpRequest,
+async def _resolve_and_compile_letter(
     conference_name: str,
     paper_code: str,
-    payload: GenerateAcceptanceLetterRequest,
-) -> Paper:
-    """Generate an acceptance letter for a paper.
-
-    Compiles the provided typst template with paper context and stores the resulting
-    PDF. Regenerating replaces any existing letter.
-    """
-    user = await request.auser()
+    template: str,
+) -> tuple[Conference, Paper, bytes, dict[str, Any]]:
     conference = await aget_object_or_404(
         Conference.objects.active(),
         name=conference_name,
@@ -152,7 +140,7 @@ async def generate_acceptance_letter(
 
     def compile_pdf() -> bytes:
         return compile_template(
-            payload.template,
+            template,
             context,
             files=load_assets(settings.TYPST_ASSET_DIR),
             font_paths=[settings.TYPST_FONT_DIR],
@@ -170,6 +158,42 @@ async def generate_acceptance_letter(
             path="template",
             message=_("Template compilation timed out."),
         ) from exc
+
+    return conference, paper, pdf_bytes, context
+
+
+@router.post(
+    (
+        "/conferences/{slug:conference_name}/papers/{slug:paper_code}"
+        "/acceptance-letter:generate"
+    ),
+    response={
+        HTTPStatus.OK: PaperDetailResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
+    },
+    summary="Generate Acceptance Letter",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def generate_acceptance_letter(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    paper_code: str,
+    payload: GenerateAcceptanceLetterRequest,
+) -> Paper:
+    """Generate an acceptance letter for a paper.
+
+    Compiles the provided typst template with paper context and stores the resulting
+    PDF. Regenerating replaces any existing letter.
+    """
+    user = await request.auser()
+    conference, paper, pdf_bytes, context = await _resolve_and_compile_letter(
+        conference_name,
+        paper_code,
+        payload.template,
+    )
 
     @sync_to_async
     def save_letter() -> None:
@@ -207,6 +231,35 @@ async def generate_acceptance_letter(
     )
 
     return await prefetch_paper(conference, paper, user, request)
+
+
+@router.post(
+    (
+        "/conferences/{slug:conference_name}/papers/{slug:paper_code}"
+        "/acceptance-letter:preview"
+    ),
+    openapi_extra=PREVIEW_OPENAPI_EXTRA,
+    summary="Preview Acceptance Letter",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def preview_acceptance_letter(
+    request: AuthedHttpRequest,  # noqa: ARG001
+    conference_name: str,
+    paper_code: str,
+    payload: GenerateAcceptanceLetterRequest,
+) -> HttpResponse:
+    """Preview an acceptance letter without saving.
+
+    Compiles the provided typst template with paper context and returns the resulting
+    PDF bytes directly.
+    """
+    __, ___, pdf_bytes, ____ = await _resolve_and_compile_letter(
+        conference_name, paper_code, payload.template
+    )
+    return HttpResponse(pdf_bytes, content_type="application/pdf")
 
 
 GET_ACCEPTANCE_LETTER_OPENAPI_EXTRA = {
