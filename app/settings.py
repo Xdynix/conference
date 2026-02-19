@@ -470,6 +470,12 @@ TYPST_FONT_DIR: Path = config(
     cast=Path,
 )
 
+TYPST_ASSET_DIR: Path = config(
+    "TYPST_ASSET_DIR",
+    default=BASE_DIR / "etc" / "assets",
+    cast=Path,
+)
+
 # Monkeypatch
 
 monkeypatch_django_async_auth()
