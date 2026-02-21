@@ -1,11 +1,10 @@
 from collections.abc import Mapping, Sequence
 from functools import partial
-from pathlib import Path
 
+from django.core.files.storage import Storage
 from django.core.files.uploadedfile import UploadedFile
 from django.db import connection, transaction
 from django.db.models import Max
-from loguru import logger
 
 from app.conference.models import Paper, PaperFinal, PaperState, PaperSubmission
 from app.core.models import User
@@ -15,14 +14,6 @@ from app.utils.files import validate_upload
 
 class FinalRevisionLimitError(Exception):
     pass
-
-
-def unlink_safe(path: Path) -> None:
-    """Delete a file, logging errors instead of raising."""
-    try:
-        path.unlink(missing_ok=True)
-    except OSError:
-        logger.exception("Failed to delete revision file.", path=path)
 
 
 class RevisionService:
@@ -53,19 +44,21 @@ class RevisionService:
         if not connection.in_atomic_block:
             raise RuntimeError("`delete_revision` must be called within a transaction.")
 
-        file_paths: list[Path] = []
+        file_refs: list[tuple[Storage, str]] = []
 
         if isinstance(revision, PaperSubmission):
-            file_paths.append(Path(revision.file.path))
+            file_refs.append((revision.file.storage, revision.file.name))
         else:
-            file_paths.append(Path(revision.source_file.path))
+            file_refs.append((revision.source_file.storage, revision.source_file.name))
             if revision.viewable_file:
-                file_paths.append(Path(revision.viewable_file.path))
+                file_refs.append(
+                    (revision.viewable_file.storage, revision.viewable_file.name)
+                )
 
         revision.delete()
 
-        for path in file_paths:
-            transaction.on_commit(partial(unlink_safe, path))
+        for storage, name in file_refs:
+            transaction.on_commit(partial(storage.delete, name))
 
     @classmethod
     def create_submission(
@@ -100,7 +93,7 @@ class RevisionService:
         # Validate before acquiring lock to avoid holding it during validation.
         validate_upload(file, max_size=max_size, allowed_types=allowed_types)
 
-        new_file_path: Path | None = None
+        new_file_name: str | None = None
 
         try:
             with Mutex.lock_in_transaction(
@@ -115,7 +108,7 @@ class RevisionService:
                     uploader=uploader,
                 )
                 submission.file.save(file.name, file, save=False)
-                new_file_path = Path(submission.file.path)
+                new_file_name = submission.file.name
 
                 submission.save()
 
@@ -137,8 +130,8 @@ class RevisionService:
                 return submission
 
         except Exception:
-            if new_file_path:
-                unlink_safe(new_file_path)
+            if new_file_name:
+                submission.file.storage.delete(new_file_name)
             raise
 
     @classmethod
@@ -191,8 +184,8 @@ class RevisionService:
                 allowed_types=viewable_allowed_types,
             )
 
-        new_source_path: Path | None = None
-        new_viewable_path: Path | None = None
+        new_source_name: str | None = None
+        new_viewable_name: str | None = None
 
         try:
             with Mutex.lock_in_transaction(str(paper.pk), namespace="paper_finals"):
@@ -211,24 +204,24 @@ class RevisionService:
                     uploader=uploader,
                 )
                 final.source_file.save(source_file.name, source_file, save=False)
-                new_source_path = Path(final.source_file.path)
+                new_source_name = final.source_file.name
                 if viewable_file:
                     final.viewable_file.save(
                         viewable_file.name,
                         viewable_file,
                         save=False,
                     )
-                    new_viewable_path = Path(final.viewable_file.path)
+                    new_viewable_name = final.viewable_file.name
 
                 final.save()
 
                 return final
 
         except Exception:
-            if new_source_path:
-                unlink_safe(new_source_path)
-            if new_viewable_path:
-                unlink_safe(new_viewable_path)
+            if new_source_name:
+                final.source_file.storage.delete(new_source_name)
+            if new_viewable_name:
+                final.viewable_file.storage.delete(new_viewable_name)
             raise
 
 

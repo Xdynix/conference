@@ -122,59 +122,59 @@ class TestRevisionServiceDeleteRevision:
         mocker: MagicMock,
         paper: Paper,
     ) -> None:
-        mock_unlink = mocker.patch("app.conference.services.revision.unlink_safe")
         submission = PaperSubmission.objects.create(
             paper=paper,
             revision=1,
             file="test.pdf",
         )
-        file_path = Path(submission.file.path)
+        mock_delete = mocker.patch.object(submission.file.storage, "delete")
+        file_name = submission.file.name
 
         with transaction.atomic():
             RevisionService.delete_revision(submission)
-            mock_unlink.assert_not_called()
+            mock_delete.assert_not_called()
 
-        mock_unlink.assert_called_once_with(file_path)
+        mock_delete.assert_called_once_with(file_name)
 
     def test_schedules_final_source_file_deletion_on_commit(
         self,
         mocker: MagicMock,
         paper: Paper,
     ) -> None:
-        mock_unlink = mocker.patch("app.conference.services.revision.unlink_safe")
         final = PaperFinal.objects.create(
             paper=paper,
             revision=1,
             source_file="source.pdf",
         )
-        source_path = Path(final.source_file.path)
+        mock_delete = mocker.patch.object(final.source_file.storage, "delete")
+        file_name = final.source_file.name
 
         with transaction.atomic():
             RevisionService.delete_revision(final)
 
-        mock_unlink.assert_called_once_with(source_path)
+        mock_delete.assert_called_once_with(file_name)
 
     def test_schedules_both_final_files_deletion_on_commit(
         self,
         mocker: MagicMock,
         paper: Paper,
     ) -> None:
-        mock_unlink = mocker.patch("app.conference.services.revision.unlink_safe")
         final = PaperFinal.objects.create(
             paper=paper,
             revision=1,
             source_file="source.pdf",
             viewable_file="viewable.pdf",
         )
-        source_path = Path(final.source_file.path)
-        viewable_path = Path(final.viewable_file.path)
+        mock_delete = mocker.patch.object(final.source_file.storage, "delete")
+        source_name = final.source_file.name
+        viewable_name = final.viewable_file.name
 
         with transaction.atomic():
             RevisionService.delete_revision(final)
 
-        assert mock_unlink.call_count == 2
-        mock_unlink.assert_any_call(source_path)
-        mock_unlink.assert_any_call(viewable_path)
+        assert mock_delete.call_count == 2
+        mock_delete.assert_any_call(source_name)
+        mock_delete.assert_any_call(viewable_name)
 
 
 @pytest.mark.django_db(transaction=True)
@@ -231,30 +231,6 @@ class TestRevisionServiceDeleteRevisionE2E:
 
         assert source_path.exists()
         assert viewable_path.exists()
-
-    def test_logs_and_continues_on_unlink_error(
-        self,
-        mocker: MagicMock,
-        paper: Paper,
-    ) -> None:
-        mock_logger = mocker.patch("app.conference.services.revision.logger")
-        submission = PaperSubmission(paper=paper, revision=1)
-        submission.file.save("test.pdf", ContentFile(b"test content"))
-        file_path = Path(submission.file.path)
-        mocker.patch.object(
-            Path,
-            "unlink",
-            side_effect=PermissionError("Access denied"),
-        )
-
-        with transaction.atomic():
-            RevisionService.delete_revision(submission)
-
-        assert not PaperSubmission.objects.filter(pk=submission.pk).exists()
-
-        mock_logger.exception.assert_called_once()
-        assert "Failed to delete" in mock_logger.exception.call_args[0][0]
-        assert mock_logger.exception.call_args[1]["path"] == file_path
 
 
 @pytest.mark.django_db(transaction=True)
