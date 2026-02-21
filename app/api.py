@@ -1,4 +1,5 @@
 from app.conference.api.conference import router as conference_router
+from app.conference.api.file import router as conference_file_router
 from app.conference.api.invitation import router as invitation_router
 from app.conference.api.keyword_set import router as keyword_set_router
 from app.conference.api.paper import router as paper_router
@@ -18,6 +19,7 @@ api = AppNinjaAPI.build()
 
 
 for router in (
+    conference_file_router,
     conference_router,
     conference_user_router,
     invitation_router,

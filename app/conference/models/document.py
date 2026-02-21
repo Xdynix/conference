@@ -8,6 +8,7 @@ from pathlib import Path
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from app.audit.types import Auditable, AuditResource, AuditResourceInfo
 from app.utils.models import TimeStampedModel
 
 from .conference import Conference
@@ -70,7 +71,7 @@ def conference_file_path(instance: "ConferenceFile", filename: str) -> str:
     return f"{instance.conference.name}/files/{instance.name}{ext}"
 
 
-class ConferenceFile(TimeStampedModel):
+class ConferenceFile(Auditable, TimeStampedModel):
     conference = models.ForeignKey(
         Conference,
         on_delete=models.CASCADE,
@@ -109,3 +110,10 @@ class ConferenceFile(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"{self.name} ({self.conference})"
+
+    def audit_resource_info(self) -> AuditResourceInfo:
+        return AuditResourceInfo(
+            resource=AuditResource.CONFERENCE_FILE,
+            resource_id=self.name,
+            resource_label=str(self),
+        )
