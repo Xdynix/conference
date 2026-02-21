@@ -378,6 +378,7 @@ class Migration(migrations.Migration):
                 "verbose_name": "conference file",
                 "verbose_name_plural": "conference files",
             },
+            bases=(app.audit.types.Auditable, models.Model),
         ),
         migrations.CreateModel(
             name="ConferenceRoleAssignment",

@@ -6,6 +6,7 @@ class AuditResource(StrEnum):
     ADMIN_COMMENT = "admin_comment"
     ATTENDANCE_TYPE = "attendance_type"
     CODE_POOL = "code_pool"
+    CONFERENCE_FILE = "conference_file"
     CONFERENCE = "conference"
     EMAIL_VERIFICATION = "email_verification"
     INVITATION = "invitation"
@@ -41,6 +42,10 @@ class AuditAction(StrEnum):
     CONFERENCE_DELETE = "conference.delete"
     CONFERENCE_UPDATE_ECOPYRIGHT_CONFIG = "conference.update_ecopyright_config"
     CONFERENCE_REFRESH_ECOPYRIGHT_CONSENTS = "conference.refresh_ecopyright_consents"
+
+    # Conference File
+    CONFERENCE_FILE_UPLOAD = "conference_file.upload"
+    CONFERENCE_FILE_DELETE = "conference_file.delete"
 
     # Email Verification
     EMAIL_VERIFICATION_ISSUE_CODE = "email_verification.issue_code"
