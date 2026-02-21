@@ -375,7 +375,7 @@ PASSWORD_RESET_PAGE_URL_NAME = config(
 # TODO: Add prod check for the URL setting.
 
 # File Downloads
-#
+
 # In "django" mode, files are served directly by Django using `FileResponse`. In "nginx"
 # mode, Django returns an empty response with `X-Accel-Redirect header`, letting nginx
 # serve the file from an internal location.
@@ -414,6 +414,20 @@ FILE_DOWNLOAD_NGINX_HEADER = config(
     default="X-Accel-Redirect",
 )
 
+# Typst
+
+TYPST_FONT_DIR: Path = config(
+    "TYPST_FONT_DIR",
+    default=BASE_DIR / "etc" / "fonts",
+    cast=Path,
+)
+
+TYPST_ASSET_DIR: Path = config(
+    "TYPST_ASSET_DIR",
+    default=BASE_DIR / "etc" / "assets",
+    cast=Path,
+)
+
 # Conference
 
 INVITATION_EMAIL_INTERVAL = config(
@@ -421,6 +435,7 @@ INVITATION_EMAIL_INTERVAL = config(
     default=3600,
     cast=seconds,
 )
+
 REVIEWER_NOTIFICATION_EMAIL_INTERVAL = config(
     "REVIEWER_NOTIFICATION_EMAIL_INTERVAL",
     default=3600,
@@ -452,6 +467,20 @@ MAX_FINAL_VIEWABLE_SIZE = MAX_SUBMISSION_SIZE
 
 ALLOWED_FINAL_VIEWABLE_TYPES = ALLOWED_SUBMISSION_TYPES
 
+MAX_CONFERENCE_FILE_SIZE = 10 * 1024 * 1024
+
+ALLOWED_CONFERENCE_FILE_TYPES: dict[str, list[str]] = {
+    "application/pdf": [".pdf"],
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
+        ".docx"
+    ],
+    "application/msword": [".doc"],
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
+    "application/vnd.ms-excel": [".xls"],
+    "image/png": [".png"],
+    "image/jpeg": [".jpg", ".jpeg"],
+}
+
 # Frontend
 
 BRANDING_LOGO_URL = config("BRANDING_LOGO_URL", default="")
@@ -463,18 +492,6 @@ BRANDING_LOGO_HEIGHT = config("BRANDING_LOGO_HEIGHT", default=0, cast=int)
 BRANDING_PARENT_URL = config("BRANDING_PARENT_URL", default="")
 
 BRANDING_FAVICON_URL = config("BRANDING_FAVICON_URL", default="")
-
-TYPST_FONT_DIR: Path = config(
-    "TYPST_FONT_DIR",
-    default=BASE_DIR / "etc" / "fonts",
-    cast=Path,
-)
-
-TYPST_ASSET_DIR: Path = config(
-    "TYPST_ASSET_DIR",
-    default=BASE_DIR / "etc" / "assets",
-    cast=Path,
-)
 
 # Monkeypatch
 
