@@ -4,6 +4,7 @@ __all__ = (
     "AttendanceType",
     "CodePool",
     "Conference",
+    "ConferenceFile",
     "ConferenceRole",
     "ConferenceRoleAssignment",
     "ConferenceVisibility",
@@ -51,7 +52,7 @@ from .conference import (
     Track,
     TrackVisibility,
 )
-from .document import AcceptanceLetter, Receipt
+from .document import AcceptanceLetter, ConferenceFile, Receipt
 from .ieee_ecopyright import IEEEeCopyrightConfig, IEEEeCopyrightConsent
 from .invitation import (
     Invitation,

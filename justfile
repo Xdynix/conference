@@ -4,7 +4,7 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 export PYTHONUTF8 := "1"
 export LOGURU_COLORIZE := "1"
 
-default: lint test
+default: ruff
 
 # set up development environment
 dev-setup:
@@ -12,7 +12,12 @@ dev-setup:
     uv run pre-commit install
     uv run scripts/dev-setup.py
 
-# execute linters
+# run ruff linter and formatter
+ruff:
+    uv run ruff check --fix .
+    uv run ruff format .
+
+# execute all linters
 lint:
     uv run pre-commit run --all-files
 
