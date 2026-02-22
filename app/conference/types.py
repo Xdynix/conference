@@ -240,7 +240,7 @@ class Conference(Schema):
     paper_submission_instructions: ConferenceInstructions = ""
     paper_final_instructions: ConferenceInstructions = ""
 
-    @field_validator("end_date")
+    @field_validator("end_date", mode="after")
     @classmethod
     def _validate_end_date(cls, v: date | None, info: ValidationInfo) -> date | None:
         start_date = info.data["start_date"]

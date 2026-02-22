@@ -6,7 +6,7 @@ from django.shortcuts import aget_object_or_404
 from jinja2 import UndefinedError
 from ninja import Schema
 from ninja.errors import HttpError
-from pydantic import EmailStr, Field
+from pydantic import Field
 from ulid import ULID
 
 from app.audit.services import audit
@@ -21,7 +21,7 @@ from app.conference.services.review import (
 )
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
-from app.core.types import AuthedHttpRequest
+from app.core.types import AuthedHttpRequest, EmailStr
 from app.ninja.errors import ErrorResponse
 from app.utils.email import EmailTemplate, RenderedEmail
 

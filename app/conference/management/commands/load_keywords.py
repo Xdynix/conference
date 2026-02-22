@@ -24,7 +24,7 @@ class KeywordSetDefinition(BaseModel):
         """Normalize keyword set names using shared sanitizer."""
         return sanitize_text(value)
 
-    @field_validator("keywords")
+    @field_validator("keywords", mode="after")
     @classmethod
     def _strip_keywords(cls, values: list[str]) -> list[str]:
         """Normalize keyword text values."""
