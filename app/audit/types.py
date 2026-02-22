@@ -9,6 +9,7 @@ class AuditResource(StrEnum):
     CONFERENCE_FILE = "conference_file"
     CONFERENCE = "conference"
     EMAIL_VERIFICATION = "email_verification"
+    EMAIL = "email"
     INVITATION = "invitation"
     PAPER = "paper"
     PAYMENT = "payment"
@@ -46,6 +47,9 @@ class AuditAction(StrEnum):
     # Conference File
     CONFERENCE_FILE_UPLOAD = "conference_file.upload"
     CONFERENCE_FILE_DELETE = "conference_file.delete"
+
+    # Email
+    EMAIL_SEND = "email.send"
 
     # Email Verification
     EMAIL_VERIFICATION_ISSUE_CODE = "email_verification.issue_code"
