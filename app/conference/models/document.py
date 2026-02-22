@@ -3,6 +3,14 @@
 #  conference. Currently, shared template assets live in etc/assets/ and are loaded at
 #  compile time via load_assets().
 
+# TODO: consider a generic PaperDocument (and RegistrationDocument) model for
+#  system-generated per-entity documents (e.g. visa invitation letters). Similar to
+#  AcceptanceLetter (template + context -> rendered PDF, stored and queryable), but with
+#  a slug-style `type` field instead of a dedicated model per document kind. The script
+#  provides the template and context; the server renders and stores the PDF. This keeps
+#  generation logic on the script side while making documents trackable and reusable as
+#  email attachments via a new `paper_document` attachment ref type.
+
 from pathlib import Path
 
 from django.db import models
