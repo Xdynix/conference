@@ -39,7 +39,7 @@ class ConferenceSchema(Schema):
     paper_submission_instructions: ConferenceInstructions
     paper_final_instructions: ConferenceInstructions
 
-    @field_validator("end_date")
+    @field_validator("end_date", mode="after")
     @classmethod
     def _validate_end_date(
         cls,
