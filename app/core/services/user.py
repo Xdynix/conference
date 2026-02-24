@@ -1,5 +1,5 @@
 from collections.abc import Collection
-from typing import Any
+from typing import Any, NamedTuple
 
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -20,6 +20,11 @@ class UserIdentityConflict(Exception):
     pass
 
 
+class CreateUserResult(NamedTuple):
+    user: User
+    detail: dict[str, Any]
+
+
 class UserService:
     @classmethod
     @transaction.atomic
@@ -31,7 +36,7 @@ class UserService:
         password: str,
         managed: bool,
         payload: Any,
-    ) -> User:
+    ) -> CreateUserResult:
         """Creates a user with password validation.
 
         Validates the password against Django's password validators and dispatches to
@@ -45,7 +50,8 @@ class UserService:
             payload: Additional data passed to create_user_registry handlers.
 
         Returns:
-            The newly created user.
+            A ``CreateUserResult`` containing the new user and a detail dict with
+            handler results from the create-user registry.
 
         Raises:
             InvalidPassword: Password fails Django's validation rules.
@@ -68,9 +74,9 @@ class UserService:
         except IntegrityError as exc:
             raise UserIdentityConflict from exc
 
-        create_user_registry.dispatch(user, payload)
+        detail = create_user_registry.dispatch(user, payload)
 
-        return user
+        return CreateUserResult(user, detail)
 
     @classmethod
     async def update_user(
