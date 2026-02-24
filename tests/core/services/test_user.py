@@ -14,7 +14,10 @@ from app.core.services.user import InvalidPassword, UserIdentityConflict, UserSe
 class TestUserServiceCreateUser:
     @pytest.fixture
     def mock_dispatch(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("app.core.services.user.create_user_registry.dispatch")
+        return mocker.patch(
+            "app.core.services.user.create_user_registry.dispatch",
+            return_value={},
+        )
 
     @pytest.mark.parametrize("managed", [True, False])
     def test_happy_path(
@@ -28,7 +31,7 @@ class TestUserServiceCreateUser:
         password = faker.password()
         payload: dict[str, Any] = {"key": "value"}
 
-        user = UserService.create_user(
+        user, detail = UserService.create_user(
             username=username,
             email=email,
             password=password,
@@ -42,6 +45,7 @@ class TestUserServiceCreateUser:
         assert user.check_password(password)
         assert db_user.check_password(password)
         assert user.managed == db_user.managed == managed
+        assert detail == {}
         mock_dispatch.assert_called_once_with(user, payload)
 
     def test_raises_invalid_password_for_weak_password(

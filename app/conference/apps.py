@@ -34,9 +34,9 @@ def register_create_user() -> None:
             region_code=payload.region_code,
         )
 
-    def redeem_invitation(user: User, invitation_token: str) -> None:
+    def redeem_invitation(user: User, invitation_token: str) -> str | None:
         if not invitation_token:
-            return
+            return None
 
         invitation = InvitationService.retrieve_invitation(invitation_token)
         if invitation is None:
@@ -51,6 +51,8 @@ def register_create_user() -> None:
                 path="invitation_token",
                 message=_("Invitation already redeemed."),
             )
+
+        return invitation_token
 
     create_user_registry.register(
         "profile",
