@@ -244,3 +244,67 @@ class TestCreateUserRegistry:
 
         with pytest.raises(ValueError, match="Handler failed"):
             registry.dispatch(user, payload)
+
+    def test_register_without_schema(
+        self,
+        registry: CreateUserRegistry,
+        user: User,
+    ) -> None:
+        handler = MagicMock(return_value={"transferred": True})
+
+        registry.register("hook", handler=handler)
+        schema = registry.extend_schema(Schema, "NoSchemaFieldSchema")
+
+        assert "hook" not in schema.model_fields
+
+        class MockPayload:
+            pass
+
+        payload = MockPayload()
+        detail = registry.dispatch(user, payload)
+
+        handler.assert_called_once_with(user, None)
+        assert detail == {"hook": {"transferred": True}}
+
+    def test_mixed_schema_and_schemaless_handlers(
+        self,
+        registry: CreateUserRegistry,
+        user: User,
+    ) -> None:
+        schema_handler = MagicMock(return_value="token123")
+        schemaless_handler = MagicMock(return_value={"claimed": 1})
+
+        registry.register("token", (str, ""), handler=schema_handler)
+        registry.register("hook", handler=schemaless_handler)
+
+        schema = registry.extend_schema(Schema, "MixedSchema")
+
+        assert "token" in schema.model_fields
+        assert "hook" not in schema.model_fields
+
+        class MockPayload:
+            token = "abc"
+
+        payload = MockPayload()
+        detail = registry.dispatch(user, payload)
+
+        schema_handler.assert_called_once_with(user, "abc")
+        schemaless_handler.assert_called_once_with(user, None)
+        assert detail == {"token": "token123", "hook": {"claimed": 1}}
+
+    def test_schemaless_handler_returning_none_omitted(
+        self,
+        registry: CreateUserRegistry,
+        user: User,
+    ) -> None:
+        handler = MagicMock(return_value=None)
+
+        registry.register("hook", handler=handler)
+
+        class MockPayload:
+            pass
+
+        detail = registry.dispatch(user, MockPayload())
+
+        handler.assert_called_once_with(user, None)
+        assert detail == {}

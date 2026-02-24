@@ -46,7 +46,7 @@ class CreateUserRegistry:
     def register[T](
         self,
         key: str,
-        schema: type[T] | tuple[type[T], Any],
+        schema: type[T] | tuple[type[T], Any] | None = None,
         *,
         handler: NewUserHandler[T],
     ) -> None:
@@ -55,12 +55,19 @@ class CreateUserRegistry:
         The registered schema will be added as a field to extended request schemas, and
         the handler will be called during user creation to process the data.
 
+        When ``schema`` is ``None``, no field is added to the request schema and the
+        handler receives ``None`` as its payload argument. This is useful for handlers
+        that only react to the user's existence (e.g., claiming resources by email)
+        without requiring caller-provided data.
+
         Args:
-            key: Field name for the schema in extended request schemas. Must be a valid
-                Python identifier.
-            schema: Pydantic field schema/type annotation.
+            key: Unique identifier for this registration. Used as the field name in
+                extended request schemas (when a schema is provided) and as the key in
+                the dispatch result dict.
+            schema: Pydantic field schema/type annotation, or ``None`` to register a
+                handler without adding a field to the request schema.
             handler: Synchronous function that receives the created user and payload
-                data.
+                data (or ``None`` when no schema is registered).
 
         Raises:
             ValueError: If key is not a valid identifier or is already registered.
@@ -78,8 +85,8 @@ class CreateUserRegistry:
         """Dynamically extend a base schema with all registered fields.
 
         Creates a new Pydantic model that inherits from the base schema and adds fields
-        for each registered key. Validates that no registered keys conflict with
-        existing fields in the base schema.
+        for each registered key that has a schema. Registrations without a schema are
+        skipped (they participate in dispatch only).
 
         Args:
             base_schema: Base Pydantic schema to extend.
@@ -92,12 +99,15 @@ class CreateUserRegistry:
             ValueError: If any registered key conflicts with a field in the base schema.
         """
         base_fields = base_schema.model_fields
-        for key in self._registry:
+        additional_fields = {}
+        for key, (schema, _) in self._registry.items():
+            if schema is None:
+                continue
             if key in base_fields:
                 msg = f"Key {key!r} already exists in base schema."
                 raise ValueError(msg)
+            additional_fields[key] = schema
 
-        additional_fields = {key: schema for key, (schema, _) in self._registry.items()}
         return create_model(
             name,
             __base__=base_schema,
@@ -108,8 +118,8 @@ class CreateUserRegistry:
         """Call all registered handlers with the created user and payload data.
 
         Iterates through all registered handlers and invokes them with the newly created
-        user and their corresponding payload data. This is called within the user
-        creation transaction after the user instance is created.
+        user and their corresponding payload data. Handlers registered without a schema
+        receive ``None`` as their payload argument.
 
         Args:
             user: The newly created user instance.
@@ -120,8 +130,8 @@ class CreateUserRegistry:
             ``None`` are omitted.
         """
         detail: dict[str, Any] = {}
-        for key, (_, handle) in self._registry.items():
-            data = getattr(payload, key)
+        for key, (schema, handle) in self._registry.items():
+            data = getattr(payload, key) if schema is not None else None
             result = handle(user, data)
             if result is not None:
                 detail[key] = result
