@@ -59,7 +59,7 @@ async def create_account(
     success, the user is automatically logged in and a session is created.
     """
     try:
-        user = await sync_to_async(UserService.create_user)(
+        user, detail = await sync_to_async(UserService.create_user)(
             username=payload.username,  # type: ignore[attr-defined]
             email=payload.email,  # type: ignore[attr-defined]
             password=payload.password.get_secret_value(),  # type: ignore[attr-defined]
@@ -80,6 +80,7 @@ async def create_account(
         resource_id=str(user.uid),
         resource_label=user.email or user.username,
         payload=payload,
+        detail=detail,
     )
 
     return HTTPStatus.CREATED, await Session.from_request(request)
@@ -117,7 +118,7 @@ async def create_user(
     registration endpoint, this does not require email verification.
     """
     try:
-        user = await sync_to_async(UserService.create_user)(
+        user, detail = await sync_to_async(UserService.create_user)(
             username=payload.username,  # type: ignore[attr-defined]
             email=payload.email,  # type: ignore[attr-defined]
             password=payload.password.get_secret_value(),  # type: ignore[attr-defined]
@@ -137,6 +138,7 @@ async def create_user(
         resource_id=str(user.uid),
         resource_label=user.email or user.username,
         payload=payload,
+        detail=detail,
     )
 
     return HTTPStatus.CREATED, await user_response_registry.dump(user)

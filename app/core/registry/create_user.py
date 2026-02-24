@@ -104,7 +104,7 @@ class CreateUserRegistry:
             **additional_fields,
         )
 
-    def dispatch(self, user: User, payload: Any) -> None:
+    def dispatch(self, user: User, payload: Any) -> dict[str, Any]:
         """Call all registered handlers with the created user and payload data.
 
         Iterates through all registered handlers and invokes them with the newly created
@@ -114,10 +114,18 @@ class CreateUserRegistry:
         Args:
             user: The newly created user instance.
             payload: Request payload containing data for all registered fields.
+
+        Returns:
+            A dict mapping handler keys to their return values. Handlers that return
+            ``None`` are omitted.
         """
+        detail: dict[str, Any] = {}
         for key, (_, handle) in self._registry.items():
             data = getattr(payload, key)
-            handle(user, data)
+            result = handle(user, data)
+            if result is not None:
+                detail[key] = result
+        return detail
 
 
 create_user_registry = CreateUserRegistry()
