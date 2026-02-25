@@ -9,7 +9,14 @@ from django.utils import timezone
 from faker import Faker
 from ulid import ULID
 
-from app.conference.models import Invitation, Profile
+from app.conference.models import (
+    Conference,
+    Invitation,
+    Paper,
+    PaperClaim,
+    Profile,
+    Track,
+)
 from app.conference.services import InvitationService
 from app.core.models import User
 from app.utils.enums import Region
@@ -469,6 +476,157 @@ class TestInvitationRedeemInUserCreationEndpoints:
 
         invitation.refresh_from_db()
         assert invitation.invitee_user == original_user
+
+
+@pytest.mark.django_db
+class TestPaperClaimFulfillmentOnRegistration:
+    create_account_path = reverse("api-1.0.0:create-account")
+
+    def test_fulfills_claim_on_registration(
+        self,
+        faker: Faker,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        email = faker.email()
+        paper = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="CLAIM-001",
+            title="Test Paper",
+        )
+        PaperClaim.objects.create(paper=paper, email=email)
+
+        email_token = EmailVerificationService.issue_token(email)
+        response = api_client.post(
+            self.create_account_path,
+            data={
+                "username": faker.user_name(),
+                "email": email_token,
+                "password": faker.password(),
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper.refresh_from_db()
+        new_user = User.objects.get(email=email)
+        assert paper.owner == new_user
+        assert not PaperClaim.objects.filter(paper=paper).exists()
+
+    def test_no_matching_claim_leaves_paper_unchanged(
+        self,
+        faker: Faker,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="CLAIM-002",
+            title="Test Paper",
+        )
+        PaperClaim.objects.create(paper=paper, email="other@example.com")
+
+        email_token = EmailVerificationService.issue_token(faker.email())
+        response = api_client.post(
+            self.create_account_path,
+            data={
+                "username": faker.user_name(),
+                "email": email_token,
+                "password": faker.password(),
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper.refresh_from_db()
+        assert paper.owner == user
+        assert PaperClaim.objects.filter(paper=paper).exists()
+
+    def test_fulfills_multiple_claims_on_registration(
+        self,
+        faker: Faker,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        email = faker.email()
+        paper_a = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="CLAIM-003",
+            title="Paper A",
+        )
+        paper_b = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="CLAIM-004",
+            title="Paper B",
+        )
+        PaperClaim.objects.create(paper=paper_a, email=email)
+        PaperClaim.objects.create(paper=paper_b, email=email)
+
+        email_token = EmailVerificationService.issue_token(email)
+        response = api_client.post(
+            self.create_account_path,
+            data={
+                "username": faker.user_name(),
+                "email": email_token,
+                "password": faker.password(),
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        new_user = User.objects.get(email=email)
+        paper_a.refresh_from_db()
+        paper_b.refresh_from_db()
+        assert paper_a.owner == new_user
+        assert paper_b.owner == new_user
+        assert not PaperClaim.objects.filter(
+            paper__in=[paper_a, paper_b],
+        ).exists()
+
+    def test_case_insensitive_email_matching(
+        self,
+        faker: Faker,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        email = faker.email().lower()
+        paper = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="CLAIM-005",
+            title="Test Paper",
+        )
+        PaperClaim.objects.create(paper=paper, email=email.upper())
+
+        email_token = EmailVerificationService.issue_token(email)
+        response = api_client.post(
+            self.create_account_path,
+            data={
+                "username": faker.user_name(),
+                "email": email_token,
+                "password": faker.password(),
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper.refresh_from_db()
+        new_user = User.objects.get(email=email)
+        assert paper.owner == new_user
+        assert not PaperClaim.objects.filter(paper=paper).exists()
 
 
 @pytest.mark.django_db
