@@ -18,6 +18,7 @@ __all__ = (
     "KeywordSet",
     "Paper",
     "PaperAuthor",
+    "PaperClaim",
     "PaperDecision",
     "PaperDecisionState",
     "PaperFinal",
@@ -65,6 +66,7 @@ from .keyword import Keyword, KeywordSet
 from .paper import (
     Paper,
     PaperAuthor,
+    PaperClaim,
     PaperDecision,
     PaperDecisionState,
     PaperFinal,

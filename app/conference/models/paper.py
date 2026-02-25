@@ -474,3 +474,22 @@ class PaperLabel(LabelModel):
             parent_field=parent_field,
             outer_ref=outer_ref,
         )
+
+
+class PaperClaim(TimeStampedModel):
+    paper = models.OneToOneField(
+        Paper,
+        on_delete=models.CASCADE,
+        related_name="claim",
+        related_query_name="claim",
+        verbose_name=_("paper"),
+    )
+    email = models.EmailField(_("email address"))
+
+    class Meta:
+        verbose_name = _("paper claim")
+        verbose_name_plural = _("paper claims")
+        indexes = (models.Index(fields=("email",)),)
+
+    def __str__(self) -> str:
+        return f"{self.paper.code} -> {self.email}"

@@ -5,6 +5,7 @@ from app.conference.models import (
     IEEEeCopyrightConsent,
     Paper,
     PaperAuthor,
+    PaperClaim,
     PaperDecision,
     PaperFinal,
     PaperLabel,
@@ -49,6 +50,13 @@ class PaperDecisionInline(admin.TabularInline[PaperDecision, Paper]):
     fields = ("decider", "state", "note", "create_time")
     readonly_fields = ("decider", "state", "note", "create_time")
     can_delete = False
+
+
+class PaperClaimInline(admin.TabularInline[PaperClaim, Paper]):
+    model = PaperClaim
+    extra = 0
+    max_num = 1
+    readonly_fields = ("create_time", "update_time")
 
 
 class IEEEeCopyrightConsentInline(admin.TabularInline[IEEEeCopyrightConsent, Paper]):
@@ -111,6 +119,7 @@ class PaperAdmin(admin.ModelAdmin[Paper]):
     filter_horizontal = ("keywords",)
     inlines = (
         PaperAuthorInline,
+        PaperClaimInline,
         PaperSubmissionInline,
         PaperFinalInline,
         PaperLabelInline,
