@@ -1,10 +1,12 @@
 from http import HTTPStatus
+from unittest.mock import MagicMock
 
 import pytest
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 from faker import Faker
+from pytest_mock import MockerFixture
 
 from app.conference.models import (
     Conference,
@@ -15,6 +17,7 @@ from app.conference.models import (
     TrackRole,
     TrackRoleAssignment,
 )
+from app.conference.services import PaperService
 from app.core.models import User
 from tests.helpers import any_str, update_object
 
@@ -38,6 +41,11 @@ def new_owner(faker: Faker) -> User:
     )
 
 
+@pytest.fixture
+def paper_service_transfer(mocker: MockerFixture) -> MagicMock:
+    return mocker.spy(PaperService, "transfer_paper")
+
+
 @pytest.mark.django_db
 class TestTransferPaper:
     @classmethod
@@ -54,6 +62,7 @@ class TestTransferPaper:
         conference_chair: User,
         paper: Paper,
         new_owner: User,
+        paper_service_transfer: MagicMock,
     ) -> None:
         api_client.force_login(conference_chair)
 
@@ -70,6 +79,11 @@ class TestTransferPaper:
 
         paper.refresh_from_db()
         assert paper.owner_id == new_owner.pk
+
+        paper_service_transfer.assert_called_once_with(
+            paper=paper,
+            new_owner=new_owner,
+        )
 
     def test_email_case_insensitive(
         self,
