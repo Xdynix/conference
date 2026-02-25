@@ -242,6 +242,23 @@ class PaperService:
             return paper
 
     @classmethod
+    def transfer_paper(cls, *, paper: Paper, new_owner: User) -> Paper:
+        """Transfer paper ownership to another user.
+
+        The caller is responsible for verifying permissions and resolving the
+        new owner from user input.
+
+        Raises:
+            Paper.DoesNotExist: If the paper has been deleted or deactivated
+                since it was loaded.
+        """
+        with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
+            paper = Paper.objects.active().get(pk=paper.pk)
+            paper.owner = new_owner
+            paper.save(update_fields=["owner", "update_time"])
+            return paper
+
+    @classmethod
     def submit_paper(cls, paper: Paper, *, strict: bool = True) -> Paper:
         """Submit a paper for review.
 
