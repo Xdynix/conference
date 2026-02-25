@@ -6,6 +6,7 @@ from app.conference.models import (
     Keyword,
     Paper,
     PaperAuthor,
+    PaperClaim,
     PaperState,
     Track,
 )
@@ -232,3 +233,125 @@ class TestPaperServiceUpdatePaper:
         )
 
         assert updated.title == "Updated Title"
+
+    def test_invalidates_claim_when_email_changes(self, paper: Paper) -> None:
+        PaperAuthor.objects.create(
+            paper=paper,
+            ordering=0,
+            given_name="Alice",
+            family_name="Smith",
+            email="alice@example.com",
+            corresponding=True,
+        )
+        PaperClaim.objects.create(paper=paper, email="old@example.com")
+
+        PaperService.update_paper(
+            paper=paper,
+            mode="author",
+            authors=[
+                {
+                    "given_name": "Alice",
+                    "family_name": "Smith",
+                    "email": "new@example.com",
+                    "corresponding": True,
+                },
+            ],
+        )
+
+        assert not PaperClaim.objects.filter(paper=paper).exists()
+
+    def test_invalidates_claim_when_no_corresponding_author(self, paper: Paper) -> None:
+        PaperAuthor.objects.create(
+            paper=paper,
+            ordering=0,
+            given_name="Alice",
+            family_name="Smith",
+            email="alice@example.com",
+            corresponding=True,
+        )
+        PaperClaim.objects.create(paper=paper, email="alice@example.com")
+
+        PaperService.update_paper(
+            paper=paper,
+            mode="author",
+            authors=[
+                {
+                    "given_name": "Alice",
+                    "family_name": "Smith",
+                    "email": "alice@example.com",
+                    "corresponding": False,
+                },
+            ],
+        )
+
+        assert not PaperClaim.objects.filter(paper=paper).exists()
+
+    def test_keeps_claim_when_email_unchanged(self, paper: Paper) -> None:
+        PaperAuthor.objects.create(
+            paper=paper,
+            ordering=0,
+            given_name="Alice",
+            family_name="Smith",
+            email="alice@example.com",
+            corresponding=True,
+        )
+        claim = PaperClaim.objects.create(paper=paper, email="alice@example.com")
+
+        PaperService.update_paper(
+            paper=paper,
+            mode="author",
+            authors=[
+                {
+                    "given_name": "Alice",
+                    "family_name": "Smith",
+                    "email": "alice@example.com",
+                    "corresponding": True,
+                },
+            ],
+        )
+
+        assert PaperClaim.objects.filter(pk=claim.pk).exists()
+
+    def test_no_invalidation_when_authors_not_provided(self, paper: Paper) -> None:
+        PaperAuthor.objects.create(
+            paper=paper,
+            ordering=0,
+            given_name="Alice",
+            family_name="Smith",
+            email="alice@example.com",
+            corresponding=True,
+        )
+        claim = PaperClaim.objects.create(paper=paper, email="alice@example.com")
+
+        PaperService.update_paper(
+            paper=paper,
+            mode="author",
+            title="New Title",
+        )
+
+        assert PaperClaim.objects.filter(pk=claim.pk).exists()
+
+    def test_noop_when_no_claim_and_authors_updated(self, paper: Paper) -> None:
+        PaperAuthor.objects.create(
+            paper=paper,
+            ordering=0,
+            given_name="Alice",
+            family_name="Smith",
+            email="alice@example.com",
+            corresponding=True,
+        )
+
+        PaperService.update_paper(
+            paper=paper,
+            mode="author",
+            authors=[
+                {
+                    "given_name": "Bob",
+                    "family_name": "Jones",
+                    "email": "bob@example.com",
+                    "corresponding": True,
+                },
+            ],
+        )
+
+        assert not PaperClaim.objects.filter(paper=paper).exists()
