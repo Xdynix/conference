@@ -1,3 +1,26 @@
+"""Audit log writer for mutation API endpoints.
+
+Each mutation endpoint calls ``audit()`` explicitly rather than relying on middleware.
+Middleware cannot reliably identify the affected resource or capture business context
+(e.g. the UID of a newly created instance, state before a transition) because that
+information lives in the view, not in URL patterns or request/response bytes.
+
+The unit of logging is the API request, not the affected resource. Batch operations
+(e.g. sending invitations) produce one row with batch details in ``payload`` and/or
+``detail``; ``resource_id`` is left empty when there is no single target. Nested
+creation (e.g. conference with tracks) produces one row for the parent; nested data is
+in the payload. Individual sub-resource endpoints produce their own rows.
+
+Sensitive fields (passwords, tokens) are safe to pass in ``payload`` as long as they are
+typed as Pydantic's ``SecretStr``, which serializes to a masked value in
+``model_dump(mode="json")``.
+
+The ``audit()`` call happens in the API layer after the service method (and its
+transaction) returns. If the business operation fails, the exception propagates before
+``audit()`` is reached, so no phantom records are created. If ``audit()`` itself fails,
+the business data is already committed; the failure is logged and swallowed.
+"""
+
 from typing import Any
 
 from django.http import HttpRequest
