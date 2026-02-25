@@ -71,6 +71,8 @@ class AuditAction(StrEnum):
     PAPER_DELETE = "paper.delete"
     PAPER_GENERATE_ACCEPTANCE_LETTER = "paper.generate_acceptance_letter"
     PAPER_RELOCATE = "paper.relocate"
+    PAPER_REMOVE_CLAIM = "paper.remove_claim"
+    PAPER_SET_CLAIM = "paper.set_claim"
     PAPER_SET_FINAL_LIMIT = "paper.set_final_limit"
     PAPER_SET_LABELS = "paper.set_labels"
     PAPER_SUBMIT = "paper.submit"
