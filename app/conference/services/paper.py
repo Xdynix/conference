@@ -191,6 +191,7 @@ class PaperService:
 
             if authors is not None:
                 cls._set_paper_authors(paper, authors)
+                # Author changes may invalidate the claim email; require re-setting.
                 cls._invalidate_claim(paper)
 
             return paper
@@ -240,6 +241,7 @@ class PaperService:
 
             paper.delete_time = timezone.now()
             paper.save(update_fields=["delete_time", "update_time"])
+            # A deleted paper should not transfer to a registering user.
             PaperClaim.objects.filter(paper=paper).delete()
 
             return paper
@@ -259,6 +261,7 @@ class PaperService:
             paper = Paper.objects.active().get(pk=paper.pk)
             paper.owner = new_owner
             paper.save(update_fields=["owner", "update_time"])
+            # An explicit transfer supersedes any pending claim.
             PaperClaim.objects.filter(paper=paper).delete()
             return paper
 
