@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import Any
 
 from django.apps import AppConfig
 from pydantic import Field
@@ -20,7 +21,7 @@ def register_create_user() -> None:
     from django.utils.translation import gettext as _
 
     from app.conference.models import Profile
-    from app.conference.services import InvitationService
+    from app.conference.services import ClaimService, InvitationService
     from app.conference.types import Profile as ProfileSchema
     from app.core.models import User
     from app.core.registry.create_user import create_user_registry
@@ -54,6 +55,10 @@ def register_create_user() -> None:
 
         return invitation_token
 
+    def fulfill_paper_claims(user: User, _: Any) -> list[str] | None:
+        transferred = ClaimService.fulfill_claims(user)
+        return transferred or None
+
     create_user_registry.register(
         "profile",
         (ProfileSchema, Field(default_factory=ProfileSchema)),  # type: ignore[arg-type]
@@ -63,6 +68,10 @@ def register_create_user() -> None:
         "invitation_token",
         (str, Field(default="")),
         handler=redeem_invitation,
+    )
+    create_user_registry.register(
+        "paper_claims",
+        handler=fulfill_paper_claims,
     )
 
 
