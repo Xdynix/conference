@@ -1,3 +1,29 @@
+"""Paper claim service for deferred ownership transfer.
+
+When admins create papers on behalf of authors, the admin becomes the paper owner.
+A "claim" records the intended author's email so that ownership transfers automatically
+when that author registers an account.
+
+Claim lifecycle:
+    - **Created** by ``set_claim`` (or ``create_paper`` with ``auto_claim=True``). If a
+      user with the derived email already exists, ownership transfers immediately and no
+      claim is stored.
+    - **Fulfilled** by ``fulfill_claims`` during user registration: ownership transfers
+      to the new user, and the claim is deleted via ``transfer_paper``.
+    - **Invalidated** by ``PaperService.update_paper`` when author changes make the
+      claim email stale (different email or no longer determinable).
+    - **Removed** explicitly by the ``remove-claim`` endpoint, by ``transfer_paper``
+      (an explicit transfer supersedes any pending claim), or by ``delete_paper``
+      (a deleted paper should not transfer on registration).
+
+Concurrency:
+    Operations that create or fulfill claims acquire an email-scoped mutex (namespace
+    ``"paper_claim"``) to serialize the check-then-act between claim creation and user
+    registration. Operations that mutate or delete claims also acquire the paper-scoped
+    mutex (namespace ``"paper"``). When both locks are needed, email lock is always
+    acquired first to prevent deadlocks.
+"""
+
 from django.utils.translation import gettext as _
 
 from app.conference.models import Paper, PaperAuthor, PaperClaim
