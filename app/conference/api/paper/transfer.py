@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from ninja import Schema
@@ -8,6 +9,7 @@ from app.audit.services import audit
 from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, Paper
+from app.conference.services import PaperService
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest, EmailStr
@@ -60,8 +62,10 @@ async def transfer_paper(
             message=_("User not found."),
         )
 
-    # Note: this does not lock the paper row, so a concurrent soft delete can win.
-    await Paper.objects.filter(pk=paper.pk).aupdate(owner=new_owner)
+    paper = await sync_to_async(PaperService.transfer_paper)(
+        paper=paper,
+        new_owner=new_owner,
+    )
 
     await audit(
         request=request,
