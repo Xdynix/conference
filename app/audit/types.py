@@ -20,6 +20,9 @@ class AuditResource(StrEnum):
     USER = "user"
 
 
+# Endpoint pairs like ``submit_my_paper`` and ``submit_paper`` perform the same logical
+# mutation with different authorization. They share the same action name (e.g.
+# ``paper.submit``); ``actor_uid`` distinguishes who performed it.
 class AuditAction(StrEnum):
     # Admin Comment
     ADMIN_COMMENT_CREATE = "admin_comment.create"
