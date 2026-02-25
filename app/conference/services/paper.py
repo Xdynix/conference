@@ -12,6 +12,7 @@ from app.conference.models import (
     Keyword,
     Paper,
     PaperAuthor,
+    PaperClaim,
     PaperDecision,
     PaperDecisionState,
     PaperFinal,
@@ -190,6 +191,7 @@ class PaperService:
 
             if authors is not None:
                 cls._set_paper_authors(paper, authors)
+                cls._invalidate_claim(paper)
 
             return paper
 
@@ -203,7 +205,7 @@ class PaperService:
         """Soft delete a paper by setting ``delete_time``.
 
         The caller is responsible for verifying that the user has permission to delete
-        this paper.
+        this paper. Any existing claim on the paper is deleted.
 
         Args:
             paper: The paper to delete.
@@ -238,6 +240,7 @@ class PaperService:
 
             paper.delete_time = timezone.now()
             paper.save(update_fields=["delete_time", "update_time"])
+            PaperClaim.objects.filter(paper=paper).delete()
 
             return paper
 
@@ -245,8 +248,8 @@ class PaperService:
     def transfer_paper(cls, *, paper: Paper, new_owner: User) -> Paper:
         """Transfer paper ownership to another user.
 
-        The caller is responsible for verifying permissions and resolving the
-        new owner from user input.
+        The caller is responsible for verifying permissions and resolving the new owner
+        from user input. Any existing claim on the paper is deleted.
 
         Raises:
             Paper.DoesNotExist: If the paper has been deleted or deactivated
@@ -256,6 +259,7 @@ class PaperService:
             paper = Paper.objects.active().get(pk=paper.pk)
             paper.owner = new_owner
             paper.save(update_fields=["owner", "update_time"])
+            PaperClaim.objects.filter(paper=paper).delete()
             return paper
 
     @classmethod
@@ -643,3 +647,22 @@ class PaperService:
         ]
         if author_objects:
             PaperAuthor.objects.bulk_create(author_objects)
+
+    @classmethod
+    def _invalidate_claim(cls, paper: Paper) -> None:
+        """Delete the paper's claim if the corresponding author situation changed."""
+        from app.conference.services.claim import ClaimService
+
+        try:
+            claim = PaperClaim.objects.get(paper=paper)
+        except PaperClaim.DoesNotExist:
+            return
+
+        try:
+            email = ClaimService.derive_claim_email(paper)
+        except ValueError:
+            claim.delete()
+            return
+
+        if email != claim.email:
+            claim.delete()

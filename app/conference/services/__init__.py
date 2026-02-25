@@ -1,4 +1,5 @@
 __all__ = (
+    "ClaimService",
     "ConferenceAccessService",
     "ConferenceService",
     "InvitationService",
@@ -14,6 +15,7 @@ __all__ = (
 )
 
 from .access import ConferenceAccessService
+from .claim import ClaimService
 from .conference import ConferenceService
 from .invitation import InvitationService
 from .keyword import KeywordService

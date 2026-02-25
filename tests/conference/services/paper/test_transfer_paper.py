@@ -2,7 +2,7 @@ import pytest
 from django.utils import timezone
 from faker import Faker
 
-from app.conference.models import Conference, Paper, Track
+from app.conference.models import Conference, Paper, PaperClaim, Track
 from app.conference.services import PaperService
 from app.core.models import User
 from tests.helpers import update_object
@@ -38,6 +38,13 @@ class TestPaperServiceTransferPaper:
 
         with pytest.raises(Paper.DoesNotExist):
             PaperService.transfer_paper(paper=paper, new_owner=new_owner)
+
+    def test_deletes_existing_claim(self, paper: Paper, new_owner: User) -> None:
+        PaperClaim.objects.create(paper=paper, email="alice@example.com")
+
+        PaperService.transfer_paper(paper=paper, new_owner=new_owner)
+
+        assert not PaperClaim.objects.filter(paper=paper).exists()
 
     def test_raises_when_conference_inactive(
         self,
