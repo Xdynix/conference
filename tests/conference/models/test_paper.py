@@ -8,6 +8,7 @@ from app.conference.models import (
     Conference,
     Paper,
     PaperAuthor,
+    PaperClaim,
     PaperDecision,
     PaperFinal,
     PaperLabel,
@@ -710,3 +711,16 @@ class TestPaperLabelSelectorQ:
         result = set(Review.objects.filter(q))
 
         assert result == {review_prod}
+
+
+@pytest.mark.django_db
+class TestPaperClaim:
+    def test_str(self, paper: Paper) -> None:
+        claim = PaperClaim(paper=paper, email="author@example.com")
+        assert str(claim) == f"{paper.code} -> author@example.com"
+
+    def test_one_claim_per_paper(self, paper: Paper) -> None:
+        PaperClaim.objects.create(paper=paper, email="first@example.com")
+
+        with pytest.raises(IntegrityError):
+            PaperClaim.objects.create(paper=paper, email="second@example.com")
