@@ -1,7 +1,7 @@
 import pytest
 from django.utils import timezone
 
-from app.conference.models import Conference, Paper, PaperState, Track
+from app.conference.models import Conference, Paper, PaperClaim, PaperState, Track
 from app.conference.services import PaperService
 from app.conference.services.paper import PaperStateError, PaperWithdrawnError
 from app.core.models import User
@@ -37,6 +37,13 @@ class TestPaperServiceDeletePaper:
 
         paper.refresh_from_db()
         assert paper.delete_time is None
+
+    def test_deletes_existing_claim(self, paper: Paper) -> None:
+        PaperClaim.objects.create(paper=paper, email="alice@example.com")
+
+        PaperService.delete_paper(paper=paper, mode="author")
+
+        assert not PaperClaim.objects.filter(paper=paper).exists()
 
     @pytest.mark.parametrize(
         "state",
