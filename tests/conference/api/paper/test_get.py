@@ -17,6 +17,7 @@ from app.conference.models import (
     Keyword,
     Paper,
     PaperAuthor,
+    PaperClaim,
     PaperFinal,
     PaperLabel,
     PaperState,
@@ -1090,3 +1091,38 @@ class TestGetPaper:
 
         data = response.json()
         assert data["labels"] == {}
+
+    def test_claim_email_present_when_claim_exists(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        PaperClaim.objects.create(paper=paper, email="alice@example.com")
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["claim_email"] == "alice@example.com"
+
+    def test_claim_email_absent_when_no_claim(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+    ) -> None:
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert "claim_email" not in data

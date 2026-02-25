@@ -2,6 +2,7 @@ from http import HTTPStatus
 from typing import Literal
 
 from asgiref.sync import sync_to_async
+from django.db import transaction
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from ninja import Field, Schema
@@ -12,6 +13,7 @@ from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
 from app.conference.models import Conference, ConferenceRole, Paper, Track, TrackRole
 from app.conference.services import (
+    ClaimService,
     ConferenceAccessService,
     ConferenceService,
     KeywordService,
@@ -40,6 +42,10 @@ class CreatePaperRequest(Schema):
     contribution: PaperContribution = ""
     keywords: list[KeywordText] = Field(default_factory=list, max_length=50)
     authors: list[PaperAuthor] = Field(default_factory=list, max_length=100)
+
+
+class AdminCreatePaperRequest(CreatePaperRequest):
+    auto_claim: bool = False
 
 
 async def persist_paper_entry(
@@ -110,21 +116,38 @@ async def persist_paper_entry(
         for author in payload.authors
     ]
 
-    try:
-        return await sync_to_async(PaperService.create_paper)(
-            track=track,
-            owner=user,
-            title=payload.title,
-            abstract=payload.abstract,
-            contribution=payload.contribution,
-            keywords=keywords,
-            authors=authors,
-        )
-    except NoCodePoolError as exc:
-        raise make_validation_error(
-            path="track",
-            message=_("This track is not configured for paper submissions."),
-        ) from exc
+    auto_claim = isinstance(payload, AdminCreatePaperRequest) and payload.auto_claim
+
+    def _create() -> Paper:
+        with transaction.atomic():
+            try:
+                paper = PaperService.create_paper(
+                    track=track,
+                    owner=user,
+                    title=payload.title,
+                    abstract=payload.abstract,
+                    contribution=payload.contribution,
+                    keywords=keywords,
+                    authors=authors,
+                )
+            except NoCodePoolError as exc:
+                raise make_validation_error(
+                    path="track",
+                    message=_("This track is not configured for paper submissions."),
+                ) from exc
+
+            if auto_claim:
+                try:
+                    ClaimService.set_claim(paper=paper)
+                except ValueError as exc:
+                    raise make_validation_error(
+                        path="auto_claim",
+                        message=str(exc),
+                    ) from exc
+
+            return paper
+
+    return await sync_to_async(_create)()
 
 
 @router.post(
@@ -183,12 +206,14 @@ async def create_draft(
 async def create_paper(
     request: AuthedHttpRequest,
     conference_name: str,
-    payload: CreatePaperRequest,
+    payload: AdminCreatePaperRequest,
 ) -> tuple[int, Paper]:
     """Create a paper as an admin.
 
     This bypasses the track's submissions-enabled check, allowing creation of invited
-    papers or papers for tracks that are not currently open for submissions.
+    papers or papers for tracks that are not currently open for submissions. When
+    ``auto_claim`` is true, a claim is created for deferred ownership transfer to the
+    corresponding author.
     """
     user = await request.auser()
     conference = await aget_object_or_404(

@@ -6,6 +6,7 @@ from django.db.models import (
     CharField,
     Count,
     Exists,
+    F,
     OuterRef,
     Prefetch,
     Q,
@@ -35,6 +36,7 @@ from app.conference.types import PaperDetailMixin as PaperDetailMixinSchema
 from app.conference.types import PaperFinal as PaperFinalSchema
 from app.conference.types import PaperSubmission as PaperSubmissionSchema
 from app.core.models import User
+from app.core.types import EmailStr
 
 router = Router(tags=["Paper"], exclude_none=True)
 
@@ -143,6 +145,7 @@ class PaperResponse(BasePaperResponse):
     labels: dict[str, str]
     acceptance_letter_url: HttpUrl | None
     has_ieee_ecopyright_consent: bool
+    claim_email: EmailStr | None
 
     @staticmethod
     def resolve_acceptance_letter_url(paper: Paper) -> HttpUrl | None:
@@ -213,6 +216,7 @@ async def with_paper_prefetch(
                     review__state__in=[ReviewState.ACCEPTED, ReviewState.SUBMITTED]
                 ),
             ),
+            claim_email=F("claim__email"),
             has_acceptance_letter=Exists(
                 AcceptanceLetter.objects.filter(paper=OuterRef("pk"))
             ),

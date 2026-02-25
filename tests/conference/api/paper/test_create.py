@@ -15,6 +15,7 @@ from app.conference.models import (
     ConferenceRoleAssignment,
     ConferenceVisibility,
     Keyword,
+    Paper,
     PaperState,
     Profile,
     Track,
@@ -22,7 +23,7 @@ from app.conference.models import (
     TrackRoleAssignment,
     TrackVisibility,
 )
-from app.conference.services import KeywordService, PaperService
+from app.conference.services import ClaimService, KeywordService, PaperService
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
 from app.utils.enums import Region
 from tests.helpers import any_str, approx_now, update_object
@@ -889,3 +890,116 @@ class TestCreatePaper:
         assert response.status_code == HTTPStatus.FORBIDDEN
 
         paper_service_create.assert_not_called()
+
+    def test_auto_claim(
+        self,
+        mocker: MockerFixture,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+        paper_service_create: MagicMock,
+    ) -> None:
+        claim_service_set = mocker.spy(ClaimService, "set_claim")
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Claimed Paper",
+                "auto_claim": True,
+                "authors": [
+                    {
+                        "given_name": "Alice",
+                        "family_name": "Smith",
+                        "email": "alice@example.com",
+                        "corresponding": True,
+                    },
+                ],
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper_service_create.assert_called_once()
+        claim_service_set.assert_called_once_with(paper=mocker.ANY)
+
+    def test_auto_claim_false_by_default(
+        self,
+        mocker: MockerFixture,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+        paper_service_create: MagicMock,
+    ) -> None:
+        claim_service_set = mocker.spy(ClaimService, "set_claim")
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Normal Paper",
+            },
+        )
+        assert response.status_code == HTTPStatus.CREATED
+
+        paper_service_create.assert_called_once()
+        claim_service_set.assert_not_called()
+
+    def test_auto_claim_value_error(
+        self,
+        mocker: MockerFixture,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+    ) -> None:
+        mocker.patch.object(
+            ClaimService,
+            "set_claim",
+            side_effect=ValueError("Paper must have exactly one corresponding author."),
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Bad Claim Paper",
+                "auto_claim": True,
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        [error] = data["details"]
+        assert error["loc"] == ["body", "payload", "auto_claim"]
+        assert "corresponding author" in error["msg"]
+
+    def test_auto_claim_failure_rolls_back_paper(
+        self,
+        mocker: MockerFixture,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+    ) -> None:
+        mocker.patch.object(
+            ClaimService,
+            "set_claim",
+            side_effect=ValueError("Paper must have exactly one corresponding author."),
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "track": str(track.uid),
+                "title": "Rolled Back Paper",
+                "auto_claim": True,
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert not Paper.objects.filter(title="Rolled Back Paper").exists()
