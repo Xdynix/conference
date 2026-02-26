@@ -60,6 +60,47 @@
                 </template>
               </div>
 
+              {# Pending transfer (claim) #}
+              <template x-if="paper?.claim_email">
+                <div class="alert alert-info py-2 px-3 small mb-3">
+                  <div class="fw-medium mb-1">Pending Transfer</div>
+                  <div class="mb-2">
+                    Will transfer to
+                    <span class="fw-medium" x-text="paper.claim_email"></span>
+                    when they create an account.
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    @click="removeClaim()"
+                    :disabled="claimLoading"
+                  >
+                    <span x-show="claimLoading" class="spinner-border spinner-border-sm me-1"></span>
+                    Cancel Transfer
+                  </button>
+                  <div x-show="claimError" x-cloak class="text-danger small mt-1" x-text="claimError"></div>
+                </div>
+              </template>
+
+              <template x-if="!paper?.claim_email">
+                <div class="mb-3">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-primary"
+                    @click="setClaim()"
+                    :disabled="claimLoading"
+                  >
+                    <span x-show="claimLoading" class="spinner-border spinner-border-sm me-1"></span>
+                    Auto-transfer to Author
+                  </button>
+                  <div class="text-muted small mt-1">
+                    Transfer ownership to the corresponding author.
+                    If they haven't registered yet, it will happen automatically when they do.
+                  </div>
+                  <div x-show="claimError" x-cloak class="text-danger small mt-1" x-text="claimError"></div>
+                </div>
+              </template>
+
               {# Create time #}
               <div class="mb-3">
                 <label class="form-label text-muted mb-1">Created</label>
@@ -325,6 +366,8 @@
           saving: false,
           error: null,
         },
+        claimLoading: false,
+        claimError: null,
 
         get mode() {
           if (!this.paper) return null;
@@ -559,6 +602,37 @@
             this.finalLimitForm.error = e.response?.data?.message || 'Failed to update limit.';
           } finally {
             this.finalLimitForm.saving = false;
+          }
+        },
+
+        async setClaim() {
+          if (this.claimLoading) return;
+          if (!confirm('This may transfer ownership immediately if the author already has an account. Continue?')) return;
+          this.claimLoading = true;
+          this.claimError = null;
+          try {
+            const url = "{% url 'api-1.0.0:set-paper-claim' conference_name=params.conference_name paper_code=params.paper_code %}";
+            const {data} = await api.post(url);
+            this.paper = data;
+          } catch (e) {
+            this.claimError = e.response?.data?.message || 'Failed to set auto-transfer.';
+          } finally {
+            this.claimLoading = false;
+          }
+        },
+
+        async removeClaim() {
+          if (this.claimLoading) return;
+          this.claimLoading = true;
+          this.claimError = null;
+          try {
+            const url = "{% url 'api-1.0.0:remove-paper-claim' conference_name=params.conference_name paper_code=params.paper_code %}";
+            await api.post(url);
+            this.paper.claim_email = null;
+          } catch (e) {
+            this.claimError = e.response?.data?.message || 'Failed to cancel transfer.';
+          } finally {
+            this.claimLoading = false;
           }
         },
 

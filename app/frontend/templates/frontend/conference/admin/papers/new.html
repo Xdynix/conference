@@ -29,6 +29,25 @@
       <div class="col-xl-8">
         {% include "frontend/components/paper/identity.html" %}
         {% include "frontend/components/paper/authors.html" %}
+
+        <div class="form-check mb-4">
+          <input
+            type="checkbox"
+            class="form-check-input"
+            :class="{ 'is-invalid': errors.auto_claim }"
+            id="auto-claim"
+            x-model="form.autoClaim"
+          >
+          <label class="form-check-label" for="auto-claim">
+            Transfer ownership to the corresponding author
+          </label>
+          <div class="form-text">
+            If the corresponding author already has an account, ownership transfers immediately.
+            Otherwise, it will transfer automatically when they create an account using their listed email.
+          </div>
+          <div class="invalid-feedback" x-text="errors.auto_claim"></div>
+        </div>
+
         {% include "frontend/components/paper/content.html" %}
 
         <template x-if="errors._form">
@@ -60,6 +79,7 @@
           contribution: '',
           keywords: [],
           authors: [],
+          autoClaim: false,
         },
         errors: {},
         loading: false,
@@ -88,6 +108,7 @@
           };
           if (this.form.abstract) payload.abstract = this.form.abstract;
           if (this.form.contribution) payload.contribution = this.form.contribution;
+          if (this.form.autoClaim) payload.auto_claim = true;
           return payload;
         },
 
