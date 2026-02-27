@@ -102,6 +102,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "app.middleware.request_meta_middleware",
     "servestatic.middleware.ServeStaticMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -265,10 +266,6 @@ RUNSERVER_PLUS_EXCLUDE_PATTERNS = [
     str(BASE_DIR / "var" / "*"),
 ]
 
-# django-ipware
-
-# TODO: Configure `IPWARE_META_PRECEDENCE_ORDER`.
-
 # Site
 
 SITE_NAME = config("SITE_NAME", default="Django")
@@ -284,6 +281,32 @@ ADMIN_LOGIN_DENY_UNAUTHORIZED = config(
 # Infra
 
 MUTEX_RETENTION = config("MUTEX_RETENTION", default=7, cast=days)
+
+# Reverse proxy
+
+# REVERSE_PROXY_COUNT controls how many trusted proxies sit between the client and this
+# server. 0 (default) means direct connection; all proxy headers are ignored. Set to 1
+# for a single proxy (e.g. nginx), 2 for two (e.g. Cloudflare + nginx).
+#
+# Examples:
+#   Dev (no proxy):            (defaults are fine, no env vars needed)
+#   nginx only:                REVERSE_PROXY_COUNT=1
+#   Cloudflare + nginx:        REVERSE_PROXY_COUNT=2
+#                              REVERSE_PROXY_IP_HEADERS=CF-Connecting-IP,X-Forwarded-For
+#   Adopt upstream request ID: REVERSE_PROXY_REQUEST_ID_HEADER=X-Request-ID
+
+REVERSE_PROXY_COUNT: int = config("REVERSE_PROXY_COUNT", default=0, cast=int)
+
+REVERSE_PROXY_REQUEST_ID_HEADER: str = config(
+    "REVERSE_PROXY_REQUEST_ID_HEADER",
+    default="",
+)
+
+REVERSE_PROXY_IP_HEADERS: list[str] = config(
+    "REVERSE_PROXY_IP_HEADERS",
+    default="",
+    cast=Csv(),
+)
 
 # Cloudflare Turnstile
 

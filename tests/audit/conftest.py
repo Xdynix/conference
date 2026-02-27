@@ -15,9 +15,18 @@ def user(faker: Faker) -> User:
     )
 
 
-def _make_request(rf: RequestFactory, user: User | AnonymousUser) -> HttpRequest:
+def _make_request(
+    rf: RequestFactory,
+    user: User | AnonymousUser,
+    *,
+    include_request_meta: bool = True,
+) -> HttpRequest:
     request = rf.get("/")
     request.user = user
+
+    if include_request_meta:
+        request.client_ip = "203.0.113.1"  # type: ignore[attr-defined]
+        request.request_id = "abc123"  # type: ignore[attr-defined]
 
     async def auser() -> User | AnonymousUser:
         return user
@@ -34,3 +43,8 @@ def authed_request(rf: RequestFactory, user: User) -> HttpRequest:
 @pytest.fixture
 def anon_request(rf: RequestFactory) -> HttpRequest:
     return _make_request(rf, AnonymousUser())
+
+
+@pytest.fixture
+def bare_request(rf: RequestFactory, user: User) -> HttpRequest:
+    return _make_request(rf, user, include_request_meta=False)

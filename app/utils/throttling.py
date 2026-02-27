@@ -21,7 +21,6 @@ from asgiref.sync import async_to_sync, iscoroutinefunction
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from django.utils.translation import gettext_lazy as _
-from ipware import get_client_ip
 
 from app.utils.shorthands import parse_durations
 
@@ -290,7 +289,7 @@ class AnonThrottle(SimpleThrottle):
 
     Applies rate limiting only to unauthenticated requests, using the client's IP
     address as the unique identifier. Authenticated requests are not throttled by this
-    implementation. Only routable IP addresses are used.
+    implementation.
     """
 
     async def get_cache_key(
@@ -303,11 +302,8 @@ class AnonThrottle(SimpleThrottle):
         if user.is_authenticated:
             return None
 
-        client_ip, is_routable = get_client_ip(request)
-        if client_ip is not None and is_routable:
-            return client_ip
-
-        return None
+        client_ip: str | None = getattr(request, "client_ip", None)
+        return client_ip
 
 
 def throttling[F: Callable[..., Any]](*throttles: BaseThrottle) -> Callable[[F], F]:
