@@ -11,7 +11,6 @@ from asgiref.sync import async_to_sync, iscoroutinefunction
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils.translation import gettext_lazy as _
-from ipware import get_client_ip
 from loguru import logger
 
 from app.utils.cf_turnstile.types import CFTurnstileMode
@@ -70,15 +69,7 @@ async def check_cf_turnstile_response(
         logger.info("Bypassed CF Turnstile verification with secrets.")
         return None
 
-    remote_ip, is_routable = get_client_ip(request)
-    if remote_ip is None:  # pragma: no cover
-        logger.warning("Cannot determine remote IP address.")
-    elif not is_routable:  # pragma: no branch
-        logger.warning(
-            "Received private remote IP address.",
-            remote_ip=remote_ip,
-        )
-        remote_ip = None
+    remote_ip: str | None = getattr(request, "client_ip", None)
 
     idempotency_key = uuid4()
     try:
