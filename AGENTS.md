@@ -18,6 +18,44 @@ This file provides guidance to coding agents when working with code in this repo
 - **When in Doubt:** If a user's intent is ambiguous between discussion and action,
   provide the analysis first and ask for confirmation before modifying anything.
 
+### Self-Review Protocol
+
+After completing a non-trivial implementation, spawn a challenger subagent to review the
+code before presenting it to the user. Skip this for trivial changes (one-liners,
+renames, config tweaks) or when the design was already settled through interactive
+discussion.
+
+#### Process
+
+1. Implement the change.
+2. Spawn a challenger subagent with the task description and the code written.
+3. The challenger reviews the code within a single subagent session:
+   - If it finds a **clear improvement**, it revises and re-reviews (up to 2 cycles).
+   - If it finds **comparable alternatives** with different trade-offs, it stops and
+     reports the options instead of choosing one.
+4. Incorporate the challenger's findings, then present the final result with a short
+   review note summarizing: approach taken, concerns (if any), and alternatives
+   considered (if any). Omit the note when there is nothing meaningful to report.
+
+#### Challenger Principles
+
+- **Simplest correct solution.** If the same thing can be done with less code, fewer
+  abstractions, or a more obvious approach, prefer that. Never add complexity to handle
+  hypothetical futures.
+- **Fresh eyes.** Read the code as if you did not write it. Would the intent be clear to
+  a new team member? Does the approach feel natural or forced?
+- **Fit the codebase.** Check how similar problems are solved nearby. Flag when the
+  implementation introduces a new pattern where an existing one would work.
+- **Clean code over formatting.** Linters handle spacing, indentation, and import order.
+  Focus on what they cannot catch: naming (do names communicate purpose?), organization
+  (is logic in the right place?), and abstraction level (does a function mix high-level
+  intent with low-level details?).
+- **Challenge the "what", not just the "how".** Do not just check code quality. Ask
+  whether the approach itself is right. Is there a well-known pattern for this? Could
+  this be solved at a different layer?
+- **Say nothing when there is nothing to say.** If the implementation is straightforward
+  and sound, report that. Do not invent concerns to justify the review.
+
 ## Project Overview
 
 A Django 5.2+ application with Python 3.13+, async-first architecture, and ASGI
