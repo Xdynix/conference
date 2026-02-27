@@ -190,47 +190,30 @@ class TestAnonThrottle:
         return AnonThrottle("10/s")
 
     @pytest.fixture
-    def mock_get_client_ip(self, mocker: MockerFixture) -> MagicMock:
-        return mocker.patch("app.utils.throttling.get_client_ip")
-
-    async def test_get_cache_key_unauthenticated_with_routable_ip(
-        self,
-        mocker: MockerFixture,
-        throttle: AnonThrottle,
-        mock_get_client_ip: MagicMock,
-    ) -> None:
+    def anon_request(self, mocker: MockerFixture) -> AsyncMock:
         request = mocker.AsyncMock()
         request.auser.return_value = AnonymousUser()
-        mock_get_client_ip.return_value = ("192.168.1.1", True)
+        return request  # type: ignore[no-any-return]
 
-        cache_key = await throttle.get_cache_key(request)
-        assert cache_key == "192.168.1.1"
-
-    async def test_get_cache_key_unauthenticated_with_non_routable_ip(
+    @pytest.mark.parametrize(
+        ("client_ip", "expected"),
+        [
+            ("203.0.113.1", "203.0.113.1"),
+            ("127.0.0.1", "127.0.0.1"),
+            (None, None),
+        ],
+    )
+    async def test_get_cache_key_unauthenticated(
         self,
-        mocker: MockerFixture,
         throttle: AnonThrottle,
-        mock_get_client_ip: MagicMock,
+        anon_request: AsyncMock,
+        client_ip: str | None,
+        expected: str | None,
     ) -> None:
-        request = mocker.AsyncMock()
-        request.auser.return_value = AnonymousUser()
-        mock_get_client_ip.return_value = ("127.0.0.1", False)
+        anon_request.client_ip = client_ip
 
-        cache_key = await throttle.get_cache_key(request)
-        assert cache_key is None
-
-    async def test_get_cache_key_unauthenticated_with_no_ip(
-        self,
-        mocker: MockerFixture,
-        throttle: AnonThrottle,
-        mock_get_client_ip: MagicMock,
-    ) -> None:
-        request = mocker.AsyncMock()
-        request.auser.return_value = AnonymousUser()
-        mock_get_client_ip.return_value = (None, False)
-
-        cache_key = await throttle.get_cache_key(request)
-        assert cache_key is None
+        cache_key = await throttle.get_cache_key(anon_request)
+        assert cache_key == expected
 
     @pytest.mark.django_db(transaction=True)
     async def test_get_cache_key_authenticated_user(
@@ -238,15 +221,14 @@ class TestAnonThrottle:
         mocker: MockerFixture,
         faker: Faker,
         throttle: AnonThrottle,
-        mock_get_client_ip: MagicMock,
     ) -> None:
         user = await get_user_model().objects.acreate_user(username=faker.user_name())
         request = mocker.AsyncMock()
         request.auser.return_value = user
+        request.client_ip = "203.0.113.1"
 
         cache_key = await throttle.get_cache_key(request)
         assert cache_key is None
-        mock_get_client_ip.assert_not_called()
 
 
 class TestThrottlingDecorator(URLConfTestCase):

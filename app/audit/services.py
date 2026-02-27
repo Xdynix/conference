@@ -102,7 +102,8 @@ async def audit(
             actor_label=actor_label,
             payload=payload or {},
             detail=detail or {},
-            # TODO: Resolve IP address and request ID.
+            ip_address=getattr(request, "client_ip", None),
+            request_id=getattr(request, "request_id", ""),
         )
     except Exception:
         logger.exception("Failed to write audit log entry.")

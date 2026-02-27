@@ -36,6 +36,19 @@ class TestAudit:
         assert log.resource_id == "01JEXAMPLE000000000000000"
         assert log.resource_label == "My Paper Title"
         assert log.scope == "CONF2025"
+        assert log.ip_address == "203.0.113.1"
+        assert log.request_id == "abc123"
+
+    async def test_request_context_defaults(self, bare_request: HttpRequest) -> None:
+        await audit(
+            request=bare_request,
+            action="paper.create",  # type: ignore[arg-type]
+            resource="paper",  # type: ignore[arg-type]
+        )
+
+        log = await AuditLog.objects.alatest("timestamp")
+        assert log.ip_address is None
+        assert log.request_id == ""
 
     async def test_with_enum_resource(
         self, authed_request: HttpRequest, user: User

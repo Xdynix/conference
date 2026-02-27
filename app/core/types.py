@@ -10,7 +10,6 @@ __all__ = (
 from typing import Annotated, Literal
 
 from django.contrib.auth.models import AnonymousUser
-from django.http import HttpRequest as DjangoHttpRequest
 from django.utils.translation import gettext as _
 from ninja import Schema
 from pydantic import AfterValidator, Field, SecretStr, StringConstraints
@@ -18,9 +17,10 @@ from pydantic import EmailStr as DefaultEmailStr
 from ulid import ULID
 
 from app.core.models import User as UserModel
+from app.middleware import HttpRequest as BaseHttpRequest
 
 
-class HttpRequest(DjangoHttpRequest):
+class HttpRequest(BaseHttpRequest):
     user: UserModel | AnonymousUser
 
     async def auser(self) -> UserModel | AnonymousUser: ...  # type: ignore[empty-body]
