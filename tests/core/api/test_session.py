@@ -10,8 +10,9 @@ from faker import Faker
 from pydantic import BaseModel, JsonValue
 
 from app.core.api.session import Session
-from app.core.models import User
-from tests.helpers import update_object
+from app.core.models import ApiKey, ApiKeySession, User
+from app.core.services.api_key import ApiKeyService
+from tests.helpers import approx_now, update_object
 
 
 class UserCredentials(BaseModel):
@@ -315,6 +316,33 @@ class TestAssumeSession:
 
         assert get_user(api_client) == impersonator
 
+    def test_api_key_session(
+        self,
+        api_client: Client,
+        impersonator: User,
+        impersonated: User,
+    ) -> None:
+        api_client.force_login(impersonator)
+        session_key = api_client.session.session_key
+        assert session_key
+        api_key = ApiKey.objects.create(
+            user=impersonator,
+            hashed_key="test",
+            auth_hash="test",
+        )
+        ApiKeySession.objects.create(api_key=api_key, session_id=session_key)
+
+        response = api_client.post(
+            self.path,
+            data={"impersonated": impersonated.username},
+        )
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert response.json() == {
+            "message": "API key sessions cannot use impersonation."
+        }
+
+        assert get_user(api_client) == impersonator
+
 
 @pytest.mark.django_db
 class TestRevertSession:
@@ -415,3 +443,70 @@ def test_impersonation_e2e(
     response = api_client.post(reverse("api-1.0.0:revert-session"))
     assert response.status_code == HTTPStatus.OK
     assert get_user(api_client) == impersonator
+
+
+@pytest.mark.django_db
+class TestCreateApiKeySession:
+    path = reverse("api-1.0.0:create-api-key-session")
+
+    def test_happy_path(
+        self,
+        settings: LazySettings,
+        api_client: Client,
+        user: User,
+        authenticated_session: JsonValue,
+    ) -> None:
+        _, plaintext = ApiKeyService.create_key(user)
+        assert not get_user(api_client).is_authenticated
+
+        response = api_client.post(self.path, data={"key": plaintext})
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == authenticated_session
+
+        assert get_user(api_client) == user
+        assert settings.CSRF_COOKIE_NAME in api_client.cookies
+
+    def test_invalid_key(self, api_client: Client) -> None:
+        assert not get_user(api_client).is_authenticated
+
+        response = api_client.post(self.path, data={"key": "cfk_nonexistent"})
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert response.json() == {"message": "Invalid credentials."}
+
+        assert not get_user(api_client).is_authenticated
+
+    def test_revoked_key(self, api_client: Client, user: User) -> None:
+        _, plaintext = ApiKeyService.create_key(user)
+        ApiKeyService.revoke_key(user)
+
+        response = api_client.post(self.path, data={"key": plaintext})
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert response.json() == {"message": "Invalid credentials."}
+
+        assert not get_user(api_client).is_authenticated
+
+    def test_inactive_user(self, api_client: Client, user: User) -> None:
+        _, plaintext = ApiKeyService.create_key(user)
+        update_object(user, is_active=False)
+
+        response = api_client.post(self.path, data={"key": plaintext})
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert response.json() == {"message": "Invalid credentials."}
+
+    def test_auth_hash_mismatch(self, api_client: Client, user: User) -> None:
+        api_key, plaintext = ApiKeyService.create_key(user)
+        user.set_password("new-password")
+        user.save(update_fields=["password"])
+
+        response = api_client.post(self.path, data={"key": plaintext})
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert response.json() == {"message": "Invalid credentials."}
+
+        assert not get_user(api_client).is_authenticated
+        api_key.refresh_from_db()
+        assert api_key.revoke_time == approx_now()
