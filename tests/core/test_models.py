@@ -3,7 +3,14 @@ from django.db import IntegrityError
 from django.utils import timezone
 from faker import Faker
 
-from app.core.models import GlobalRole, GlobalRoleAssignment, PasswordResetToken, User
+from app.core.models import (
+    ApiKey,
+    ApiKeySession,
+    GlobalRole,
+    GlobalRoleAssignment,
+    PasswordResetToken,
+    User,
+)
 from tests.data import EMAIL_NORMALIZATION_DATA, USERNAME_NORMALIZATION_DATA
 
 
@@ -52,23 +59,70 @@ class TestGlobalRoleAssignment:
         assert str(assignment) == "Admin: user"
 
 
-@pytest.mark.django_db
 class TestPasswordResetToken:
     def test_str_pending(self, faker: Faker) -> None:
         username = faker.user_name()
-        user = User.objects.create_user(username=username)
         token = PasswordResetToken(
-            user=user,
+            user=User(username=username),
             token_hash="",
         )
         assert str(token) == f"{username} (pending)"
 
     def test_str_consumed(self, faker: Faker) -> None:
         username = faker.user_name()
-        user = User.objects.create_user(username=username)
         token = PasswordResetToken(
-            user=user,
+            user=User(username=username),
             token_hash="",
             consume_time=timezone.now(),
         )
         assert str(token) == f"{username} (consumed)"
+
+
+class TestApiKey:
+    def test_str_active(self) -> None:
+        api_key = ApiKey(user=User(username="alice"))
+        assert str(api_key) == "alice (active)"
+
+    def test_str_revoked(self) -> None:
+        api_key = ApiKey(user=User(username="alice"), revoke_time=timezone.now())
+        assert str(api_key) == "alice (revoked)"
+
+
+@pytest.mark.django_db
+class TestApiKeyConstraint:
+    def test_one_active_per_user(self, faker: Faker) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        with pytest.raises(IntegrityError):
+            ApiKey.objects.bulk_create(
+                [
+                    ApiKey(user=user, hashed_key="a" * 64, auth_hash="x" * 64),
+                    ApiKey(user=user, hashed_key="b" * 64, auth_hash="y" * 64),
+                ]
+            )
+
+    def test_multiple_revoked_per_user(self, faker: Faker) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        now = timezone.now()
+        ApiKey.objects.bulk_create(
+            [
+                ApiKey(
+                    user=user,
+                    hashed_key="a" * 64,
+                    auth_hash="x" * 64,
+                    revoke_time=now,
+                ),
+                ApiKey(
+                    user=user,
+                    hashed_key="b" * 64,
+                    auth_hash="y" * 64,
+                    revoke_time=now,
+                ),
+            ]
+        )
+
+
+class TestApiKeySession:
+    def test_str(self) -> None:
+        api_key = ApiKey(user=User(username="alice"))
+        session_link = ApiKeySession(api_key=api_key)
+        assert str(session_link) == "alice (active)"

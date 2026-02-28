@@ -4,6 +4,8 @@ from django.contrib.auth.models import Group
 from django.utils.translation import gettext_lazy as _
 
 from app.core.models import (
+    ApiKey,
+    ApiKeySession,
     GlobalRoleAssignment,
     PasswordResetToken,
     User,
@@ -51,4 +53,22 @@ class PasswordResetTokenAdmin(admin.ModelAdmin[PasswordResetToken]):
     list_select_related = ("user",)
     ordering = ("-create_time",)
     readonly_fields = ("token_hash",)
+    search_fields = ("user__username",)
+
+
+class ApiKeySessionInline(admin.TabularInline[ApiKeySession, ApiKey]):
+    model = ApiKeySession
+    extra = 0
+    readonly_fields = ("session", "create_time")
+
+
+@admin.register(ApiKey)
+class ApiKeyAdmin(admin.ModelAdmin[ApiKey]):
+    date_hierarchy = "create_time"
+    inlines = (ApiKeySessionInline,)
+    list_display = ("user", "create_time", "last_use_time", "revoke_time")
+    list_filter = ("create_time", "revoke_time")
+    list_select_related = ("user",)
+    ordering = ("-create_time",)
+    readonly_fields = ("hashed_key", "auth_hash", "create_time", "last_use_time")
     search_fields = ("user__username",)
