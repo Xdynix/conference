@@ -14,7 +14,7 @@
     <button type="button" onclick="history.back()" class="btn btn-link text-secondary p-0" aria-label="Go back">
       <i class="bi bi-arrow-left"></i>
     </button>
-    <h1 class="h4 mb-0">Account</h1>
+    <h1 class="h4 mb-0" id="account-title">Account</h1>
   </div>
 
   <ul class="nav nav-tabs" id="account-tabs" role="tablist">
@@ -58,6 +58,27 @@
         aria-selected="false"
       >
         Password
+      </button>
+    </li>
+    <li
+      class="nav-item"
+      role="presentation"
+      id="api-key-tab-item"
+      x-data="{ show: localStorage.getItem('showApiKeyTab') === 'true' }"
+      x-show="show"
+      x-cloak
+    >
+      <button
+        class="nav-link"
+        id="api-key-tab"
+        data-bs-toggle="tab"
+        data-bs-target="#api-key-pane"
+        type="button"
+        role="tab"
+        aria-controls="api-key-pane"
+        aria-selected="false"
+      >
+        API Key
       </button>
     </li>
   </ul>
@@ -309,12 +330,87 @@
         </div>
       </form>
     </div>
+
+    <div
+      class="tab-pane fade"
+      id="api-key-pane"
+      role="tabpanel"
+      aria-labelledby="api-key-tab"
+      tabindex="0"
+      x-data="apiKeyForm()"
+    >
+      <div x-show="initialLoading" class="text-center py-3">
+        <span class="spinner-border spinner-border-sm" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </span>
+      </div>
+
+      <div x-show="!initialLoading" x-cloak>
+        <template x-if="apiKey">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <dl class="mb-0">
+              <dt class="text-muted small">Created</dt>
+              <dd x-text="formatDate(apiKey?.create_time)"></dd>
+              <dt class="text-muted small">Last used</dt>
+              <dd class="mb-0" x-text="apiKey?.last_use_time ? formatDate(apiKey.last_use_time) : 'Never'"></dd>
+            </dl>
+            <button
+              type="button"
+              class="btn btn-outline-danger btn-sm"
+              @click="revoke()"
+              :disabled="revoking"
+            >
+              <span x-show="revoking" x-cloak class="spinner-border spinner-border-sm me-1" role="status">
+                <span class="visually-hidden">Revoking...</span>
+              </span>
+              Revoke
+            </button>
+          </div>
+        </template>
+
+        <div x-show="plaintextKey" x-cloak class="alert alert-warning">
+          <div class="fw-semibold mb-2">Copy your API key now. It will not be shown again.</div>
+          <div class="input-group">
+            <input type="text" class="form-control form-control-sm font-monospace" :value="plaintextKey" readonly>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              x-data="{ copied: false }"
+              @click="navigator.clipboard.writeText(plaintextKey).then(() => { copied = true; setTimeout(() => copied = false, 2000) }).catch(() => {})"
+            >
+              <i :class="copied ? 'bi-check' : 'bi-clipboard'"></i>
+            </button>
+          </div>
+        </div>
+
+        <form @submit.prevent="submit()">
+          {% include "frontend/components/password-input.html" with id="api-key-password" label="Password" model="form.password" error_key="password" autocomplete="current-password" %}
+
+          <div x-show="errors._form" x-cloak class="alert alert-danger" role="alert" x-text="errors._form"></div>
+
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary" :disabled="loading">
+              <span x-show="loading" x-cloak class="spinner-border spinner-border-sm me-1" role="status">
+                <span class="visually-hidden">Processing...</span>
+              </span>
+              <span x-text="apiKey ? 'Rotate API Key' : 'Generate API Key'"></span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
   <script>
     // Activate tab from hash immediately to avoid flash.
     (function () {
       const hash = window.location.hash.slice(1);
+
+      // Persist the API key tab discovery when activated via hash.
+      if (hash === "api-key") {
+        localStorage.setItem("showApiKeyTab", "true");
+      }
+
       if (!hash) return;
       const tabList = document.getElementById("account-tabs");
       const tab = tabList.querySelector(`#${hash}-tab`);
@@ -333,6 +429,24 @@
 {% block scripts %}
   {{ block.super }}
   <script>
+    // Easter egg: click the heading 5 times within 2 seconds to reveal the API key tab.
+    (function () {
+      const title = document.getElementById("account-title");
+      let clicks = 0;
+      let timer;
+      title.addEventListener("click", function () {
+        clicks++;
+        clearTimeout(timer);
+        timer = setTimeout(() => clicks = 0, 2000);
+        if (clicks >= 5) {
+          clicks = 0;
+          localStorage.setItem("showApiKeyTab", "true");
+          Alpine.$data(document.getElementById("api-key-tab-item")).show = true;
+          new bootstrap.Tab(document.getElementById("api-key-tab")).show();
+        }
+      });
+    })();
+
     document.getElementById("account-tabs").addEventListener("shown.bs.tab", function (event) {
       const id = event.target.id.replace("-tab", "");
       history.replaceState(null, "", `#${id}`);
@@ -549,6 +663,81 @@
             this.loading = false;
           }
         },
+      };
+    }
+
+    function apiKeyForm() {
+      return {
+        form: {password: ""},
+        apiKey: null,
+        plaintextKey: null,
+        errors: {},
+        loading: false,
+        initialLoading: true,
+        revoking: false,
+
+        init() {
+          this.load();
+          this.$watch("form.password", () => {
+            delete this.errors.password;
+          });
+        },
+
+        async load() {
+          try {
+            const {data} = await api.get("{% url 'api-1.0.0:get-current-api-key' %}");
+            this.apiKey = data;
+          } catch (error) {
+            if (error.response?.status !== 404) {
+              console.warn("Failed to load API key:", error);
+            }
+          } finally {
+            this.initialLoading = false;
+          }
+        },
+
+        async submit() {
+          if (this.loading) return;
+          this.errors = {};
+          this.plaintextKey = null;
+          this.loading = true;
+
+          try {
+            const {data} = await api.post("{% url 'api-1.0.0:create-api-key' %}", {
+              password: this.form.password,
+            });
+            this.apiKey = {create_time: data.create_time, last_use_time: null};
+            this.plaintextKey = data.key;
+            this.form.password = "";
+          } catch (error) {
+            const data = error.response?.data;
+            if (error.response?.status === 422 && data?.details?.length) {
+              this.errors = mapErrors(data.details);
+            } else {
+              this.errors._form = data?.message || "An unexpected error occurred. Please try again.";
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        async revoke() {
+          if (this.revoking) return;
+          if (!confirm("Revoke your API key? All sessions created with this key will be terminated.")) return;
+          this.errors = {};
+          this.revoking = true;
+
+          try {
+            await api.delete("{% url 'api-1.0.0:delete-current-api-key' %}");
+            this.apiKey = null;
+            this.plaintextKey = null;
+          } catch (error) {
+            this.errors._form = "Failed to revoke API key. Please try again.";
+          } finally {
+            this.revoking = false;
+          }
+        },
+
       };
     }
 
