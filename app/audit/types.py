@@ -4,6 +4,7 @@ from typing import TypedDict
 
 class AuditResource(StrEnum):
     ADMIN_COMMENT = "admin_comment"
+    API_KEY = "api_key"
     ATTENDANCE_TYPE = "attendance_type"
     CODE_POOL = "code_pool"
     CONFERENCE_FILE = "conference_file"
@@ -27,6 +28,10 @@ class AuditAction(StrEnum):
     # Admin Comment
     ADMIN_COMMENT_CREATE = "admin_comment.create"
     ADMIN_COMMENT_DELETE = "admin_comment.delete"
+
+    # API Key
+    API_KEY_CREATE = "api_key.create"
+    API_KEY_REVOKE = "api_key.revoke"
 
     # Attendance Type
     ATTENDANCE_TYPE_CREATE = "attendance_type.create"
