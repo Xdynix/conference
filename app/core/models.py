@@ -2,6 +2,7 @@ from typing import ClassVar, Self, override
 
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import UserManager as DjangoUserManager
+from django.contrib.sessions.models import Session
 from django.db import models
 from django.db.models import Q
 from django.db.models.functions import Lower
@@ -149,3 +150,84 @@ class PasswordResetToken(models.Model):
     def __str__(self) -> str:
         status = _("consumed") if self.consume_time else _("pending")
         return f"{self.user} ({status})"
+
+
+class ApiKey(models.Model):
+    """Hashed API key for programmatic access to the REST API.
+
+    At most one active (non-revoked) key exists per user. Revoked keys are retained for
+    audit history.
+    """
+
+    KEY_PREFIX = "cfk_"
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="api_keys",
+        related_query_name="api_key",
+        verbose_name=_("user"),
+    )
+    hashed_key = models.CharField(_("hashed key"), max_length=64, unique=True)
+    auth_hash = models.CharField(
+        _("auth hash"),
+        max_length=64,
+        help_text=_(
+            "Snapshot of the user's session auth hash at key creation time. "
+            "Used to detect password changes."
+        ),
+    )
+    create_time = models.DateTimeField(_("create time"), auto_now_add=True)
+    last_use_time = models.DateTimeField(
+        _("last use time"),
+        null=True,
+        blank=True,
+        default=None,
+    )
+    revoke_time = models.DateTimeField(
+        _("revoke time"),
+        null=True,
+        blank=True,
+        default=None,
+    )
+
+    class Meta:
+        verbose_name = _("API key")
+        verbose_name_plural = _("API keys")
+        constraints = (
+            models.UniqueConstraint(
+                fields=("user",),
+                condition=Q(revoke_time__isnull=True),
+                name="one_active_api_key_per_user",
+            ),
+        )
+        indexes = (models.Index(fields=("user", "revoke_time")),)
+
+    def __str__(self) -> str:
+        status = _("active") if self.revoke_time is None else _("revoked")
+        return f"{self.user} ({status})"
+
+
+class ApiKeySession(models.Model):
+    """Links an API key to the Django session it created for revocation tracking."""
+
+    api_key = models.OneToOneField(
+        ApiKey,
+        on_delete=models.CASCADE,
+        related_name="session_link",
+        verbose_name=_("API key"),
+    )
+    session = models.OneToOneField(
+        Session,
+        on_delete=models.CASCADE,
+        related_name="api_key_link",
+        verbose_name=_("session"),
+    )
+    create_time = models.DateTimeField(_("create time"), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("API key session")
+        verbose_name_plural = _("API key sessions")
+
+    def __str__(self) -> str:
+        return str(self.api_key)
