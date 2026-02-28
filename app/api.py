@@ -9,6 +9,7 @@ from app.conference.api.registration import router as registration_router
 from app.conference.api.review import router as review_router
 from app.conference.api.role_assignment import router as role_assignment_router
 from app.conference.api.user import router as conference_user_router
+from app.core.api.api_key import router as api_key_router
 from app.core.api.password_reset import router as password_reset_router
 from app.core.api.session import router as session_router
 from app.core.api.user import router as user_router
@@ -20,6 +21,7 @@ api = AppNinjaAPI.build()
 
 
 for router in (
+    api_key_router,
     conference_file_router,
     conference_router,
     conference_user_router,
