@@ -141,6 +141,22 @@ with (
     ...
 ```
 
+### File Cleanup
+
+`django-cleanup` automatically deletes orphaned files when a model instance is deleted
+(including bulk `QuerySet.delete()` and CASCADE), or when a `FileField` value is
+replaced on save. It uses Django signals and defers file removal to
+`transaction.on_commit()`, so rollbacks are safe.
+
+**Limitations to keep in mind when writing new code:**
+
+- **Only `FileField` and `ImageField` are tracked.** Never store file paths in
+  `CharField`, `TextField`, `JSONField`, or any other field type. If a file needs to be
+  referenced, use a `FileField`.
+- **No shared files across instances.** `django-cleanup` assumes each file belongs to
+  exactly one model instance. Never copy a `FileField` value from one instance to
+  another; always save a new copy of the file instead.
+
 ## Service Layer
 
 The service layer contains all business logic and remains completely decoupled from HTTP

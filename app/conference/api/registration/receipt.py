@@ -1,6 +1,5 @@
 import asyncio
 import json
-from functools import partial
 from http import HTTPStatus
 from typing import Any, cast
 
@@ -222,22 +221,12 @@ async def generate_receipt(
     @sync_to_async
     def save_receipt() -> None:
         with transaction.atomic():
-            old_pdf_name = (
-                Receipt.objects.filter(registration=registration)
-                .values_list("rendered_pdf", flat=True)
-                .first()
-            )
-
             receipt, __ = Receipt.objects.update_or_create(
                 registration=registration,
                 defaults={"template": payload.template, "context": context},
             )
             receipt.rendered_pdf.save("receipt.pdf", ContentFile(pdf_bytes), save=False)
             receipt.save(update_fields=["rendered_pdf"])
-
-            if old_pdf_name and old_pdf_name != receipt.rendered_pdf.name:
-                storage = receipt.rendered_pdf.storage
-                transaction.on_commit(partial(storage.delete, old_pdf_name))
 
     await save_receipt()
 

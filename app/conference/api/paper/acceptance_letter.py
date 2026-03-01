@@ -1,6 +1,5 @@
 import asyncio
 import json
-from functools import partial
 from http import HTTPStatus
 from typing import Any, cast
 
@@ -204,12 +203,6 @@ async def generate_acceptance_letter(
     @sync_to_async
     def save_letter() -> None:
         with transaction.atomic():
-            old_pdf_name = (
-                AcceptanceLetter.objects.filter(paper=paper)
-                .values_list("rendered_pdf", flat=True)
-                .first()
-            )
-
             letter, __ = AcceptanceLetter.objects.update_or_create(
                 paper=paper,
                 defaults={"template": payload.template, "context": context},
@@ -220,10 +213,6 @@ async def generate_acceptance_letter(
                 save=False,
             )
             letter.save(update_fields=["rendered_pdf"])
-
-            if old_pdf_name and old_pdf_name != letter.rendered_pdf.name:
-                storage = letter.rendered_pdf.storage
-                transaction.on_commit(partial(storage.delete, old_pdf_name))
 
     await save_letter()
 
