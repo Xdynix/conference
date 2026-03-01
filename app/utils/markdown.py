@@ -9,6 +9,7 @@ md = MarkdownIt("gfm-like")
 
 
 @lru_cache
-def render(content: str) -> str:
-    """Render Markdown to sanitized HTML."""
-    return nh3.clean(md.render(content))
+def render(content: str, *, sanitize: bool = True) -> str:
+    """Render Markdown to HTML."""
+    html = md.render(content)
+    return nh3.clean(html) if sanitize else html
