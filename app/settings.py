@@ -98,6 +98,7 @@ INSTALLED_APPS = [
     "app.infra",
     "app.misc",
     "app.verikit",
+    "django_cleanup",  # Must be last to connect signals after all other apps.
 ]
 
 MIDDLEWARE = [

@@ -1,10 +1,8 @@
-from functools import partial
 from http import HTTPStatus
 from typing import cast
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
-from django.db import transaction
 from django.http import Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import aget_object_or_404
 from ninja import File, Router, Schema
@@ -160,7 +158,6 @@ async def upload_conference_file(
                     .first()
                 )
 
-                old_file_name = existing.file.name if existing else None
                 created = existing is None
 
                 conference_file_obj = existing or ConferenceFile(
@@ -171,10 +168,6 @@ async def upload_conference_file(
                 conference_file_obj.file.save(file.name, file, save=False)
                 new_file_name = conference_file_obj.file.name
                 conference_file_obj.save()
-
-                if old_file_name and old_file_name != new_file_name:
-                    storage = conference_file_obj.file.storage
-                    transaction.on_commit(partial(storage.delete, old_file_name))
 
             status_code = HTTPStatus.CREATED if created else HTTPStatus.OK
             return status_code, conference_file_obj
@@ -220,16 +213,7 @@ async def delete_conference_file(
         name=conference_file_name,
     )
 
-    file_name = conference_file.file.name
-    storage = conference_file.file.storage
-
-    @sync_to_async
-    def perform_delete() -> None:
-        with transaction.atomic():
-            conference_file.delete()
-            transaction.on_commit(partial(storage.delete, file_name))
-
-    await perform_delete()
+    await conference_file.adelete()
 
     await audit(
         request=request,
