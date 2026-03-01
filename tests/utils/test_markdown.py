@@ -120,6 +120,17 @@ class TestSanitization:
         assert "<strong>bold</strong>" in result
         assert "<em>italic</em>" in result
 
+    def test_unsanitized_preserves_script_tag(self) -> None:
+        md = "<script>alert('xss')</script>"
+        result = render(md, sanitize=False)
+        assert "<script>" in result
+
+    def test_unsanitized_preserves_attributes(self) -> None:
+        md = '<a href="#" class="btn" target="_blank">Click</a>'
+        result = render(md, sanitize=False)
+        assert 'class="btn"' in result
+        assert 'target="_blank"' in result
+
 
 class TestEdgeCases:
     def test_empty_string(self) -> None:

@@ -1,6 +1,7 @@
 import json
 from collections.abc import Iterable
 from enum import Enum
+from functools import lru_cache
 from typing import Any
 
 from django import template
@@ -25,6 +26,7 @@ from app.conference.models import (
 from app.core.models import GlobalRole
 from app.frontend.views import ProtectedView
 from app.utils.enums import Region
+from app.utils.markdown import render as render_markdown
 
 register = template.Library()
 
@@ -176,3 +178,19 @@ def enums_json() -> SafeString:
             }
         )
     )
+
+
+@lru_cache
+def _render_markdown_file(path: str) -> str:
+    file_path = settings.BASE_DIR / path
+    return render_markdown(file_path.read_text(), sanitize=False)
+
+
+@register.simple_tag
+def render_markdown_file(relative_path: str) -> SafeString:
+    """Render a Markdown file to HTML.
+
+    For trusted, developer-authored files only. Skips HTML sanitization since the
+    content is checked into the repository.
+    """
+    return mark_safe(_render_markdown_file(relative_path))  # noqa: S308
