@@ -82,103 +82,7 @@ class TestRevisionServiceNextRevision:
 
 
 @pytest.mark.django_db(transaction=True)
-class TestRevisionServiceDeleteRevision:
-    def test_raises_when_called_outside_transaction(self, paper: Paper) -> None:
-        submission = PaperSubmission.objects.create(
-            paper=paper,
-            revision=1,
-            file="test.pdf",
-        )
-
-        with pytest.raises(RuntimeError, match="must be called within a transaction"):
-            RevisionService.delete_revision(submission)
-
-    def test_deletes_submission_record(self, paper: Paper) -> None:
-        submission = PaperSubmission.objects.create(
-            paper=paper,
-            revision=1,
-            file="test.pdf",
-        )
-
-        with transaction.atomic():
-            RevisionService.delete_revision(submission)
-
-        assert not PaperSubmission.objects.filter(pk=submission.pk).exists()
-
-    def test_deletes_final_record(self, paper: Paper) -> None:
-        final = PaperFinal.objects.create(
-            paper=paper,
-            revision=1,
-            source_file="source.pdf",
-        )
-
-        with transaction.atomic():
-            RevisionService.delete_revision(final)
-
-        assert not PaperFinal.objects.filter(pk=final.pk).exists()
-
-    def test_schedules_submission_file_deletion_on_commit(
-        self,
-        mocker: MagicMock,
-        paper: Paper,
-    ) -> None:
-        submission = PaperSubmission.objects.create(
-            paper=paper,
-            revision=1,
-            file="test.pdf",
-        )
-        mock_delete = mocker.patch.object(submission.file.storage, "delete")
-        file_name = submission.file.name
-
-        with transaction.atomic():
-            RevisionService.delete_revision(submission)
-            mock_delete.assert_not_called()
-
-        mock_delete.assert_called_once_with(file_name)
-
-    def test_schedules_final_source_file_deletion_on_commit(
-        self,
-        mocker: MagicMock,
-        paper: Paper,
-    ) -> None:
-        final = PaperFinal.objects.create(
-            paper=paper,
-            revision=1,
-            source_file="source.pdf",
-        )
-        mock_delete = mocker.patch.object(final.source_file.storage, "delete")
-        file_name = final.source_file.name
-
-        with transaction.atomic():
-            RevisionService.delete_revision(final)
-
-        mock_delete.assert_called_once_with(file_name)
-
-    def test_schedules_both_final_files_deletion_on_commit(
-        self,
-        mocker: MagicMock,
-        paper: Paper,
-    ) -> None:
-        final = PaperFinal.objects.create(
-            paper=paper,
-            revision=1,
-            source_file="source.pdf",
-            viewable_file="viewable.pdf",
-        )
-        mock_delete = mocker.patch.object(final.source_file.storage, "delete")
-        source_name = final.source_file.name
-        viewable_name = final.viewable_file.name
-
-        with transaction.atomic():
-            RevisionService.delete_revision(final)
-
-        assert mock_delete.call_count == 2
-        mock_delete.assert_any_call(source_name)
-        mock_delete.assert_any_call(viewable_name)
-
-
-@pytest.mark.django_db(transaction=True)
-class TestRevisionServiceDeleteRevisionE2E:
+class TestRevisionFileCleanup:
     def test_deletes_file_on_commit(self, paper: Paper) -> None:
         submission = PaperSubmission(paper=paper, revision=1)
         submission.file.save("test.pdf", ContentFile(b"test content"))
@@ -186,7 +90,7 @@ class TestRevisionServiceDeleteRevisionE2E:
         assert file_path.exists()
 
         with transaction.atomic():
-            RevisionService.delete_revision(submission)
+            submission.delete()
             assert file_path.exists()
 
         assert not file_path.exists()
@@ -198,7 +102,7 @@ class TestRevisionServiceDeleteRevisionE2E:
         assert file_path.exists()
 
         with pytest.raises(ValueError, match="forced rollback"), transaction.atomic():
-            RevisionService.delete_revision(submission)
+            submission.delete()
             raise ValueError("forced rollback")
 
         assert file_path.exists()
@@ -213,7 +117,7 @@ class TestRevisionServiceDeleteRevisionE2E:
         assert viewable_path.exists()
 
         with transaction.atomic():
-            RevisionService.delete_revision(final)
+            final.delete()
 
         assert not source_path.exists()
         assert not viewable_path.exists()
@@ -226,7 +130,7 @@ class TestRevisionServiceDeleteRevisionE2E:
         viewable_path = Path(final.viewable_file.path)
 
         with pytest.raises(ValueError, match="forced rollback"), transaction.atomic():
-            RevisionService.delete_revision(final)
+            final.delete()
             raise ValueError("forced rollback")
 
         assert source_path.exists()

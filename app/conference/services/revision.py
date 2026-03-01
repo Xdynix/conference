@@ -1,9 +1,6 @@
 from collections.abc import Mapping, Sequence
-from functools import partial
 
-from django.core.files.storage import Storage
 from django.core.files.uploadedfile import UploadedFile
-from django.db import connection, transaction
 from django.db.models import Max
 
 from app.conference.models import Paper, PaperFinal, PaperState, PaperSubmission
@@ -33,32 +30,6 @@ class RevisionService:
             )
         )["max_revision"]
         return (max_revision or 0) + 1
-
-    @classmethod
-    def delete_revision(cls, revision: PaperSubmission | PaperFinal) -> None:
-        """Delete a revision record and schedule its file(s) for removal on commit.
-
-        Must be called within a transaction. Files are deleted after the transaction
-        commits to avoid orphaned records if the transaction rolls back.
-        """
-        if not connection.in_atomic_block:
-            raise RuntimeError("`delete_revision` must be called within a transaction.")
-
-        file_refs: list[tuple[Storage, str]] = []
-
-        if isinstance(revision, PaperSubmission):
-            file_refs.append((revision.file.storage, revision.file.name))
-        else:
-            file_refs.append((revision.source_file.storage, revision.source_file.name))
-            if revision.viewable_file:
-                file_refs.append(
-                    (revision.viewable_file.storage, revision.viewable_file.name)
-                )
-
-        revision.delete()
-
-        for storage, name in file_refs:
-            transaction.on_commit(partial(storage.delete, name))
 
     @classmethod
     def create_submission(
@@ -125,7 +96,7 @@ class RevisionService:
                         .first()
                     )
                     if oldest:
-                        cls.delete_revision(oldest)
+                        oldest.delete()
 
                 return submission
 
@@ -225,4 +196,6 @@ class RevisionService:
             raise
 
 
-# TODO: Scan and clean up orphan files.
+# TODO: Scan and clean up orphan files and empty directories.
+#  django-cleanup handles file deletion on model delete and field replace,
+#  but does not remove the directories left behind.
