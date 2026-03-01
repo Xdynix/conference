@@ -62,6 +62,9 @@
       new bootstrap.Popover(el);
     });
   });
+  document.addEventListener("hide.bs.modal", function (e) {
+    if (e.target.contains(document.activeElement)) document.activeElement.blur();
+  });
 </script>
 <script>
   window.APP = {

@@ -1,4 +1,5 @@
 from app.conference.api.conference import router as conference_router
+from app.conference.api.doc import router as doc_router
 from app.conference.api.email import router as email_router
 from app.conference.api.file import router as conference_file_router
 from app.conference.api.invitation import router as invitation_router
@@ -25,6 +26,7 @@ for router in (
     conference_file_router,
     conference_router,
     conference_user_router,
+    doc_router,
     email_router,
     invitation_router,
     keyword_set_router,
