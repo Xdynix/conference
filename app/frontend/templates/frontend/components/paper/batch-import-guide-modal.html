@@ -1,0 +1,60 @@
+{% comment %}
+Batch Import Guide Modal
+
+A static help modal explaining how to batch-import papers via the API.
+No companion JS function needed; triggered via data-bs-toggle="modal".
+
+Usage:
+  1. Include this template in the page
+  2. Add a trigger element with data-bs-toggle="modal" data-bs-target="#batch-import-guide-modal"
+{% endcomment %}
+
+{% load static frontend_tags %}
+
+<link rel="stylesheet" href="{% static 'frontend/vendor/github-markdown-css/css/github-markdown.min.css' %}">
+<link rel="stylesheet" href="{% static 'frontend/vendor/highlightjs/css/atom-one-light.min.css' %}">
+<link rel="stylesheet" href="{% static 'frontend/vendor/highlightjs/css/atom-one-dark.min.css' %}" media="(prefers-color-scheme: dark)">
+
+<div
+  class="modal fade"
+  id="batch-import-guide-modal"
+  tabindex="-1"
+  aria-label="Batch Import Guide"
+  aria-hidden="true"
+>
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      {# TODO: github-markdown-css follows the browser color-scheme preference, not our theme override. #}
+      <div class="modal-body markdown-body">
+        {% render_markdown_file "docs/batch-import-api-guide.md" %}
+      </div>
+      <div class="modal-footer" x-data="{ copying: false, copied: false }">
+        <button
+          type="button"
+          class="btn btn-outline-primary btn-sm"
+          :disabled="copying"
+          @click="
+            copying = true;
+            try {
+              const r = await api.get('{% url 'api-1.0.0:get-doc' params.conference_name 'batch-import-guide' %}');
+              await navigator.clipboard.writeText(r.data);
+              copied = true;
+              setTimeout(() => copied = false, 2000);
+            } catch {}
+            copying = false;
+          "
+        >
+          <span x-show="copying" x-cloak class="spinner-border spinner-border-sm me-1" role="status"></span>
+          <i x-show="!copying && !copied" class="bi-clipboard me-1"></i>
+          <i x-show="!copying && copied" x-cloak class="bi-check me-1"></i>
+          <span x-text="copied ? 'Copied!' : 'Copy Markdown'"></span>
+        </button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="{% static 'frontend/vendor/highlightjs/js/highlight.min.js' %}"></script>
+<script src="{% static 'frontend/vendor/highlightjs/js/http.min.js' %}"></script>
+<script>hljs.highlightAll();</script>

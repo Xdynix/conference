@@ -183,8 +183,9 @@
 
       apply() {
         const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-        document.documentElement.dataset.bsTheme =
-          this.value === "auto" ? (prefersDark ? "dark" : "light") : this.value;
+        const resolved = this.value === "auto" ? (prefersDark ? "dark" : "light") : this.value;
+        document.documentElement.dataset.bsTheme = resolved;
+        document.documentElement.dataset.theme = resolved;
       },
     };
   }
