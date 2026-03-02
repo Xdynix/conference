@@ -111,7 +111,6 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    # TODO: Add logging middleware: bind request context (request, response, session).
 ]
 
 ROOT_URLCONF = "app.urls"
@@ -203,8 +202,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Email
 
+# TODO: Add prod check for the settings.
+
 EMAIL_BACKEND = "mailer.backend.DbBackend"
-# TODO: Add prod check for the setting.
 
 MAILER_EMAIL_BACKEND: str = config(
     "EMAIL_BACKEND",
@@ -385,14 +385,14 @@ PASSWORD_RESET_TOKEN_RETENTION = config(
     cast=days,
 )
 
+# TODO: Add prod check for the settings.
+
 PASSWORD_RESET_PAGE_URL = config("PASSWORD_RESET_PAGE_URL", default="")
 
 PASSWORD_RESET_PAGE_URL_NAME = config(
     "PASSWORD_RESET_PAGE_URL_NAME",
     default="frontend:password-reset-confirm",
 )
-
-# TODO: Add prod check for the URL setting.
 
 # File Downloads
 
@@ -416,18 +416,20 @@ PASSWORD_RESET_PAGE_URL_NAME = config(
 # The internal location path must match FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX, and the
 # alias must point to MEDIA_ROOT (or wherever the storage backend stores files).
 
+# TODO: Add prod check for the settings.
+
 FileDownloadMode = Literal["django", "nginx"]
 
 FILE_DOWNLOAD_MODE: FileDownloadMode = config(
     "FILE_DOWNLOAD_MODE",
     default="django",
     cast=Choices(cast(list[FileDownloadMode], ["django", "nginx"])),
-)  # TODO: Add prod check for the setting.
+)
 
 FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX = config(
     "FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX",
     default="",
-)  # TODO: Add prod check for the setting.
+)
 
 FILE_DOWNLOAD_NGINX_HEADER = config(
     "FILE_DOWNLOAD_NGINX_HEADER",
