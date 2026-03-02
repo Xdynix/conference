@@ -7,6 +7,9 @@
 /.claude
 /.serena
 
+# Runtime data directory
+/.data
+
 # Dev only files
 /*.md
 /.agents
@@ -14,6 +17,7 @@
 /.git
 /.pre-commit-config.yaml
 /Dockerfile
+/docker-compose.yml
 /etc/stubs/
 /justfile
 /package-lock.json

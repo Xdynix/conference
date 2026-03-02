@@ -34,6 +34,8 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 
 ALLOWED_HOSTS: list[str] = config("ALLOWED_HOSTS", default="", cast=Csv())
 
+CSRF_TRUSTED_ORIGINS: list[str] = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
+
 # Reverse Proxy / Sub-Path Deployment
 #
 # When deploying under a sub-path (e.g., https://example.com/submission/), set
@@ -144,6 +146,8 @@ DATABASES = {
         "NAME": config("DATABASE_PATH", default=DATA_DIR / "db.sqlite3", cast=Path),
         "OPTIONS": {
             "timeout": 60,
+            "transaction_mode": "IMMEDIATE",
+            "init_command": "PRAGMA journal_mode=WAL;",
         },
     }
 }
@@ -289,18 +293,25 @@ DISK_FREE_THRESHOLD = config("DISK_FREE_THRESHOLD", default=2.0, cast=float)  # 
 
 # Reverse proxy
 
-# REVERSE_PROXY_COUNT controls how many trusted proxies sit between the client and this
-# server. 0 (default) means direct connection; all proxy headers are ignored. Set to 1
-# for a single proxy (e.g. nginx), 2 for two (e.g. Cloudflare + nginx).
+# REVERSE_PROXY_COUNT controls how many proxy IPs are appended after the client IP in
+# X-Forwarded-For. django-ipware uses strict validation: len(ips) - 1 == proxy_count.
+# 0 (default) means direct connection; all proxy headers are ignored.
 #
 # Examples:
 #   Dev (no proxy):            (defaults are fine, no env vars needed)
-#   nginx only:                REVERSE_PROXY_COUNT=1
-#   Cloudflare + nginx:        REVERSE_PROXY_COUNT=2
+#   Sidecar nginx only:        REVERSE_PROXY_COUNT=1
+#   Sidecar + Cloudflare:      REVERSE_PROXY_COUNT=2
 #                              REVERSE_PROXY_IP_HEADERS=CF-Connecting-IP,X-Forwarded-For
 #   Adopt upstream request ID: REVERSE_PROXY_REQUEST_ID_HEADER=X-Request-ID
 
 REVERSE_PROXY_COUNT: int = config("REVERSE_PROXY_COUNT", default=0, cast=int)
+
+# When behind a reverse proxy that terminates SSL, trust X-Forwarded-Proto so that
+# request.is_secure() returns True for HTTPS requests. This is required for correct CSRF
+# origin checks, secure cookie handling, and `build_absolute_uri()` scheme.
+SECURE_PROXY_SSL_HEADER: tuple[str, str] | None = (
+    ("HTTP_X_FORWARDED_PROTO", "https") if REVERSE_PROXY_COUNT > 0 else None
+)
 
 REVERSE_PROXY_REQUEST_ID_HEADER: str = config(
     "REVERSE_PROXY_REQUEST_ID_HEADER",
