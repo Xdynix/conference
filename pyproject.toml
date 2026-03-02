@@ -42,6 +42,10 @@ lint = [
     "ruff>=0.12.4",
     "types-jsonschema>=4.25.1.20251009",
 ]
+prod = [
+    "granian>=2.7.2",
+    "supervisor>=4.3.0 ; sys_platform != 'win32'",
+]
 test = [
     "faker>=37.4.2",
     "jsonschema>=4.25.1",
