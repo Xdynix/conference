@@ -15,6 +15,7 @@ class HealthStatus(Schema):
     client_ip: Annotated[str, Field(examples=["192.168.1.1", "2001:db8::1"])] | None
 
 
+# NOTE: The Dockerfile HEALTHCHECK depends on this path.
 @router.get("/health-status", auth=None, response=HealthStatus, summary="Ping")
 @decorate_view(never_cache)
 async def get_health_status(request: HttpRequest) -> dict[str, Any]:

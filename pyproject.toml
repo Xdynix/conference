@@ -9,7 +9,7 @@ dependencies = [
     "django-ipware>=7.0.1",
     "django-mailer>=2.3.2",
     "django-ninja>=1.4.3",
-    "django-stubs[compatible-mypy]~=5.2",
+    "django-stubs-ext~=5.2",
     "django[argon2]~=5.2",
     "httpx>=0.28.1",
     "ipython>=9.4.0",
@@ -37,6 +37,7 @@ dev = [
     "werkzeug>=3.1.5",
 ]
 lint = [
+    "django-stubs[compatible-mypy]~=5.2",
     "mypy<1.20",
     "pre-commit>=4.2.0",
     "ruff>=0.12.4",
