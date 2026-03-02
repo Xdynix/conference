@@ -384,7 +384,7 @@ PaperAuthorPhone = Annotated[
         max_length=paper_author_phone_field.max_length,
         strip_whitespace=True,
     ),
-]  # TODO: Consider use Pydantic's `PhoneNumber` type.
+]
 
 
 # Embeds track data rather than just ULID so the paper remains displayable even if moved
@@ -530,7 +530,7 @@ RegistrationPhone = Annotated[
         max_length=registration_phone_field.max_length,
         strip_whitespace=True,
     ),
-]  # TODO: Consider use Pydantic's `PhoneNumber` type.
+]
 RegistrationSelfIntroduction = Annotated[
     str,
     BeforeValidator(sanitize_formatted_text),

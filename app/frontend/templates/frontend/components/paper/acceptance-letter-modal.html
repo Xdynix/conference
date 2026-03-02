@@ -74,6 +74,11 @@ Example:
                 placeholder="Enter Typst template..."
               ></textarea>
               {# TODO: Research UX for communicating available template context variables. #}
+              {% comment %}
+                TODO: Provide a chair-approved default Typst template and persist the
+                 last-used template in localStorage (scoped per conference) so admins have
+                 a working starting point and don't lose their work across sessions.
+              {% endcomment %}
               <div class="form-text">
                 Typst template compiled to PDF. Context variables:
                 <code>conference</code>,

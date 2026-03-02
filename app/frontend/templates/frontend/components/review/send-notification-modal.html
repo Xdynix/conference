@@ -72,6 +72,12 @@ Example:
               x-text="sendModal.errors._form"
             ></div>
 
+            {% comment %}
+              TODO: Provide a chair-approved default email template (subject + body) and
+               persist the last-used template in localStorage (scoped per conference) so
+               admins have a working starting point and don't lose their work across sessions.
+            {% endcomment %}
+
             {# Subject #}
             <div class="mb-3">
               <label class="form-label" for="send-notif-subject">
