@@ -334,14 +334,6 @@ CF_TURNSTILE_RESPONSE_HEADER_NAME = config(
     default="cf-turnstile-response",
 )
 
-CF_TURNSTILE_BYPASS_SECRETS: frozenset[str] = frozenset(
-    config(
-        "CF_TURNSTILE_BYPASS_SECRETS",
-        default="",
-        cast=Csv(),
-    )
-)
-
 # Verikit
 
 VERIKIT_EMAIL_CODE_INTERVAL = config(

@@ -48,12 +48,6 @@ class TestCfTurnstileRequired(URLConfTestCase):
         return name
 
     @pytest.fixture
-    def mock_bypass_secret(self, settings: LazySettings) -> str:
-        secret = "test-bypass-secret"
-        settings.CF_TURNSTILE_BYPASS_SECRETS = frozenset([secret])
-        return secret
-
-    @pytest.fixture
     def mock_verify(self, mocker: MockerFixture) -> AsyncMock:
         mock = mocker.patch(
             "app.utils.cf_turnstile.decorators.verify_cf_turnstile_response"
@@ -113,27 +107,6 @@ class TestCfTurnstileRequired(URLConfTestCase):
         response = client.post(url)
         assert response.status_code == HTTPStatus.FORBIDDEN
         assert response.json() == {"message": f"Missing {mock_header_name} header."}
-
-    @pytest.mark.parametrize(
-        "url",
-        ["/protected/", "/protected-safe/", "/async-protected/"],
-    )
-    @pytest.mark.parametrize("location", ["data", "headers"])
-    def test_valid_bypass(
-        self,
-        client: Client,
-        mock_header_name: str,
-        mock_bypass_secret: str,
-        url: str,
-        location: str,
-    ) -> None:
-        response = client.post(
-            url,
-            **{  # type: ignore[arg-type]
-                location: {mock_header_name: mock_bypass_secret},
-            },
-        )
-        assert response.status_code == HTTPStatus.OK
 
     @pytest.mark.django_db
     @pytest.mark.parametrize(

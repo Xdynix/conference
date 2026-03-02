@@ -64,11 +64,6 @@ async def check_cf_turnstile_response(
             status=HTTPStatus.FORBIDDEN,
         )
 
-    bypass_secrets = settings.CF_TURNSTILE_BYPASS_SECRETS
-    if cf_turnstile_response in bypass_secrets:
-        logger.info("Bypassed CF Turnstile verification with secrets.")
-        return None
-
     remote_ip: str | None = getattr(request, "client_ip", None)
 
     idempotency_key = uuid4()
@@ -133,8 +128,6 @@ def cf_turnstile_required[F: Callable[..., Any]](
     - **Disabled Mode**: Set ``CF_TURNSTILE_MODE=disabled`` to skip verification.
     - **Superuser Accounts**: Users with ``is_superuser=True`` automatically bypass
       verification.
-    - **Bypass Secrets**: Providing a secret value configured in
-      ``CF_TURNSTILE_BYPASS_SECRETS``.
     - **Development Environment**: Set ``DEBUG=True`` and leave
       ``CF_TURNSTILE_SECRET_KEY`` empty.
 
