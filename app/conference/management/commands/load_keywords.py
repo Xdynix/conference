@@ -46,7 +46,7 @@ class Command(BaseYAMLCommand):
             "directory",
             nargs="?",
             type=Path,
-            default=settings.BASE_DIR / "seed" / "keywords",
+            default=settings.BASE_DIR / "etc" / "seed" / "keywords",
             help="Directory containing YAML keyword set definitions.",
         )
         parser.add_argument(
