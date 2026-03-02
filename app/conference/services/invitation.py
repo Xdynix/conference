@@ -135,17 +135,25 @@ class InvitationService:
         )
 
         try:
-            invitation = Invitation.objects.create(
-                conference=conference,
-                inviter=inviter,
-                invitee_email=invitee_email,
-                given_name=given_name,
-                family_name=family_name,
-                affiliation=affiliation,
-                region_code=region_code,
-                desired_paper_count=desired_paper_count,
-            )
+            with transaction.atomic():
+                invitation = Invitation.objects.create(
+                    conference=conference,
+                    inviter=inviter,
+                    invitee_email=invitee_email,
+                    given_name=given_name,
+                    family_name=family_name,
+                    affiliation=affiliation,
+                    region_code=region_code,
+                    desired_paper_count=desired_paper_count,
+                )
         except IntegrityError as exc:
+            is_conflict = Invitation.objects.filter(
+                conference=conference,
+                invitee_email__iexact=invitee_email,
+                accept_time__isnull=True,
+            ).exists()
+            if not is_conflict:  # pragma: no cover
+                raise
             raise DuplicateInvitation(
                 _("A pending invitation already exists for this conference and email.")
             ) from exc

@@ -101,6 +101,12 @@ async def create_attendance_type(
             paper_required=payload.paper_required,
         )
     except IntegrityError as exc:
+        is_conflict = await AttendanceType.objects.filter(
+            conference=conference,
+            display_name=payload.display_name,
+        ).aexists()
+        if not is_conflict:  # pragma: no cover
+            raise
         raise HttpError(
             HTTPStatus.CONFLICT,
             _("An attendance type with this name already exists for this conference."),
@@ -156,6 +162,16 @@ async def update_attendance_type(
         try:
             await attendance_type.asave(update_fields=update_fields)
         except IntegrityError as exc:
+            is_conflict = await (
+                AttendanceType.objects.filter(
+                    conference=conference,
+                    display_name=attendance_type.display_name,
+                )
+                .exclude(pk=attendance_type.pk)
+                .aexists()
+            )
+            if not is_conflict:  # pragma: no cover
+                raise
             raise HttpError(
                 HTTPStatus.CONFLICT,
                 _(

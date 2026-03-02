@@ -113,6 +113,12 @@ async def create_code_pool(
             prefix=payload.prefix,
         )
     except IntegrityError as exc:
+        is_conflict = await CodePool.objects.filter(
+            conference=conference,
+            prefix=payload.prefix,
+        ).aexists()
+        if not is_conflict:  # pragma: no cover
+            raise
         raise HttpError(
             HTTPStatus.CONFLICT,
             _("A code pool with this prefix already exists for this conference."),
@@ -167,6 +173,16 @@ async def update_code_pool(
         try:
             await pool.asave(update_fields=[*update_fields, "update_time"])
         except IntegrityError as exc:
+            is_conflict = await (
+                CodePool.objects.filter(
+                    conference=conference,
+                    prefix=pool.prefix,
+                )
+                .exclude(pk=pool.pk)
+                .aexists()
+            )
+            if not is_conflict:  # pragma: no cover
+                raise
             raise HttpError(
                 HTTPStatus.CONFLICT,
                 _("A code pool with this prefix already exists for this conference."),
