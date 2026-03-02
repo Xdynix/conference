@@ -254,6 +254,7 @@ class TestCreateAttendanceType:
 
         assert response.json()["display_name"] == "Oral Presentation"
 
+    @pytest.mark.django_db(transaction=True)
     def test_duplicate_display_name_conflict(
         self,
         api_client: Client,
@@ -560,6 +561,7 @@ class TestUpdateAttendanceType:
 
         assert response.json()["display_name"] == "Trimmed"
 
+    @pytest.mark.django_db(transaction=True)
     def test_duplicate_display_name_conflict(
         self,
         api_client: Client,

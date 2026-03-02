@@ -2,7 +2,6 @@ from http import HTTPStatus
 from unittest.mock import MagicMock
 
 import pytest
-from django.db import IntegrityError
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
@@ -377,9 +376,14 @@ class TestAssignReview:
         conference_chair: User,
         paper: Paper,
         reviewer: User,
-        review_service_assign: MagicMock,
     ) -> None:
-        review_service_assign.side_effect = IntegrityError("unique constraint")
+        Review.objects.create(
+            paper=paper,
+            reviewer=reviewer,
+            assigner=conference_chair,
+            state=ReviewState.PENDING,
+            assignment_level=ReviewAssignmentLevel.CONFERENCE,
+        )
         api_client.force_login(conference_chair)
 
         response = api_client.post(
