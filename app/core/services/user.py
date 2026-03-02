@@ -4,6 +4,7 @@ from typing import Any, NamedTuple
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.utils.translation import gettext as _
 
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
@@ -65,13 +66,20 @@ class UserService:
             raise InvalidPassword(exc.messages) from exc
 
         try:
-            user = User.objects.create_user(
-                username=username,
-                email=email,
-                password=password,
-                managed=managed,
-            )
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=username,
+                    email=email,
+                    password=password,
+                    managed=managed,
+                )
         except IntegrityError as exc:
+            conditions = Q(username=username)
+            if email:  # pragma: no branch
+                conditions |= Q(email__iexact=email)
+            is_conflict = User.objects.filter(conditions).exists()
+            if not is_conflict:  # pragma: no cover
+                raise
             raise UserIdentityConflict from exc
 
         detail = create_user_registry.dispatch(user, payload)
@@ -111,6 +119,18 @@ class UserService:
             try:
                 await user.asave(update_fields=update_fields)
             except IntegrityError as exc:
+                conditions = Q()
+                if username is not None:
+                    conditions |= Q(username=username)
+                if email is not None and email:
+                    conditions |= Q(email__iexact=email)
+                if not conditions:  # pragma: no cover
+                    raise
+                is_conflict = await (
+                    User.objects.filter(conditions).exclude(pk=user.pk).aexists()
+                )
+                if not is_conflict:  # pragma: no cover
+                    raise
                 raise UserIdentityConflict from exc
 
         return user

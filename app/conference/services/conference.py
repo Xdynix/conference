@@ -66,18 +66,22 @@ class ConferenceService:
             ConferenceNameConflict: If a conference with that name already exists.
         """
         try:
-            conference = Conference.objects.create(
-                name=name,
-                display_name=display_name,
-                visibility=visibility,
-                registration_enabled=registration_enabled,
-                start_date=start_date,
-                end_date=end_date,
-                location=location,
-                paper_submission_instructions=paper_submission_instructions,
-                paper_final_instructions=paper_final_instructions,
-            )
+            with transaction.atomic():
+                conference = Conference.objects.create(
+                    name=name,
+                    display_name=display_name,
+                    visibility=visibility,
+                    registration_enabled=registration_enabled,
+                    start_date=start_date,
+                    end_date=end_date,
+                    location=location,
+                    paper_submission_instructions=paper_submission_instructions,
+                    paper_final_instructions=paper_final_instructions,
+                )
         except IntegrityError as exc:
+            is_conflict = Conference.objects.filter(name=name).exists()
+            if not is_conflict:  # pragma: no cover
+                raise
             raise ConferenceNameConflict from exc
 
         assigned_keywords: set[Keyword] = set(keywords)

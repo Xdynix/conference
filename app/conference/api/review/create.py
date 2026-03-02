@@ -113,6 +113,13 @@ async def assign_review(
     except ReviewerNotEligibleError as exc:
         raise make_validation_error(path="reviewer", message=str(exc)) from exc
     except IntegrityError as exc:
+        is_conflict = await Review.objects.filter(
+            paper=paper,
+            reviewer=reviewer,
+            state__in=ReviewState.active(),
+        ).aexists()
+        if not is_conflict:  # pragma: no cover
+            raise
         raise HttpError(
             HTTPStatus.CONFLICT,
             _("Reviewer already has an active review for this paper."),

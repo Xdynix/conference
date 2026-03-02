@@ -54,11 +54,18 @@ class PaymentService:
         """
         with transaction.atomic():
             try:
-                payment.save()
+                with transaction.atomic():
+                    payment.save()
             except IntegrityError as exc:
-                if payment.reference:  # pragma: no branch
-                    raise ReferenceConflictError from exc
-                raise  # pragma: no cover
+                if not payment.reference:  # pragma: no cover
+                    raise
+                is_conflict = Payment.objects.filter(
+                    conference_id=payment.conference_id,
+                    reference=payment.reference,
+                ).exists()
+                if not is_conflict:  # pragma: no cover
+                    raise
+                raise ReferenceConflictError from exc
 
             if items:
                 cls._save_items(payment, items)
@@ -90,11 +97,22 @@ class PaymentService:
         with Mutex.lock_in_transaction(str(payment.pk), namespace="payment"):
             if update_fields:
                 try:
-                    payment.save(update_fields=[*update_fields, "update_time"])
+                    with transaction.atomic():
+                        payment.save(update_fields=[*update_fields, "update_time"])
                 except IntegrityError as exc:
-                    if payment.reference:  # pragma: no branch
-                        raise ReferenceConflictError from exc
-                    raise  # pragma: no cover
+                    if not payment.reference:  # pragma: no cover
+                        raise
+                    is_conflict = (
+                        Payment.objects.filter(
+                            conference_id=payment.conference_id,
+                            reference=payment.reference,
+                        )
+                        .exclude(pk=payment.pk)
+                        .exists()
+                    )
+                    if not is_conflict:  # pragma: no cover
+                        raise
+                    raise ReferenceConflictError from exc
 
             if items is not None:
                 payment.items.all().delete()

@@ -230,6 +230,7 @@ class TestCreateCodePool:
         assert data["name"] == "Main Pool"
         assert data["prefix"] == "CONF"
 
+    @pytest.mark.django_db(transaction=True)
     def test_duplicate_prefix_conflict(
         self,
         api_client: Client,
@@ -524,6 +525,7 @@ class TestUpdateCodePool:
         assert data["name"] == "Trimmed"
         assert data["prefix"] == "TRM"
 
+    @pytest.mark.django_db(transaction=True)
     def test_duplicate_prefix_conflict(
         self,
         api_client: Client,
