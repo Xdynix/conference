@@ -203,7 +203,7 @@ dependencies = [
     { name = "django-ipware" },
     { name = "django-mailer" },
     { name = "django-ninja" },
-    { name = "django-stubs", extra = ["compatible-mypy"] },
+    { name = "django-stubs-ext" },
     { name = "httpx" },
     { name = "ipython" },
     { name = "jinja2" },
@@ -230,6 +230,7 @@ dev = [
     { name = "werkzeug" },
 ]
 lint = [
+    { name = "django-stubs", extra = ["compatible-mypy"] },
     { name = "mypy" },
     { name = "pre-commit" },
     { name = "ruff" },
@@ -263,7 +264,7 @@ requires-dist = [
     { name = "django-ipware", specifier = ">=7.0.1" },
     { name = "django-mailer", specifier = ">=2.3.2" },
     { name = "django-ninja", specifier = ">=1.4.3" },
-    { name = "django-stubs", extras = ["compatible-mypy"], specifier = "~=5.2" },
+    { name = "django-stubs-ext", specifier = "~=5.2" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "ipython", specifier = ">=9.4.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
@@ -290,6 +291,7 @@ dev = [
     { name = "werkzeug", specifier = ">=3.1.5" },
 ]
 lint = [
+    { name = "django-stubs", extras = ["compatible-mypy"], specifier = "~=5.2" },
     { name = "mypy", specifier = "<1.20" },
     { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "ruff", specifier = ">=0.12.4" },
