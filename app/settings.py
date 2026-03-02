@@ -37,8 +37,8 @@ ALLOWED_HOSTS: list[str] = config("ALLOWED_HOSTS", default="", cast=Csv())
 # Reverse Proxy / Sub-Path Deployment
 #
 # When deploying under a sub-path (e.g., https://example.com/submission/), set
-# FORCE_SCRIPT_NAME to the path prefix. This ensures reverse(), build_absolute_uri(),
-# {% url %}, and {% static %} all include the prefix correctly.
+# FORCE_SCRIPT_NAME to the path prefix. This makes reverse(), build_absolute_uri(),
+# {% url %}, STATIC_URL, MEDIA_URL, and cookie paths subpath-aware.
 #
 # Example nginx configuration:
 #
@@ -55,15 +55,18 @@ ALLOWED_HOSTS: list[str] = config("ALLOWED_HOSTS", default="", cast=Csv())
 #     location /submission/static/ {
 #         alias /path/to/staticfiles/;
 #     }
-#
-# TODO: Review and configure FORCE_SCRIPT_NAME at deployment time.
-# FORCE_SCRIPT_NAME: str | None = config("FORCE_SCRIPT_NAME", default=None)
+
+_raw_script_name = config("FORCE_SCRIPT_NAME", default="")
+FORCE_SCRIPT_NAME: str | None = _raw_script_name.rstrip("/") or None
 
 # Cookies
 
+# When FORCE_SCRIPT_NAME is set, cookie path defaults to the subpath so multiple
+# instances on the same domain don't collide. Env vars can still override.
+
 COOKIE_DOMAIN = config("COOKIE_DOMAIN", default=None)
 
-COOKIE_PATH = config("COOKIE_PATH", default="/")
+COOKIE_PATH = config("COOKIE_PATH", default=FORCE_SCRIPT_NAME or "/")
 
 CSRF_COOKIE_DOMAIN = COOKIE_DOMAIN
 
@@ -179,7 +182,7 @@ USE_TZ = True
 
 STATIC_ROOT: str = config("STATIC_ROOT", default=DATA_DIR / "static", cast=str)
 
-STATIC_URL = "/static/"
+STATIC_URL = f"{FORCE_SCRIPT_NAME}/static/" if FORCE_SCRIPT_NAME else "/static/"
 
 # NOTE: File handling code assumes local filesystem storage. When switching to cloud
 # storage (S3, GCS, etc.), audit file operations (deletion, validation, etc.).
@@ -194,7 +197,7 @@ STORAGES = {
 
 MEDIA_ROOT: Path = config("MEDIA_ROOT", default=DATA_DIR / "media", cast=Path)
 
-MEDIA_URL = "/media/"
+MEDIA_URL = f"{FORCE_SCRIPT_NAME}/media/" if FORCE_SCRIPT_NAME else "/media/"
 
 # Misc
 
