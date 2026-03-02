@@ -1,0 +1,80 @@
+# Expects an existing nginx-proxy (nginx-proxy/nginx-proxy) network on the host.
+# The nginx sidecar joins it so nginx-proxy can discover the service via
+# VIRTUAL_HOST / VIRTUAL_PATH env vars. To test without nginx-proxy:
+#
+#   docker network create nginx-proxy
+#
+# Before first run, ensure the host data directory is owned by the
+# container's non-root user (UID 900 by default):
+#
+#   mkdir -p .data && chown 900:900 .data
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "5"
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        APP_PORT: ${APP_PORT:-8000}
+    env_file: .env
+    logging: *default-logging
+    environment:
+      # Derived from VIRTUAL_HOST/VIRTUAL_PATH; localhost is needed for the
+      # Docker health check which hits granian directly.
+      ALLOWED_HOSTS: "localhost,${VIRTUAL_HOST:-}"
+      FORCE_SCRIPT_NAME: ${VIRTUAL_PATH:-}
+      # Must match the hard-coded nginx sidecar internal location.
+      FILE_DOWNLOAD_MODE: nginx
+      FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX: /internal-media
+      # 1 = sidecar nginx (appends to X-Forwarded-For); increase if another proxy is added.
+      REVERSE_PROXY_COUNT: ${REVERSE_PROXY_COUNT:-1}
+      # Must match the volume mount target below.
+      DATA_DIR: /data
+    volumes:
+      - ${HOST_DATA_DIR:-./.data}:/data
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+    stop_grace_period: 35s
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    logging: *default-logging
+    environment:
+      VIRTUAL_HOST: ${VIRTUAL_HOST:-}
+      # VIRTUAL_PATH must not have a trailing slash (e.g. /app, not /app/).
+      VIRTUAL_PATH: ${VIRTUAL_PATH:-}
+      SUBPATH: ${VIRTUAL_PATH:-}
+      APP_PORT: ${APP_PORT:-8000}
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - ./docker/10-normalize-subpath.sh:/docker-entrypoint.d/10-normalize-subpath.sh:ro
+      - ./docker/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${HOST_DATA_DIR:-./.data}/media:/media:ro
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/_ping" ]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+    restart: unless-stopped
+    networks:
+      - default
+      - nginx-proxy
+
+networks:
+  nginx-proxy:
+    external: true
