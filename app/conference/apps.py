@@ -96,9 +96,11 @@ def register_user_response() -> None:
 
     async def batch_resolve_profile(users: Sequence[User]) -> list[Profile | None]:
         user_ids = [user.id for user in users]
-        # TODO: Chunk user_ids into batches of ~1000 to avoid SQL parameter limits.
-        profiles = Profile.objects.filter(user_id__in=user_ids)
-        profile_map = {profile.user_id: profile async for profile in profiles}
+        profile_map: dict[int, Profile] = {}
+        for i in range(0, len(user_ids), 900):
+            chunk = user_ids[i : i + 900]
+            async for profile in Profile.objects.filter(user_id__in=chunk):
+                profile_map[profile.user_id] = profile
         return [profile_map.get(user.id) for user in users]
 
     user_response_registry.register(

@@ -165,13 +165,14 @@ async def _get_user_roles(user: User) -> list[str]:
 
 async def _batch_get_user_roles(users: Sequence[User]) -> Sequence[list[str]]:
     user_ids = [user.id for user in users]
-    # TODO: Chunk user_ids into batches of ~1000 to avoid SQL parameter limits.
-    assignments = GlobalRoleAssignment.objects.filter(user_id__in=user_ids).order_by(
-        "role"
-    )
     role_map: dict[int, list[str]] = {user.id: [] for user in users}
-    async for user_id, role in assignments.values_list("user_id", "role"):
-        role_map[user_id].append(role)
+    for i in range(0, len(user_ids), 900):
+        chunk = user_ids[i : i + 900]
+        assignments = GlobalRoleAssignment.objects.filter(
+            user_id__in=chunk,
+        ).order_by("role")
+        async for user_id, role in assignments.values_list("user_id", "role"):
+            role_map[user_id].append(role)
     return [role_map[user.id] for user in users]
 
 
