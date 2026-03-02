@@ -279,9 +279,11 @@ ADMIN_LOGIN_DENY_UNAUTHORIZED = config(
     cast=bool,
 )
 
-# Infra
+# Infra & Misc
 
 MUTEX_RETENTION = config("MUTEX_RETENTION", default=7, cast=days)
+
+DISK_FREE_THRESHOLD = config("DISK_FREE_THRESHOLD", default=2.0, cast=float)  # GB
 
 # Reverse proxy
 
