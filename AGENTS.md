@@ -30,9 +30,9 @@ discussion.
 1. Implement the change.
 2. Spawn a challenger subagent with the task description and the code written.
 3. The challenger reviews the code within a single subagent session:
-   - If it finds a **clear improvement**, it revises and re-reviews (up to 2 cycles).
-   - If it finds **comparable alternatives** with different trade-offs, it stops and
-     reports the options instead of choosing one.
+    - If it finds a **clear improvement**, it revises and re-reviews (up to 2 cycles).
+    - If it finds **comparable alternatives** with different trade-offs, it stops and
+      reports the options instead of choosing one.
 4. Incorporate the challenger's findings, then present the final result with a short
    review note summarizing: approach taken, concerns (if any), and alternatives
    considered (if any). Omit the note when there is nothing meaningful to report.
@@ -70,6 +70,11 @@ When working on API endpoints, services, or backend logic, read `.agents/BACKEND
 
 When working on templates, Alpine.js components, or frontend logic, read
 `.agents/FRONTEND.md`.
+
+## Deployment
+
+When working on Docker configuration, nginx, process management, or production settings,
+read `.agents/DEPLOYMENT.md`.
 
 ## Development Setup
 
