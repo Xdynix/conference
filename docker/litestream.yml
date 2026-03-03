@@ -1,0 +1,8 @@
+dbs:
+  - path: /data/db.sqlite3
+    replica:
+      type: webdav
+      webdav-url: ${LITESTREAM_WEBDAV_URL}
+      webdav-username: ${LITESTREAM_WEBDAV_USER}
+      webdav-password: ${LITESTREAM_WEBDAV_PASS}
+      path: db

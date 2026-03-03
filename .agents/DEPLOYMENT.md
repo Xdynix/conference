@@ -9,10 +9,11 @@ Reference for modifying Docker, nginx, process management, or production setting
 | File                             | Purpose                                                                                                                                |
 |----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
 | `Dockerfile`                     | App image: installs deps, collects static, sets healthcheck and entrypoint.                                                            |
-| `docker-compose.yml`             | Two services: `app` (Django + supervisord) and `nginx` (sidecar reverse proxy).                                                        |
+| `docker-compose.yml`             | Core services (`app`, `nginx`) and optional backup sidecars (`litestream`, `rclone`) gated behind the `backup` Compose profile.        |
 | `docker/entrypoint.sh`           | Runs migrations before starting the CMD process.                                                                                       |
 | `docker/supervisord.conf`        | Process manager config: app server (granian) and background workers.                                                                   |
 | `docker/nginx.conf.template`     | Sidecar nginx: strips subpath, serves media via X-Accel-Redirect, proxies to app. Uses `envsubst` variables (`$APP_PORT`, `$SUBPATH`). |
+| `docker/litestream.yml`          | Litestream config for continuous SQLite replication to WebDAV. Uses env var placeholders expanded at runtime.                          |
 | `docker/10-normalize-subpath.sh` | Nginx entrypoint hook: strips trailing slash from `$SUBPATH` before `envsubst` runs. Mounted into `/docker-entrypoint.d/`.             |
 
 <!-- markdownlint-enable MD013 -->
@@ -30,10 +31,14 @@ Reference for modifying Docker, nginx, process management, or production setting
 4. Verify the host-level nginx-proxy `client_max_body_size` is at least as large as the
    sidecar's value in `nginx.conf.template`. A smaller value on the outer proxy silently
    rejects uploads before they reach this stack.
-5. Build and start the stack: `docker compose up -d --build`.
-6. Verify both healthchecks pass: `docker compose ps` should show both `app` and `nginx`
-   as healthy. The app healthcheck has a start period (see `HEALTHCHECK` in the
-   Dockerfile), so allow time for it to become healthy after initial startup.
+5. **(Optional) Enable backups:** Set `COMPOSE_PROFILES=backup` in `.env`, fill in the
+   `BACKUP_WEBDAV_*` credentials, and verify the WebDAV server is reachable from the
+   host.
+6. Build and start the stack: `docker compose up -d --build`.
+7. Verify healthchecks: `docker compose ps` should show `app` and `nginx` as healthy
+   (plus `litestream` and `rclone` if backups are enabled). The app healthcheck has a
+   start period (see `HEALTHCHECK` in the Dockerfile), so allow time for it to become
+   healthy after initial startup.
 
 ## Updating
 
@@ -105,6 +110,17 @@ Two independent healthchecks exist:
 - **Nginx container** (`docker-compose.yml` healthcheck): hits `/_ping`, which is
   handled by a local `location` block in `nginx.conf.template` (returns 200, not proxied
   to the app). If you rename or remove this location, the nginx healthcheck breaks.
+
+### Backup Data Paths
+
+The Litestream config (`docker/litestream.yml`) DB path must match `DATA_DIR` + the
+database filename used by Django settings. Currently `/data/db.sqlite3`.
+
+The rclone volume mount (`/media:ro`) must point at the media subdirectory inside
+`HOST_DATA_DIR`. Currently `${HOST_DATA_DIR:-./.data}/media`.
+
+If the data directory layout or database filename changes, update both the Litestream
+config and the rclone volume mount accordingly.
 
 ## Environment Variable Split
 
@@ -201,3 +217,14 @@ The `uv sync` step runs as root before the `USER` directive. This is intentional
 BuildKit cache mount defaults to `root:root`, and the resulting `.venv` is read-only at
 runtime (`UV_COMPILE_BYTECODE` pre-compiles bytecode during install). Do not move `USER`
 before the dependency installation step.
+
+### Backup Sidecars
+
+Both backup containers run as `${APP_UID:-900}` to match data directory ownership.
+Litestream needs read-write access (WAL checkpointing); rclone only needs read access.
+If `APP_UID` changes, update both sidecar `user` directives.
+
+The rclone entrypoint uses `$$` escaping to prevent Docker Compose from interpolating
+shell variables. It also runs `rclone obscure` at startup to convert the plaintext
+password into the obscured format rclone requires. Edits to the entrypoint script must
+preserve both mechanisms.
