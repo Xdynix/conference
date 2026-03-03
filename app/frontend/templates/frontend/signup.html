@@ -3,12 +3,6 @@
 
 {% block title %}Sign Up | {% endblock %}
 
-{% block head %}
-  {% if cf_turnstile.enabled %}
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
-  {% endif %}
-{% endblock %}
-
 {% block content %}
   <div x-data="signUpForm()">
     <h1 class="h4 mb-4 text-center">Sign up</h1>

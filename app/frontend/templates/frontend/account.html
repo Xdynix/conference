@@ -3,12 +3,6 @@
 
 {% block title %}Account | {% endblock %}
 
-{% block head %}
-  {% if cf_turnstile.enabled %}
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
-  {% endif %}
-{% endblock %}
-
 {% block content %}
   <div class="d-flex align-items-center gap-2 mb-4">
     <button type="button" onclick="history.back()" class="btn btn-link text-secondary p-0" aria-label="Go back">

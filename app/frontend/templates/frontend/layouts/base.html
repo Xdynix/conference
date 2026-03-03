@@ -44,6 +44,9 @@
   <script src="{% static 'frontend/js/utils.js' %}"></script>
   <script src="{% static 'frontend/js/stores.js' %}" defer></script>
   <script src="{% static 'frontend/js/cf-turnstile.js' %}" defer></script>
+  {% if cf_turnstile.enabled %}
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>
+  {% endif %}
   <script src="{% static 'frontend/vendor/tom-select/js/tom-select.complete.min.js' %}" defer></script>
   <script src="{% static 'frontend/vendor/alpine/js/alpine.min.js' %}" defer></script>
   {% block head %}{% endblock %}
