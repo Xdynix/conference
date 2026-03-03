@@ -76,18 +76,24 @@ Pages using this layout must set the active sidebar item and breadcrumb via stor
 // Top-level page
 $store.breadcrumb.set([{label: 'My Papers'}]);
 
-// Nested page
+// Nested page (prefer {% url %} for static URLs)
 $store.breadcrumb.set([
-  {label: 'My Papers', url: APP.urls.pages.myPapers(APP.params.conference_name)},
+  {
+    label: 'My Papers',
+    url: '{% url "frontend:paper-list" conference_name=params.conference_name %}'
+  },
   {label: 'PAPER-2000'}
 ]);
 
 // Deep page
 $store.breadcrumb.set([
-  {label: 'My Papers', url: APP.urls.pages.myPapers(APP.params.conference_name)},
+  {
+    label: 'My Papers',
+    url: '{% url "frontend:paper-list" conference_name=params.conference_name %}'
+  },
   {
     label: 'PAPER-2000',
-    url: APP.urls.pages.paper(APP.params.conference_name, 'PAPER-2000')
+    url: APP.urls.pages.paperDetail(APP.params.conference_name, 'PAPER-2000')
   },
   {label: 'Reviews'}
 ]);
@@ -367,8 +373,8 @@ URLs are rendered into `window.APP.urls` by Django, grouped by resource:
 ```javascript
 window.APP = {
   config: {
-    csrf: {token: "...", header: "X-CSRFToken"},
-    siteName: "Conference System",
+    csrf: {cookie: "{% csrf_cookie_name %}", header: "{% csrf_header_name %}"},
+    siteName: "...",
     upload: {submission: {maxSize: 20971520, allowedTypes: [...]}, ...},
   },
   enums: {PaperState: {...}, ...},
@@ -376,10 +382,16 @@ window.APP = {
   urls: {
     session: {
       get: "{% url 'api-1.0.0:get-session' %}",
-      create: "{% url 'api-1.0.0:create-session' %}",
+      delete: "{% url 'api-1.0.0:delete-session' %}",
     },
-    user: {
-      updateProfile: "{% url 'api-1.0.0:update-current-user-profile' %}",
+    conference: {get: urlTemplate(...)},
+    paper: {get: urlTemplate(...)},
+    // ... more resource groups
+    pages: {
+      conferenceHome: urlTemplate(...),
+      paperDetail: urlTemplate(...),
+      adminPaperDetail: urlTemplate(...),
+      // ... more page URL builders
     },
   },
 };
@@ -396,8 +408,8 @@ Use `urlTemplate()` for URLs with dynamic segments:
 urls: {
   paper: {
     get: urlTemplate(
-      "{% url 'api-1.0.0:get-my-paper' '__CONFERENCE__' '00000000000000000000000001' %}",
-      "conference", "ulid"
+      "{% url 'api-1.0.0:get-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+      "conference_name", "paper_code"
     )
   }
 }
@@ -405,33 +417,37 @@ urls: {
 <!-- markdownlint-enable MD013 -->
 
 // Usage - call with values
-APP.urls.paper.get("icse-2025", "01ARZ3NDEKTSV4RRFFQ69G5FAV")
+APP.urls.paper.get("icse-2025", "PAPER-2000")
 ```
 
 **Placeholder types:**
 
-- Named: `__PARAM_NAME__` for string params (e.g., conference names)
+- Named: `__PARAM_NAME__` for string params (e.g., `"conference_name"` ->
+  `__CONFERENCE_NAME__`)
 - ULID: Sequential placeholder ULIDs for ULID params (use `"ulid"` as param name)
 
 -> Example: `app/frontend/templates/frontend/layouts/base.html`
 
 ## Context Processor
 
-Global template variables that don't change per-request:
+Injects Cloudflare Turnstile configuration into all template contexts:
 
 ```python
-def config(_: Any) -> dict[str, Any]:
+def cf_turnstile(_: Any) -> dict[str, Any]:
     return {
-        "redirect_field_name": ProtectedView.redirect_field_name,
-        "settings": {
-            "SITE_NAME": settings.SITE_NAME,
-            "CSRF_HEADER_NAME": ...,
-            "CF_TURNSTILE": {...},
+        "cf_turnstile": {
+            "enabled": enabled,
+            "site_key": settings.CF_TURNSTILE_SITE_KEY,
+            "response_header_name": settings.CF_TURNSTILE_RESPONSE_HEADER_NAME,
         },
     }
 ```
 
--> Example: `app/frontend/context_processors.py`
+Other global values (`site_name`, `csrf_cookie_name`, `redirect_field_name`, etc.) are
+provided by template tags in `app/frontend/templatetags/frontend_tags.py`, not context
+processors.
+
+-> Implementation: `app/frontend/context_processors.py`
 
 ## Enums
 
@@ -659,10 +675,11 @@ variable:
 <!-- markdownlint-disable MD013 -->
 
   ```html
-  <div
-    style="overflow-x: auto;"
-    :style="{'--cols': isAdmin ? 'minmax(10rem,1fr) 8rem 10rem' : 'minmax(10rem,1fr) 8rem'}"
-  >
+
+<div
+  style="overflow-x: auto;"
+  :style="{'--cols': isAdmin ? 'minmax(10rem,1fr) 8rem 10rem' : 'minmax(10rem,1fr) 8rem'}"
+>
   ```
 
 <!-- markdownlint-enable MD013 -->
