@@ -75,6 +75,59 @@ services:
       - default
       - nginx-proxy
 
+  litestream:
+    image: litestream/litestream:0.5
+    profiles: [ "backup" ]
+    user: "${APP_UID:-900}"
+    logging: *default-logging
+    volumes:
+      - ${HOST_DATA_DIR:-./.data}:/data
+      - ./docker/litestream.yml:/etc/litestream.yml:ro
+    environment:
+      LITESTREAM_WEBDAV_URL: ${BACKUP_WEBDAV_URL}
+      LITESTREAM_WEBDAV_USER: ${BACKUP_WEBDAV_USER}
+      LITESTREAM_WEBDAV_PASS: ${BACKUP_WEBDAV_PASS}
+    command: [ "replicate" ]
+    depends_on:
+      app:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 64m
+    restart: unless-stopped
+
+  rclone:
+    image: rclone/rclone:1
+    profiles: [ "backup" ]
+    user: "${APP_UID:-900}"
+    logging: *default-logging
+    volumes:
+      - ${HOST_DATA_DIR:-./.data}/media:/media:ro
+    environment:
+      RCLONE_CONFIG_BACKUP_TYPE: webdav
+      RCLONE_CONFIG_BACKUP_URL: ${BACKUP_WEBDAV_URL}
+      RCLONE_CONFIG_BACKUP_USER: ${BACKUP_WEBDAV_USER}
+      RCLONE_CONFIG_BACKUP_PASS: ${BACKUP_WEBDAV_PASS}
+      BACKUP_MEDIA_INTERVAL: ${BACKUP_MEDIA_INTERVAL:-21600}
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        RCLONE_CONFIG_BACKUP_PASS=$$(rclone obscure "$$RCLONE_CONFIG_BACKUP_PASS") && \
+        export RCLONE_CONFIG_BACKUP_PASS && \
+        while true; do
+          rclone sync /media backup:media/ --log-level INFO
+          sleep $$BACKUP_MEDIA_INTERVAL
+        done
+    depends_on:
+      app:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+    restart: unless-stopped
+
 networks:
   nginx-proxy:
     external: true
