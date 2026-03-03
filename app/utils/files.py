@@ -1,6 +1,7 @@
 import sys
 from collections.abc import Mapping, Sequence
 from functools import lru_cache
+from hashlib import sha256
 from pathlib import Path
 from typing import Literal
 from urllib.parse import quote
@@ -104,6 +105,23 @@ def validate_upload(
             raise ExtensionMismatchError(
                 _("File extension does not match detected type.")
             )
+
+
+def compute_sha256(file: UploadedFile, *, chunk_size: int = 2**16) -> str:
+    """Compute the SHA-256 hex digest of an uploaded file.
+
+    Reads the file in chunks so large uploads don't need to fit in memory at once. The
+    file position is reset to its original location after hashing.
+    """
+    original_pos = file.tell()
+    file.seek(0)
+
+    hasher = sha256()
+    while chunk := file.read(chunk_size):
+        hasher.update(chunk)
+
+    file.seek(original_pos)
+    return hasher.hexdigest()
 
 
 def build_file_download_response(

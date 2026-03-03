@@ -248,6 +248,7 @@ class PaperSubmission(TimeStampedModel, ULIDModel):
     )
     revision = models.PositiveIntegerField(_("revision"), default=0)
     file = models.FileField(_("file"), upload_to=paper_submission_path)
+    sha256 = models.CharField(_("SHA-256"), max_length=64, default="")
     uploader = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
@@ -332,6 +333,13 @@ class PaperFinal(TimeStampedModel, ULIDModel):
         _("viewable file"),
         upload_to=paper_final_viewable_path,
         blank=True,
+    )
+    source_sha256 = models.CharField(_("source SHA-256"), max_length=64, default="")
+    viewable_sha256 = models.CharField(
+        _("viewable SHA-256"),
+        max_length=64,
+        blank=True,
+        default="",
     )
     uploader = models.ForeignKey(
         User,

@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -160,6 +161,7 @@ class TestRevisionServiceCreateSubmission:
         assert db_submission.paper == submission.paper == paper
         assert db_submission.revision == submission.revision == 1
         assert db_submission.uploader == submission.uploader == user
+        assert db_submission.sha256 == hashlib.sha256(b"content").hexdigest()
 
     def test_increments_revision_number(self, paper: Paper, user: User) -> None:
         PaperSubmission.objects.create(paper=paper, revision=1, file="old.pdf")
@@ -407,6 +409,8 @@ class TestRevisionServiceCreateFinal:
         assert db_final.paper == final.paper == paper
         assert db_final.revision == final.revision == 1
         assert db_final.uploader == final.uploader == user
+        assert db_final.source_sha256 == hashlib.sha256(b"source content").hexdigest()
+        assert db_final.viewable_sha256 == ""
 
     def test_increments_revision_number(self, paper: Paper, user: User) -> None:
         PaperFinal.objects.create(paper=paper, revision=1, source_file="old.zip")
@@ -451,6 +455,8 @@ class TestRevisionServiceCreateFinal:
         assert Path(final.source_file.path).exists()
         assert Path(final.viewable_file.path).exists()
         assert Path(final.viewable_file.path).read_bytes() == b"viewable content"
+        assert final.source_sha256 == hashlib.sha256(b"source").hexdigest()
+        assert final.viewable_sha256 == hashlib.sha256(b"viewable content").hexdigest()
 
     def test_calls_validate_upload_for_source_file(
         self,

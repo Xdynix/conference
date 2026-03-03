@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -14,6 +15,7 @@ from app.utils.files import (
     InvalidFileTypeError,
     MissingFilenameError,
     build_file_download_response,
+    compute_sha256,
     get_magika,
     validate_upload,
 )
@@ -593,3 +595,34 @@ class TestBuildFileDownloadResponse:
         response = build_file_download_response(mock, disposition="attachment")
 
         assert response["Content-Disposition"] == "attachment"
+
+
+class TestComputeSha256:
+    def test_returns_correct_digest(self) -> None:
+        content = b"hello world"
+        expected = hashlib.sha256(content).hexdigest()
+        file = SimpleUploadedFile("test.bin", content)
+
+        assert compute_sha256(file) == expected
+
+    def test_resets_file_position(self) -> None:
+        file = SimpleUploadedFile("test.bin", b"data")
+        file.seek(2)
+
+        compute_sha256(file)
+
+        assert file.tell() == 2
+
+    def test_handles_empty_file(self) -> None:
+        expected = hashlib.sha256(b"").hexdigest()
+        file = SimpleUploadedFile("empty.bin", b"")
+
+        assert compute_sha256(file) == expected
+
+    def test_consistent_across_calls(self) -> None:
+        file = SimpleUploadedFile("test.bin", b"consistent content")
+
+        first = compute_sha256(file)
+        second = compute_sha256(file)
+
+        assert first == second
