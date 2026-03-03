@@ -8,6 +8,11 @@ __all__ = (
     "ConferenceRole",
     "ConferenceRoleAssignment",
     "ConferenceVisibility",
+    "DuplicateAcknowledgment",
+    "DuplicateMatch",
+    "DuplicateMatchType",
+    "DuplicateReport",
+    "DuplicateReportState",
     "EmailSendLog",
     "IEEEeCopyrightConfig",
     "IEEEeCopyrightConsent",
@@ -55,6 +60,13 @@ from .conference import (
     TrackVisibility,
 )
 from .document import AcceptanceLetter, ConferenceFile, Receipt
+from .duplicate import (
+    DuplicateAcknowledgment,
+    DuplicateMatch,
+    DuplicateMatchType,
+    DuplicateReport,
+    DuplicateReportState,
+)
 from .email import EmailSendLog
 from .ieee_ecopyright import IEEEeCopyrightConfig, IEEEeCopyrightConsent
 from .invitation import (
