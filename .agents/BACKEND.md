@@ -214,7 +214,9 @@ Both role enums provide grouping helpers: `admins()` returns [CHAIR, SECRETARY];
 ### Two-Layer Enforcement
 
 **Layer 1 — API gate**: The `auth=` parameter on each endpoint controls entry using
-composable `SessionAuth` instances from `app/core/auth.py`:
+composable `SessionAuth` instances. Two modules provide guards:
+
+`app/core/auth.py` — global guards:
 
 - `is_authenticated` — any active, logged-in user. Use when further scoping happens at
   layer 2 (e.g., "list my papers").
@@ -222,10 +224,16 @@ composable `SessionAuth` instances from `app/core/auth.py`:
 - `has_any_roles(GlobalRole.ADMIN, GlobalRole.READ_ALL)` — admins or read-all users.
 - Combine with `&` (all required) or `|` (any sufficient) for composed guards.
 
+`app/conference/auth.py` — conference-scoped guards that resolve the conference from URL
+path parameters and check conference or track roles. Most conference endpoints use
+these. Use global guards only for platform-wide endpoints (user management, sessions) or
+when combined with conference guards via `|`.
+
 **Layer 2 — data scoping**: Services use `ConferenceAccessService.context()` to build a
 `ConferenceAccessContext` and filter querysets by the user's effective scope.
 
--> Implementation: `app/core/auth.py`, `app/conference/services/access.py`.
+-> Implementation: `app/core/auth.py`, `app/conference/auth.py`,
+`app/conference/services/access.py`.
 
 ### ConferenceAccessContext Pattern
 
@@ -264,6 +272,34 @@ Who can assign which roles (enforced by `ConferenceService.validate_can_assign_r
 | Track Secretary          | None             | REVIEWER, MEMBER (own tracks) |
 
 -> Implementation: `app/conference/services/conference.py`.
+
+### Input Sanitization
+
+User-facing text fields in request schemas use `BeforeValidator` with sanitization
+functions from `app/utils/sanitization.py`. Define constrained type aliases in the app's
+`types.py` and reuse them across schemas:
+
+```python
+from pydantic import BeforeValidator, StringConstraints
+from typing import Annotated
+from app.utils.sanitization import sanitize_text, sanitize_formatted_text
+
+# Single-line text (titles, names, keywords)
+KeywordText = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    StringConstraints(min_length=1, max_length=100),
+]
+
+# Multi-line text (abstracts, descriptions, comments)
+PaperAbstract = Annotated[
+    str,
+    BeforeValidator(sanitize_formatted_text),
+    StringConstraints(max_length=10_000),
+]
+```
+
+-> Example: `app/conference/types.py`.
 
 ## Schema Design
 
@@ -329,7 +365,7 @@ Always chain exceptions with `from exc` to preserve the original traceback:
 
 ```python
 except PaperStateError as exc:
-    raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 ```
 
 ### Logging Practices
@@ -367,9 +403,9 @@ Resource members and action sections are alphabetical.
 await audit(
     request=request,
     action=AuditAction.PAPER_SUBMIT,
-    resource=paper,          # Auditable instance; extracts metadata automatically
-    scope=conference.name,   # conference-scoped; omit for global endpoints
-    payload=payload,         # BaseModel or dict; auto-serialized
+    resource=paper,  # Auditable instance; extracts metadata automatically
+    scope=conference.name,  # conference-scoped; omit for global endpoints
+    payload=payload,  # BaseModel or dict; auto-serialized
 )
 ```
 
