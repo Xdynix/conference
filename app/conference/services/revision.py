@@ -6,7 +6,7 @@ from django.db.models import Max
 from app.conference.models import Paper, PaperFinal, PaperState, PaperSubmission
 from app.core.models import User
 from app.infra.models import Mutex
-from app.utils.files import validate_upload
+from app.utils.files import compute_sha256, validate_upload
 
 
 class FinalRevisionLimitError(Exception):
@@ -76,6 +76,7 @@ class RevisionService:
                 submission = PaperSubmission(
                     paper=paper,
                     revision=revision,
+                    sha256=compute_sha256(file),
                     uploader=uploader,
                 )
                 submission.file.save(file.name, file, save=False)
@@ -172,11 +173,13 @@ class RevisionService:
                 final = PaperFinal(
                     paper=paper,
                     revision=revision,
+                    source_sha256=compute_sha256(source_file),
                     uploader=uploader,
                 )
                 final.source_file.save(source_file.name, source_file, save=False)
                 new_source_name = final.source_file.name
                 if viewable_file:
+                    final.viewable_sha256 = compute_sha256(viewable_file)
                     final.viewable_file.save(
                         viewable_file.name,
                         viewable_file,
