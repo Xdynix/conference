@@ -59,8 +59,9 @@ discussion.
 ## Project Overview
 
 A Django 5.2+ application with Python 3.13+, async-first architecture, and ASGI
-deployment. The frontend uses Alpine.js with Bootstrap, served via Django templates
-(no SPA, no bundlers).
+deployment. The current deployment target is SQLite; application code should remain
+database-backend agnostic. The frontend uses Alpine.js with Bootstrap, served via Django
+templates (no SPA, no bundlers).
 
 ## Backend Development
 
@@ -107,7 +108,11 @@ The project follows Django's app-based architecture.
 - **`app/verikit/`** - User identity verification toolkit (email verification).
 - **`app/infra/`** - Infrastructure services (background jobs, scheduling, mutex locks).
 - **`app/misc/`** - Miscellaneous utilities and views.
-- **`app/admin/`** - Django admin customizations.
+- **`app/admin/`** - Custom admin site (login, headers, permissions). Model-specific
+  `ModelAdmin` registrations live in each app's own `admin.py` or `admin/` package.
+- **`app/audit/`** - Structured audit logging. All mutation API endpoints must call
+  `audit()` from this app to record who did what. See the Backend Development guide for
+  the call pattern and conventions.
 - **`app/frontend/`** - Frontend templates, static files, and views.
 
 When adding new features, choose the appropriate app based on responsibility:
