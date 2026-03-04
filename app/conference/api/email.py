@@ -1,3 +1,4 @@
+from email.utils import formataddr
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -147,6 +148,7 @@ class SendEmailRequest(Schema):
     subject: str = Field(min_length=1, max_length=998)
     body: str = Field(min_length=1, max_length=100_000)
     format: Literal["text", "html"] = "text"
+    from_name: str = Field(default="", max_length=255)
     cc: list[EmailStr] = Field(default_factory=list, max_length=100)
     bcc: list[EmailStr] = Field(default_factory=list, max_length=100)
     reply_to: EmailStr | None = None
@@ -202,11 +204,17 @@ async def build_email_message(
     subject = sanitize_email_subject(payload.subject)
     reply_to = [payload.reply_to] if payload.reply_to else []
 
+    if payload.from_name:
+        from_email = formataddr((payload.from_name, settings.DEFAULT_FROM_EMAIL))
+    else:
+        from_email = None
+
     resolved = await resolve_attachments(conference, payload.attachments)
 
     message = EmailMessage(
         subject=subject,
         body=payload.body,
+        from_email=from_email,
         to=payload.to,
         cc=payload.cc,
         bcc=payload.bcc,

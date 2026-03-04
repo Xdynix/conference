@@ -3,6 +3,7 @@ from http import HTTPStatus
 from typing import Any
 
 import pytest
+from django.conf import LazySettings
 from django.core.files.base import ContentFile
 from django.core.mail import EmailMessage
 from django.test import Client
@@ -189,6 +190,27 @@ class TestSendEmail:
         assert sent_email.cc == ["cc@example.com"]
         assert sent_email.bcc == ["bcc@example.com"]
         assert sent_email.reply_to == ["reply@example.com"]
+
+    def test_from_name(
+        self,
+        mailoutbox: list[EmailMessage],
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        settings: LazySettings,
+    ) -> None:
+        settings.DEFAULT_FROM_EMAIL = "noreply@example.com"
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=make_payload(from_name="Program Committee"),
+        )
+        assert response.status_code == HTTPStatus.OK
+        assert response.json()["sent"] is True
+
+        [sent_email] = mailoutbox
+        assert sent_email.from_email == "Program Committee <noreply@example.com>"
 
     def test_subject_sanitized(
         self,
