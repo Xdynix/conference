@@ -138,7 +138,7 @@ When adding new features, choose the appropriate app based on responsibility:
 - **`api.py` or `api/`** - Django Ninja API endpoints with routers and request/response
   schemas.
 - **`services.py` or `services/`** - Business logic and service layer.
-- **`jobs.py`** - Background job definitions.
+- **`jobs.py`** - Background job definitions (auto-discovered by `runscheduler`).
 - **`types.py`** - Shared Pydantic schemas and rich type aliases.
 
 ## Code Quality Standards
