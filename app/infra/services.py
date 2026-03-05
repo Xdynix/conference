@@ -1,3 +1,15 @@
+"""Shared background scheduler for the application.
+
+The ``scheduler`` instance is the single APScheduler ``BackgroundScheduler`` used across
+the project. Apps register periodic jobs by defining a ``jobs.py`` module that imports
+``scheduler`` and decorates functions with ``@scheduler.scheduled_job(...)``. The
+``runscheduler`` management command auto-discovers these modules at startup by importing
+``<app>.jobs`` for every installed application.
+
+See ``app/infra/management/commands/runscheduler.py`` for the discovery logic and any
+existing ``jobs.py`` (e.g. ``app/infra/jobs.py``) for the registration pattern.
+"""
+
 __all__ = ("scheduler",)
 
 from typing import Any
