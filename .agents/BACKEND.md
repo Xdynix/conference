@@ -457,6 +457,43 @@ models in foundational packages (`app/core/`) to avoid circular dependencies; pa
 - **Docstrings**: Begin with a clear prose description aimed at API consumers and omit
   Google-style sections so the text renders cleanly in the documentation.
 
+## Background Jobs
+
+The project uses APScheduler (`BackgroundScheduler`) for periodic tasks. The shared
+scheduler instance lives in `app/infra/services.py`, and the `runscheduler` management
+command (`app/infra/management/commands/runscheduler.py`) starts it as a long-running
+process.
+
+### Job Auto-Discovery
+
+At startup, `runscheduler` iterates all installed Django apps and imports each app's
+`.jobs` module (suppressing `ModuleNotFoundError` for apps that don't have one). This
+import triggers `@scheduler.scheduled_job(...)` decorators, which register the jobs with
+the scheduler.
+
+### Adding a New Job
+
+1. Create or open `jobs.py` in the target app (e.g., `app/conference/jobs.py`).
+2. Import the scheduler and decorate the function:
+
+   ```python
+   from app.infra.services import scheduler
+
+   @scheduler.scheduled_job("cron", hour="*/6", jitter=120)
+   def my_periodic_task() -> None:
+       ...
+   ```
+
+3. The job will be picked up automatically on the next `runscheduler` start; no
+   registration boilerplate is needed.
+
+### Conventions
+
+- Keep job functions focused; delegate complex logic to service methods.
+- Use `jitter` to spread execution when exact timing is not critical.
+- Jobs run outside Django's request-response cycle, so database connections are cleaned
+  up automatically by a listener in `app/infra/services.py`.
+
 ## Testing
 
 ### Framework and Database Testing

@@ -516,6 +516,28 @@ ALLOWED_CONFERENCE_FILE_TYPES: dict[str, list[str]] = {
     "image/jpeg": [".jpg", ".jpeg"],
 }
 
+DUPLICATE_SCAN_WINDOW = config("DUPLICATE_SCAN_WINDOW", default=365 * 3, cast=days)
+
+DUPLICATE_PAPER_COUNT_CAP = config("DUPLICATE_PAPER_COUNT_CAP", default=5000, cast=int)
+
+DUPLICATE_TITLE_SIMILARITY_THRESHOLD = config(
+    "DUPLICATE_TITLE_SIMILARITY_THRESHOLD",
+    default=0.85,
+    cast=float,
+)
+
+DUPLICATE_RETENTION_SUCCESSFUL = config(
+    "DUPLICATE_RETENTION_SUCCESSFUL",
+    default=3,
+    cast=int,
+)
+
+DUPLICATE_RETENTION_FAILED = config(
+    "DUPLICATE_RETENTION_FAILED",
+    default=2,
+    cast=int,
+)
+
 # Frontend
 
 BRANDING_LOGO_URL = config("BRANDING_LOGO_URL", default="")
