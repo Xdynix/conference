@@ -3,6 +3,7 @@ from django.db import models
 from django.db.models import F, Q
 from django.utils.translation import gettext_lazy as _
 
+from app.audit.types import Auditable, AuditResource, AuditResourceInfo
 from app.utils.models import TimeStampedModel
 
 from .conference import Conference
@@ -109,7 +110,7 @@ class DuplicateMatch(models.Model):
         return f"{self.paper_a_id}-{self.paper_b_id} ({self.match_type})"
 
 
-class DuplicateAcknowledgment(TimeStampedModel):
+class DuplicateAcknowledgment(Auditable, TimeStampedModel):
     """Records that a conference admin has reviewed a duplicate pair.
 
     Acknowledgments are scoped to a conference: Conference A's acknowledgment does not
@@ -174,3 +175,10 @@ class DuplicateAcknowledgment(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"[{self.conference}] {self.paper_a_id}-{self.paper_b_id}"
+
+    def audit_resource_info(self) -> AuditResourceInfo:
+        return AuditResourceInfo(
+            resource=AuditResource.DUPLICATE_ACK,
+            resource_id=f"{self.conference_id}:{self.paper_a_id}-{self.paper_b_id}",
+            resource_label=str(self),
+        )

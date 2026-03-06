@@ -6,6 +6,7 @@ from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 from faker import Faker
+from ulid import ULID
 
 from app.conference.models import (
     Conference,
@@ -26,7 +27,7 @@ from app.conference.models.duplicate import (
     DuplicateReportState,
 )
 from app.core.models import User
-from tests.helpers import ApproxDatetime, any_str, update_object
+from tests.helpers import ApproxDatetime, any_str, approx_now, update_object
 
 
 def make_paper(
@@ -688,4 +689,588 @@ class TestGetDuplicateReport:
         api_client.force_login(track_admin)
 
         response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestUpdateDuplicateAcknowledgment:
+    @classmethod
+    def path(cls, conference_name: str, paper_uid_a: ULID, paper_uid_b: ULID) -> str:
+        return reverse(
+            "api-1.0.0:update-duplicate-acknowledgment",
+            args=[conference_name, paper_uid_a, paper_uid_b],
+        )
+
+    def test_creates_new_acknowledgment(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        Profile.objects.create(
+            user=conference_chair,
+            given_name="Admin",
+            family_name="Chair",
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+            data={"note": "Confirmed duplicate."},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["note"] == "Confirmed duplicate."
+        assert data["create_time"] == approx_now()
+        assert data["update_time"] == approx_now()
+        assert data["user"]["uid"] == str(conference_chair.uid)
+        assert data["user"]["profile"]["given_name"] == "Admin"
+
+        assert conference.duplicate_acknowledgments.filter(
+            paper_a=paper_a,
+            paper_b=paper_b,
+            note="Confirmed duplicate.",
+        ).exists()
+
+    def test_updates_existing_acknowledgment(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        ack = DuplicateAcknowledgment.objects.create(
+            **canonical_pair(paper_a, paper_b),
+            conference=conference,
+            user=conference_chair,
+            note="Old note.",
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+            data={"note": "Updated note."},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["note"] == "Updated note."
+
+        assert conference.duplicate_acknowledgments.count() == 1
+        ack.refresh_from_db()
+        assert ack.note == "Updated note."
+
+    def test_empty_note_default(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        api_client.force_login(conference_chair)
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json()["note"] == ""
+
+    def test_normalizes_paper_pair_order(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        """Passing UIDs in reverse order still creates a canonical pair."""
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        api_client.force_login(conference_chair)
+
+        # Pass UIDs in reverse order (larger UID first).
+        if paper_a.pk < paper_b.pk:
+            path = self.path(conference.name, paper_b.uid, paper_a.uid)
+        else:
+            self.path(conference.name, paper_a.uid, paper_b.uid)
+        response = api_client.put(path, data={})
+        assert response.status_code == HTTPStatus.OK
+
+        ack = DuplicateAcknowledgment.objects.get(conference=conference)
+        assert ack.paper_a_id == min(paper_a.pk, paper_b.pk)
+        assert ack.paper_b_id == max(paper_a.pk, paper_b.pk)
+
+    def test_conference_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        api_client.force_login(conference_chair)
+
+        response = api_client.put(
+            self.path("nonexistent", paper_a.uid, paper_b.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_inactive_conference_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        update_object(conference, active=False)
+        api_client.force_login(conference_chair)
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_paper_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        api_client.force_login(conference_chair)
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, ULID()),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_deleted_paper_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        update_object(paper_b, delete_time=timezone.now())
+        api_client.force_login(conference_chair)
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_authorization_unauthenticated(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_authorization_user_without_roles(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        api_client.force_login(user)
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_authorization_global_admin(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, global_admin, "P-001")
+        paper_b = make_paper(conference, track, global_admin, "P-002")
+        api_client.force_login(global_admin)
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+    def test_authorization_conference_chair(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        api_client.force_login(conference_chair)
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+    def test_authorization_global_read_all_forbidden(
+        self,
+        api_client: Client,
+        global_read_all: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, global_read_all, "P-001")
+        paper_b = make_paper(conference, track, global_read_all, "P-002")
+        api_client.force_login(global_read_all)
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_authorization_track_admin_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        track_admin = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=track_admin,
+            role=TrackRole.CHAIR,
+        )
+        paper_a = make_paper(conference, track, track_admin, "P-001")
+        paper_b = make_paper(conference, track, track_admin, "P-002")
+        api_client.force_login(track_admin)
+
+        response = api_client.put(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+            data={},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.mark.django_db
+class TestDeleteDuplicateAcknowledgment:
+    @classmethod
+    def path(cls, conference_name: str, paper_uid_a: ULID, paper_uid_b: ULID) -> str:
+        return reverse(
+            "api-1.0.0:delete-duplicate-acknowledgment",
+            args=[conference_name, paper_uid_a, paper_uid_b],
+        )
+
+    def test_deletes_acknowledgment(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        DuplicateAcknowledgment.objects.create(
+            **canonical_pair(paper_a, paper_b),
+            conference=conference,
+            user=conference_chair,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+        )
+        assert response.status_code == HTTPStatus.NO_CONTENT
+
+        assert not conference.duplicate_acknowledgments.exists()
+
+    def test_acknowledgment_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        api_client.force_login(conference_chair)
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_acknowledgment_scoped_to_conference(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+        other_conference: Conference,
+        other_track: Track,
+    ) -> None:
+        """Deleting from conference A does not find an ack belonging to conference B."""
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(other_conference, other_track, conference_chair, "O-001")
+        DuplicateAcknowledgment.objects.create(
+            **canonical_pair(paper_a, paper_b),
+            conference=other_conference,
+            user=conference_chair,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+        # The other conference's ack should still exist.
+        assert other_conference.duplicate_acknowledgments.exists()
+
+    def test_conference_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        api_client.force_login(conference_chair)
+
+        response = api_client.delete(
+            self.path("nonexistent", paper_a.uid, paper_b.uid),
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_inactive_conference_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        DuplicateAcknowledgment.objects.create(
+            **canonical_pair(paper_a, paper_b),
+            conference=conference,
+            user=conference_chair,
+        )
+        update_object(conference, active=False)
+        api_client.force_login(conference_chair)
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_paper_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        api_client.force_login(conference_chair)
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, ULID()),
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_deleted_paper_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        DuplicateAcknowledgment.objects.create(
+            **canonical_pair(paper_a, paper_b),
+            conference=conference,
+            user=conference_chair,
+        )
+        update_object(paper_b, delete_time=timezone.now())
+        api_client.force_login(conference_chair)
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_normalizes_paper_pair_order(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        """Passing UIDs in reverse order still finds the canonical ack."""
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        DuplicateAcknowledgment.objects.create(
+            **canonical_pair(paper_a, paper_b),
+            conference=conference,
+            user=conference_chair,
+        )
+        api_client.force_login(conference_chair)
+
+        # Pass UIDs in reverse order (larger PK first).
+        if paper_a.pk < paper_b.pk:
+            path = self.path(conference.name, paper_b.uid, paper_a.uid)
+        else:
+            path = self.path(conference.name, paper_a.uid, paper_b.uid)
+        response = api_client.delete(path)
+        assert response.status_code == HTTPStatus.NO_CONTENT
+
+        assert not conference.duplicate_acknowledgments.exists()
+
+    def test_authorization_unauthenticated(
+        self,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_authorization_user_without_roles(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        track: Track,
+        conference_chair: User,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        api_client.force_login(user)
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_authorization_global_admin(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, global_admin, "P-001")
+        paper_b = make_paper(conference, track, global_admin, "P-002")
+        DuplicateAcknowledgment.objects.create(
+            **canonical_pair(paper_a, paper_b),
+            conference=conference,
+            user=global_admin,
+        )
+        api_client.force_login(global_admin)
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+        )
+        assert response.status_code == HTTPStatus.NO_CONTENT
+
+    def test_authorization_conference_chair(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, conference_chair, "P-001")
+        paper_b = make_paper(conference, track, conference_chair, "P-002")
+        DuplicateAcknowledgment.objects.create(
+            **canonical_pair(paper_a, paper_b),
+            conference=conference,
+            user=conference_chair,
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+        )
+        assert response.status_code == HTTPStatus.NO_CONTENT
+
+    def test_authorization_global_read_all_forbidden(
+        self,
+        api_client: Client,
+        global_read_all: User,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        paper_a = make_paper(conference, track, global_read_all, "P-001")
+        paper_b = make_paper(conference, track, global_read_all, "P-002")
+        api_client.force_login(global_read_all)
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    def test_authorization_track_admin_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        track: Track,
+    ) -> None:
+        track_admin = User.objects.create_user(username=faker.user_name())
+        TrackRoleAssignment.objects.create(
+            track=track,
+            user=track_admin,
+            role=TrackRole.CHAIR,
+        )
+        paper_a = make_paper(conference, track, track_admin, "P-001")
+        paper_b = make_paper(conference, track, track_admin, "P-002")
+        api_client.force_login(track_admin)
+
+        response = api_client.delete(
+            self.path(conference.name, paper_a.uid, paper_b.uid),
+        )
         assert response.status_code == HTTPStatus.FORBIDDEN
