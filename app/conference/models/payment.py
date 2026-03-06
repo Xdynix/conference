@@ -57,6 +57,10 @@ class PaymentType(models.TextChoices):
     REFUND = "Refund", _("Refund")
 
 
+# TODO: Integrate with online payment gateways (e.g. Stripe, PayPal) to accept payments
+#  directly. This will likely require new PaymentMethod choices, a gateway configuration
+#  model per conference, and webhook handlers for payment confirmation and refund
+#  callbacks.
 class PaymentMethod(models.TextChoices):
     OTHER = "Other", _("Other")
     CREDIT_CARD = "Credit Card", _("Credit Card")

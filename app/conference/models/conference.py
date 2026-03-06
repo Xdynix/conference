@@ -39,6 +39,8 @@ class Conference(Auditable, TimeStampedModel):
         max_length=255,
         help_text=_("Full title of the conference."),
     )
+    # TODO: Support a full data export (including uploaded files) for a
+    #  conference so that it can be safely hard-deleted to free up space.
     active = models.BooleanField(
         _("active"),
         default=True,
@@ -329,3 +331,8 @@ class Track(Auditable, TimeStampedModel, ULIDModel):
             resource_id=str(self.uid),
             resource_label=self.display_name,
         )
+
+
+# TODO: Add an Announcement model (tied to a Conference) to display messages on the
+#  conference home page. Support both short banner-style messages and longer full-size
+#  articles. Will need a corresponding API and frontend pages.

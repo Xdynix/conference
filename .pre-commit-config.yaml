@@ -1,3 +1,7 @@
+# TODO: No CI/CD yet. Pre-commit hooks cover linting. Next steps to consider:
+# - Add a pre-push hook to run tests before pushing.
+# - Add a git post-receive hook on the server for auto-deploy (rebuild + restart).
+# - Revisit full CI/CD if the team grows or deploys become frequent.
 default_install_hook_types:
   - pre-commit
   - commit-msg
