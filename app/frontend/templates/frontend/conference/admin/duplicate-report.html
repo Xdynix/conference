@@ -1,0 +1,353 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Admin: Duplicate Report | {% endblock %}
+
+{% block content %}
+  <div
+    x-data="duplicateReport()"
+    x-init="
+      $store.sidebar.setActive('admin-papers');
+      $store.breadcrumb.set([
+        {label: 'Papers', href: '{% url "frontend:admin-paper-list" conference_name=params.conference_name %}'},
+        {label: 'Duplicate Report'},
+      ]);
+    "
+    class="d-flex flex-column flex-grow-1 mx-auto w-100"
+    style="min-height: 0; max-width: 60rem;"
+  >
+    <h1 class="h3 mb-4">Duplicate Report</h1>
+
+    <div x-show="$store.conference.loading || loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
+
+    <div x-show="!loading && notFound" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">No duplicate report available yet.</p>
+    </div>
+
+    <div x-show="!loading && error && !notFound" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Failed to load duplicate report.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && report" x-cloak>
+      <p class="text-muted small mb-3">
+        Report generated <span x-text="formatDate(report?.create_time)"></span>
+      </p>
+
+      <div x-show="report?.matches?.length === 0" x-cloak class="text-muted text-center py-4 border rounded">
+        No duplicate matches found.
+      </div>
+
+      <div x-show="report?.matches?.length > 0" x-cloak style="overflow-x: auto;">
+        {# Column header #}
+        <div
+          class="d-grid align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted fw-medium"
+          style="grid-template-columns: 7rem 4rem 1fr 1fr 6rem; column-gap: 0.75rem;"
+        >
+          <span>Type</span>
+          <span>Score</span>
+          <span>Paper 1</span>
+          <span>Paper 2</span>
+          <span class="text-end">Status</span>
+        </div>
+
+        {# Match rows #}
+        <template x-for="match in (report?.matches || [])" :key="match._key">
+          <div class="border-bottom">
+            <div
+              class="d-grid align-items-center px-3 py-2"
+              style="grid-template-columns: 7rem 4rem 1fr 1fr 6rem; column-gap: 0.75rem;"
+            >
+              <span class="small">
+                <span
+                  class="badge"
+                  :class="match.match_type === APP.enums.DuplicateMatchType.FILE_HASH.value ? 'text-bg-danger' : 'text-bg-warning'"
+                  x-text="enumLabel(APP.enums.DuplicateMatchType, match.match_type)"
+                ></span>
+              </span>
+              <span class="small" x-text="match.score.toFixed(2)"></span>
+              <template x-for="paper in match.pair" :key="paper.uid">
+                <span class="small text-truncate">
+                  <template x-if="paper.visibility === 'visible'">
+                    <a
+                      :href="APP.urls.pages.adminPaperDetail(paper.conference, paper.code)"
+                      class="text-decoration-none"
+                      target="_blank"
+                    >
+                      <span x-text="paper.conference + ' / ' + paper.code"></span>
+                      <template x-if="paper.title">
+                        <span class="text-muted" x-text="' · ' + paper.title"></span>
+                      </template>
+                    </a>
+                  </template>
+                  <template x-if="paper.visibility === 'conference_only'">
+                    <a
+                      :href="APP.urls.pages.conferenceHome(paper.conference)"
+                      class="text-decoration-none"
+                      target="_blank"
+                      x-text="'A paper from ' + paper.conference"
+                    ></a>
+                  </template>
+                  <template x-if="paper.visibility === 'redacted'">
+                    <span class="text-muted fst-italic">Another conference</span>
+                  </template>
+                </span>
+              </template>
+              <span class="text-end">
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  :class="match.acknowledgment ? 'btn-outline-success' : 'btn-outline-secondary'"
+                  @click="openAckModal(match)"
+                >
+                  <i class="bi" :class="match.acknowledgment ? 'bi-check-circle-fill' : 'bi-circle'"></i>
+                  <span class="visually-hidden">Acknowledgment</span>
+                </button>
+              </span>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    {# Acknowledgment modal #}
+    <div
+      class="modal fade"
+      id="ack-modal"
+      tabindex="-1"
+      aria-hidden="true"
+      data-bs-backdrop="static"
+      data-bs-keyboard="false"
+    >
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Duplicate Acknowledgment</h5>
+            <button
+              x-show="!ackModal.saving && !ackModal.removing"
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <template x-if="ackModal.match">
+              <div>
+                <div class="mb-3 small">
+                  <div class="d-flex gap-2 mb-1">
+                    <span
+                      class="badge"
+                      :class="ackModal.match.match_type === APP.enums.DuplicateMatchType.FILE_HASH.value ? 'text-bg-danger' : 'text-bg-warning'"
+                      x-text="enumLabel(APP.enums.DuplicateMatchType, ackModal.match.match_type)"
+                    ></span>
+                    <span class="text-muted">
+                      Score: <span x-text="ackModal.match.score.toFixed(2)"></span>
+                    </span>
+                  </div>
+                  <template x-for="paper in ackModal.match.pair" :key="paper.uid">
+                    <div class="mt-2">
+                      <template x-if="paper.visibility === 'visible'">
+                        <div>
+                          <a
+                            :href="APP.urls.pages.adminPaperDetail(paper.conference, paper.code)"
+                            class="text-decoration-none fw-medium"
+                            target="_blank"
+                            x-text="paper.conference + ' / ' + paper.code"
+                          ></a>
+                          <template x-if="paper.title">
+                            <span x-text="' · ' + paper.title"></span>
+                          </template>
+                        </div>
+                      </template>
+                      <template x-if="paper.visibility === 'conference_only'">
+                        <a
+                          :href="APP.urls.pages.conferenceHome(paper.conference)"
+                          class="text-decoration-none"
+                          target="_blank"
+                          x-text="'A paper from ' + paper.conference"
+                        ></a>
+                      </template>
+                      <template x-if="paper.visibility === 'redacted'">
+                        <span class="text-muted fst-italic">A paper from another conference</span>
+                      </template>
+                    </div>
+                  </template>
+                </div>
+
+                <template x-if="ackModal.match.acknowledgment">
+                  <p class="text-muted small mb-3">
+                    Acknowledged by
+                    <span
+                      x-text="formatProfileName(ackModal.match.acknowledgment.user?.profile) || ackModal.match.acknowledgment.user?.email || 'Unknown'"
+                    ></span>
+                    on
+                    <span x-text="formatDate(ackModal.match.acknowledgment.update_time)"></span>
+                  </p>
+                </template>
+
+                <div class="mb-3">
+                  <label for="ack-note" class="form-label">Note <span class="text-muted">(optional)</span></label>
+                  <textarea
+                    id="ack-note"
+                    class="form-control"
+                    rows="3"
+                    x-model="ackModal.note"
+                    placeholder="e.g. Confirmed false positive, different authors..."
+                  ></textarea>
+                </div>
+
+                <template x-if="ackModal.error">
+                  <div class="alert alert-danger small py-2" x-text="ackModal.error"></div>
+                </template>
+              </div>
+            </template>
+          </div>
+          <div class="modal-footer">
+            <template x-if="ackModal.match?.acknowledgment">
+              <button
+                type="button"
+                class="btn btn-outline-danger me-auto"
+                :disabled="ackModal.saving || ackModal.removing"
+                @click="removeAck()"
+              >
+                <span x-show="ackModal.removing" class="spinner-border spinner-border-sm me-1"></span>
+                Remove
+              </button>
+            </template>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+              :disabled="ackModal.saving || ackModal.removing"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary"
+              :disabled="ackModal.saving || ackModal.removing"
+              @click="saveAck()"
+            >
+              <span x-show="ackModal.saving" class="spinner-border spinner-border-sm me-1"></span>
+              <span x-text="ackModal.match?.acknowledgment ? 'Update' : 'Acknowledge'"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function duplicateReport() {
+      const conferenceName = APP.params.conference_name;
+
+      return {
+        report: null,
+        loading: true,
+        error: null,
+        notFound: false,
+
+        ackModal: {
+          match: null,
+          note: "",
+          saving: false,
+          removing: false,
+          error: null,
+        },
+
+        async init() {
+          await this.loadReport();
+        },
+
+        async loadReport() {
+          this.loading = true;
+          this.error = null;
+          this.notFound = false;
+
+          try {
+            const url = "{% url 'api-1.0.0:get-duplicate-report' conference_name=params.conference_name %}";
+            const {data} = await api.get(url);
+            this.report = data;
+            this.normalizeMatches();
+          } catch (e) {
+            if (e.response?.status === 404) {
+              this.notFound = true;
+            } else {
+              this.error = e;
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        normalizeMatches() {
+          if (!this.report?.matches) return;
+          for (const match of this.report.matches) {
+            const [a, b] = match.pair;
+            if (b.conference === conferenceName && a.conference !== conferenceName) {
+              match.pair = [b, a];
+            }
+            match._key = `${match.match_type}:${match.pair[0].uid}:${match.pair[1].uid}`;
+          }
+        },
+
+        openAckModal(match) {
+          this.ackModal = {
+            match,
+            note: match.acknowledgment?.note || "",
+            saving: false,
+            removing: false,
+            error: null,
+          };
+          new bootstrap.Modal(document.getElementById("ack-modal")).show();
+        },
+
+        async saveAck() {
+          if (this.ackModal.saving) return;
+          this.ackModal.saving = true;
+          this.ackModal.error = null;
+
+          try {
+            const pair = this.ackModal.match.pair;
+            const url = APP.urls.duplicateAck.update(conferenceName, pair[0].uid, pair[1].uid);
+            await api.put(url, {note: this.ackModal.note});
+            bootstrap.Modal.getInstance(document.getElementById("ack-modal")).hide();
+            await this.loadReport();
+          } catch (e) {
+            this.ackModal.error = e.response?.data?.message || "Failed to save acknowledgment.";
+          } finally {
+            this.ackModal.saving = false;
+          }
+        },
+
+        async removeAck() {
+          if (this.ackModal.removing) return;
+          this.ackModal.removing = true;
+          this.ackModal.error = null;
+
+          try {
+            const pair = this.ackModal.match.pair;
+            const deleteUrl = APP.urls.duplicateAck.delete(conferenceName, pair[0].uid, pair[1].uid);
+            await api.delete(deleteUrl);
+            bootstrap.Modal.getInstance(document.getElementById("ack-modal")).hide();
+            await this.loadReport();
+          } catch (e) {
+            this.ackModal.error = e.response?.data?.message || "Failed to remove acknowledgment.";
+          } finally {
+            this.ackModal.removing = false;
+          }
+        },
+      };
+    }
+  </script>
+{% endblock %}

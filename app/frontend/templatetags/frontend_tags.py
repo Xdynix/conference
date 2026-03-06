@@ -12,6 +12,7 @@ from django.utils.safestring import SafeString, mark_safe
 from app.conference.models import (
     ConferenceRole,
     ConferenceVisibility,
+    DuplicateMatchType,
     Invitation,
     PaperState,
     PaymentCurrency,
@@ -155,6 +156,7 @@ def enums_json() -> SafeString:
                     collections=["admins", "reviewers"],
                 ),
                 "ConferenceVisibility": _enum_to_dict(ConferenceVisibility),
+                "DuplicateMatchType": _enum_to_dict(DuplicateMatchType),
                 "GlobalRole": _enum_to_dict(GlobalRole),
                 "InvitationState": _enum_to_dict(Invitation.State),
                 "PaperState": _enum_to_dict(
