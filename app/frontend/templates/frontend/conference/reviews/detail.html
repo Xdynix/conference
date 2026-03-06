@@ -127,7 +127,7 @@
                         class="btn btn-success"
                         @click="
                           if ($refs.reviewForm.reportValidity()) {
-                            new bootstrap.Modal(document.getElementById('submit-review-modal')).show();
+                            bootstrap.Modal.getOrCreateInstance(document.getElementById('submit-review-modal')).show();
                           }
                         "
                       >

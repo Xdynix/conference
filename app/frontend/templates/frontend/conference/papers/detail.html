@@ -779,7 +779,7 @@
           if (sourceInput) sourceInput.value = '';
           if (viewableInput) viewableInput.value = '';
 
-          new bootstrap.Modal(document.getElementById('final-upload-modal')).show();
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('final-upload-modal')).show();
         },
 
         async uploadFinal() {
