@@ -226,6 +226,20 @@
           "ulid",
         ),
       },
+      duplicateAck: {
+        update: urlTemplate(
+          "{% url 'api-1.0.0:update-duplicate-acknowledgment' conference_name='__CONFERENCE_NAME__' paper_uid_a='00000000000000000000000001' paper_uid_b='00000000000000000000000002' %}",
+          "conference_name",
+          "ulid",
+          "ulid",
+        ),
+        delete: urlTemplate(
+          "{% url 'api-1.0.0:delete-duplicate-acknowledgment' conference_name='__CONFERENCE_NAME__' paper_uid_a='00000000000000000000000001' paper_uid_b='00000000000000000000000002' %}",
+          "conference_name",
+          "ulid",
+          "ulid",
+        ),
+      },
       pages: {
         conferenceHome: urlTemplate(
           "{% url 'frontend:conference-home' conference_name='__CONFERENCE_NAME__' %}",
