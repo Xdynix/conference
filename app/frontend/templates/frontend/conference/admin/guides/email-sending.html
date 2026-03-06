@@ -1,0 +1,10 @@
+{% extends "frontend/conference/admin/guides/detail.html" %}
+{% load frontend_tags %}
+
+{% block guide_title %}Email Sending{% endblock %}
+{% block breadcrumb_label %}Email Sending{% endblock %}
+{% block copy_url %}{% url 'api-1.0.0:get-doc' params.conference_name 'email-sending-guide' %}{% endblock %}
+
+{% block guide_content %}
+  {% render_markdown_file "docs/email-sending-api-guide.md" %}
+{% endblock %}

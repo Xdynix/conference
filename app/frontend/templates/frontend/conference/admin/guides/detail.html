@@ -1,0 +1,63 @@
+{% extends "frontend/layouts/app.html" %}
+{% load static frontend_tags %}
+
+{% block title %}Admin: {% block guide_title %}{% endblock %} | {% endblock %}
+
+{% block styles %}
+  <link rel="stylesheet" href="{% static 'frontend/vendor/github-markdown-css/css/github-markdown.min.css' %}">
+  <link rel="stylesheet" href="{% static 'frontend/vendor/highlightjs/css/atom-one-light.min.css' %}">
+  <link
+    rel="stylesheet"
+    href="{% static 'frontend/vendor/highlightjs/css/atom-one-dark.min.css' %}"
+    media="(prefers-color-scheme: dark)"
+  >
+{% endblock %}
+
+{% block content %}
+  <div
+    x-data="{ copying: false, copied: false }"
+    x-init="
+      $store.sidebar.setActive('admin-guides');
+      $store.breadcrumb.set([
+        {label: 'API Guides', url: '{% url 'frontend:admin-guide-index' conference_name=params.conference_name %}'},
+        {label: '{% block breadcrumb_label %}{% endblock %}'},
+      ]);
+    "
+    class="mx-auto w-100"
+    style="max-width: 60rem;"
+  >
+    <div class="d-flex justify-content-end mb-4">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1"
+        :disabled="copying"
+        @click="
+          copying = true;
+          try {
+            const r = await api.get('{% block copy_url %}{% endblock %}');
+            await navigator.clipboard.writeText(r.data);
+            copied = true;
+            setTimeout(() => copied = false, 2000);
+          } catch {}
+          copying = false;
+        "
+      >
+        <span x-show="copying" x-cloak class="spinner-border spinner-border-sm me-1" role="status"></span>
+        <i x-show="!copying && !copied" class="bi-clipboard me-1"></i>
+        <i x-show="!copying && copied" x-cloak class="bi-check me-1"></i>
+        <span x-text="copied ? 'Copied!' : 'Copy Markdown'"></span>
+      </button>
+    </div>
+    {# TODO: github-markdown-css follows the browser color-scheme preference, not our theme override. #}
+    <div class="markdown-body p-4">
+      {% block guide_content %}{% endblock %}
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script src="{% static 'frontend/vendor/highlightjs/js/highlight.min.js' %}"></script>
+  <script src="{% static 'frontend/vendor/highlightjs/js/http.min.js' %}"></script>
+  <script>hljs.highlightAll();</script>
+{% endblock %}

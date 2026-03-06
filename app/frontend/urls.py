@@ -168,6 +168,25 @@ urlpatterns = [
         name="admin-members",
     ),
     path(
+        "<slug:conference_name>/admin/guides/",
+        protected_view(template_name="frontend/conference/admin/guides/index.html"),
+        name="admin-guide-index",
+    ),
+    path(
+        "<slug:conference_name>/admin/guides/batch-import/",
+        protected_view(
+            template_name="frontend/conference/admin/guides/batch-import.html"
+        ),
+        name="admin-guide-batch-import",
+    ),
+    path(
+        "<slug:conference_name>/admin/guides/email-sending/",
+        protected_view(
+            template_name="frontend/conference/admin/guides/email-sending.html"
+        ),
+        name="admin-guide-email-sending",
+    ),
+    path(
         "<slug:conference_name>/admin/settings/",
         protected_view(template_name="frontend/conference/admin/settings.html"),
         name="admin-settings",

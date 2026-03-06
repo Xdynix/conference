@@ -2,16 +2,14 @@ from django.conf import settings
 from django.http import Http404, HttpResponse
 from ninja import Router
 
-from app.conference.auth import has_any_conference_or_track_roles
-from app.conference.models import ConferenceRole, TrackRole
-from app.core.auth import has_any_roles
-from app.core.models import GlobalRole
+from app.core.auth import is_authenticated
 from app.core.types import AuthedHttpRequest
 
 router = Router(tags=["Doc"], exclude_none=True)
 
 DOCS: dict[str, str] = {
     "batch-import-guide": "docs/batch-import-api-guide.md",
+    "email-sending-guide": "docs/email-sending-api-guide.md",
 }
 
 
@@ -29,13 +27,7 @@ DOCS: dict[str, str] = {
         }
     },
     summary="Get Doc",
-    auth=(
-        has_any_roles(GlobalRole.ADMIN, GlobalRole.READ_ALL)
-        | has_any_conference_or_track_roles(
-            *ConferenceRole.admins(),
-            *TrackRole.admins(),
-        )
-    ),
+    auth=is_authenticated,
 )
 async def get_doc(
     request: AuthedHttpRequest,  # noqa: ARG001
