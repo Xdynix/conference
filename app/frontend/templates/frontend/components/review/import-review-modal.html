@@ -105,7 +105,7 @@ Required template context:
           importing: false,
           onSuccess: onSuccess,
         };
-        new bootstrap.Modal(document.getElementById('import-review-modal')).show();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('import-review-modal')).show();
       },
 
       async submitImportReview() {

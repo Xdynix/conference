@@ -157,7 +157,7 @@ Example:
             return `${announced} of ${total} papers announced.`;
           }
         });
-        new bootstrap.Modal(document.getElementById('announce-modal')).show();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('announce-modal')).show();
       },
 
       async announceConfirm() {

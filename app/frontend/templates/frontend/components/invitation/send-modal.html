@@ -286,7 +286,7 @@ Example:
             return `${sent} of ${total} emails sent.`;
           },
         });
-        new bootstrap.Modal(document.getElementById("send-invitations-modal")).show();
+        bootstrap.Modal.getOrCreateInstance(document.getElementById("send-invitations-modal")).show();
       },
 
       async previewEmail() {

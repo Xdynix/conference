@@ -309,7 +309,7 @@
             removing: false,
             error: null,
           };
-          new bootstrap.Modal(document.getElementById("ack-modal")).show();
+          bootstrap.Modal.getOrCreateInstance(document.getElementById("ack-modal")).show();
         },
 
         async saveAck() {

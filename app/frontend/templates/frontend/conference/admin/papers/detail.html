@@ -585,7 +585,7 @@
             saving: false,
             error: null,
           };
-          new bootstrap.Modal(document.getElementById('final-limit-modal')).show();
+          bootstrap.Modal.getOrCreateInstance(document.getElementById('final-limit-modal')).show();
         },
 
         async saveFinalLimit() {
