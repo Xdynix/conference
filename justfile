@@ -37,6 +37,10 @@ shell:
 seed-dummy:
     uv run manage.py runscript seed-dummy
 
+# populate the database with realistic staging data (flushes DB first)
+seed-staging:
+    uv run --group test manage.py runscript seed-staging
+
 # start development services
 [parallel]
 dev: dev-app dev-mailer dev-scheduler
