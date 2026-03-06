@@ -1,3 +1,4 @@
+from http import HTTPStatus
 from typing import Annotated, Literal
 
 from django.db.models import Q
@@ -7,22 +8,21 @@ from ninja import Field, Router, Schema
 from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 from ulid import ULID
 
+from app.audit.services import audit
+from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import (
     Conference,
     ConferenceRole,
+    DuplicateAcknowledgment,
+    DuplicateMatch,
     DuplicateMatchType,
+    DuplicateReport,
+    DuplicateReportState,
     Paper,
     PaperState,
 )
-from app.conference.models.duplicate import (
-    DuplicateAcknowledgment,
-    DuplicateMatch,
-    DuplicateReport,
-    DuplicateReportState,
-)
-from app.conference.services.access import ConferenceAccessService
-from app.conference.services.conference import ConferenceService
+from app.conference.services import ConferenceAccessService, ConferenceService
 from app.conference.types import (
     ConferenceName,
     ConferenceUser,
@@ -198,6 +198,100 @@ async def get_duplicate_report(
     )
 
 
+class UpdateDuplicateAcknowledgeRequest(Schema):
+    note: DuplicateAcknowledgmentNote = ""
+
+
+@router.put(
+    "/conferences/{slug:conference_name}/duplicate-acknowledgments"
+    "/{ulid:paper_uid_a}-{ulid:paper_uid_b}",
+    response=DuplicateAcknowledgmentSchema,
+    summary="Update Duplicate Match",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def update_duplicate_acknowledgment(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    paper_uid_a: ULID,
+    paper_uid_b: ULID,
+    payload: UpdateDuplicateAcknowledgeRequest,
+) -> DuplicateAcknowledgment:
+    """Creates or updates an acknowledgment for a duplicate paper pair."""
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+    user = await request.auser()
+
+    paper_a, paper_b = await _resolve_paper_pair(paper_uid_a, paper_uid_b)
+    ack, _ = await DuplicateAcknowledgment.objects.aupdate_or_create(
+        conference=conference,
+        paper_a=paper_a,
+        paper_b=paper_b,
+        defaults={"user": user, "note": payload.note},
+    )
+
+    # Re-fetch to populate the user profile for serialization.
+    ack = await DuplicateAcknowledgment.objects.select_related(
+        "conference",
+        "user__profile",
+    ).aget(pk=ack.pk)
+
+    await audit(
+        request=request,
+        action=AuditAction.DUPLICATE_ACK_UPSERT,
+        resource=ack,
+        scope=conference.name,
+        payload=payload,
+    )
+
+    return ack
+
+
+@router.delete(
+    "/conferences/{slug:conference_name}/duplicate-acknowledgments"
+    "/{ulid:paper_uid_a}-{ulid:paper_uid_b}",
+    response={HTTPStatus.NO_CONTENT: None},
+    summary="Delete Duplicate Acknowledgment",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def delete_duplicate_acknowledgment(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    paper_uid_a: ULID,
+    paper_uid_b: ULID,
+) -> tuple[int, None]:
+    """Removes the acknowledgment for a duplicate paper pair."""
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+
+    paper_a, paper_b = await _resolve_paper_pair(paper_uid_a, paper_uid_b)
+    ack = await aget_object_or_404(
+        DuplicateAcknowledgment.objects.select_related("conference"),
+        conference=conference,
+        paper_a=paper_a,
+        paper_b=paper_b,
+    )
+    await ack.adelete()
+
+    await audit(
+        request=request,
+        action=AuditAction.DUPLICATE_ACK_DELETE,
+        resource=ack,
+        scope=conference.name,
+    )
+
+    return HTTPStatus.NO_CONTENT, None
+
+
 def _paper_view(
     paper: Paper,
     admin_conference_ids: set[int],
@@ -239,3 +333,11 @@ def _paper_view(
         withdraw_time=None,
         title=None,
     )
+
+
+async def _resolve_paper_pair(uid_a: ULID, uid_b: ULID) -> tuple[Paper, Paper]:
+    paper_a = await aget_object_or_404(Paper.objects.active(), uid=uid_a)
+    paper_b = await aget_object_or_404(Paper.objects.active(), uid=uid_b)
+    if paper_a.pk > paper_b.pk:
+        paper_a, paper_b = paper_b, paper_a
+    return paper_a, paper_b

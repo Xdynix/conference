@@ -9,6 +9,7 @@ class AuditResource(StrEnum):
     CODE_POOL = "code_pool"
     CONFERENCE_FILE = "conference_file"
     CONFERENCE = "conference"
+    DUPLICATE_ACK = "duplicate_ack"
     EMAIL_VERIFICATION = "email_verification"
     EMAIL = "email"
     INVITATION = "invitation"
@@ -55,6 +56,10 @@ class AuditAction(StrEnum):
     # Conference File
     CONFERENCE_FILE_UPLOAD = "conference_file.upload"
     CONFERENCE_FILE_DELETE = "conference_file.delete"
+
+    # Duplicate Acknowledgment
+    DUPLICATE_ACK_UPSERT = "duplicate_ack.upsert"
+    DUPLICATE_ACK_DELETE = "duplicate_ack.delete"
 
     # Email
     EMAIL_SEND = "email.send"
