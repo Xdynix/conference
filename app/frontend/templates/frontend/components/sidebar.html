@@ -128,6 +128,16 @@
               Members
             </a>
           </li>
+          <li class="nav-item">
+            <a
+              class="nav-link d-flex align-items-center gap-2"
+              :class="{'active': $store.sidebar.active === 'admin-guides'}"
+              href="{% url 'frontend:admin-guide-index' conference_name=params.conference_name %}"
+            >
+              <i class="bi-book"></i>
+              API Guides
+            </a>
+          </li>
         </ul>
       </div>
     </template>

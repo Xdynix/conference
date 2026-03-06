@@ -1,0 +1,51 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Admin: API Guides | {% endblock %}
+
+{% block content %}
+  <div
+    x-data="{
+      guides: [
+        {
+          title: 'Batch Import',
+          description: 'Import papers, authors and reviews in bulk via the API.',
+          url: '{% url 'frontend:admin-guide-batch-import' conference_name=params.conference_name %}',
+        },
+        {
+          title: 'Email Sending',
+          description: 'Send emails with attachments (acceptance letters, receipts, generic files) via the API.',
+          url: '{% url 'frontend:admin-guide-email-sending' conference_name=params.conference_name %}',
+          show: () => $store.permissions.isConferenceAdmin,
+        },
+      ],
+      get visibleGuides() {
+        return this.guides.filter(g => !g.show || g.show());
+      },
+    }"
+    x-init="
+      $store.sidebar.setActive('admin-guides');
+      $store.breadcrumb.set([{label: 'API Guides'}]);
+    "
+    class="mx-auto w-100"
+    style="max-width: 60rem;"
+  >
+    <h1 class="h3 mb-4">API Guides</h1>
+    <p class="text-muted mb-4">
+      Step-by-step guides for scripting common administrative tasks through the API.
+    </p>
+    <div class="list-group list-group-flush">
+      <template x-for="guide in visibleGuides" :key="guide.url">
+        <a
+          :href="guide.url"
+          class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+        >
+          <div>
+            <h5 class="mb-1" x-text="guide.title"></h5>
+            <p class="mb-0 text-muted small" x-text="guide.description"></p>
+          </div>
+          <i class="bi-chevron-right text-muted"></i>
+        </a>
+      </template>
+    </div>
+  </div>
+{% endblock %}
