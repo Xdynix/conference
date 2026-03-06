@@ -628,7 +628,7 @@ def mutation_headers(session: requests.Session) -> dict[str, str]:
 
 
 def check_response(resp: requests.Response, context: str) -> dict | None:
-    """Check response status and return JSON body, or exit on failure."""
+    """Check response status and return JSON body, or None on failure."""
     if resp.ok:
         if resp.headers.get("content-type", "").startswith("application/json"):
             return resp.json()
