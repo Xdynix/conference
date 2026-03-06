@@ -86,6 +86,15 @@
                 Notify Reviewers
               </a>
             </template>
+            <template x-if="$store.permissions.isConferenceAdmin">
+              <a
+                href="{% url 'frontend:admin-duplicate-report' conference_name=params.conference_name %}"
+                class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2"
+              >
+                <i class="bi-copy"></i>
+                Duplicate Report
+              </a>
+            </template>
             <template x-if="$store.conference.detail?.ieee_ecopyright_config && $store.permissions.isChairRole">
               <button
                 type="button"
