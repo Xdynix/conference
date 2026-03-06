@@ -395,6 +395,7 @@
     {# Modals #}
     {% include "frontend/components/paper/acceptance-letter-modal.html" %}
     {% include "frontend/components/paper/announce-modal.html" %}
+    {% include "frontend/components/bulk-download-modal.html" %}
   </div>
 {% endblock %}
 
@@ -463,6 +464,7 @@
         ...UrlState.use(adminPaperListSchema),
         ...acceptanceLetterModal(),
         ...announceModal(),
+        ...bulkDownloadModal(),
 
         // ---------------------------------------------------------------------------
         // State
@@ -493,10 +495,18 @@
             label: 'Announce',
             auth: (ctx) => ctx.$store.permissions.isConferenceAdmin,
           },
+          {
+            key: 'download-submissions',
+            label: 'Download Submissions',
+          },
+          {
+            key: 'download-finals',
+            label: 'Download Finals',
+          },
         ],
 
         get availableBulkActions() {
-          return this.bulkActions.filter(action => action.auth(this));
+          return this.bulkActions.filter(action => action.auth ? action.auth(this) : true);
         },
 
         showBulkResult(message, failed = false) {
@@ -521,6 +531,43 @@
             this.openLetterModal(codes, onSuccess);
           } else if (this.bulkAction === 'announce') {
             this.openAnnounceModal(codes, onSuccess);
+          } else if (this.bulkAction === 'download-submissions' || this.bulkAction === 'download-finals') {
+            const isSub = this.bulkAction === 'download-submissions';
+            const files = [];
+            for (const code of codes) {
+              const paper = this.allPapers.find(p => p.code === code);
+              if (isSub) {
+                if (paper?.submission?.download_url) {
+                  files.push({url: paper.submission.download_url, filename: paper.submission.display_name});
+                }
+              } else if (paper?.final) {
+                if (paper.final.download_url) {
+                  files.push({url: paper.final.download_url, filename: paper.final.display_name});
+                }
+                if (paper.final.viewable_download_url) {
+                  files.push({url: paper.final.viewable_download_url, filename: paper.final.viewable_display_name});
+                }
+              }
+            }
+            if (files.length > 0) {
+              const now = new Date();
+              const ts = [
+                now.getFullYear(),
+                String(now.getMonth() + 1).padStart(2, '0'),
+                String(now.getDate()).padStart(2, '0'),
+                '-',
+                String(now.getHours()).padStart(2, '0'),
+                String(now.getMinutes()).padStart(2, '0'),
+              ].join('');
+              const label = isSub ? 'Submissions' : 'Finals';
+              const zipFilename = `${APP.params.conference_name} ${label} ${ts}.zip`;
+              this.openBulkDownloadModal({files, zipFilename});
+            } else {
+              const msg = isSub
+                ? 'No submissions found for selected papers.'
+                : 'No final files found for selected papers.';
+              this.showBulkResult(msg, true);
+            }
           }
 
           // Reset bulk action selection

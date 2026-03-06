@@ -1,0 +1,272 @@
+{% comment %}
+Bulk Download Modal
+
+A reusable modal for downloading multiple files as a ZIP archive.
+
+Usage:
+  1. Spread bulkDownloadModal() into the parent component's x-data
+  2. Include this template in your page
+  3. Call openBulkDownloadModal({files, zipFilename}) to start the download
+
+  files: [{url, filename}, ...]
+  zipFilename: name for the resulting ZIP file
+
+  Callers must ensure filenames are unique. Duplicate filenames produce a ZIP
+  with conflicting entries; most extractors silently overwrite earlier files.
+
+Example:
+  <div x-data="{...bulkDownloadModal(), ...otherData}">
+    <button @click="openBulkDownloadModal({files: [...], zipFilename: 'archive.zip'})">
+      Download All
+    </button>
+    {% include "frontend/components/bulk-download-modal.html" %}
+  </div>
+{% endcomment %}
+
+{% load static %}
+<script src="{% static 'frontend/vendor/fflate/js/index.js' %}"></script>
+
+<div
+  class="modal fade"
+  id="bulk-download-modal"
+  tabindex="-1"
+  aria-hidden="true"
+  data-bs-backdrop="static"
+  data-bs-keyboard="false"
+>
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      {# Downloading state: no header close button #}
+      <template x-if="!bulkDownload.done">
+        <div>
+          <div class="modal-header">
+            <h5 class="modal-title">Downloading Files</h5>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <div class="d-flex justify-content-between mb-1">
+                <span class="small" x-text="`${bulkDownload.processed} / ${bulkDownload.total}`"></span>
+                <span
+                  class="small text-muted text-truncate ms-2"
+                  style="max-width: 70%;"
+                  x-text="bulkDownload.currentFilename"
+                ></span>
+              </div>
+              <div class="progress">
+                <div
+                  class="progress-bar progress-bar-striped progress-bar-animated"
+                  :style="`width: ${bulkDownload.total ? Math.round(bulkDownload.processed / bulkDownload.total * 100) : 0}%`"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      {# Summary state: close affordances visible #}
+      <template x-if="bulkDownload.done">
+        <div>
+          <div class="modal-header">
+            <h5 class="modal-title">Download Complete</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="text-center py-3">
+              <template x-if="bulkDownload.successCount > 0">
+                <div class="text-success mb-3">
+                  <i class="bi bi-check-circle fs-1"></i>
+                </div>
+              </template>
+              <template x-if="bulkDownload.successCount === 0">
+                <div class="text-warning mb-3">
+                  <i class="bi bi-exclamation-circle fs-1"></i>
+                </div>
+              </template>
+              <p class="fw-medium mb-1" x-text="bulkDownload.summaryText"></p>
+              <template x-if="bulkDownload.error">
+                <p class="text-danger small mb-1" x-text="bulkDownload.error"></p>
+              </template>
+            </div>
+            <template x-if="bulkDownload.failedResults.length > 0">
+              <div class="mt-2">
+                <p class="small fw-medium mb-2">Failed files:</p>
+                <ul class="list-unstyled small text-muted mb-0">
+                  <template x-for="r in bulkDownload.failedResults" :key="r.filename">
+                    <li class="mb-1">
+                      <i class="bi bi-x-circle text-danger me-1"></i>
+                      <span x-text="r.filename"></span>
+                      <span class="text-muted" x-text="`(${r.error})`"></span>
+                    </li>
+                  </template>
+                </ul>
+              </div>
+            </template>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>
+
+<script>
+  function bulkDownloadModal() {
+    return {
+      bulkDownload: {
+        files: [],
+        zipFilename: 'download.zip',
+        processed: 0,
+        total: 0,
+        currentFilename: '',
+        done: false,
+        running: false,
+        error: null,
+        successCount: 0,
+        failedResults: [],
+        summaryText: '',
+      },
+
+      openBulkDownloadModal({files, zipFilename, maxAttempts = 3}) {
+        if (this.bulkDownload.running || !files?.length) return;
+        this.bulkDownload = {
+          files,
+          zipFilename: zipFilename || 'download.zip',
+          maxAttempts,
+          processed: 0,
+          total: files.length,
+          currentFilename: files[0].filename,
+          done: false,
+          running: true,
+          results: [],
+          error: null,
+          successCount: 0,
+          failedResults: [],
+          summaryText: '',
+        };
+
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('bulk-download-modal')).show();
+        this._runBulkDownload();
+      },
+
+      // TODO: All zip output accumulates in memory. Fine for typical use (a few hundred MB),
+      //  but could hit browser heap limits for very large batches.
+      //  Consider using showSaveFilePicker + WritableStream to flush to disk incrementally if this becomes a problem.
+      async _runBulkDownload() {
+        const {files, zipFilename, maxAttempts} = this.bulkDownload;
+        const results = [];
+
+        try {
+          const chunks = [];
+          let hasSuccess = false;
+          let zipError = null;
+
+          const markAllFailed = (error) => {
+            for (const r of results) {
+              if (r.ok) { r.ok = false; r.error = error; }
+            }
+          };
+
+          const zip = new fflate.Zip();
+          zip.ondata = (err, chunk, _final) => {
+            if (err) zipError = err;
+            else chunks.push(chunk);
+          };
+
+          for (let i = 0; i < files.length; i++) {
+            const {url, filename} = files[i];
+            this.bulkDownload.currentFilename = filename;
+
+            let data = null;
+            let lastError = null;
+
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+              try {
+                const resp = await fetch(url, {
+                  credentials: 'same-origin',
+                  signal: AbortSignal.timeout(60_000),
+                });
+                if (resp.ok) {
+                  data = new Uint8Array(await resp.arrayBuffer());
+                  break;
+                }
+                if (resp.status >= 400 && resp.status < 500 && resp.status !== 429) {
+                  lastError = `${resp.status} ${resp.statusText}`;
+                  break;
+                }
+                // 5xx / 429: retry
+                lastError = `${resp.status} ${resp.statusText}`;
+              } catch (e) {
+                lastError = e.message || 'Network error';
+              }
+              if (attempt < maxAttempts - 1) {
+                await new Promise(r => setTimeout(r, 1000 * (2 ** attempt)));
+              }
+            }
+
+            if (data) {
+              const entry = new fflate.ZipPassThrough(filename);
+              zip.add(entry);
+              entry.push(data, true);
+              if (zipError) break;
+              results.push({filename, ok: true, error: null});
+              hasSuccess = true;
+            } else {
+              results.push({filename, ok: false, error: lastError});
+            }
+
+            this.bulkDownload.processed = i + 1;
+          }
+
+          // Fill in entries for files skipped due to early exit (e.g. zip error).
+          for (let i = results.length; i < files.length; i++) {
+            results.push({filename: files[i].filename, ok: false, error: 'Skipped'});
+          }
+
+          if (zipError) {
+            markAllFailed('Archive creation failed.');
+          }
+
+          if (hasSuccess && !zipError) {
+            // zip.ondata fires synchronously, so zipError is up to date after zip.end().
+            zip.end();
+            if (zipError) {
+              markAllFailed('Archive creation failed.');
+              zip.terminate();
+            } else {
+              const blob = new Blob(chunks, {type: 'application/zip'});
+              const a = document.createElement('a');
+              a.href = URL.createObjectURL(blob);
+              a.download = zipFilename;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+            }
+          } else {
+            zip.terminate();
+          }
+        } catch (e) {
+          console.error('Bulk download failed:', e);
+          this.bulkDownload.error = e.message || 'An unexpected error occurred.';
+        }
+
+        const {total} = this.bulkDownload;
+        const successCount = results.filter(r => r.ok).length;
+        const failed = total - successCount;
+        this.bulkDownload.successCount = successCount;
+        this.bulkDownload.failedResults = results.filter(r => !r.ok);
+        if (successCount === 0) {
+          this.bulkDownload.summaryText = 'No files were downloaded.';
+        } else if (failed === 0) {
+          this.bulkDownload.summaryText = `${successCount} file${successCount > 1 ? 's' : ''} downloaded.`;
+        } else {
+          this.bulkDownload.summaryText = `${successCount} of ${total} file${total > 1 ? 's' : ''} downloaded, ${failed} failed.`;
+        }
+        this.bulkDownload.running = false;
+        this.bulkDownload.done = true;
+      },
+    };
+  }
+</script>
