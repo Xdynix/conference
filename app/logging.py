@@ -126,6 +126,7 @@ def configure_logging(
         )
 
     if sentry_dsn:
+        # TODO: Explore using Sentry to send custom metrics (sentry_sdk.metrics).
         sentry_sdk.init(
             dsn=sentry_dsn,
             integrations=[
