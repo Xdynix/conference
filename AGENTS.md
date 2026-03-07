@@ -72,6 +72,13 @@ When working on API endpoints, services, or backend logic, read `.agents/BACKEND
 When working on templates, Alpine.js components, or frontend logic, read
 `.agents/FRONTEND.md`.
 
+## Business Workflows
+
+When implementing, modifying, or designing features that involve state machines,
+multistep user flows, or cross-cutting behavior spanning backend and frontend, read
+`WORKFLOWS.md` for the existing states, transitions, actor roles, and step-by-step happy
+paths. New workflows should follow the conventions and structure established there.
+
 ## Deployment
 
 When working on Docker configuration, nginx, process management, or production settings,
