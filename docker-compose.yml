@@ -24,6 +24,11 @@ services:
     env_file: .env
     logging: *default-logging
     environment:
+      # Override VIRTUAL_HOST from .env so nginx-proxy does not try to route
+      # traffic directly to the app container (only the nginx sidecar should
+      # be discovered). This does not affect ALLOWED_HOSTS, which is resolved
+      # from the Compose-level variable before the container starts.
+      VIRTUAL_HOST: ""
       # Derived from VIRTUAL_HOST/VIRTUAL_PATH; localhost is needed for the
       # Docker health check which hits granian directly.
       ALLOWED_HOSTS: "localhost,${VIRTUAL_HOST:-}"
