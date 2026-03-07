@@ -645,6 +645,7 @@
             this.form.oldPassword = "";
             this.form.newPassword = "";
             this.form.confirmPassword = "";
+            await this.$nextTick();
             this.success = true;
           } catch (error) {
             const data = error.response?.data;
