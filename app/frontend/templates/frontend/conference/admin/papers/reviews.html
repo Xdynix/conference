@@ -31,24 +31,25 @@
       </template>
     </div>
 
-    <p class="text-muted mb-4" x-show="paper" x-cloak>
-      <span x-text="paper?.title || 'Untitled'"></span>
-      <template x-if="paper?.track">
-        <span>
-          <span class="mx-1">·</span>
-          <span x-text="paper.track.display_name"></span>
-        </span>
-      </template>
-      <template x-if="paper?.submission">
-        <span>
-          <span class="mx-1">·</span>
-          <a :href="paper.submission.download_url" class="text-decoration-none" target="_blank">
-            <i class="bi bi-file-earmark-text me-1"></i>
-            <span x-text="paper.submission.display_name"></span>
-          </a>
-        </span>
-      </template>
-    </p>
+    <div class="text-muted mb-4" x-show="paper" x-cloak>
+      <div x-text="paper?.title || 'Untitled'"></div>
+      <div class="small mt-1">
+        <template x-if="paper?.track">
+          <span>
+            <span x-text="paper.track.display_name"></span>
+          </span>
+        </template>
+        <template x-if="paper?.submission">
+          <span>
+            <template x-if="paper?.track"><span class="mx-1">·</span></template>
+            <a :href="paper.submission.download_url" class="text-decoration-none" target="_blank">
+              <i class="bi bi-file-earmark-text me-1"></i>
+              <span x-text="paper.submission.display_name"></span>
+            </a>
+          </span>
+        </template>
+      </div>
+    </div>
 
     <div x-show="actionError" x-cloak class="alert alert-danger py-2 mb-4" x-text="actionError"></div>
 
