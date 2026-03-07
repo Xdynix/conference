@@ -85,7 +85,7 @@
           const items = [...data.items].sort((a, b) => {
             const aDate = a.start_date || a.end_date;
             const bDate = b.start_date || b.end_date;
-            if (aDate && bDate) return aDate.localeCompare(bDate) || a.name.localeCompare(b.name);
+            if (aDate && bDate) return bDate.localeCompare(aDate) || a.name.localeCompare(b.name);
             if (aDate) return -1;
             if (bDate) return 1;
             return a.name.localeCompare(b.name);
