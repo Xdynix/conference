@@ -8,7 +8,7 @@
     x-init="
       $store.sidebar.setActive('admin-papers');
       $store.breadcrumb.set([
-        {label: 'Papers', href: '{% url "frontend:admin-paper-list" conference_name=params.conference_name %}'},
+        {label: 'Papers', url: '{% url "frontend:admin-paper-list" conference_name=params.conference_name %}'},
         {label: 'Duplicate Report'},
       ]);
     "
