@@ -58,6 +58,30 @@ def sentry_before_send(event: Event, hint: Hint) -> Event | None:  # pragma: no 
     return event
 
 
+def traces_sampler(sampling_context: dict[str, object]) -> float:  # pragma: no cover
+    """Drop traces for health checks and static file serving."""
+    from django.conf import settings
+
+    asgi_scope = sampling_context.get("asgi_scope")
+    wsgi_environ = sampling_context.get("wsgi_environ")
+    if isinstance(asgi_scope, dict):
+        path = asgi_scope.get("path", "")
+        # ASGI path includes the full URL; strip the subpath prefix if present.
+        prefix = settings.FORCE_SCRIPT_NAME or ""
+        if prefix:
+            path = path.removeprefix(prefix) or "/"
+    elif isinstance(wsgi_environ, dict):
+        # WSGI PATH_INFO is already app-relative.
+        path = wsgi_environ.get("PATH_INFO", "")
+    else:
+        return 1.0
+
+    static_url = settings.STATIC_URL.removeprefix(settings.FORCE_SCRIPT_NAME or "")
+    if path == "/api/health-status" or path.startswith(static_url):
+        return 0
+    return 1.0
+
+
 def configure_logging(
     log_dir: Path | None,
     debug: bool,
@@ -121,5 +145,5 @@ def configure_logging(
             before_send=sentry_before_send,
             environment="development" if debug else "production",
             send_default_pii=False,
-            traces_sample_rate=1.0,
+            traces_sampler=traces_sampler,
         )
