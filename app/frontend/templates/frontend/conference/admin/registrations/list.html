@@ -338,6 +338,7 @@
       'paper', '-paper',
       'state', '-state',
       'payment', '-payment',
+      'receipt', '-receipt',
     ];
 
     const adminRegistrationListStateOptions = Object.values(APP.enums.RegistrationState)
@@ -517,6 +518,15 @@
             value: () => '',
             icon: (r) => r?._hasPaid ? 'bi-check-lg text-success' : '',
             sortValue: (r) => r?._hasPaid ? 1 : 0,
+            nowrap: true,
+            center: true,
+          },
+          {
+            key: 'receipt',
+            label: 'Receipt',
+            value: (r) => r?.receipt_url ? 'View' : '',
+            link: (r) => r?.receipt_url,
+            sortValue: (r) => r?.receipt_url ? 1 : 0,
             nowrap: true,
             center: true,
           },
