@@ -1,6 +1,6 @@
 # Expects an existing nginx-proxy (nginx-proxy/nginx-proxy) network on the host.
 # The nginx sidecar joins it so nginx-proxy can discover the service via
-# VIRTUAL_HOST / VIRTUAL_PATH env vars. To test without nginx-proxy:
+# VIRTUAL_HOST env var. To test without nginx-proxy:
 #
 #   docker network create nginx-proxy
 #
@@ -54,8 +54,9 @@ services:
     logging: *default-logging
     environment:
       VIRTUAL_HOST: ${VIRTUAL_HOST:-}
-      # VIRTUAL_PATH must not have a trailing slash (e.g. /app, not /app/).
-      VIRTUAL_PATH: ${VIRTUAL_PATH:-}
+      # Uncomment for subpath deployments (no trailing slash, e.g. /app).
+      # nginx-proxy generates an invalid config from an empty VIRTUAL_PATH.
+      # VIRTUAL_PATH: ${VIRTUAL_PATH}
       SUBPATH: ${VIRTUAL_PATH:-}
       APP_PORT: ${APP_PORT:-8000}
     depends_on:
