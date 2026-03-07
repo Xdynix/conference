@@ -3,10 +3,13 @@
 {% block title %}Home | {% endblock %}
 
 {% block content %}
-  <div x-data x-init="
-    $store.sidebar.setActive('home');
-    $store.breadcrumb.set([{label: 'Home'}]);
-  ">
+  <div
+    x-data="homePage()"
+    x-init="
+      $store.sidebar.setActive('home');
+      $store.breadcrumb.set([{label: 'Home'}]);
+    "
+  >
     <template x-if="$store.conference.loading">
       <div class="text-center py-5">
         <div class="spinner-border" role="status">
@@ -25,7 +28,7 @@
       <div>
         <header class="mb-4 text-center">
           <h1 class="h3 mb-1" x-text="$store.conference.detail.display_name"></h1>
-          <p class="text-muted mb-2" x-text="conferenceSubtitle()"></p>
+          <p class="text-muted mb-2" x-text="subtitle()"></p>
           <div class="d-flex flex-wrap gap-2 justify-content-center">
             <span
               class="badge"
@@ -86,12 +89,16 @@
 {% block scripts %}
   {{ block.super }}
   <script>
-    function conferenceSubtitle() {
-      const detail = this.$store.conference.detail;
-      if (!detail) return "";
-      const datePart = formatDateRange(detail.start_date, detail.end_date);
-      const location = (detail.location || "").trim();
-      return [datePart, location].filter(Boolean).join(" · ");
+    function homePage() {
+      return {
+        subtitle() {
+          const detail = this.$store.conference.detail;
+          if (!detail) return "";
+          const datePart = formatDateRange(detail.start_date, detail.end_date);
+          const location = (detail.location || "").trim();
+          return [datePart, location].filter(Boolean).join(" · ");
+        },
+      };
     }
   </script>
 {% endblock %}
