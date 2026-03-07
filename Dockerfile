@@ -18,7 +18,7 @@ RUN chown ${APP_USER}:${APP_USER} ${HOME}
 ENV PATH="${HOME}/.venv/bin:$PATH"
 ENV PYTHONPATH="${HOME}"
 
-COPY --from=ghcr.io/astral-sh/uv:0.10.7 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.10.9 /uv /bin/uv
 ENV PYTHONUNBUFFERED=1 \
     PYTHONUTF8=1 \
     UV_COMPILE_BYTECODE=1 \

@@ -87,6 +87,7 @@ SESSION_COOKIE_HTTPONLY = True
 # Application Definition
 
 INSTALLED_APPS = [
+    "servestatic",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
