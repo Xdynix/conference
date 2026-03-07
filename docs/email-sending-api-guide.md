@@ -343,6 +343,7 @@ an email with the acceptance letter and the registration procedure attached.
 """Send acceptance letters with registration procedure to accepted paper authors."""
 
 import sys
+import uuid
 from pathlib import Path
 
 import requests
@@ -359,6 +360,10 @@ CONFERENCE = "CBPK-2025"
 REGISTRATION_PROCEDURE_PATH = "Registration_Procedure.pdf"
 # Slug under which the file will be stored on the server.
 REGISTRATION_PROCEDURE_NAME = "registration-procedure"
+
+# Safety: set to an email address to redirect all emails to that address instead
+# of the real recipients. Set to "" to send to real recipients.
+TEST_OVERRIDE_TO = "your-own-email@example.com"
 
 
 # ---------------------------------------------------------------------------
@@ -466,9 +471,13 @@ def send_acceptance_email(
 ) -> bool:
     """Send an acceptance letter email for a single paper."""
     paper_code = paper["code"]
+    recipient = TEST_OVERRIDE_TO or author_email
+    correlation_prefix = (
+        f"test-{uuid.uuid4().hex[:8]}" if TEST_OVERRIDE_TO else "acceptance-letter"
+    )
     payload = {
-        "correlation_id": f"acceptance-letter:{paper_code}",
-        "to": [author_email],
+        "correlation_id": f"{correlation_prefix}:{paper_code}",
+        "to": [recipient],
         "subject": f"[{CONFERENCE}] Acceptance Notification - {paper_code}",
         "body": (
             f"Dear {author_name},\n\n"
@@ -502,7 +511,7 @@ def send_acceptance_email(
         return False
 
     if result["sent"]:
-        print(f"  Sent acceptance letter for {paper_code} to {author_email}")
+        print(f"  Sent acceptance letter for {paper_code} to {recipient}")
     else:
         print(f"  Skipped {paper_code} (already sent)")
     return True
@@ -537,6 +546,9 @@ def main() -> None:
     ]
     print(f"\nFound {len(accepted_papers)} accepted and announced papers.")
 
+    if TEST_OVERRIDE_TO:
+        print(f"TEST MODE: all emails will be sent to {TEST_OVERRIDE_TO}")
+
     # 4. Send acceptance letters.
     sent = 0
     failed = 0
@@ -570,10 +582,9 @@ if __name__ == "__main__":
 
 ### Script notes
 
-- **Test before sending:** For your first run, limit to a single paper (e.g., add
-  `if paper_code != "PAPER-1001": continue` in the loop) and override the `to` field
-  with your own email. Verify the subject, body, and all attachments arrive correctly
-  before removing the overrides.
+- **Test before sending:** The `TEST_OVERRIDE_TO` variable redirects all emails to your
+  own address. Always start with this set and verify the subject, body, and attachments
+  arrive correctly. Clear it (set to `""`) only after a successful test run.
 - **Idempotency:** The `correlation_id` is set to `"acceptance-letter:{paper_code}"`, so
   running the script again skips papers that were already emailed (the server returns
   `sent: false` with a 200 response). This means you do not need to maintain a local
