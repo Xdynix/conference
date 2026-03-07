@@ -26,8 +26,10 @@ Reference for modifying Docker, nginx, process management, or production setting
    vs. compose `environment`).
 2. Create the external Docker network that nginx-proxy expects:
    `docker network create nginx-proxy`.
-3. Create the host data directory and set ownership to the UID defined by `APP_UID` in
-   the Dockerfile (see the compose file header comment for an example command).
+3. Create the host data directory (including the `media` subdirectory) and set ownership
+   to the UID defined by `APP_UID` in the Dockerfile (see the compose file header
+   comment for an example command). The `media` subdirectory must exist before the first
+   start because the nginx sidecar bind-mounts it directly.
 4. Verify the host-level nginx-proxy `client_max_body_size` is at least as large as the
    sidecar's value in `nginx.conf.template`. A smaller value on the outer proxy silently
    rejects uploads before they reach this stack.

@@ -7,7 +7,7 @@
 # Before first run, ensure the host data directory is owned by the
 # container's non-root user (UID 900 by default):
 #
-#   mkdir -p .data && chown 900:900 .data
+#   mkdir -p .data/media && chown -R 900:900 .data
 
 x-logging: &default-logging
   driver: json-file
