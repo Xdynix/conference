@@ -1,7 +1,9 @@
 from typing import Any
 
 import pytest
+from django.core.mail import EmailMessage
 from django.utils import timezone
+from faker import Faker
 
 from app.conference.models import (
     Conference,
@@ -344,3 +346,58 @@ class TestPaperServiceSubmitPaper:
         assert {"keywords": "At least one keyword is required."} in errors
         assert {"submissions": "A submission file is required."} in errors
         assert {"authors": "At least one author is required."} in errors
+
+
+@pytest.mark.django_db(transaction=True)
+class TestSubmitPaperNotification:
+    @pytest.fixture
+    def owner(self, faker: Faker) -> User:
+        return User.objects.create_user(
+            username=faker.user_name(),
+            email=faker.email(),
+        )
+
+    @pytest.fixture
+    def paper(self, owner: User, conference: Conference, track: Track) -> Paper:
+        return Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=owner,
+            code="PAPER-001",
+            title="Test Paper Title",
+        )
+
+    def test_sends_email_when_notify_is_true(
+        self,
+        owner: User,
+        conference: Conference,
+        track: Track,
+        paper: Paper,
+        mailoutbox: list[EmailMessage],
+    ) -> None:
+        PaperService.submit_paper(paper, strict=False, notify=True)
+
+        [sent] = mailoutbox
+        assert sent.to == [owner.email]
+        assert conference.name in sent.subject
+        assert paper.code in sent.body
+        assert paper.title in sent.body
+        assert track.display_name in sent.body
+
+    def test_no_email_when_notify_is_false(
+        self,
+        paper: Paper,
+        mailoutbox: list[EmailMessage],
+    ) -> None:
+        PaperService.submit_paper(paper, strict=False, notify=False)
+
+        assert len(mailoutbox) == 0
+
+    def test_no_email_by_default(
+        self,
+        paper: Paper,
+        mailoutbox: list[EmailMessage],
+    ) -> None:
+        PaperService.submit_paper(paper, strict=False)
+
+        assert len(mailoutbox) == 0
