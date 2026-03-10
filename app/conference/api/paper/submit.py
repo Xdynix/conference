@@ -50,7 +50,11 @@ async def submit_my_paper(
     )
 
     try:
-        paper = await sync_to_async(PaperService.submit_paper)(paper, strict=True)
+        paper = await sync_to_async(PaperService.submit_paper)(
+            paper,
+            strict=True,
+            notify=True,
+        )
     except PaperStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
     except PaperSubmissionError as exc:
@@ -152,7 +156,11 @@ async def submit_paper(
     )
 
     try:
-        paper = await sync_to_async(PaperService.submit_paper)(paper, strict=False)
+        paper = await sync_to_async(PaperService.submit_paper)(
+            paper,
+            strict=False,
+            notify=False,
+        )
     except PaperStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
     except PaperSubmissionError as exc:

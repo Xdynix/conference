@@ -83,6 +83,7 @@ class TestSubmitMyPaper:
         paper_service_submit.assert_called_once()
         call_kwargs = paper_service_submit.call_args.kwargs
         assert call_kwargs["strict"] is True
+        assert call_kwargs["notify"] is True
 
     def test_handle_paper_state_error(
         self,
@@ -438,6 +439,7 @@ class TestSubmitPaper:
         paper_service_submit.assert_called_once()
         call_kwargs = paper_service_submit.call_args.kwargs
         assert call_kwargs["strict"] is False
+        assert call_kwargs["notify"] is False
 
         mock_visible_papers.assert_awaited_once_with(conference, conference_chair)
 

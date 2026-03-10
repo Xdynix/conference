@@ -1,6 +1,7 @@
 from collections.abc import Collection, Sequence
 from typing import Literal, TypedDict
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -23,6 +24,7 @@ from app.conference.models import (
 )
 from app.core.models import GlobalRole, User
 from app.infra.models import Mutex
+from app.utils.email import EmailContext, EmailFormatName, EmailTemplate
 
 from .access import ConferenceAccessService
 
@@ -55,8 +57,28 @@ class PaperSubmissionError(Exception):
         super().__init__(_("Paper submission validation failed."))
 
 
+class PaperSubmitEmailContext(EmailContext):
+    site_name: str
+    conference_name: str
+    conference_display_name: str
+    track_display_name: str
+    paper_code: str
+    paper_title: str
+
+
+EMAIL_TEMPLATE_DIR = (
+    settings.BASE_DIR / "app" / "conference" / "templates" / "conference"
+)
+
+
 class PaperService:
     max_code_retries = 100
+
+    paper_submit_email_template = EmailTemplate.from_files(
+        subject_path=EMAIL_TEMPLATE_DIR / "paper-submit-email-subject.txt.jinja2",
+        body_path=EMAIL_TEMPLATE_DIR / "paper-submit-email-body.txt.jinja2",
+        format=EmailFormatName.TEXT,
+    )
 
     @classmethod
     def create_paper(
@@ -266,7 +288,13 @@ class PaperService:
             return paper
 
     @classmethod
-    def submit_paper(cls, paper: Paper, *, strict: bool = True) -> Paper:
+    def submit_paper(
+        cls,
+        paper: Paper,
+        *,
+        strict: bool = True,
+        notify: bool = False,
+    ) -> Paper:
         """Submit a paper for review.
 
         Validates required fields and transitions the paper from Draft to
@@ -277,6 +305,8 @@ class PaperService:
             strict: If ``True`` (default), validates all required fields including
                 abstract, contribution, keywords, submission file, and authors.
                 If ``False``, only validates title (for admin bypass).
+            notify: If ``True``, sends a submission confirmation email to the
+                paper owner on transaction commit.
 
         Raises:
             Paper.DoesNotExist: If the paper, its conference, or its track has been
@@ -287,7 +317,11 @@ class PaperService:
                 contains a list of error dictionaries.
         """
         with Mutex.lock_in_transaction(str(paper.pk), namespace="paper"):
-            paper = Paper.objects.active().prefetch_related("authors").get(pk=paper.pk)
+            paper = (
+                Paper.objects.active()
+                .select_related("owner", "conference", "track")
+                .get(pk=paper.pk)
+            )
 
             if paper.withdraw_time is not None:
                 raise PaperWithdrawnError(_("Withdrawn papers cannot be submitted."))
@@ -360,6 +394,19 @@ class PaperService:
             paper.state = PaperState.SUBMITTED
             paper.submit_time = timezone.now()
             paper.save(update_fields=["state", "submit_time", "update_time"])
+
+            if notify:
+                context = PaperSubmitEmailContext(
+                    site_name=settings.SITE_NAME,
+                    conference_name=paper.conference.name,
+                    conference_display_name=paper.conference.display_name,
+                    track_display_name=paper.track.display_name,
+                    paper_code=paper.code,
+                    paper_title=paper.title,
+                )
+                rendered = cls.paper_submit_email_template.render(context)
+                email_message = rendered.build_message(to=paper.owner.email)
+                transaction.on_commit(email_message.send)
 
             return paper
 
