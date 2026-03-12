@@ -9,7 +9,7 @@ from django.db import IntegrityError
 from django.db.models import ProtectedError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from ninja import PatchDict, Schema
+from ninja import PatchDict, Schema, Status
 from ninja.errors import HttpError
 from ulid import ULID
 
@@ -75,7 +75,7 @@ async def create_attendance_type(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreateAttendanceTypeRequest,
-) -> tuple[int, AttendanceType]:
+) -> Status:
     """Create a new attendance type for the conference.
 
     The new type is appended to the end of the ordering.
@@ -120,7 +120,7 @@ async def create_attendance_type(
         payload=payload,
     )
 
-    return HTTPStatus.CREATED, attendance_type
+    return Status(HTTPStatus.CREATED, attendance_type)
 
 
 class AttendanceTypeSchema(Schema):
@@ -203,7 +203,7 @@ async def delete_attendance_type(
     request: AuthedHttpRequest,
     conference_name: str,
     attendance_type_uid: ULID,
-) -> tuple[HTTPStatus, None]:
+) -> Status:
     """Delete an attendance type.
 
     Fails if any registrations are still referencing this type.
@@ -235,7 +235,7 @@ async def delete_attendance_type(
         scope=conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)
 
 
 @router.post(

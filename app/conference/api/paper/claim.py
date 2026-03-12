@@ -3,6 +3,7 @@ from http import HTTPStatus
 from asgiref.sync import sync_to_async
 from django.http import Http404
 from django.shortcuts import aget_object_or_404
+from ninja import Status
 from ninja.errors import HttpError
 
 from app.audit.services import audit
@@ -93,7 +94,7 @@ async def remove_paper_claim(
     request: AuthedHttpRequest,
     conference_name: str,
     paper_code: str,
-) -> tuple[int, None]:
+) -> Status:
     """Remove the claim on a paper, cancelling any pending auto-transfer."""
     user = await request.auser()
     conference = await aget_object_or_404(
@@ -115,4 +116,4 @@ async def remove_paper_claim(
         scope=conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)

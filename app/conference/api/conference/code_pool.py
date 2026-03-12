@@ -6,7 +6,7 @@ from django.db import IntegrityError
 from django.db.models import ProtectedError
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from ninja import Field, PatchDict, Schema
+from ninja import Field, PatchDict, Schema, Status
 from ninja.errors import HttpError
 from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 from ulid import ULID
@@ -99,7 +99,7 @@ async def create_code_pool(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreateCodePoolRequest,
-) -> tuple[int, CodePool]:
+) -> Status:
     """Create a new code pool for the conference."""
     conference = await aget_object_or_404(
         Conference.objects.active(),
@@ -132,7 +132,7 @@ async def create_code_pool(
         payload=payload,
     )
 
-    return HTTPStatus.CREATED, pool
+    return Status(HTTPStatus.CREATED, pool)
 
 
 class CodePoolSchema(Schema):
@@ -211,7 +211,7 @@ async def delete_code_pool(
     request: AuthedHttpRequest,
     conference_name: str,
     code_pool_uid: ULID,
-) -> tuple[int, None]:
+) -> Status:
     """Delete a code pool.
 
     Fails if any tracks are still referencing this pool.
@@ -240,7 +240,7 @@ async def delete_code_pool(
         scope=conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)
 
 
 class TrackCodePoolAssignment(Schema):

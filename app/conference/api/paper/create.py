@@ -5,7 +5,7 @@ from asgiref.sync import sync_to_async
 from django.db import transaction
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from ninja import Field, Schema
+from ninja import Field, Schema, Status
 from ulid import ULID
 
 from app.audit.services import audit
@@ -163,7 +163,7 @@ async def create_draft(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreatePaperRequest,
-) -> tuple[int, Paper]:
+) -> Status:
     """Start a new paper submission by creating a draft in the specified track.
 
     Upload a submission file and use the submit endpoint to mark the paper ready for
@@ -185,7 +185,10 @@ async def create_draft(
         payload=payload,
     )
 
-    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
+    return Status(
+        HTTPStatus.CREATED,
+        await prefetch_paper(conference, paper, user, request),
+    )
 
 
 @router.post(
@@ -207,7 +210,7 @@ async def create_paper(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: AdminCreatePaperRequest,
-) -> tuple[int, Paper]:
+) -> Status:
     """Create a paper as an admin.
 
     This bypasses the track's submissions-enabled check, allowing creation of invited
@@ -231,4 +234,7 @@ async def create_paper(
         payload=payload,
     )
 
-    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
+    return Status(
+        HTTPStatus.CREATED,
+        await prefetch_paper(conference, paper, user, request),
+    )

@@ -2,6 +2,7 @@ from http import HTTPStatus
 
 from django.shortcuts import aget_object_or_404
 from django.utils import timezone
+from ninja import Status
 from ulid import ULID
 
 from app.audit.services import audit
@@ -28,7 +29,7 @@ async def delete_payment(
     request: AuthedHttpRequest,
     conference_name: str,
     payment_uid: ULID,
-) -> tuple[int, None]:
+) -> Status:
     """Soft-deletes a payment record."""
     conference = await aget_object_or_404(
         Conference.objects.active(),
@@ -50,4 +51,4 @@ async def delete_payment(
         scope=conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)

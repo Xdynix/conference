@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from ninja import Schema
+from ninja import Schema, Status
 from ninja.errors import HttpError
 from pydantic import StringConstraints
 from ulid import ULID
@@ -84,7 +84,7 @@ async def create_my_registration(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreateMyRegistrationRequest,
-) -> tuple[int, Registration]:
+) -> Status:
     """Creates a new registration for the current user.
 
     The registration is created in pending state, awaiting payment. A unique reference
@@ -164,4 +164,7 @@ async def create_my_registration(
         payload=payload,
     )
 
-    return HTTPStatus.CREATED, await prefetch_registration(registration, request)
+    return Status(
+        HTTPStatus.CREATED,
+        await prefetch_registration(registration, request),
+    )

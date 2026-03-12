@@ -1,10 +1,10 @@
 from http import HTTPStatus
-from typing import Any, Literal
+from typing import Literal
 
 from asgiref.sync import sync_to_async
 from django.contrib.auth import alogin
 from django.utils.translation import gettext as _
-from ninja import Schema
+from ninja import Schema, Status
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 
@@ -51,7 +51,7 @@ CreateAccountRequest = create_user_registry.extend_schema(
 async def create_account(
     request: HttpRequest,
     payload: CreateAccountRequest,  # type: ignore[valid-type]
-) -> tuple[int, Session]:
+) -> Status:
     """Create a new user account and log them in.
 
     Creates a new account with the provided username, verified email, and password. The
@@ -83,7 +83,7 @@ async def create_account(
         detail=detail,
     )
 
-    return HTTPStatus.CREATED, await Session.from_request(request)
+    return Status(HTTPStatus.CREATED, await Session.from_request(request))
 
 
 class BaseCreateUserRequest(Schema):
@@ -111,7 +111,7 @@ CreateUserRequest = create_user_registry.extend_schema(
 async def create_user(
     request: AuthedHttpRequest,
     payload: CreateUserRequest,  # type: ignore[valid-type]
-) -> tuple[int, dict[str, Any]]:
+) -> Status:
     """Create a new user account by admin.
 
     Allows administrators with write permission to create user accounts. Unlike the
@@ -141,4 +141,4 @@ async def create_user(
         detail=detail,
     )
 
-    return HTTPStatus.CREATED, await user_response_registry.dump(user)
+    return Status(HTTPStatus.CREATED, await user_response_registry.dump(user))

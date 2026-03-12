@@ -4,7 +4,7 @@ from http import HTTPStatus
 from asgiref.sync import sync_to_async
 from django.http import Http404
 from django.utils.translation import gettext as _
-from ninja import Router, Schema
+from ninja import Router, Schema, Status
 
 from app.audit.services import audit
 from app.audit.types import AuditAction, AuditResource
@@ -97,9 +97,7 @@ async def get_current_api_key(request: AuthedHttpRequest) -> ApiKey:
     summary="Revoke Current API Key",
     auth=is_authenticated,
 )
-async def delete_current_api_key(
-    request: AuthedHttpRequest,
-) -> tuple[int, None]:
+async def delete_current_api_key(request: AuthedHttpRequest) -> Status:
     """Revoke the caller's active API key and delete its linked sessions.
 
     Succeeds silently if no active key exists.
@@ -116,4 +114,4 @@ async def delete_current_api_key(
             resource_id=str(api_key.pk),
         )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)

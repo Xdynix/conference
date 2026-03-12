@@ -5,7 +5,7 @@ from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.http import Http404, HttpResponse, StreamingHttpResponse
 from django.shortcuts import aget_object_or_404
-from ninja import File, Router, Schema
+from ninja import File, Router, Schema, Status
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
 from pydantic import AwareDatetime
@@ -120,7 +120,7 @@ async def upload_conference_file(
     conference_name: str,
     conference_file_name: str,
     file: File[UploadedFile],
-) -> tuple[int, ConferenceFile]:
+) -> Status:
     """Create or replace a shared conference file."""
     conference = await aget_object_or_404(
         Conference.objects.active(),
@@ -186,7 +186,7 @@ async def upload_conference_file(
         payload={"file": {"name": file.name or "", "size": file.size or 0}},
     )
 
-    return status, conference_file
+    return Status(status, conference_file)
 
 
 @router.delete(
@@ -202,7 +202,7 @@ async def delete_conference_file(
     request: AuthedHttpRequest,
     conference_name: str,
     conference_file_name: str,
-) -> tuple[int, None]:
+) -> Status:
     """Delete a shared conference file and its stored content."""
     conference = await aget_object_or_404(
         Conference.objects.active(),
@@ -222,4 +222,4 @@ async def delete_conference_file(
         scope=conference_name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)

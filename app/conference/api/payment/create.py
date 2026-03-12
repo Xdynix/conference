@@ -3,7 +3,7 @@ from http import HTTPStatus
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from ninja import Field
+from ninja import Field, Status
 from ninja.errors import HttpError
 from ulid import ULID
 
@@ -55,7 +55,7 @@ async def create_payment(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreatePaymentRequest,
-) -> tuple[int, Payment]:
+) -> Status:
     """Creates a new payment record for offline payment bookkeeping."""
     conference = await aget_object_or_404(
         Conference.objects.active(),
@@ -102,4 +102,4 @@ async def create_payment(
         payload=payload,
     )
 
-    return HTTPStatus.CREATED, await prefetch_payment(payment)
+    return Status(HTTPStatus.CREATED, await prefetch_payment(payment))

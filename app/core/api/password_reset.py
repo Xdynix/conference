@@ -8,7 +8,7 @@ from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.urls import reverse
 from django.utils.translation import gettext as _
-from ninja import Router, Schema
+from ninja import Router, Schema, Status
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from pydantic import SecretStr, StringConstraints
@@ -47,7 +47,7 @@ class CreatePasswordResetResponse(Schema):
 async def create_password_reset(
     request: HttpRequest,
     payload: CreatePasswordResetRequest,
-) -> tuple[int, CreatePasswordResetResponse] | JsonResponse:
+) -> Status | JsonResponse:
     """Request a password reset token for a user account.
 
     Initiates the password reset process by sending an email with a reset token to the
@@ -92,7 +92,7 @@ async def create_password_reset(
             payload=payload,
         )
 
-    return HTTPStatus.CREATED, CreatePasswordResetResponse()
+    return Status(HTTPStatus.CREATED, CreatePasswordResetResponse())
 
 
 class ConsumePasswordResetRequest(Schema):
@@ -116,7 +116,7 @@ class ConsumePasswordResetRequest(Schema):
 async def consume_password_reset(
     request: HttpRequest,
     payload: ConsumePasswordResetRequest,
-) -> tuple[int, None]:
+) -> Status:
     """Reset a user's password using a valid password reset token.
 
     Consumes a password reset token and sets a new password for the user account. The
@@ -173,4 +173,4 @@ async def consume_password_reset(
         payload=payload,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)

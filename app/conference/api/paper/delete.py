@@ -3,6 +3,7 @@ from typing import Literal
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
+from ninja import Status
 from ninja.errors import HttpError
 
 from app.audit.services import audit
@@ -36,7 +37,7 @@ async def delete_my_paper(
     request: AuthedHttpRequest,
     conference_name: str,
     paper_code: str,
-) -> tuple[int, None]:
+) -> Status:
     """Remove a paper from the conference.
 
     Papers can only be deleted while in Draft or Submitted state. Once deleted, the
@@ -65,7 +66,7 @@ async def delete_my_paper(
         scope=conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)
 
 
 @router.delete(
@@ -87,7 +88,7 @@ async def delete_paper(
     request: AuthedHttpRequest,
     conference_name: str,
     paper_code: str,
-) -> tuple[int, None]:
+) -> Status:
     """Remove a paper from the conference as an admin.
 
     Track admins can delete papers in Draft, Submitted, or Under Review state.
@@ -126,4 +127,4 @@ async def delete_paper(
         scope=conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)

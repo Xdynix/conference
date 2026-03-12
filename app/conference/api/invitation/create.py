@@ -3,13 +3,13 @@ from http import HTTPStatus
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from ninja import Field
+from ninja import Field, Status
 from ninja.errors import HttpError
 
 from app.audit.services import audit
 from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
-from app.conference.models import Conference, ConferenceRole, Invitation, TrackRole
+from app.conference.models import Conference, ConferenceRole, TrackRole
 from app.conference.services import InvitationService, KeywordService
 from app.conference.services.conference import InsufficientRolePermission
 from app.conference.services.invitation import DuplicateInvitation
@@ -56,7 +56,7 @@ async def create_invitation(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreateInvitationRequest,
-) -> tuple[int, Invitation]:
+) -> Status:
     """Create a conference invitation."""
     user = await request.auser()
     conference = await aget_object_or_404(
@@ -111,4 +111,4 @@ async def create_invitation(
         payload=payload,
     )
 
-    return HTTPStatus.CREATED, await prefetch_invitation(invitation, request)
+    return Status(HTTPStatus.CREATED, await prefetch_invitation(invitation, request))

@@ -5,7 +5,7 @@ from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from django.utils.translation import gettext as _
-from ninja import Router, Schema
+from ninja import Router, Schema, Status
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
 from pydantic import AwareDatetime, StringConstraints
@@ -15,7 +15,6 @@ from app.audit.types import AuditAction, AuditResource
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 from app.utils.throttling import AnonThrottle, SimpleThrottle, throttling
-from app.verikit.models import EmailVerification
 from app.verikit.services import EmailVerificationService
 from app.verikit.types import EmailStr
 
@@ -45,7 +44,7 @@ class CreateEmailVerificationResponse(Schema):
 async def create_email_verification(
     request: HttpRequest,
     payload: CreateEmailVerificationRequest,
-) -> tuple[int, EmailVerification] | JsonResponse:
+) -> Status | JsonResponse:
     """Issue a verification code for the given email address.
 
     Returns the verification details if successful. Returns 429 if a verification code
@@ -70,7 +69,7 @@ async def create_email_verification(
         resource_id=payload.email,
     )
 
-    return HTTPStatus.CREATED, email_verification
+    return Status(HTTPStatus.CREATED, email_verification)
 
 
 class VerifyEmailVerificationRequest(Schema):
