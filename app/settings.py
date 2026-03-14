@@ -460,7 +460,7 @@ TYPST_FONT_DIR: Path = config(
 
 TYPST_ASSET_DIR: Path = config(
     "TYPST_ASSET_DIR",
-    default=BASE_DIR / "etc" / "assets",
+    default=DATA_DIR / "assets",
     cast=Path,
 )
 

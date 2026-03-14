@@ -36,9 +36,10 @@ Reference for modifying Docker, nginx, process management, or production setting
 5. **(Optional) Enable backups:** Set `COMPOSE_PROFILES=backup` in `.env`, fill in the
    `BACKUP_WEBDAV_*` credentials, and verify the WebDAV server is reachable from the
    host.
-6. **(Optional) Receipt seal:** Place the organization chop image into `etc/assets/`
-   on the build machine before building. This file is gitignored; receipts will generate
-   without the seal if it is absent.
+6. **(Optional) Typst assets:** Place asset files (logos, organization chop images) into
+   `${HOST_DATA_DIR}/assets/` on the host. This directory is read at runtime from
+   `DATA_DIR/assets/` inside the container. Receipts will generate without the seal if
+   it is absent.
 7. Build and start the stack: `docker compose up -d --build`.
 8. Verify healthchecks: `docker compose ps` should show `app` and `nginx` as healthy
    (plus `litestream` and `rclone` if backups are enabled). The app healthcheck has a
