@@ -5,7 +5,6 @@
 
 # Coding agent configurations
 /.claude
-/.serena
 
 # Runtime data directory
 /.data
