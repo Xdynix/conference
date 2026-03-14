@@ -237,19 +237,3 @@ model memory:
   coverage; ask the user when the intent is unclear.
 - Keep responses concise and cite only the relevant snippets; avoid guessing when docs
   are available.
-
-### Semantic Code Tools (Serena)
-
-The Serena MCP server provides semantic code exploration and editing. Prefer Serena over
-reading entire files or text-based search/replace when working with code symbols
-(classes, methods, functions). This applies to all code, including test methods. Call
-`initial_instructions` to learn how to use the toolbox effectively.
-
-When starting work on this project, check Serena's onboarding status and read relevant
-memories for project context.
-
-#### Serena Session Startup
-
-- When a new session starts in this repository, run the Serena startup sequence:
-  `serena.activate_project`, `serena.check_onboarding_performed`, and
-  `serena.initial_instructions`. Only run onboarding if it reports as not performed.
