@@ -251,7 +251,7 @@ async def with_paper_prefetch(
                         conference=conference,
                         user=user,
                     )
-                ).only("state"),
+                ).only("paper_id", "state"),
                 to_attr="visible_review_states",
             ),
         )
