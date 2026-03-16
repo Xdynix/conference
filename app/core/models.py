@@ -2,6 +2,7 @@ from typing import ClassVar, Self, override
 
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import UserManager as DjangoUserManager
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from django.contrib.sessions.models import Session
 from django.db import models
 from django.db.models import Q
@@ -9,6 +10,16 @@ from django.db.models.functions import Lower
 from django.utils.translation import gettext_lazy as _
 
 from app.utils.models import TimeStampedModel, ULIDModel
+
+
+class UsernameValidator(UnicodeUsernameValidator):
+    """Username validator that disallows '@' to distinguish usernames from emails."""
+
+    regex = r"^[\w.+-]+\Z"
+    message = _(
+        "Enter a valid username. This value may contain only letters, "
+        "numbers, and ./+/-/_ characters."
+    )
 
 
 class GlobalRole(models.TextChoices):
@@ -49,6 +60,20 @@ class UserManager(DjangoUserManager["User"]):
 
 
 class User(ULIDModel, AbstractUser):
+    username_validator = UsernameValidator()
+
+    username = models.CharField(
+        _("username"),
+        max_length=150,
+        unique=True,
+        help_text=_(
+            "Required. 150 characters or fewer. Letters, digits and ./+/-/_ only."
+        ),
+        validators=[username_validator],
+        error_messages={
+            "unique": _("A user with that username already exists."),
+        },
+    )
     managed = models.BooleanField(
         _("managed"),
         default=False,

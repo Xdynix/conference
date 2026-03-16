@@ -89,7 +89,7 @@ class TestCreateSession:
             password=faker.password(),
         )
 
-    def test_valid_credentials(
+    def test_login_with_username(
         self,
         api_client: Client,
         user: User,
@@ -100,6 +100,50 @@ class TestCreateSession:
         assert not get_user(api_client).is_authenticated
 
         response = api_client.post(self.path, data=user_credentials.model_dump())
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == authenticated_session
+
+        assert get_user(api_client) == user
+        mock_cf_turnstile.assert_called_once()
+
+    def test_login_with_email(
+        self,
+        api_client: Client,
+        user: User,
+        user_credentials: UserCredentials,
+        authenticated_session: JsonValue,
+        mock_cf_turnstile: MagicMock,
+    ) -> None:
+        response = api_client.post(
+            self.path,
+            data={
+                "username": user.email,
+                "password": user_credentials.password,
+            },
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == authenticated_session
+
+        assert get_user(api_client) == user
+        mock_cf_turnstile.assert_called_once()
+
+    def test_login_with_email_case_insensitive(
+        self,
+        api_client: Client,
+        user: User,
+        user_credentials: UserCredentials,
+        authenticated_session: JsonValue,
+        mock_cf_turnstile: MagicMock,
+    ) -> None:
+        response = api_client.post(
+            self.path,
+            data={
+                "username": user.email.swapcase(),
+                "password": user_credentials.password,
+            },
+        )
         assert response.status_code == HTTPStatus.OK
 
         assert response.json() == authenticated_session
@@ -162,10 +206,7 @@ class TestCreateSession:
         )
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
-        data = response.json()
-        [error] = data["details"]
-        assert error["loc"] == ["body", "payload", "username"]
-        assert "at least 1 character" in error["msg"]
+        assert response.json() == {"message": "Invalid credentials."}
 
         assert not get_user(api_client).is_authenticated
         mock_cf_turnstile.assert_called_once()
