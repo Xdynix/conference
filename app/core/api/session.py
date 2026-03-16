@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Literal, Self, cast
+from typing import Annotated, Literal, Self, cast
 
 from asgiref.sync import sync_to_async
 from django.contrib.auth import aauthenticate, alogin, alogout
@@ -8,10 +8,10 @@ from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import ensure_csrf_cookie
 from loguru import logger
-from ninja import Router, Schema
+from ninja import Field, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
-from pydantic import SecretStr
+from pydantic import SecretStr, StringConstraints
 
 from app.audit.services import audit
 from app.audit.types import AuditAction, AuditResource
@@ -63,7 +63,11 @@ async def get_session(request: HttpRequest) -> Session:
 
 
 class CreateSessionRequest(Schema):
-    username: Username
+    username: Annotated[
+        str,
+        StringConstraints(max_length=254, strip_whitespace=True),
+        Field(description=_("Username or email address.")),
+    ]
     password: Password
 
 
@@ -81,8 +85,7 @@ async def create_session(
     request: HttpRequest,
     payload: CreateSessionRequest,
 ) -> Session:
-    """Log a user in."""
-    # TODO: Support email as login.
+    """Log a user in. Accepts either a username or email address."""
     user = await aauthenticate(
         request,
         username=payload.username,
