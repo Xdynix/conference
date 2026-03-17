@@ -14,6 +14,7 @@ class AuditResource(StrEnum):
     EMAIL = "email"
     INVITATION = "invitation"
     PAPER = "paper"
+    PAPER_PROOF = "paper_proof"
     PAYMENT = "payment"
     REGISTRATION = "registration"
     REVIEW = "review"
@@ -95,6 +96,13 @@ class AuditAction(StrEnum):
     PAPER_UPLOAD_FINAL = "paper.upload_final"
     PAPER_UPLOAD_SUBMISSION = "paper.upload_submission"
     PAPER_WITHDRAW = "paper.withdraw"
+
+    # Paper Proof
+    PAPER_PROOF_UPSERT = "paper_proof.upsert"
+    PAPER_PROOF_UPLOAD = "paper_proof.upload"
+    PAPER_PROOF_NOTIFY = "paper_proof.notify"
+    PAPER_PROOF_CONFIRM = "paper_proof.confirm"
+    PAPER_PROOF_COMMENT = "paper_proof.comment"
 
     # Payment
     PAYMENT_CREATE = "payment.create"

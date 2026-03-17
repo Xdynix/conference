@@ -28,6 +28,7 @@ __all__ = (
     "PaperDecisionState",
     "PaperFinal",
     "PaperLabel",
+    "PaperProof",
     "PaperState",
     "PaperSubmission",
     "PaperVisibleState",
@@ -59,7 +60,7 @@ from .conference import (
     Track,
     TrackVisibility,
 )
-from .document import AcceptanceLetter, ConferenceFile, Receipt
+from .document import AcceptanceLetter, ConferenceFile, PaperProof, Receipt
 from .duplicate import (
     DuplicateAcknowledgment,
     DuplicateMatch,
