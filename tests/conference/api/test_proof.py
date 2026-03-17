@@ -29,7 +29,7 @@ from app.conference.services.proof import (
 )
 from app.core.models import User
 from app.utils.files import InvalidFileTypeError
-from tests.helpers import any_str, approx_now
+from tests.helpers import any_str, approx_now, update_object
 
 
 @pytest.fixture(autouse=True)
@@ -82,6 +82,143 @@ def proof_without_file(paper: Paper) -> PaperProof:
         recipient_name="Jane Doe",
         recipient_email="jane@example.com",
     )
+
+
+@pytest.mark.django_db
+class TestListProofs:
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:list-proofs", args=[conference_name])
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        proof_without_file: PaperProof,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == [
+            {
+                "uid": str(proof_without_file.uid),
+                "paper_code": "PAPER-001",
+                "paper_title": "Test Paper",
+                "recipient_name": "Jane Doe",
+                "recipient_email": "jane@example.com",
+                "comment": "",
+                "proof_url": any_str,
+                "create_time": approx_now(),
+                "update_time": approx_now(),
+            }
+        ]
+
+    def test_empty_list(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+        assert response.json() == []
+
+    def test_excludes_other_conferences(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        proof_without_file: PaperProof,
+    ) -> None:
+        other = Conference.objects.create(
+            name=faker.slug(),
+            display_name=faker.sentence(),
+        )
+        other_track = Track.objects.create(conference=other, display_name=faker.word())
+        other_paper = Paper.objects.create(
+            conference=other,
+            track=other_track,
+            owner=User.objects.create_user(username=faker.user_name()),
+            code="OTHER-001",
+            title="Other Paper",
+        )
+        PaperProof.objects.create(
+            paper=other_paper,
+            recipient_name="Other",
+            recipient_email="other@example.com",
+        )
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.OK
+
+        [data] = response.json()
+        assert data["uid"] == str(proof_without_file.uid)
+
+    def test_conference_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path("nonexistent"))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_inactive_conference_not_found(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+    ) -> None:
+        update_object(conference, active=False)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_unauthenticated(self, api_client: Client, conference: Conference) -> None:
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_unauthorized_user_forbidden(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(user)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+    @pytest.mark.parametrize(
+        "non_admin_role",
+        [role for role in ConferenceRole if role not in ConferenceRole.admins()],
+    )
+    def test_conference_non_admin_forbidden(
+        self,
+        faker: Faker,
+        api_client: Client,
+        conference: Conference,
+        non_admin_role: ConferenceRole,
+    ) -> None:
+        member = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=member,
+            role=non_admin_role,
+        )
+        api_client.force_login(member)
+
+        response = api_client.get(self.path(conference.name))
+        assert response.status_code == HTTPStatus.FORBIDDEN
 
 
 @pytest.fixture

@@ -89,6 +89,31 @@ async def prefetch_proof(proof: PaperProof, request: HttpRequest) -> PaperProof:
     return await qs.aget(pk=proof.pk)
 
 
+@router.get(
+    "/conferences/{slug:conference_name}/papers/-/proof",
+    response=list[ProofResponse],
+    summary="List Proofs",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def list_proofs(
+    request: AuthedHttpRequest,
+    conference_name: str,
+) -> list[PaperProof]:
+    """List all proofs for a conference."""
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+    qs = with_proof_prefetch(
+        PaperProof.objects.filter(paper__conference=conference),
+        request,
+    )
+    return [proof async for proof in qs]
+
+
 class UpsertProofRequest(Schema):
     recipient_name: str = ""
     recipient_email: EmailStr | Literal[""] = ""
