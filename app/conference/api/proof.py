@@ -3,12 +3,14 @@ from typing import Literal
 from urllib.parse import urljoin
 
 from asgiref.sync import sync_to_async
+from django.conf import settings
 from django.db.models import CharField, QuerySet, Value
 from django.http import Http404, HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import aget_object_or_404
 from django.urls import reverse
-from ninja import Router, Schema
+from ninja import File, Router, Schema
 from ninja.errors import HttpError
+from ninja.files import UploadedFile
 from pydantic import AwareDatetime, HttpUrl
 from ulid import ULID
 
@@ -25,7 +27,7 @@ from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest, EmailStr
 from app.ninja.errors import ErrorResponse
-from app.utils.files import build_file_download_response
+from app.utils.files import UploadValidationError, build_file_download_response
 
 router = Router(tags=["Proof"], exclude_none=True)
 
@@ -145,6 +147,60 @@ async def upsert_proof(
         resource=proof,
         scope=conference.name,
         payload=payload,
+    )
+
+    return await prefetch_proof(proof, request)
+
+
+@router.post(
+    "/conferences/{slug:conference_name}/papers/{slug:paper_code}/proof:upload",
+    response=ProofResponse,
+    summary="Upload Proof File",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def upload_proof_file(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    paper_code: str,
+    file: File[UploadedFile],
+) -> PaperProof:
+    """Upload a proof PDF for a paper.
+
+    The proof record must already exist (create it via PUT first). If replacing an
+    existing file, confirmation state is reset.
+    """
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+    paper = await aget_object_or_404(
+        conference.papers.active(),
+        code=paper_code,
+    )
+    proof = await aget_object_or_404(
+        PaperProof.objects.select_related("paper__track__conference"),
+        paper=paper,
+    )
+
+    try:
+        proof = await sync_to_async(ProofService.upload)(
+            proof,
+            file,
+            max_size=settings.MAX_PROOF_SIZE,
+            allowed_types=settings.ALLOWED_PROOF_TYPES,
+        )
+    except UploadValidationError as exc:
+        raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_PROOF_UPLOAD,
+        resource=proof,
+        scope=conference.name,
+        payload={"file": {"name": file.name or "", "size": file.size or 0}},
     )
 
     return await prefetch_proof(proof, request)
