@@ -19,11 +19,11 @@ class ConferenceRole(models.TextChoices):
     MEMBER = "Member", _("Member")
 
     @classmethod
-    def admins(cls) -> Sequence["ConferenceRole"]:
+    def admins(cls) -> Sequence[ConferenceRole]:
         return [cls.CHAIR, cls.SECRETARY]
 
     @classmethod
-    def reviewers(cls) -> Sequence["ConferenceRole"]:
+    def reviewers(cls) -> Sequence[ConferenceRole]:
         return [cls.CHAIR, cls.SECRETARY, cls.REVIEWER]
 
 
@@ -77,11 +77,11 @@ class TrackRole(models.TextChoices):
     MEMBER = "Member", _("Member")
 
     @classmethod
-    def admins(cls) -> Sequence["TrackRole"]:
+    def admins(cls) -> Sequence[TrackRole]:
         return [cls.CHAIR, cls.SECRETARY]
 
     @classmethod
-    def reviewers(cls) -> Sequence["TrackRole"]:
+    def reviewers(cls) -> Sequence[TrackRole]:
         return [cls.CHAIR, cls.SECRETARY, cls.REVIEWER]
 
 

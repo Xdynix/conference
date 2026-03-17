@@ -264,6 +264,7 @@ class TestDownloadConferenceFile:
         conference_chair: User,
         conference_file: ConferenceFile,
     ) -> None:
+        assert conference_file.file.name
         file_path = media_root / conference_file.file.name
         file_path.unlink()
         api_client.force_login(conference_chair)
@@ -405,6 +406,7 @@ class TestUploadConferenceFile:
         conference_file: ConferenceFile,
         sample_pdf: SimpleUploadedFile,
     ) -> None:
+        assert conference_file.file.name
         old_file_path = media_root / conference_file.file.name
         assert old_file_path.exists()
 
@@ -681,6 +683,7 @@ class TestDeleteConferenceFile:
         conference_chair: User,
         conference_file: ConferenceFile,
     ) -> None:
+        assert conference_file.file.name
         file_path = media_root / conference_file.file.name
         assert file_path.exists()
         client.force_login(conference_chair)

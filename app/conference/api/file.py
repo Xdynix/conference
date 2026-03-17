@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from typing import cast
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
@@ -37,7 +36,7 @@ class ConferenceFileResponse(Schema):
 
     @staticmethod
     def resolve_size(conference_file: ConferenceFile) -> int:
-        return cast(int, conference_file.file.size)
+        return conference_file.file.size
 
 
 @router.get(
@@ -165,7 +164,7 @@ async def upload_conference_file(
                     name=conference_file_name,
                 )
                 conference_file_obj.filename = filename
-                conference_file_obj.file.save(file.name, file, save=False)
+                conference_file_obj.file.save(file.name, file, save=False)  # type: ignore[arg-type]
                 new_file_name = conference_file_obj.file.name
                 conference_file_obj.save()
 

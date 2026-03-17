@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from functools import wraps
 from inspect import iscoroutinefunction
-from typing import Any, ParamSpec, Self, TypeVar, cast
+from typing import Any, Self, cast
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
@@ -10,9 +10,6 @@ from ninja.operation import Operation
 
 from app.ninja.errors import set_exception_handlers
 from app.ninja.json import ORJSONParser, ORJSONRenderer
-
-P = ParamSpec("P")
-R = TypeVar("R")
 
 
 def superuser_required[F: Callable[..., Any]](view_func: F) -> F:  # pragma: no cover

@@ -31,7 +31,7 @@ class PaperState(models.TextChoices):
     )
 
     @classmethod
-    def decided(cls) -> Sequence["PaperState"]:
+    def decided(cls) -> Sequence[PaperState]:
         return [
             cls.REJECTED,
             cls.ACCEPTED,
@@ -231,7 +231,7 @@ class PaperAuthor(AbstractProfile):
         return f"{self.given_name} {self.family_name}".strip()
 
 
-def paper_submission_path(instance: "PaperSubmission", filename: str) -> str:
+def paper_submission_path(instance: PaperSubmission, filename: str) -> str:
     ext = Path(filename).suffix.lower()[:10]
     filename = f"submission-rev{instance.revision}{ext}"
     paper = instance.paper
@@ -276,7 +276,7 @@ class PaperSubmission(TimeStampedModel, ULIDModel):
 
     @property
     def display_name(self) -> str:
-        ext = Path(self.file.name).suffix.lower()
+        ext = Path(self.file.name).suffix.lower()  # type: ignore[arg-type]
         return f"{self.paper.code}{ext}"
 
     @classmethod
@@ -305,14 +305,14 @@ class PaperSubmission(TimeStampedModel, ULIDModel):
         )
 
 
-def paper_final_source_path(instance: "PaperFinal", filename: str) -> str:
+def paper_final_source_path(instance: PaperFinal, filename: str) -> str:
     ext = Path(filename).suffix.lower()[:10]
     filename = f"final-rev{instance.revision}-source{ext}"
     paper = instance.paper
     return f"{paper.conference.name}/{paper.code}/{filename}"
 
 
-def paper_final_viewable_path(instance: "PaperFinal", filename: str) -> str:
+def paper_final_viewable_path(instance: PaperFinal, filename: str) -> str:
     ext = Path(filename).suffix.lower()[:10]
     filename = f"final-rev{instance.revision}-viewable{ext}"
     paper = instance.paper
@@ -368,14 +368,14 @@ class PaperFinal(TimeStampedModel, ULIDModel):
 
     @property
     def display_name(self) -> str:
-        ext = Path(self.source_file.name).suffix.lower()
+        ext = Path(self.source_file.name).suffix.lower()  # type: ignore[arg-type]
         return f"{self.paper.code}{ext}"
 
     @property
     def viewable_display_name(self) -> str | None:
         if not self.viewable_file:
             return None
-        ext = Path(self.viewable_file.name).suffix.lower()
+        ext = Path(self.viewable_file.name).suffix.lower()  # type: ignore[arg-type]
         return f"{self.paper.code}-viewable{ext}"
 
     @classmethod

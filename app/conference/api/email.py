@@ -78,7 +78,7 @@ class AcceptanceLetterRef(AttachmentRefBase):
         if not letter:
             raise ValueError(f"No acceptance letter for paper {self.paper_code}.")
 
-        filename = self.filename or Path(letter.rendered_pdf.name).name
+        filename = self.filename or Path(letter.rendered_pdf.name).name  # type: ignore[arg-type]
         content = await sync_to_async(letter.rendered_pdf.read)()
         return filename, content
 
@@ -100,7 +100,7 @@ class ReceiptRef(AttachmentRefBase):
         if not receipt:
             raise ValueError(f"No receipt for registration {self.registration_uid}.")
 
-        filename = self.filename or Path(receipt.rendered_pdf.name).name
+        filename = self.filename or Path(receipt.rendered_pdf.name).name  # type: ignore[arg-type]
         content = await sync_to_async(receipt.rendered_pdf.read)()
         return filename, content
 
