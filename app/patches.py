@@ -54,19 +54,6 @@ def monkeypatch_django_async_auth() -> None:
     django_auth.alogout = alogout
 
 
-def monkeypatch_django_aupdate_session_auth_hash() -> None:
-    # TODO: Remove after django/django#19749 (Django #36561) released.
-    from django.contrib import auth as django_auth
-    from django.contrib.auth import HASH_SESSION_KEY
-
-    async def aupdate_session_auth_hash(request, user):  # type: ignore[no-untyped-def]
-        await request.session.acycle_key()
-        if hasattr(user, "get_session_auth_hash") and await request.auser() == user:
-            await request.session.aset(HASH_SESSION_KEY, user.get_session_auth_hash())
-
-    django_auth.aupdate_session_auth_hash = aupdate_session_auth_hash
-
-
 def monkeypatch_django_ninja_openapi_csrf() -> None:
     # TODO: Remove when there is an elegant solution.
     # Django Ninja's OpenAPI documentation page only includes the CSRF token when

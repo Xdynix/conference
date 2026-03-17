@@ -9,7 +9,6 @@ from decouple import Choices, Csv, config
 from app.logging import configure_logging
 from app.patches import (
     monkeypatch_django_async_auth,
-    monkeypatch_django_aupdate_session_auth_hash,
     monkeypatch_django_ninja_openapi_csrf,
     monkeypatch_django_ninja_openapi_examples,
     monkeypatch_django_ninja_patch_dict,
@@ -207,10 +206,6 @@ STORAGES = {
 MEDIA_ROOT: Path = config("MEDIA_ROOT", default=DATA_DIR / "media", cast=Path)
 
 MEDIA_URL = f"{FORCE_SCRIPT_NAME}/media/" if FORCE_SCRIPT_NAME else "/media/"
-
-# Misc
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Email
 
@@ -558,7 +553,6 @@ BRANDING_FAVICON_URL = config("BRANDING_FAVICON_URL", default="")
 # Monkeypatch
 
 monkeypatch_django_async_auth()
-monkeypatch_django_aupdate_session_auth_hash()
 monkeypatch_django_ninja_openapi_csrf()
 monkeypatch_django_ninja_openapi_examples()
 monkeypatch_django_ninja_patch_dict()

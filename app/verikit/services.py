@@ -117,7 +117,7 @@ class EmailVerificationService:
                 token,
                 max_age=settings.VERIKIT_EMAIL_TOKEN_EXPIRY,
             )
-        except (SignatureExpired, BadSignature):
+        except SignatureExpired, BadSignature:
             return None
 
         return normalize_email(email)

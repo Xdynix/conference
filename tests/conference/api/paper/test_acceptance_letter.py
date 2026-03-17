@@ -280,6 +280,7 @@ class TestGenerateAcceptanceLetter:
             data={"template": "first template"},
         )
         old_letter = AcceptanceLetter.objects.get(paper=paper)
+        assert old_letter.rendered_pdf.name
         old_file = media_root / old_letter.rendered_pdf.name
         assert old_file.exists()
 
@@ -290,6 +291,7 @@ class TestGenerateAcceptanceLetter:
         )
 
         new_letter = AcceptanceLetter.objects.get(paper=paper)
+        assert new_letter.rendered_pdf.name
         new_file = media_root / new_letter.rendered_pdf.name
         assert new_file.exists()
         assert not old_file.exists()
@@ -651,6 +653,7 @@ class TestGetAcceptanceLetter:
         letter.rendered_pdf.save(
             "acceptance-letter.pdf", ContentFile(FAKE_PDF), save=True
         )
+        assert letter.rendered_pdf.name
         file_path = media_root / letter.rendered_pdf.name
         file_path.unlink()
 

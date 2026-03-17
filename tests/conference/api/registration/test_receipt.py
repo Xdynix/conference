@@ -336,6 +336,7 @@ class TestGenerateReceipt:
             data={"template": "first template"},
         )
         old_receipt = Receipt.objects.get(registration=registration)
+        assert old_receipt.rendered_pdf.name
         old_file = media_root / old_receipt.rendered_pdf.name
         assert old_file.exists()
 
@@ -346,6 +347,7 @@ class TestGenerateReceipt:
         )
 
         new_receipt = Receipt.objects.get(registration=registration)
+        assert new_receipt.rendered_pdf.name
         new_file = media_root / new_receipt.rendered_pdf.name
         assert new_file.exists()
         assert not old_file.exists()
@@ -681,6 +683,7 @@ class TestGetReceipt:
             context={},
         )
         receipt.rendered_pdf.save("receipt.pdf", ContentFile(FAKE_PDF), save=True)
+        assert receipt.rendered_pdf.name
         file_path = media_root / receipt.rendered_pdf.name
         file_path.unlink()
 

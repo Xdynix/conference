@@ -26,7 +26,7 @@ class ReviewState(models.TextChoices):
     CANCELLED = "Cancelled", _("Cancelled")
 
     @classmethod
-    def active(cls) -> Sequence["ReviewState"]:
+    def active(cls) -> Sequence[ReviewState]:
         return [
             cls.PENDING,
             cls.ACCEPTED,
