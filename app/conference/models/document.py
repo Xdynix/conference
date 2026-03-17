@@ -17,7 +17,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from app.audit.types import Auditable, AuditResource, AuditResourceInfo
-from app.utils.models import TimeStampedModel
+from app.utils.models import TimeStampedModel, ULIDModel
 
 from .conference import Conference
 from .paper import Paper
@@ -72,6 +72,49 @@ class Receipt(TimeStampedModel):
 
     def __str__(self) -> str:
         return f"Receipt for {self.registration}"
+
+
+def paper_proof_path(instance: PaperProof, filename: str) -> str:
+    ext = Path(filename).suffix.lower()[:10]
+    paper = instance.paper
+    return f"{paper.conference.name}/{paper.code}/proof{ext}"
+
+
+class PaperProof(Auditable, TimeStampedModel, ULIDModel):
+    paper = models.OneToOneField(
+        Paper,
+        on_delete=models.CASCADE,
+        related_name="proof",
+        verbose_name=_("paper"),
+    )
+    file = models.FileField(
+        _("file"),
+        upload_to=paper_proof_path,
+        blank=True,
+        default="",
+    )
+    recipient_name = models.CharField(_("recipient name"), max_length=255)
+    recipient_email = models.EmailField(_("recipient email"))
+    confirmed_time = models.DateTimeField(_("confirmed time"), null=True, blank=True)
+    comment = models.TextField(_("comment"), blank=True, default="")
+    comment_time = models.DateTimeField(_("comment time"), null=True, blank=True)
+    notification_time = models.DateTimeField(
+        _("notification time"), null=True, blank=True
+    )
+
+    class Meta:
+        verbose_name = _("paper proof")
+        verbose_name_plural = _("paper proofs")
+
+    def __str__(self) -> str:
+        return f"Proof for {self.paper}"
+
+    def audit_resource_info(self) -> AuditResourceInfo:
+        return AuditResourceInfo(
+            resource=AuditResource.PAPER_PROOF,
+            resource_id=str(self.uid),
+            resource_label=str(self),
+        )
 
 
 def conference_file_path(instance: ConferenceFile, filename: str) -> str:

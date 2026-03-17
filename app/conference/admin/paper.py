@@ -9,6 +9,7 @@ from app.conference.models import (
     PaperDecision,
     PaperFinal,
     PaperLabel,
+    PaperProof,
     PaperSubmission,
 )
 
@@ -26,6 +27,13 @@ class PaperAuthorInline(admin.StackedInline[PaperAuthor, Paper]):
     )
 
 
+class PaperClaimInline(admin.TabularInline[PaperClaim, Paper]):
+    model = PaperClaim
+    extra = 0
+    max_num = 1
+    readonly_fields = ("create_time", "update_time")
+
+
 class PaperSubmissionInline(admin.TabularInline[PaperSubmission, Paper]):
     model = PaperSubmission
     extra = 0
@@ -36,6 +44,13 @@ class PaperFinalInline(admin.TabularInline[PaperFinal, Paper]):
     model = PaperFinal
     extra = 0
     readonly_fields = ("create_time", "update_time")
+
+
+class PaperProofInline(admin.StackedInline[PaperProof, Paper]):
+    model = PaperProof
+    extra = 0
+    max_num = 1
+    readonly_fields = ("uid", "create_time", "update_time")
 
 
 class PaperLabelInline(admin.TabularInline[PaperLabel, Paper]):
@@ -50,13 +65,6 @@ class PaperDecisionInline(admin.TabularInline[PaperDecision, Paper]):
     fields = ("decider", "state", "note", "create_time")
     readonly_fields = ("decider", "state", "note", "create_time")
     can_delete = False
-
-
-class PaperClaimInline(admin.TabularInline[PaperClaim, Paper]):
-    model = PaperClaim
-    extra = 0
-    max_num = 1
-    readonly_fields = ("create_time", "update_time")
 
 
 class IEEEeCopyrightConsentInline(admin.TabularInline[IEEEeCopyrightConsent, Paper]):
@@ -122,6 +130,7 @@ class PaperAdmin(admin.ModelAdmin[Paper]):
         PaperClaimInline,
         PaperSubmissionInline,
         PaperFinalInline,
+        PaperProofInline,
         PaperLabelInline,
         PaperDecisionInline,
         IEEEeCopyrightConsentInline,

@@ -3,6 +3,7 @@ from app.conference.models import (
     Conference,
     ConferenceFile,
     Paper,
+    PaperProof,
     Receipt,
     Registration,
     Track,
@@ -10,6 +11,7 @@ from app.conference.models import (
 from app.conference.models.document import (
     acceptance_letter_path,
     conference_file_path,
+    paper_proof_path,
     receipt_path,
 )
 from app.core.models import User
@@ -126,6 +128,62 @@ class TestConferenceFile:
         conference = Conference(name="CBPK-2024")
         cf = ConferenceFile(conference=conference, name="payment-form")
         assert str(cf) == "payment-form (CBPK-2024)"
+
+
+class TestPaperProof:
+    def test_str(self) -> None:
+        conference = Conference(name="CBPK-2024")
+        track = Track(conference=conference, display_name="Main")
+        user = User(username="alice")
+        paper = Paper(conference=conference, track=track, code="PAPER-001", owner=user)
+        proof = PaperProof(
+            paper=paper,
+            recipient_name="Alice",
+            recipient_email="a@b.com",
+        )
+        assert str(proof) == "Proof for [CBPK-2024 - Main] PAPER-001"
+
+
+class TestPaperProofPath:
+    def test_generates_path(self) -> None:
+        conference = Conference(name="CONF-2025")
+        track = Track(conference=conference, display_name="Main")
+        user = User(username="alice")
+        paper = Paper(conference=conference, track=track, code="PAPER-001", owner=user)
+        proof = PaperProof(
+            paper=paper,
+            recipient_name="Alice",
+            recipient_email="a@b.com",
+        )
+        path = paper_proof_path(proof, "edited.pdf")
+        assert path == "CONF-2025/PAPER-001/proof.pdf"
+
+    def test_lowercases_extension(self) -> None:
+        conference = Conference(name="CONF-2025")
+        track = Track(conference=conference, display_name="Main")
+        user = User(username="alice")
+        paper = Paper(conference=conference, track=track, code="PAPER-001", owner=user)
+        proof = PaperProof(
+            paper=paper,
+            recipient_name="Alice",
+            recipient_email="a@b.com",
+        )
+        path = paper_proof_path(proof, "edited.PDF")
+        assert path.endswith(".pdf")
+
+    def test_truncates_long_extension(self) -> None:
+        conference = Conference(name="CONF-2025")
+        track = Track(conference=conference, display_name="Main")
+        user = User(username="alice")
+        paper = Paper(conference=conference, track=track, code="PAPER-001", owner=user)
+        proof = PaperProof(
+            paper=paper,
+            recipient_name="Alice",
+            recipient_email="a@b.com",
+        )
+        path = paper_proof_path(proof, "file.very-long-extension")
+        ext = path.split(".")[-1]
+        assert len(ext) < 10
 
 
 class TestConferenceFilePath:
