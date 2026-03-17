@@ -504,9 +504,13 @@ ALLOWED_FINAL_VIEWABLE_TYPES = ALLOWED_SUBMISSION_TYPES
 
 MAX_PROOF_SIZE = MAX_SUBMISSION_SIZE
 
+ALLOWED_PROOF_TYPES = {
+    "application/pdf": [".pdf"],
+}
+
 MAX_CONFERENCE_FILE_SIZE = 10 * 1024 * 1024
 
-ALLOWED_CONFERENCE_FILE_TYPES: dict[str, list[str]] = {
+ALLOWED_CONFERENCE_FILE_TYPES = {
     "application/pdf": [".pdf"],
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
         ".docx"

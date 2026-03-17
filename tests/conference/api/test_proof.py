@@ -28,6 +28,7 @@ from app.conference.services.proof import (
     RecipientDerivationError,
 )
 from app.core.models import User
+from app.utils.files import InvalidFileTypeError
 from tests.helpers import any_str, approx_now
 
 
@@ -262,6 +263,161 @@ class TestUpsertProof:
         assert response.status_code == HTTPStatus.FORBIDDEN
 
         proof_service_upsert.assert_not_called()
+
+
+@pytest.fixture
+def proof_service_upload(mocker: MockerFixture) -> MagicMock:
+    return mocker.spy(ProofService, "upload")
+
+
+@pytest.fixture
+def sample_pdf(test_data_dir: Path) -> SimpleUploadedFile:
+    content = (test_data_dir / "sample.pdf").read_bytes()
+    return SimpleUploadedFile("proof.pdf", content, content_type="application/pdf")
+
+
+@pytest.mark.django_db
+class TestUploadProofFile:
+    @classmethod
+    def path(cls, conference_name: str, paper_code: str) -> str:
+        return reverse(
+            "api-1.0.0:upload-proof-file",
+            args=[conference_name, paper_code],
+        )
+
+    def test_happy_path(
+        self,
+        client: Client,
+        conference_chair: User,
+        conference: Conference,
+        paper: Paper,
+        proof_without_file: PaperProof,
+        sample_pdf: SimpleUploadedFile,
+        proof_service_upload: MagicMock,
+    ) -> None:
+        client.force_login(conference_chair)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["uid"] == str(proof_without_file.uid)
+        assert data["file_url"] == any_str
+
+        proof_service_upload.assert_called_once()
+        assert proof_service_upload.call_args.args[0] == proof_without_file
+        assert proof_service_upload.call_args.args[1].name == "proof.pdf"
+
+    def test_proof_not_found_returns_404(
+        self,
+        client: Client,
+        conference_chair: User,
+        conference: Conference,
+        paper: Paper,
+        sample_pdf: SimpleUploadedFile,
+        proof_service_upload: MagicMock,
+    ) -> None:
+        client.force_login(conference_chair)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+        proof_service_upload.assert_not_called()
+
+    def test_validation_error_returns_422(
+        self,
+        mocker: MockerFixture,
+        client: Client,
+        conference_chair: User,
+        conference: Conference,
+        paper: Paper,
+        proof_without_file: PaperProof,  # noqa: ARG002
+        sample_pdf: SimpleUploadedFile,
+    ) -> None:
+        mocker.patch(
+            "app.conference.services.proof.validate_upload",
+            side_effect=InvalidFileTypeError("File type not allowed."),
+        )
+        client.force_login(conference_chair)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert "not allowed" in response.json()["message"]
+
+    def test_unauthenticated(
+        self,
+        client: Client,
+        conference: Conference,
+        paper: Paper,
+        sample_pdf: SimpleUploadedFile,
+        proof_service_upload: MagicMock,
+    ) -> None:
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+        proof_service_upload.assert_not_called()
+
+    def test_unauthorized_user_forbidden(
+        self,
+        client: Client,
+        user: User,
+        conference: Conference,
+        paper: Paper,
+        sample_pdf: SimpleUploadedFile,
+        proof_service_upload: MagicMock,
+    ) -> None:
+        client.force_login(user)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+        proof_service_upload.assert_not_called()
+
+    @pytest.mark.parametrize(
+        "non_admin_role",
+        [role for role in ConferenceRole if role not in ConferenceRole.admins()],
+    )
+    def test_conference_non_admin_forbidden(
+        self,
+        faker: Faker,
+        client: Client,
+        conference: Conference,
+        paper: Paper,
+        sample_pdf: SimpleUploadedFile,
+        non_admin_role: ConferenceRole,
+        proof_service_upload: MagicMock,
+    ) -> None:
+        member = User.objects.create_user(username=faker.user_name())
+        ConferenceRoleAssignment.objects.create(
+            conference=conference,
+            user=member,
+            role=non_admin_role,
+        )
+        client.force_login(member)
+
+        response = client.post(
+            self.path(conference.name, paper.code),
+            data={"file": sample_pdf},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+        proof_service_upload.assert_not_called()
 
 
 @pytest.mark.django_db
