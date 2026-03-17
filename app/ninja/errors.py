@@ -6,7 +6,7 @@ __all__ = (
 
 from collections.abc import Callable, Sequence
 from http import HTTPStatus
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 from django.http import Http404, HttpResponse
 from django.http import HttpRequest as DjangoHttpRequest
@@ -27,9 +27,8 @@ class ErrorResponse(Schema):
     details: list[DictStrAny] | None = None
 
 
-Exc = TypeVar("Exc", bound=Exception)
 ExcHandlerReturn = tuple[int, ErrorResponse]
-ExcHandler = Callable[[Exc | type[Exc]], ExcHandlerReturn]
+type ExcHandler[Exc: Exception] = Callable[[Exc | type[Exc]], ExcHandlerReturn]
 
 
 def make_validation_error(
@@ -62,7 +61,9 @@ def make_validation_error(
 def set_exception_handlers(api: NinjaAPI) -> None:
     """Set custom exception handlers."""
 
-    def exception_handler(exc_type: type[Exc]) -> Callable[[ExcHandler[Exc]], None]:
+    def exception_handler[Exc: Exception](
+        exc_type: type[Exc],
+    ) -> Callable[[ExcHandler[Exc]], None]:
         """Register custom exception handler."""
 
         def decorator(handle: ExcHandler[Exc]) -> None:

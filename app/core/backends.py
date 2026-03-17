@@ -37,7 +37,7 @@ class EmailOrUsernameBackend(ModelBackend):
 
         try:
             user = self._get_user(username)
-        except (User.DoesNotExist, User.MultipleObjectsReturned):
+        except User.DoesNotExist, User.MultipleObjectsReturned:
             # Run the default password hasher to mitigate timing attacks.
             User().set_password(password)
             return None
@@ -58,7 +58,7 @@ class EmailOrUsernameBackend(ModelBackend):
 
         try:
             user = await self._aget_user(username)
-        except (User.DoesNotExist, User.MultipleObjectsReturned):
+        except User.DoesNotExist, User.MultipleObjectsReturned:
             # Run the default password hasher to mitigate timing attacks.
             User().set_password(password)
             return None

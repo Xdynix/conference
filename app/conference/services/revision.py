@@ -79,7 +79,7 @@ class RevisionService:
                     sha256=compute_sha256(file),
                     uploader=uploader,
                 )
-                submission.file.save(file.name, file, save=False)
+                submission.file.save(file.name, file, save=False)  # type: ignore[arg-type]
                 new_file_name = submission.file.name
 
                 submission.save()
@@ -176,12 +176,12 @@ class RevisionService:
                     source_sha256=compute_sha256(source_file),
                     uploader=uploader,
                 )
-                final.source_file.save(source_file.name, source_file, save=False)
+                final.source_file.save(source_file.name, source_file, save=False)  # type: ignore[arg-type]
                 new_source_name = final.source_file.name
                 if viewable_file:
                     final.viewable_sha256 = compute_sha256(viewable_file)
                     final.viewable_file.save(
-                        viewable_file.name,
+                        viewable_file.name,  # type: ignore[arg-type]
                         viewable_file,
                         save=False,
                     )

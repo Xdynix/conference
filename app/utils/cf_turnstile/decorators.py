@@ -73,7 +73,7 @@ async def check_cf_turnstile_response(
             remote_ip=remote_ip,
             idempotency_key=idempotency_key,
         )
-    except (httpx.HTTPStatusError, httpx.RequestError):
+    except httpx.HTTPStatusError, httpx.RequestError:
         logger.exception("Error verifying CF Turnstile response.")
         return JsonResponse(
             {"message": _("CF Turnstile unavailable.")},

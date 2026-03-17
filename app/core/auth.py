@@ -37,7 +37,7 @@ class SessionAuth(SyncSessionAuth):
         super().__init__()
         self.authorize = authorize
 
-    def __and__(self, other: object) -> "SessionAuth":
+    def __and__(self, other: object) -> SessionAuth:
         if not isinstance(other, SessionAuth):  # pragma: no cover
             return NotImplemented
 
@@ -49,7 +49,7 @@ class SessionAuth(SyncSessionAuth):
 
         return _all
 
-    def __or__(self, other: object) -> "SessionAuth":
+    def __or__(self, other: object) -> SessionAuth:
         if not isinstance(other, SessionAuth):  # pragma: no cover
             return NotImplemented
 

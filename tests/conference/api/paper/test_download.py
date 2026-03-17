@@ -116,6 +116,7 @@ class TestDownloadSubmission:
         media_root: Path,
         submission: PaperSubmission,
     ) -> None:
+        assert submission.file.name
         file_path = media_root / submission.file.name
         file_path.unlink()
         api_client.force_login(user)
@@ -260,6 +261,7 @@ class TestDownloadFinal:
         media_root: Path,
         final: PaperFinal,
     ) -> None:
+        assert final.source_file.name
         file_path = media_root / final.source_file.name
         file_path.unlink()
         api_client.force_login(user)
@@ -380,6 +382,7 @@ class TestDownloadFinalViewable:
         media_root: Path,
         final_with_viewable: PaperFinal,
     ) -> None:
+        assert final_with_viewable.viewable_file.name
         file_path = media_root / final_with_viewable.viewable_file.name
         file_path.unlink()
         api_client.force_login(user)

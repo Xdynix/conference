@@ -83,7 +83,7 @@ async def download_submission(
         return build_file_download_response(
             submission.file,
             filename=submission.display_name,
-            content_type=guess_mime_type(submission.file.name),
+            content_type=guess_mime_type(submission.file.name),  # type: ignore[arg-type]
         )
     except FileNotFoundError as exc:
         raise Http404 from exc
@@ -108,7 +108,7 @@ async def download_final(
         return build_file_download_response(
             final.source_file,
             filename=final.display_name,
-            content_type=guess_mime_type(final.source_file.name),
+            content_type=guess_mime_type(final.source_file.name),  # type: ignore[arg-type]
         )
     except FileNotFoundError as exc:
         raise Http404 from exc
@@ -135,7 +135,7 @@ async def download_final_viewable(
         return build_file_download_response(
             final.viewable_file,
             filename=final.viewable_display_name,
-            content_type=guess_mime_type(final.viewable_file.name),
+            content_type=guess_mime_type(final.viewable_file.name),  # type: ignore[arg-type]
         )
     except FileNotFoundError as exc:
         raise Http404 from exc

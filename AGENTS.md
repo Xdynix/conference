@@ -58,7 +58,7 @@ discussion.
 
 ## Project Overview
 
-A Django 5.2+ application with Python 3.13+, async-first architecture, and ASGI
+A Django 6.0+ application with Python 3.14+, async-first architecture, and ASGI
 deployment. The current deployment target is SQLite; application code should remain
 database-backend agnostic. The frontend uses Alpine.js with Bootstrap, served via Django
 templates (no SPA, no bundlers).
@@ -193,7 +193,7 @@ Cross-cutting patterns for features that span backend and frontend.
 
 ## Writing and Code Style
 
-- **Modern syntax only**: Use Python 3.13+ and Django 5.2+ features without concern for
+- **Modern syntax only**: Use Python 3.14+ and Django 6.0+ features without concern for
   backward compatibility. Use built-in generics (`list[str]`, `dict[str, int]`), union
   syntax (`str | None`), and modern type hints. Never use `from __future__ import`,
   `typing.List`, `typing.Dict`, `typing.Optional`, or `Generic[]` base classes when

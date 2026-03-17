@@ -5,7 +5,7 @@
 
 {% block content %}
   <div class="d-flex align-items-center gap-2 mb-4">
-    <button type="button" onclick="history.back()" class="btn btn-link text-secondary p-0" aria-label="Go back">
+    <button type="button" x-data @click="history.back()" class="btn btn-link text-secondary p-0" aria-label="Go back">
       <i class="bi bi-arrow-left"></i>
     </button>
     <h1 class="h4 mb-0" id="account-title">Account</h1>
