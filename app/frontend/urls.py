@@ -37,6 +37,11 @@ urlpatterns = [
         name="invitation-reject",
     ),
     path(
+        "paper-proofs/<ulid:proof_uid>/",
+        public_view(template_name="frontend/paper-proof.html"),
+        name="paper-proof",
+    ),
+    path(
         "<slug:conference_name>/",
         public_view(template_name="frontend/conference/home.html"),
         name="conference-home",
