@@ -166,6 +166,10 @@ class TestVerifyCfTurnstileResponse:
         assert orjson.loads(request.content)["secret"] == "test-secret"
 
 
+@pytest.mark.xfail(
+    reason="Cloudflare Turnstile E2E depends on external service availability.",
+    strict=False,
+)
 class TestVerifyCfTurnstileResponseE2E:
     async def test_always_pass_secret_key(self, settings: LazySettings) -> None:
         settings.CF_TURNSTILE_SECRET_KEY = "1x0000000000000000000000000000000AA"
