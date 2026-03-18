@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from contextlib import suppress
 from functools import partial
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -27,6 +28,42 @@ def editable_auto_now_add_field() -> None:
                 continue
             field.auto_now_add = False
             field.default = timezone.now
+
+
+@pytest.fixture(autouse=True, scope="session")
+def patch_asyncio_self_pipe_for_codex_sandbox() -> Iterator[None]:
+    import asyncio.selector_events as se
+    import os
+    import socket
+
+    reader, writer = socket.socketpair()
+    try:
+        try:
+            writer.send(b"\0")
+        except PermissionError:
+            # Codex sandbox can reject socketpair.send(), which breaks asyncio
+            # selector-loop wakeups and makes valid async test paths hang.
+            # TODO: Remove this workaround once Codex sandbox handles the self-pipe
+            #  wakeup correctly. See: https://github.com/openai/codex/pull/10109
+            def patched_write_to_self(self):  # type: ignore[no-untyped-def]
+                csock = self._csock
+                if csock is None:
+                    return
+                with suppress(OSError):
+                    os.write(csock.fileno(), b"\0")
+
+            original = se.BaseSelectorEventLoop._write_to_self  # type: ignore[attr-defined]
+            se.BaseSelectorEventLoop._write_to_self = patched_write_to_self  # type: ignore[attr-defined]
+            try:
+                yield
+            finally:
+                se.BaseSelectorEventLoop._write_to_self = original  # type: ignore[attr-defined]
+            return
+    finally:
+        reader.close()
+        writer.close()
+
+    yield
 
 
 @pytest.fixture(autouse=True)
