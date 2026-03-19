@@ -558,6 +558,163 @@ class TestUploadProofFile:
 
 
 @pytest.mark.django_db
+class TestGetProof:
+    @classmethod
+    def path(cls, uid: ULID) -> str:
+        return reverse("api-1.0.0:get-proof", args=[uid])
+
+    def test_happy_path(self, api_client: Client, proof: PaperProof) -> None:
+        response = api_client.get(self.path(proof.uid))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response.json() == {
+            "paper_code": "PAPER-001",
+            "paper_title": "Test Paper",
+            "comment": "",
+            "proof_url": any_str,
+            "file_url": any_str,
+        }
+
+    def test_without_file(
+        self,
+        api_client: Client,
+        proof_without_file: PaperProof,
+    ) -> None:
+        response = api_client.get(self.path(proof_without_file.uid))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert "file_url" not in data
+
+    def test_with_confirmation(self, api_client: Client, proof: PaperProof) -> None:
+        update_object(
+            proof,
+            confirmed_time=timezone.now(),
+            comment="looks good",
+            comment_time=timezone.now(),
+        )
+
+        response = api_client.get(self.path(proof.uid))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["confirmed_time"] == approx_now()
+        assert data["comment"] == "looks good"
+        assert data["comment_time"] == approx_now()
+
+    def test_not_found(self, api_client: Client) -> None:
+        response = api_client.get(self.path(ULID()))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+    def test_excludes_admin_fields(
+        self,
+        api_client: Client,
+        proof: PaperProof,
+    ) -> None:
+        response = api_client.get(self.path(proof.uid))
+        data = response.json()
+
+        assert "uid" not in data
+        assert "recipient_name" not in data
+        assert "recipient_email" not in data
+        assert "notification_time" not in data
+        assert "create_time" not in data
+        assert "update_time" not in data
+
+
+@pytest.fixture
+def proof_service_confirm(mocker: MockerFixture) -> MagicMock:
+    return mocker.spy(ProofService, "confirm")
+
+
+@pytest.mark.django_db
+class TestConfirmProof:
+    @classmethod
+    def path(cls, uid: ULID) -> str:
+        return reverse("api-1.0.0:confirm-proof", args=[uid])
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        proof: PaperProof,
+        proof_service_confirm: MagicMock,
+    ) -> None:
+        response = api_client.post(self.path(proof.uid))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["confirmed_time"] == approx_now()
+        assert data["paper_code"] == "PAPER-001"
+
+        proof_service_confirm.assert_called_once()
+
+    def test_not_found(
+        self,
+        api_client: Client,
+        proof_service_confirm: MagicMock,
+    ) -> None:
+        response = api_client.post(self.path(ULID()))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+        proof_service_confirm.assert_not_called()
+
+
+@pytest.fixture
+def proof_service_comment(mocker: MockerFixture) -> MagicMock:
+    return mocker.spy(ProofService, "comment")
+
+
+@pytest.mark.django_db
+class TestCommentProof:
+    @classmethod
+    def path(cls, uid: ULID) -> str:
+        return reverse("api-1.0.0:comment-proof", args=[uid])
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        proof: PaperProof,
+        proof_service_comment: MagicMock,
+    ) -> None:
+        response = api_client.post(
+            self.path(proof.uid),
+            data={"comment": "page 3 has a broken formula"},
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["comment"] == "page 3 has a broken formula"
+        assert data["comment_time"] == approx_now()
+
+        proof_service_comment.assert_called_once()
+        assert proof_service_comment.call_args.args[1] == "page 3 has a broken formula"
+
+    def test_not_found(
+        self,
+        api_client: Client,
+        proof_service_comment: MagicMock,
+    ) -> None:
+        response = api_client.post(
+            self.path(ULID()),
+            data={"comment": "some comment"},
+        )
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+        proof_service_comment.assert_not_called()
+
+    def test_missing_comment_returns_422(
+        self,
+        api_client: Client,
+        proof: PaperProof,
+        proof_service_comment: MagicMock,
+    ) -> None:
+        response = api_client.post(self.path(proof.uid), data={})
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        proof_service_comment.assert_not_called()
+
+
+@pytest.mark.django_db
 class TestDownloadProofFile:
     @classmethod
     def path(cls, uid: ULID) -> str:
