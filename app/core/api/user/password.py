@@ -31,7 +31,7 @@ class UpdateCurrentUserPasswordRequest(Schema):
 async def set_current_user_password(
     request: AuthedHttpRequest,
     payload: UpdateCurrentUserPasswordRequest,
-) -> Status:
+) -> Status[None]:
     """Change the current user's password.
 
     The user's session remains active after the password change.
@@ -84,7 +84,7 @@ async def set_user_password(
     request: AuthedHttpRequest,
     uid: ULID,
     payload: UpdateUserPasswordRequest,
-) -> Status:
+) -> Status[None]:
     """Change a user's password by admin.
 
     Allows administrators to change the password for any active, non-superuser user.

@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Literal
+from typing import Any, Literal
 
 from asgiref.sync import sync_to_async
 from django.contrib.auth import alogin
@@ -51,7 +51,7 @@ CreateAccountRequest = create_user_registry.extend_schema(
 async def create_account(
     request: HttpRequest,
     payload: CreateAccountRequest,  # type: ignore[valid-type]
-) -> Status:
+) -> Status[Session]:
     """Create a new user account and log them in.
 
     Creates a new account with the provided username, verified email, and password. The
@@ -111,7 +111,7 @@ CreateUserRequest = create_user_registry.extend_schema(
 async def create_user(
     request: AuthedHttpRequest,
     payload: CreateUserRequest,  # type: ignore[valid-type]
-) -> Status:
+) -> Status[dict[str, Any]]:
     """Create a new user account by admin.
 
     Allows administrators with write permission to create user accounts. Unlike the

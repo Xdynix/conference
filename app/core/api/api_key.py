@@ -97,7 +97,7 @@ async def get_current_api_key(request: AuthedHttpRequest) -> ApiKey:
     summary="Revoke Current API Key",
     auth=is_authenticated,
 )
-async def delete_current_api_key(request: AuthedHttpRequest) -> Status:
+async def delete_current_api_key(request: AuthedHttpRequest) -> Status[None]:
     """Revoke the caller's active API key and delete its linked sessions.
 
     Succeeds silently if no active key exists.

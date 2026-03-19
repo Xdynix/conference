@@ -55,7 +55,7 @@ async def create_payment(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreatePaymentRequest,
-) -> Status:
+) -> Status[Payment]:
     """Creates a new payment record for offline payment bookkeeping."""
     conference = await aget_object_or_404(
         Conference.objects.active(),

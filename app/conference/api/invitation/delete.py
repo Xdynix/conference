@@ -40,7 +40,7 @@ async def delete_invitation(
     request: AuthedHttpRequest,
     conference_name: str,
     invitation_uid: ULID,
-) -> Status:
+) -> Status[None]:
     """Delete a conference invitation."""
     user = await request.auser()
     conference = await aget_object_or_404(

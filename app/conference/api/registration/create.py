@@ -84,7 +84,7 @@ async def create_my_registration(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreateMyRegistrationRequest,
-) -> Status:
+) -> Status[Registration]:
     """Creates a new registration for the current user.
 
     The registration is created in pending state, awaiting payment. A unique reference

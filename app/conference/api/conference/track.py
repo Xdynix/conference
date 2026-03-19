@@ -37,7 +37,7 @@ async def create_track(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreateTrackRequest,
-) -> Status:
+) -> Status[Conference]:
     """Create a track for a conference."""
     try:
         track = await sync_to_async(TrackService.create_track)(

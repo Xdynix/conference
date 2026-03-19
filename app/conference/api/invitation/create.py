@@ -9,7 +9,7 @@ from ninja.errors import HttpError
 from app.audit.services import audit
 from app.audit.types import AuditAction
 from app.conference.auth import has_any_conference_or_track_roles
-from app.conference.models import Conference, ConferenceRole, TrackRole
+from app.conference.models import Conference, ConferenceRole, Invitation, TrackRole
 from app.conference.services import InvitationService, KeywordService
 from app.conference.services.conference import InsufficientRolePermission
 from app.conference.services.invitation import DuplicateInvitation
@@ -56,7 +56,7 @@ async def create_invitation(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreateInvitationRequest,
-) -> Status:
+) -> Status[Invitation]:
     """Create a conference invitation."""
     user = await request.auser()
     conference = await aget_object_or_404(

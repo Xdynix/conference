@@ -15,6 +15,7 @@ from app.audit.types import AuditAction, AuditResource
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
 from app.utils.throttling import AnonThrottle, SimpleThrottle, throttling
+from app.verikit.models import EmailVerification
 from app.verikit.services import EmailVerificationService
 from app.verikit.types import EmailStr
 
@@ -44,7 +45,7 @@ class CreateEmailVerificationResponse(Schema):
 async def create_email_verification(
     request: HttpRequest,
     payload: CreateEmailVerificationRequest,
-) -> Status | JsonResponse:
+) -> Status[EmailVerification] | JsonResponse:
     """Issue a verification code for the given email address.
 
     Returns the verification details if successful. Returns 429 if a verification code

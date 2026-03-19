@@ -99,7 +99,7 @@ async def create_code_pool(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreateCodePoolRequest,
-) -> Status:
+) -> Status[CodePool]:
     """Create a new code pool for the conference."""
     conference = await aget_object_or_404(
         Conference.objects.active(),
@@ -211,7 +211,7 @@ async def delete_code_pool(
     request: AuthedHttpRequest,
     conference_name: str,
     code_pool_uid: ULID,
-) -> Status:
+) -> Status[None]:
     """Delete a code pool.
 
     Fails if any tracks are still referencing this pool.
