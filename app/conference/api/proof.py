@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from urllib.parse import urljoin
 
 from asgiref.sync import sync_to_async
@@ -8,25 +8,31 @@ from django.db.models import CharField, QuerySet, Value
 from django.http import Http404, HttpRequest, HttpResponse, StreamingHttpResponse
 from django.shortcuts import aget_object_or_404
 from django.urls import reverse
+from django.utils.translation import gettext as _
+from jinja2 import UndefinedError
 from ninja import File, Router, Schema
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
-from pydantic import AwareDatetime, BeforeValidator, HttpUrl, StringConstraints
+from pydantic import AwareDatetime, BeforeValidator, Field, HttpUrl, StringConstraints
 from ulid import ULID
 
 from app.audit.services import audit
-from app.audit.types import AuditAction
+from app.audit.types import AuditAction, AuditResource
 from app.conference.auth import has_any_conference_roles
 from app.conference.models import Conference, ConferenceRole, PaperProof
 from app.conference.services import ProofService
 from app.conference.services.proof import (
     ProofEligibilityError,
+    ProofNotifyEmailContext,
     RecipientDerivationError,
+    SendProofNotifyResult,
+    SendProofNotifyStatus,
 )
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest, EmailStr
-from app.ninja.errors import ErrorResponse
+from app.ninja.errors import ErrorResponse, make_validation_error
+from app.utils.email import EmailTemplate, RenderedEmail
 from app.utils.files import UploadValidationError, build_file_download_response
 from app.utils.sanitization import sanitize_formatted_text
 
@@ -230,6 +236,127 @@ async def upload_proof_file(
     )
 
     return await prefetch_proof(proof, request)
+
+
+class EmailTemplateRequest(EmailTemplate, Schema):
+    subject: str = Field(min_length=1, max_length=998)
+    body: str = Field(min_length=1, max_length=100_000)
+
+
+class PreviewProofNotifyRequest(EmailTemplateRequest):
+    pass
+
+
+class PreviewProofNotifyResponse(RenderedEmail, Schema):
+    pass
+
+
+@router.post(
+    "/conferences/{slug:conference_name}/papers/-/proof:preview-notify",
+    response={
+        HTTPStatus.OK: PreviewProofNotifyResponse,
+        HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
+    },
+    summary="Preview Proof Notification Email",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def preview_proof_notify(
+    request: AuthedHttpRequest,
+    conference_name: str,  # noqa: ARG001
+    payload: PreviewProofNotifyRequest,
+) -> RenderedEmail:
+    """Render a proof notification email template with sample context.
+
+    Returns a preview of the email that would be sent. Uses placeholder context data
+    so the admin can verify the template before sending.
+    """
+    base_url = request.build_absolute_uri("/")
+    sample_context = ProofNotifyEmailContext.sample(base_url=base_url)
+
+    try:
+        return payload.render(sample_context)
+    except UndefinedError as exc:
+        raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
+
+
+class SendProofNotifyRequest(EmailTemplateRequest):
+    proofs: list[ULID] = Field(min_length=1, max_length=100)
+
+
+class SendProofNotifyResponse(Schema):
+    results: list[SendProofNotifyResult]
+
+
+@router.post(
+    "/conferences/{slug:conference_name}/papers/-/proof:notify",
+    response={
+        HTTPStatus.OK: SendProofNotifyResponse,
+        HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
+    },
+    summary="Send Proof Notifications",
+    auth=(
+        has_any_roles(GlobalRole.ADMIN)
+        | has_any_conference_roles(*ConferenceRole.admins())
+    ),
+)
+async def send_proof_notify(
+    request: AuthedHttpRequest,
+    conference_name: str,
+    payload: SendProofNotifyRequest,
+) -> dict[str, Any]:
+    """Send proof notification emails to the specified proofs.
+
+    Validates that all provided UIDs belong to the conference. Each proof is processed
+    independently; proofs without an uploaded file are skipped.
+    """
+    conference = await aget_object_or_404(
+        Conference.objects.active(),
+        name=conference_name,
+    )
+
+    existing_uids = {
+        uid
+        async for uid in PaperProof.objects.filter(
+            paper__conference=conference,
+            uid__in=payload.proofs,
+        ).values_list("uid", flat=True)
+    }
+
+    requested_uids = set(payload.proofs)
+    missing_uids = requested_uids - existing_uids
+    if missing_uids:
+        message = _("Some proof UIDs do not exist: {uids}").format(
+            uids=", ".join(str(uid) for uid in sorted(missing_uids))
+        )
+        raise make_validation_error(path="proofs", message=message)
+
+    base_url = request.build_absolute_uri("/")
+    results = await sync_to_async(ProofService.send_notifications)(
+        list(requested_uids),
+        template=payload,
+        base_url=base_url,
+    )
+
+    status_counts = {status.value: 0 for status in SendProofNotifyStatus}
+    for result in results:
+        status_counts[result.status] += 1
+
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_PROOF_NOTIFY,
+        resource=AuditResource.PAPER_PROOF,
+        scope=conference.name,
+        payload=payload,
+        detail={
+            "targeted_count": len(payload.proofs),
+            **status_counts,
+        },
+    )
+
+    return {"results": results}
 
 
 class AuthorProofResponse(Schema):
