@@ -1,5 +1,5 @@
 from http import HTTPStatus
-from typing import Literal
+from typing import Annotated, Literal
 from urllib.parse import urljoin
 
 from asgiref.sync import sync_to_async
@@ -11,7 +11,7 @@ from django.urls import reverse
 from ninja import File, Router, Schema
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
-from pydantic import AwareDatetime, HttpUrl
+from pydantic import AwareDatetime, BeforeValidator, HttpUrl, StringConstraints
 from ulid import ULID
 
 from app.audit.services import audit
@@ -28,6 +28,7 @@ from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest, EmailStr
 from app.ninja.errors import ErrorResponse
 from app.utils.files import UploadValidationError, build_file_download_response
+from app.utils.sanitization import sanitize_formatted_text
 
 router = Router(tags=["Proof"], exclude_none=True)
 
@@ -226,6 +227,128 @@ async def upload_proof_file(
         resource=proof,
         scope=conference.name,
         payload={"file": {"name": file.name or "", "size": file.size or 0}},
+    )
+
+    return await prefetch_proof(proof, request)
+
+
+class AuthorProofResponse(Schema):
+    paper_code: str
+    paper_title: str
+    confirmed_time: AwareDatetime | None
+    comment: str
+    comment_time: AwareDatetime | None
+    proof_url: HttpUrl
+    file_url: HttpUrl | None
+
+    @staticmethod
+    def resolve_paper_code(proof: PaperProof) -> str:
+        return proof.paper.code
+
+    @staticmethod
+    def resolve_paper_title(proof: PaperProof) -> str:
+        return proof.paper.title
+
+    @staticmethod
+    def resolve_proof_url(proof: PaperProof) -> HttpUrl:
+        base_url: str = proof.base_url  # type: ignore[attr-defined]
+        path = reverse("frontend:paper-proof", args=[proof.uid])
+        return HttpUrl(urljoin(base_url, path))
+
+    @staticmethod
+    def resolve_file_url(proof: PaperProof) -> HttpUrl | None:
+        if not proof.file:
+            return None
+        base_url: str = proof.base_url  # type: ignore[attr-defined]
+        path = reverse("api-1.0.0:download-proof-file", args=[proof.uid])
+        return HttpUrl(urljoin(base_url, path))
+
+
+@router.get(
+    "/conferences/-/paper-proofs/{ulid:uid}",
+    response=AuthorProofResponse,
+    summary="Get Proof",
+    auth=None,
+)
+async def get_proof(
+    request: HttpRequest,
+    uid: ULID,
+) -> PaperProof:
+    """Retrieve proof details for a paper."""
+    qs = with_proof_prefetch(PaperProof.objects.all(), request)
+    return await aget_object_or_404(qs, uid=uid)
+
+
+@router.post(
+    "/conferences/-/paper-proofs/{ulid:uid}:confirm",
+    response=AuthorProofResponse,
+    summary="Confirm Proof",
+    auth=None,
+)
+async def confirm_proof(
+    request: HttpRequest,
+    uid: ULID,
+) -> PaperProof:
+    """Confirm that the proof is acceptable. Idempotent."""
+    proof = await aget_object_or_404(
+        PaperProof.objects.select_related(
+            "paper__conference",
+            "paper__track__conference",
+        ),
+        uid=uid,
+    )
+
+    proof = await sync_to_async(ProofService.confirm)(proof)
+
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_PROOF_CONFIRM,
+        resource=proof,
+        scope=proof.paper.conference.name,
+    )
+
+    return await prefetch_proof(proof, request)
+
+
+ProofComment = Annotated[
+    str,
+    BeforeValidator(sanitize_formatted_text),
+    StringConstraints(max_length=10_000),
+]
+
+
+class CommentProofRequest(Schema):
+    comment: ProofComment
+
+
+@router.post(
+    "/conferences/-/paper-proofs/{ulid:uid}:comment",
+    response=AuthorProofResponse,
+    summary="Add Proof Comment",
+    auth=None,
+)
+async def comment_proof(
+    request: HttpRequest,
+    uid: ULID,
+    payload: CommentProofRequest,
+) -> PaperProof:
+    """Add or update a comment on the proof."""
+    proof = await aget_object_or_404(
+        PaperProof.objects.select_related(
+            "paper__conference",
+            "paper__track__conference",
+        ),
+        uid=uid,
+    )
+
+    proof = await sync_to_async(ProofService.comment)(proof, payload.comment)
+
+    await audit(
+        request=request,
+        action=AuditAction.PAPER_PROOF_COMMENT,
+        resource=proof,
+        scope=proof.paper.conference.name,
+        payload=payload,
     )
 
     return await prefetch_proof(proof, request)
