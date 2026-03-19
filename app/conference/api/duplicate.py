@@ -266,7 +266,7 @@ async def delete_duplicate_acknowledgment(
     conference_name: str,
     paper_uid_a: ULID,
     paper_uid_b: ULID,
-) -> Status:
+) -> Status[None]:
     """Removes the acknowledgment for a duplicate paper pair."""
     conference = await aget_object_or_404(
         Conference.objects.active(),

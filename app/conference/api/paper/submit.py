@@ -32,7 +32,7 @@ async def submit_my_paper(
     request: AuthedHttpRequest,
     conference_name: str,
     paper_code: str,
-) -> Status:
+) -> Status[Paper | ErrorResponse]:
     """Submit a paper for review.
 
     Validates that all required fields are present (title, abstract, contribution,
@@ -138,7 +138,7 @@ async def submit_paper(
     request: AuthedHttpRequest,
     conference_name: str,
     paper_code: str,
-) -> Status:
+) -> Status[Paper | ErrorResponse]:
     """Submit a paper for review as an admin.
 
     Performs minimal validation (only title is required) and transitions the paper

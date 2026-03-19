@@ -104,7 +104,7 @@ async def lookup_invitation(
 async def redeem_invitation(
     request: AuthedHttpRequest,
     payload: InvitationTokenPayload,
-) -> Status:
+) -> Status[None]:
     """Redeem an invitation using its token."""
     invitation = await sync_to_async(InvitationService.retrieve_invitation)(
         payload.invitation_token
@@ -145,7 +145,7 @@ async def redeem_invitation(
 async def reject_invitation(
     request: HttpRequest,
     payload: InvitationTokenPayload,
-) -> Status:
+) -> Status[None]:
     """Reject an invitation."""
     invitation = await sync_to_async(InvitationService.retrieve_invitation)(
         payload.invitation_token

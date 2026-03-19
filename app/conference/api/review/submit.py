@@ -55,7 +55,7 @@ async def submit_my_review(
     request: AuthedHttpRequest,
     conference_name: str,
     review_uid: ULID,
-) -> Status:
+) -> Status[Review | ErrorResponse]:
     """Submit a review for a paper.
 
     Validates that all required fields are present (scores, contribution, decision

@@ -47,7 +47,7 @@ class CreatePasswordResetResponse(Schema):
 async def create_password_reset(
     request: HttpRequest,
     payload: CreatePasswordResetRequest,
-) -> Status | JsonResponse:
+) -> Status[CreatePasswordResetResponse] | JsonResponse:
     """Request a password reset token for a user account.
 
     Initiates the password reset process by sending an email with a reset token to the
@@ -116,7 +116,7 @@ class ConsumePasswordResetRequest(Schema):
 async def consume_password_reset(
     request: HttpRequest,
     payload: ConsumePasswordResetRequest,
-) -> Status:
+) -> Status[None]:
     """Reset a user's password using a valid password reset token.
 
     Consumes a password reset token and sets a new password for the user account. The

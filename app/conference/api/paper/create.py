@@ -163,7 +163,7 @@ async def create_draft(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreatePaperRequest,
-) -> Status:
+) -> Status[Paper]:
     """Start a new paper submission by creating a draft in the specified track.
 
     Upload a submission file and use the submit endpoint to mark the paper ready for
@@ -210,7 +210,7 @@ async def create_paper(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: AdminCreatePaperRequest,
-) -> Status:
+) -> Status[Paper]:
     """Create a paper as an admin.
 
     This bypasses the track's submissions-enabled check, allowing creation of invited

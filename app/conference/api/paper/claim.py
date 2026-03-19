@@ -94,7 +94,7 @@ async def remove_paper_claim(
     request: AuthedHttpRequest,
     conference_name: str,
     paper_code: str,
-) -> Status:
+) -> Status[None]:
     """Remove the claim on a paper, cancelling any pending auto-transfer."""
     user = await request.auser()
     conference = await aget_object_or_404(

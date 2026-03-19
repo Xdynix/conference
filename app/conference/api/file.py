@@ -119,7 +119,7 @@ async def upload_conference_file(
     conference_name: str,
     conference_file_name: str,
     file: File[UploadedFile],
-) -> Status:
+) -> Status[ConferenceFile]:
     """Create or replace a shared conference file."""
     conference = await aget_object_or_404(
         Conference.objects.active(),
@@ -201,7 +201,7 @@ async def delete_conference_file(
     request: AuthedHttpRequest,
     conference_name: str,
     conference_file_name: str,
-) -> Status:
+) -> Status[None]:
     """Delete a shared conference file and its stored content."""
     conference = await aget_object_or_404(
         Conference.objects.active(),

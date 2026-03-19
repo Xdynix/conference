@@ -75,7 +75,7 @@ async def create_attendance_type(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreateAttendanceTypeRequest,
-) -> Status:
+) -> Status[AttendanceType]:
     """Create a new attendance type for the conference.
 
     The new type is appended to the end of the ordering.
@@ -203,7 +203,7 @@ async def delete_attendance_type(
     request: AuthedHttpRequest,
     conference_name: str,
     attendance_type_uid: ULID,
-) -> Status:
+) -> Status[None]:
     """Delete an attendance type.
 
     Fails if any registrations are still referencing this type.
