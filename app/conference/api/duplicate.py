@@ -117,6 +117,10 @@ async def get_duplicate_report(
     if report is None:
         raise Http404
 
+    # TODO: all matches are loaded and serialized in a single response without
+    #  pagination. Stress testing with random data produced ~44k matches that exceeded
+    #  the 30s request timeout. Real conference data should stay well under that, but if
+    #  match counts grow, consider server-side pagination or a result cap.
     matches = [
         m
         async for m in DuplicateMatch.objects.filter(report=report)
