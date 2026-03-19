@@ -21,7 +21,10 @@ from .core import router
     summary="Delete Conference",
     auth=has_any_roles(GlobalRole.ADMIN),
 )
-async def delete_conference(request: AuthedHttpRequest, conference_name: str) -> Status:
+async def delete_conference(
+    request: AuthedHttpRequest,
+    conference_name: str,
+) -> Status[None]:
     """Delete a conference."""
     try:
         conference = await sync_to_async(ConferenceService.deactivate_conference)(

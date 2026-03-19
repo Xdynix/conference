@@ -7,7 +7,7 @@ from ninja.errors import HttpError
 
 from app.audit.services import audit
 from app.audit.types import AuditAction
-from app.conference.models import ConferenceVisibility, TrackVisibility
+from app.conference.models import Conference, ConferenceVisibility, TrackVisibility
 from app.conference.services import ConferenceService, KeywordService
 from app.conference.services.conference import ConferenceNameConflict, TrackData
 from app.conference.types import Conference as ConferenceSchema
@@ -46,7 +46,7 @@ class CreateConferenceRequest(ConferenceSchema):
 async def create_conference(
     request: AuthedHttpRequest,
     payload: CreateConferenceRequest,
-) -> Status:
+) -> Status[Conference]:
     """Create a conference."""
     try:
         keywords = await KeywordService.validate_keyword_texts(payload.keywords)

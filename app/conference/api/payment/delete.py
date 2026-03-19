@@ -29,7 +29,7 @@ async def delete_payment(
     request: AuthedHttpRequest,
     conference_name: str,
     payment_uid: ULID,
-) -> Status:
+) -> Status[None]:
     """Soft-deletes a payment record."""
     conference = await aget_object_or_404(
         Conference.objects.active(),

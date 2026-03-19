@@ -14,7 +14,13 @@ from app.conference.auth import (
     has_any_conference_or_track_roles,
     has_any_conference_roles,
 )
-from app.conference.models import Conference, ConferenceRole, PaperState, TrackRole
+from app.conference.models import (
+    Conference,
+    ConferenceRole,
+    Paper,
+    PaperState,
+    TrackRole,
+)
 from app.conference.services import (
     ConferenceAccessService,
     ConferenceService,
@@ -53,7 +59,7 @@ async def create_my_submission(
     conference_name: str,
     paper_code: str,
     file: File[UploadedFile],
-) -> Status:
+) -> Status[Paper]:
     """Upload a submission file for a paper.
 
     Creates a new revision of the submission. Only papers in Draft or Submitted state
@@ -129,7 +135,7 @@ async def create_submission(
     conference_name: str,
     paper_code: str,
     file: File[UploadedFile],
-) -> Status:
+) -> Status[Paper]:
     """Upload a submission file for a paper as an admin.
 
     Track admins can upload to papers in Draft, Submitted, or Under Review state.
@@ -211,7 +217,7 @@ async def create_my_final(
     # using `| None` causes the parameter to always resolve as None. Use `= None`
     # default without union type annotation as a workaround.
     viewable_file: File[UploadedFile] = None,  # type: ignore[assignment]
-) -> Status:
+) -> Status[Paper]:
     """Upload final version files for a paper.
 
     Creates a new revision of the final. Only papers in Accepted or Accepted (Revision
@@ -300,7 +306,7 @@ async def create_final(
     # using `| None` causes the parameter to always resolve as None. Use `= None`
     # default without union type annotation as a workaround.
     viewable_file: File[UploadedFile] = None,  # type: ignore[assignment]
-) -> Status:
+) -> Status[Paper]:
     """Upload final version files for a paper as an admin.
 
     Admin uploads bypass the revision limit. Allows 4x the standard size limits.

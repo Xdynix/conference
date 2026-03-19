@@ -37,7 +37,7 @@ async def delete_my_paper(
     request: AuthedHttpRequest,
     conference_name: str,
     paper_code: str,
-) -> Status:
+) -> Status[None]:
     """Remove a paper from the conference.
 
     Papers can only be deleted while in Draft or Submitted state. Once deleted, the
@@ -88,7 +88,7 @@ async def delete_paper(
     request: AuthedHttpRequest,
     conference_name: str,
     paper_code: str,
-) -> Status:
+) -> Status[None]:
     """Remove a paper from the conference as an admin.
 
     Track admins can delete papers in Draft, Submitted, or Under Review state.

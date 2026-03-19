@@ -60,7 +60,7 @@ async def assign_review(
     conference_name: str,
     paper_code: str,
     payload: AssignReviewRequest,
-) -> Status:
+) -> Status[Review]:
     """Assign a reviewer to a paper.
 
     Creates a review assignment in PENDING state. The reviewer must accept the
@@ -168,7 +168,7 @@ async def import_review(
     conference_name: str,
     paper_code: str,
     payload: ImportReviewRequest,
-) -> Status:
+) -> Status[Review]:
     """Import a review from an external source.
 
     Creates or updates a review with no assigned reviewer in SUBMITTED state. If a

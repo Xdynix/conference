@@ -74,7 +74,7 @@ async def create_admin_comment(
     conference_name: str,
     paper_code: str,
     payload: CreateAdminCommentRequest,
-) -> Status:
+) -> Status[AdminComment]:
     """Creates an admin comment on a paper."""
     user = await request.auser()
     conference = await aget_object_or_404(
@@ -121,7 +121,7 @@ async def delete_admin_comment(
     request: AuthedHttpRequest,
     conference_name: str,
     comment_uid: ULID,
-) -> Status:
+) -> Status[None]:
     """Deletes an admin comment."""
     conference = await aget_object_or_404(
         Conference.objects.active(),
