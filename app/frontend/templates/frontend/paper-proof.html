@@ -97,6 +97,7 @@
           :class="{'is-invalid': errors.comment}"
           rows="4"
           x-model="commentText"
+          @input="commentSuccess = false"
           placeholder="Leave a comment if you have corrections or feedback..."
         ></textarea>
         <div class="invalid-feedback" x-text="errors.comment"></div>
@@ -129,6 +130,10 @@
         </button>
       </div>
 
+      <div x-show="commentSuccess" x-cloak class="alert alert-success small py-2" role="alert">
+        Comment saved.
+      </div>
+
       <template x-if="proof?.comment_time">
         <p class="text-muted small">
           Last updated: <span x-text="formatDate(proof.comment_time)"></span>
@@ -149,6 +154,7 @@
         commentText: "",
         confirming: false,
         commenting: false,
+        commentSuccess: false,
         errors: {},
 
         async init() {
@@ -156,6 +162,7 @@
             const {data} = await api.get("{% url 'api-1.0.0:get-proof' uid=params.proof_uid %}");
             this.proof = data;
             this.commentText = data.comment;
+            document.title = document.title.replace('Paper Proof | ', `Paper Proof - ${data.paper_code} | `);
           } catch {
             this.error = "This proof link is invalid or the proof could not be found.";
           } finally {
@@ -182,6 +189,7 @@
         async submitComment() {
           if (this.commenting) return;
           this.errors = {};
+          this.commentSuccess = false;
           this.commenting = true;
 
           try {
@@ -190,6 +198,7 @@
               {comment: this.commentText}
             );
             this.proof = data;
+            this.commentSuccess = true;
           } catch (error) {
             const data = error.response?.data;
             if (error.response?.status === 422 && data?.details?.length) {
