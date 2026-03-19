@@ -77,7 +77,11 @@ Conference Setup
 │   ├── requires: attendance types, announced/accepted paper (if paper required)
 │   └── Register -> confirm -> record payment -> generate receipt
 │
-└── Ongoing Administration (§7)
+├── Proof Confirmation (§7)
+│   ├── requires: accepted & announced papers
+│   └── Creates proof -> uploads file -> notifies author -> author confirms/comments
+│
+└── Ongoing Administration (§8)
     └── Duplicate report review (background scan)
 ```
 
@@ -464,7 +468,81 @@ Conference Setup
 
 ---
 
-## §7: Ongoing Administration
+## §7: Proof Confirmation
+
+Before finalizing proceedings, the committee edits accepted papers for formatting and
+typos, then asks authors to review the edited version and confirm or leave feedback.
+
+Proof records do not have a formal state enum. Status is derived from timestamps
+(confirmed, commented, notified). These are not mutually exclusive; a proof can be both
+confirmed and commented. Uploading a new file resets confirmation and comments.
+
+### Create Proof Record
+
+- **Actor:** Conference Admin
+- **Goal:** Create a proof record for an accepted paper with a derived recipient.
+- **Preconditions:** Paper is `ACCEPTED` or `ACCEPTED_REVISION_NEEDED`; decision has
+  been announced; paper is not withdrawn or deleted.
+- **Steps:**
+    1. Admin creates a proof record for a paper, optionally overriding the recipient
+       name and email.
+    2. System derives the recipient from the first corresponding author, or falls back
+       to the paper owner. Explicit overrides take precedence.
+- **Outcome:** Proof record created (one per paper). No file attached yet.
+
+### Upload Proof File
+
+- **Actor:** Conference Admin
+- **Goal:** Attach the edited PDF to a proof record.
+- **Preconditions:** Proof record exists for the paper.
+- **Steps:**
+    1. Admin uploads a PDF file to the proof record.
+    2. System validates the file. If replacing an existing file, confirmation and
+       comments are reset.
+- **Outcome:** Proof file stored; proof is ready for author notification.
+
+### Send Proof Notifications
+
+- **Actor:** Conference Admin
+- **Goal:** Email authors with links to review their proofs.
+- **Preconditions:** Proof records exist; proofs without files are skipped.
+- **Steps:**
+    1. Admin opens the "Proof Confirmation" page from the admin paper list.
+    2. Admin selects one or more proofs via checkboxes and clicks "Send Notification".
+    3. In the modal, admin composes the email template and optionally previews the
+       rendered output.
+    4. Admin clicks "Send"; system sends emails and records notification timestamps.
+       Proofs without uploaded files are skipped.
+- **Outcome:** Authors receive emails with token-based links (no login required) to
+  their proof pages; notification timestamps updated.
+
+### Confirm Proof
+
+- **Actor:** Author (via token link)
+- **Goal:** Approve the edited version for proceedings.
+- **Preconditions:** Author has the proof URL (from notification email).
+- **Steps:**
+    1. Author opens the proof link, which shows the paper code, title, and instructions.
+    2. Author downloads and reviews the proof PDF.
+    3. Author clicks "Confirm Proof".
+- **Outcome:** Proof is confirmed. Idempotent; confirming again is a no-op. Admin sees
+  "Confirmed" status on the proof list.
+
+### Comment on Proof
+
+- **Actor:** Author (via token link)
+- **Goal:** Report errors or request changes to the edited version.
+- **Preconditions:** Author has the proof URL.
+- **Steps:**
+    1. Author opens the proof link and enters feedback in the comment textarea.
+    2. Author clicks "Submit Comment".
+- **Outcome:** Comment stored with timestamp. Admin sees "Commented" status on the proof
+  list and can expand to read the comment. Communication for resolving comments happens
+  offline (email, etc.).
+
+---
+
+## §8: Ongoing Administration
 
 ### Review Duplicate Report
 
