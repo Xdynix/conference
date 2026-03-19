@@ -1,0 +1,315 @@
+{% extends "frontend/layouts/app.html" %}
+
+{% block title %}Admin: Proof Confirmation | {% endblock %}
+
+{% block content %}
+  <div
+    x-data="proofList()"
+    x-init="
+      $store.sidebar.setActive('admin-papers');
+      $store.breadcrumb.set([
+        {label: 'Papers', url: '{% url "frontend:admin-paper-list" conference_name=params.conference_name %}'},
+        {label: 'Proof Confirmation'},
+      ]);
+    "
+    class="d-flex flex-column flex-grow-1 mx-auto w-100"
+    style="min-height: 0; max-width: 60rem;"
+  >
+    <h1 class="h3 mb-4">Proof Confirmation</h1>
+
+    <div x-show="$store.conference.loading || loading" class="text-center py-5">
+      <div class="spinner-border" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+    </div>
+
+    <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Conference not found.</p>
+    </div>
+
+    <div x-show="!$store.conference.loading && !loading && error" x-cloak class="text-center py-5">
+      <p class="text-muted mb-0">Failed to load proof data.</p>
+    </div>
+
+    <div x-show="$store.conference.detail && !loading && !error" x-cloak>
+      {# Toolbar: search + filter + send button #}
+      <div class="d-flex gap-2 mb-3">
+        <input
+          type="text"
+          class="form-control flex-grow-1"
+          placeholder="Search by paper or recipient..."
+          x-model.debounce.300ms="search"
+        >
+        <select
+          class="form-select"
+          style="width: auto;"
+          x-model="statusFilter"
+        >
+          <option value="">All proofs</option>
+          <option value="commented">Commented</option>
+          <option value="not_notified">Not notified</option>
+        </select>
+        <button
+          type="button"
+          class="btn btn-primary flex-shrink-0"
+          :disabled="selectedCount === 0"
+          @click="openSendModal([...selectedUids])"
+        >
+          Send Notification
+        </button>
+      </div>
+
+      <div style="overflow-x: auto; --cols: minmax(10rem,1fr) minmax(10rem,1fr) 3rem 8rem 7rem;">
+        {# Column header row #}
+        <div class="d-flex align-items-center px-3 py-2 border-bottom bg-body-tertiary small text-muted">
+          <div class="flex-shrink-0 me-2" style="width: 1.25rem;">
+            <input
+              type="checkbox"
+              class="form-check-input"
+              :checked="allVisibleSelected"
+              x-effect="$el.indeterminate = someVisibleSelected"
+              @click.stop="toggleSelectAll()"
+              @change.stop
+            >
+          </div>
+          <div class="d-grid flex-grow-1" style="grid-template: 1fr / 1fr;">
+            <div
+              style="grid-area: 1/1; grid-template-columns: var(--cols); column-gap: 0.5rem;"
+              class="d-grid align-items-center"
+              :class="selectedCount > 0 && 'invisible'"
+            >
+              <span>Paper</span>
+              <span>Recipient</span>
+              <span>File</span>
+              <span>Status</span>
+              <span>Notified</span>
+            </div>
+            <div
+              style="grid-area: 1/1;"
+              class="d-flex align-items-center"
+              :class="selectedCount === 0 && 'invisible'"
+            >
+              <span class="fw-medium" x-text="selectedCount + ' selected'"></span>
+            </div>
+          </div>
+        </div>
+
+        {# Proof rows #}
+        <template x-for="p in filteredProofs" :key="p.uid">
+          <div class="border-top">
+            <div
+              class="d-flex align-items-center px-3 py-2"
+              :style="isSelected(p) && 'background-color: rgba(var(--bs-primary-rgb), .1)'"
+            >
+              <div class="flex-shrink-0 me-2" style="width: 1.25rem;">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  :checked="isSelected(p)"
+                  @click.stop="toggleSelection(p)"
+                  @change.stop
+                >
+              </div>
+              <div
+                class="d-grid flex-grow-1 align-items-center"
+                style="grid-template-columns: var(--cols); column-gap: 0.5rem;"
+              >
+                <div class="min-w-0">
+                  <span class="fw-medium" x-text="p.paper_code"></span>
+                  <span class="text-muted small text-truncate d-block" x-text="p.paper_title"></span>
+                </div>
+                <div class="min-w-0">
+                  <span class="text-truncate d-block" x-text="p.recipient_name"></span>
+                  <span class="text-muted small text-truncate d-block" x-text="p.recipient_email"></span>
+                </div>
+                <span class="text-center">
+                  <i
+                    :class="p.file_url ? 'bi-check-lg text-success' : 'bi-x-lg text-muted'"
+                  ></i>
+                </span>
+                <div class="d-flex align-items-center gap-1">
+                  <template x-if="p.confirmed_time">
+                    <span class="badge bg-success-subtle text-success-emphasis">Confirmed</span>
+                  </template>
+                  <template x-if="p.comment">
+                    <button
+                      type="button"
+                      class="badge bg-warning-subtle text-warning-emphasis border-0"
+                      style="cursor: pointer;"
+                      @click.stop="toggleComment(p.uid)"
+                    >
+                      Commented
+                      <i
+                        class="bi ms-1"
+                        :class="expandedComments.has(p.uid) ? 'bi-chevron-up' : 'bi-chevron-down'"
+                      ></i>
+                    </button>
+                  </template>
+                  <template x-if="!p.confirmed_time && !p.comment">
+                    <span class="text-muted small">No response</span>
+                  </template>
+                </div>
+                <span class="text-muted small text-nowrap" x-text="p.notification_time ? formatDate(p.notification_time) : 'Never'"></span>
+              </div>
+            </div>
+            {# Expandable comment #}
+            <template x-if="p.comment && expandedComments.has(p.uid)">
+              <div class="px-3 pb-2" style="padding-left: calc(1.25rem + 1rem + 0.75rem);">
+                <div class="bg-body-tertiary rounded p-2 small" style="white-space: pre-wrap;" x-text="p.comment"></div>
+                <span class="text-muted small" x-text="formatDate(p.comment_time)"></span>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        {# No match message #}
+        <div
+          x-show="(search.trim() || statusFilter) && filteredProofs.length === 0"
+          x-cloak
+          class="text-muted text-center py-4 border-top"
+        >
+          No proofs match your filters.
+        </div>
+
+        {# Empty state #}
+        <div
+          x-show="!search.trim() && !statusFilter && proofs.length === 0"
+          x-cloak
+          class="text-muted text-center py-4 border-top"
+        >
+          No proofs created yet.
+        </div>
+      </div>
+
+      {# Footer count #}
+      <template x-if="proofs.length > 0">
+        <div class="text-muted small mt-2" x-text="footerText"></div>
+      </template>
+
+      {% include "frontend/components/proof/send-notification-modal.html" %}
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ block.super }}
+  <script>
+    function proofList() {
+      return {
+        ...sendProofNotificationModal(),
+
+        proofs: [],
+        loading: true,
+        error: null,
+        search: "",
+        statusFilter: "",
+        selectedUids: new Set(),
+        expandedComments: new Set(),
+
+        get filteredProofs() {
+          let list = [...this.proofs];
+
+          if (this.statusFilter === "commented") {
+            list = list.filter(p => p.comment);
+          } else if (this.statusFilter === "not_notified") {
+            list = list.filter(p => !p.notification_time);
+          }
+
+          const q = this.search.trim().toLowerCase();
+          if (q) {
+            list = list.filter(p => {
+              const code = p.paper_code.toLowerCase();
+              const title = p.paper_title.toLowerCase();
+              const name = p.recipient_name.toLowerCase();
+              const email = p.recipient_email.toLowerCase();
+              return code.includes(q) || title.includes(q) || name.includes(q) || email.includes(q);
+            });
+          }
+
+          return list;
+        },
+
+        get footerText() {
+          const filtered = this.filteredProofs.length;
+          const total = this.proofs.length;
+          const label = total === 1 ? "proof" : "proofs";
+          if (filtered === total) return `${total} ${label}`;
+          return `${filtered} of ${total} ${label}`;
+        },
+
+        toggleComment(uid) {
+          if (this.expandedComments.has(uid)) {
+            this.expandedComments.delete(uid);
+          } else {
+            this.expandedComments.add(uid);
+          }
+          this.expandedComments = new Set(this.expandedComments);
+        },
+
+        // Selection
+        isSelected(p) {
+          return this.selectedUids.has(p.uid);
+        },
+
+        toggleSelection(p) {
+          if (this.selectedUids.has(p.uid)) {
+            this.selectedUids.delete(p.uid);
+          } else {
+            this.selectedUids.add(p.uid);
+          }
+          this.selectedUids = new Set(this.selectedUids);
+        },
+
+        get allVisibleSelected() {
+          const visible = this.filteredProofs;
+          return visible.length > 0 && visible.every(p => this.isSelected(p));
+        },
+
+        get someVisibleSelected() {
+          const visible = this.filteredProofs;
+          return visible.some(p => this.isSelected(p)) && !this.allVisibleSelected;
+        },
+
+        toggleSelectAll() {
+          if (this.allVisibleSelected) {
+            for (const p of this.filteredProofs) {
+              this.selectedUids.delete(p.uid);
+            }
+          } else {
+            for (const p of this.filteredProofs) {
+              this.selectedUids.add(p.uid);
+            }
+          }
+          this.selectedUids = new Set(this.selectedUids);
+        },
+
+        clearSelection() {
+          this.selectedUids = new Set();
+        },
+
+        get selectedCount() {
+          return this.selectedUids.size;
+        },
+
+        async fetchProofs() {
+          const url = "{% url 'api-1.0.0:list-proofs' conference_name=params.conference_name %}";
+          const {data} = await api.get(url);
+          this.proofs = data;
+        },
+
+        async init() {
+          try {
+            await this.fetchProofs();
+          } catch (e) {
+            this.error = e;
+          } finally {
+            this.loading = false;
+          }
+
+          this.$watch("search", () => this.clearSelection());
+          this.$watch("statusFilter", () => this.clearSelection());
+        },
+      };
+    }
+  </script>
+{% endblock %}

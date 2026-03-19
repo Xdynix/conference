@@ -66,6 +66,15 @@
             </template>
             <template x-if="$store.permissions.isConferenceAdmin">
               <a
+                href="{% url 'frontend:admin-proof-list' conference_name=params.conference_name %}"
+                class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2"
+              >
+                <i class="bi-file-earmark-check"></i>
+                Proof Confirmation
+              </a>
+            </template>
+            <template x-if="$store.permissions.isConferenceAdmin">
+              <a
                 href="{% url 'frontend:admin-duplicate-report' conference_name=params.conference_name %}"
                 class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-2"
               >
