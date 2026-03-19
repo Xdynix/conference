@@ -2,10 +2,13 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+from django.conf import LazySettings
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.mail import EmailMessage
 from django.utils import timezone
 from faker.proxy import Faker
 from pytest_mock import MockerFixture
+from ulid import ULID
 
 from app.conference.models import (
     Conference,
@@ -18,12 +21,15 @@ from app.conference.models import (
 )
 from app.conference.services.proof import (
     ProofEligibilityError,
+    ProofNotifyEmailContext,
     ProofService,
     RecipientDerivationError,
+    SendProofNotifyStatus,
 )
 from app.core.models import User
+from app.utils.email import EmailTemplate
 from app.utils.files import FileTooLargeError
-from tests.helpers import update_object
+from tests.helpers import approx_now, update_object
 
 
 @pytest.fixture
@@ -376,3 +382,319 @@ class TestProofServiceComment:
 
         assert proof.comment == "updated comment"
         assert proof.comment_time >= first_time  # type: ignore[operator]
+
+
+@pytest.fixture
+def notify_template() -> EmailTemplate:
+    return EmailTemplate(
+        subject="Proof for {{ paper_code }}",
+        body="Hello {{ recipient_name }}, review at {{ proof_url }}.",
+    )
+
+
+@pytest.fixture
+def mock_send(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch.object(EmailMessage, "send")
+
+
+@pytest.fixture
+def proof_with_file(paper: Paper) -> PaperProof:
+    return PaperProof.objects.create(
+        paper=paper,
+        recipient_name="Alice Smith",
+        recipient_email="alice@example.com",
+        file=SimpleUploadedFile(
+            "proof.pdf",
+            b"%PDF-content",
+            content_type="application/pdf",
+        ),
+    )
+
+
+BASE_URL = "https://testserver/"
+
+
+class TestProofNotifyEmailContextSample:
+    def test_happy_path(self, settings: LazySettings) -> None:
+        settings.SITE_NAME = "Test Site"
+
+        context = ProofNotifyEmailContext.sample(base_url=BASE_URL)
+
+        assert context.site_name == "Test Site"
+        assert context.conference_name == "CONF-2025"
+        assert context.paper_code == "PAPER-001"
+        assert context.paper_title == "Sample Paper Title"
+        assert context.recipient_name == "John Doe"
+        assert "01000000000000000000000000" in str(context.proof_url)
+
+    def test_renders_with_template(self, notify_template: EmailTemplate) -> None:
+        context = ProofNotifyEmailContext.sample(base_url=BASE_URL)
+
+        rendered = notify_template.render(context)
+
+        assert "PAPER-001" in rendered.subject
+        assert "John Doe" in rendered.body
+        assert "paper-proofs/" in rendered.body
+
+
+@pytest.mark.django_db(transaction=True)
+class TestProofServiceSendNotification:
+    def test_happy_path(
+        self,
+        proof_with_file: PaperProof,
+        notify_template: EmailTemplate,
+        mock_send: MagicMock,
+    ) -> None:
+        sent, recipient_email = ProofService.send_notification(
+            proof_with_file.uid,
+            template=notify_template,
+            base_url=BASE_URL,
+        )
+
+        assert sent is True
+        assert recipient_email == "alice@example.com"
+
+        proof_with_file.refresh_from_db()
+        assert proof_with_file.notification_time == approx_now()
+
+        mock_send.assert_called_once()
+
+    def test_skips_proof_without_file(
+        self,
+        proof: PaperProof,
+        notify_template: EmailTemplate,
+        mock_send: MagicMock,
+    ) -> None:
+        sent, recipient_email = ProofService.send_notification(
+            proof.uid,
+            template=notify_template,
+            base_url=BASE_URL,
+        )
+
+        assert sent is False
+        assert recipient_email == "alice@example.com"
+
+        proof.refresh_from_db()
+        assert proof.notification_time is None
+
+        mock_send.assert_not_called()
+
+    def test_raises_for_nonexistent_proof(
+        self,
+        notify_template: EmailTemplate,
+        mock_send: MagicMock,
+    ) -> None:
+        with pytest.raises(PaperProof.DoesNotExist):
+            ProofService.send_notification(
+                ULID(),
+                template=notify_template,
+                base_url=BASE_URL,
+            )
+
+        mock_send.assert_not_called()
+
+    def test_updates_notification_time_on_resend(
+        self,
+        proof_with_file: PaperProof,
+        notify_template: EmailTemplate,
+        mock_send: MagicMock,
+    ) -> None:
+        ProofService.send_notification(
+            proof_with_file.uid,
+            template=notify_template,
+            base_url=BASE_URL,
+        )
+        proof_with_file.refresh_from_db()
+        first_time = proof_with_file.notification_time
+
+        ProofService.send_notification(
+            proof_with_file.uid,
+            template=notify_template,
+            base_url=BASE_URL,
+        )
+        proof_with_file.refresh_from_db()
+
+        assert proof_with_file.notification_time >= first_time  # type: ignore[operator]
+        assert mock_send.call_count == 2
+
+    def test_uses_database_transaction(
+        self,
+        mocker: MockerFixture,
+        proof_with_file: PaperProof,
+        notify_template: EmailTemplate,
+        mock_send: MagicMock,
+    ) -> None:
+        mocker.patch.object(PaperProof, "save", side_effect=RuntimeError("DB error"))
+
+        with pytest.raises(RuntimeError, match="DB error"):
+            ProofService.send_notification(
+                proof_with_file.uid,
+                template=notify_template,
+                base_url=BASE_URL,
+            )
+
+        proof_with_file.refresh_from_db()
+        assert proof_with_file.notification_time is None
+
+        mock_send.assert_not_called()
+
+
+@pytest.mark.django_db(transaction=True)
+class TestProofServiceSendNotifications:
+    @pytest.fixture
+    def proof_a(self, paper: Paper) -> PaperProof:
+        return PaperProof.objects.create(
+            paper=paper,
+            recipient_name="Alice Smith",
+            recipient_email="alice@example.com",
+            file=SimpleUploadedFile("a.pdf", b"%PDF-a"),
+        )
+
+    @pytest.fixture
+    def proof_b(
+        self,
+        faker: Faker,
+        conference: Conference,
+        track: Track,
+    ) -> PaperProof:
+        owner = User.objects.create_user(username=faker.user_name())
+        other_paper = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=owner,
+            code=faker.lexify(text="????-###"),
+            state=PaperState.ACCEPTED,
+            announce_time=timezone.now(),
+        )
+        return PaperProof.objects.create(
+            paper=other_paper,
+            recipient_name="Bob Jones",
+            recipient_email="bob@example.com",
+            file=SimpleUploadedFile("b.pdf", b"%PDF-b"),
+        )
+
+    def test_happy_path(
+        self,
+        notify_template: EmailTemplate,
+        mock_send: MagicMock,
+        proof_a: PaperProof,
+        proof_b: PaperProof,
+    ) -> None:
+        results = ProofService.send_notifications(
+            [proof_a.uid, proof_b.uid],
+            template=notify_template,
+            base_url=BASE_URL,
+        )
+
+        [result_a, result_b] = results
+        assert result_a.proof == proof_a.uid
+        assert result_a.status == SendProofNotifyStatus.SENT
+        assert result_a.recipient_email == "alice@example.com"
+        assert result_b.proof == proof_b.uid
+        assert result_b.status == SendProofNotifyStatus.SENT
+        assert result_b.recipient_email == "bob@example.com"
+
+        assert mock_send.call_count == 2
+
+    def test_empty_list(
+        self,
+        notify_template: EmailTemplate,
+        mock_send: MagicMock,
+    ) -> None:
+        results = ProofService.send_notifications(
+            [],
+            template=notify_template,
+            base_url=BASE_URL,
+        )
+
+        assert results == []
+        mock_send.assert_not_called()
+
+    def test_not_found_proof(
+        self,
+        notify_template: EmailTemplate,
+        mock_send: MagicMock,
+        proof_a: PaperProof,
+    ) -> None:
+        nonexistent_uid = ULID()
+
+        results = ProofService.send_notifications(
+            [proof_a.uid, nonexistent_uid],
+            template=notify_template,
+            base_url=BASE_URL,
+        )
+
+        [result_a, result_missing] = results
+        assert result_a.status == SendProofNotifyStatus.SENT
+        assert result_missing.proof == nonexistent_uid
+        assert result_missing.status == SendProofNotifyStatus.NOT_FOUND
+        assert result_missing.reason is not None
+
+        mock_send.assert_called_once()
+
+    @pytest.fixture
+    def proof_no_file(
+        self,
+        faker: Faker,
+        conference: Conference,
+        track: Track,
+    ) -> PaperProof:
+        owner = User.objects.create_user(username=faker.user_name())
+        p = Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=owner,
+            code=faker.lexify(text="????-###"),
+            state=PaperState.ACCEPTED,
+            announce_time=timezone.now(),
+        )
+        return PaperProof.objects.create(
+            paper=p,
+            recipient_name="Carol Lee",
+            recipient_email="carol@example.com",
+        )
+
+    def test_skipped_proof_without_file(
+        self,
+        notify_template: EmailTemplate,
+        mock_send: MagicMock,
+        proof_a: PaperProof,
+        proof_no_file: PaperProof,
+    ) -> None:
+        results = ProofService.send_notifications(
+            [proof_a.uid, proof_no_file.uid],
+            template=notify_template,
+            base_url=BASE_URL,
+        )
+
+        [result_a, result_no_file] = results
+        assert result_a.status == SendProofNotifyStatus.SENT
+        assert result_no_file.proof == proof_no_file.uid
+        assert result_no_file.status == SendProofNotifyStatus.SKIPPED
+        assert result_no_file.recipient_email == "carol@example.com"
+        assert result_no_file.reason is not None
+
+        mock_send.assert_called_once()
+
+    def test_failure_does_not_affect_others(
+        self,
+        mocker: MockerFixture,
+        notify_template: EmailTemplate,
+        proof_a: PaperProof,
+        proof_b: PaperProof,
+    ) -> None:
+        mock = mocker.patch.object(EmailMessage, "send")
+        mock.side_effect = [None, RuntimeError("SMTP error")]
+
+        results = ProofService.send_notifications(
+            [proof_a.uid, proof_b.uid],
+            template=notify_template,
+            base_url=BASE_URL,
+        )
+
+        [result_a, result_b] = results
+        assert result_a.status == SendProofNotifyStatus.SENT
+        assert result_b.status == SendProofNotifyStatus.FAILED
+        assert result_b.reason is not None
+
+        assert mock.call_count == 2

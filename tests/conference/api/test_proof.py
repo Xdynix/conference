@@ -26,6 +26,8 @@ from app.conference.services import ProofService
 from app.conference.services.proof import (
     ProofEligibilityError,
     RecipientDerivationError,
+    SendProofNotifyResult,
+    SendProofNotifyStatus,
 )
 from app.core.models import User
 from app.utils.files import InvalidFileTypeError
@@ -555,6 +557,249 @@ class TestUploadProofFile:
         assert response.status_code == HTTPStatus.FORBIDDEN
 
         proof_service_upload.assert_not_called()
+
+
+@pytest.mark.django_db
+class TestPreviewProofNotify:
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:preview-proof-notify", args=[conference_name])
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "subject": "Proof for {{ paper_code }}",
+                "body": "Hello {{ recipient_name }}, review at {{ proof_url }}.",
+            },
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["format"] == "text"
+        assert "PAPER-001" in data["subject"]
+        assert "John Doe" in data["body"]
+        assert "paper-proofs/" in data["body"]
+
+    def test_undefined_variable_returns_422(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "subject": "Hello {{ nonexistent_var }}",
+                "body": "Body",
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert "nonexistent_var" in response.json()["message"]
+
+    def test_invalid_template_syntax_returns_422(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "subject": "Hello {{ unclosed",
+                "body": "Body",
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    def test_empty_subject_rejected(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={"subject": "", "body": "Body"},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+    def test_unauthenticated(self, api_client: Client, conference: Conference) -> None:
+        response = api_client.post(
+            self.path(conference.name),
+            data={"subject": "Test", "body": "Body"},
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+    def test_unauthorized_user_forbidden(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(user)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={"subject": "Test", "body": "Body"},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+
+@pytest.fixture
+def mock_proof_notify(mocker: MockerFixture) -> MagicMock:
+    return mocker.patch.object(ProofService, "send_notifications")
+
+
+@pytest.mark.django_db
+class TestSendProofNotify:
+    @classmethod
+    def path(cls, conference_name: str) -> str:
+        return reverse("api-1.0.0:send-proof-notify", args=[conference_name])
+
+    def test_happy_path(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        proof: PaperProof,
+        mock_proof_notify: MagicMock,
+    ) -> None:
+        mock_proof_notify.return_value = [
+            SendProofNotifyResult(
+                proof=proof.uid,
+                status=SendProofNotifyStatus.SENT,
+                recipient_email="jane@example.com",
+            )
+        ]
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "subject": "Proof ready",
+                "body": "Please review",
+                "proofs": [str(proof.uid)],
+            },
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        [result] = data["results"]
+        assert result == {
+            "proof": str(proof.uid),
+            "status": SendProofNotifyStatus.SENT,
+            "recipient_email": "jane@example.com",
+        }
+
+        mock_proof_notify.assert_called_once()
+        call_kwargs = mock_proof_notify.call_args.kwargs
+        assert call_kwargs["template"].subject == "Proof ready"
+        assert call_kwargs["template"].body == "Please review"
+
+    def test_missing_uid_returns_422(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        proof: PaperProof,
+        mock_proof_notify: MagicMock,
+    ) -> None:
+        nonexistent_uid = ULID()
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "subject": "Proof ready",
+                "body": "Please review",
+                "proofs": [str(proof.uid), str(nonexistent_uid)],
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        data = response.json()
+        [error] = data["details"]
+        assert error["loc"] == ["body", "payload", "proofs"]
+        assert str(nonexistent_uid) in error["msg"]
+
+        mock_proof_notify.assert_not_called()
+
+    def test_empty_uids_rejected(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+        mock_proof_notify: MagicMock,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "subject": "Proof ready",
+                "body": "Please review",
+                "proofs": [],
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        mock_proof_notify.assert_not_called()
+
+    def test_unauthenticated(
+        self,
+        api_client: Client,
+        conference: Conference,
+        proof: PaperProof,
+        mock_proof_notify: MagicMock,
+    ) -> None:
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "subject": "Proof ready",
+                "body": "Please review",
+                "proofs": [str(proof.uid)],
+            },
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+        mock_proof_notify.assert_not_called()
+
+    def test_unauthorized_user_forbidden(
+        self,
+        api_client: Client,
+        user: User,
+        conference: Conference,
+        proof: PaperProof,
+        mock_proof_notify: MagicMock,
+    ) -> None:
+        api_client.force_login(user)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "subject": "Proof ready",
+                "body": "Please review",
+                "proofs": [str(proof.uid)],
+            },
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+
+        mock_proof_notify.assert_not_called()
 
 
 @pytest.mark.django_db
