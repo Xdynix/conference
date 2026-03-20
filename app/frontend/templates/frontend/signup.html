@@ -42,7 +42,9 @@
         {% include "frontend/components/password-input.html" with id="confirm-password" label="Confirm password" model="form.confirmPassword" error_key="confirm_password" autocomplete="new-password" blur="validateConfirmPassword()" %}
       </fieldset>
 
-      <fieldset class="border rounded p-3 mb-4">
+      {# Hidden until email is verified so the form stays short enough to keep the #}
+      {# Turnstile widget on screen when it requires human interaction. #}
+      <fieldset x-show="form.emailToken" x-cloak x-transition class="border rounded p-3 mb-4">
         <legend class="float-none w-auto px-2 fs-6 fw-semibold">Profile</legend>
 
         <div class="mb-3">
