@@ -39,10 +39,10 @@ class TestPaperServiceSubmitPaper:
         )
 
     @classmethod
-    def add_keyword(cls, paper: Paper) -> Keyword:
-        keyword = Keyword.objects.create(text="Machine Learning")
-        paper.keywords.add(keyword)
-        return keyword
+    def add_keywords(cls, paper: Paper) -> None:
+        k1 = Keyword.objects.create(text="Machine Learning")
+        k2 = Keyword.objects.create(text="Deep Learning")
+        paper.keywords.add(k1, k2)
 
     @classmethod
     def add_author(
@@ -78,7 +78,7 @@ class TestPaperServiceSubmitPaper:
         )
 
     def test_happy_path(self, user: User, paper: Paper) -> None:
-        self.add_keyword(paper)
+        self.add_keywords(paper)
         self.add_submission(paper, user)
         self.add_author(paper, corresponding=True)
 
@@ -121,7 +121,7 @@ class TestPaperServiceSubmitPaper:
         assert paper.submit_time is None
 
     def test_raises_when_paper_is_withdrawn(self, user: User, paper: Paper) -> None:
-        self.add_keyword(paper)
+        self.add_keywords(paper)
         self.add_submission(paper, user)
         self.add_author(paper, corresponding=True)
         update_object(paper, withdraw_time=timezone.now())
@@ -141,7 +141,7 @@ class TestPaperServiceSubmitPaper:
         user: User,
         paper: Paper,
     ) -> None:
-        self.add_keyword(paper)
+        self.add_keywords(paper)
         self.add_submission(paper, user)
         self.add_author(paper, corresponding=True)
         update_object(
@@ -167,7 +167,7 @@ class TestPaperServiceSubmitPaper:
         paper: Paper,
         state: PaperState,
     ) -> None:
-        self.add_keyword(paper)
+        self.add_keywords(paper)
         self.add_submission(paper, user)
         self.add_author(paper, corresponding=True)
         update_object(paper, state=state)
@@ -195,7 +195,7 @@ class TestPaperServiceSubmitPaper:
         message: str,
     ) -> None:
         update_object(paper, **{field: value})
-        self.add_keyword(paper)
+        self.add_keywords(paper)
         self.add_submission(paper, user)
         self.add_author(paper, corresponding=True)
 
@@ -213,10 +213,25 @@ class TestPaperServiceSubmitPaper:
             PaperService.submit_paper(paper)
 
         errors = exc_info.value.errors
-        assert {"keywords": "At least one keyword is required."} in errors
+        assert {"keywords": "At least two keywords are required."} in errors
+
+    def test_validates_keywords_minimum_two(
+        self,
+        user: User,
+        paper: Paper,
+    ) -> None:
+        self.add_submission(paper, user)
+        self.add_author(paper, corresponding=True)
+        paper.keywords.add(Keyword.objects.create(text="Machine Learning"))
+
+        with pytest.raises(PaperSubmissionError) as exc_info:
+            PaperService.submit_paper(paper)
+
+        errors = exc_info.value.errors
+        assert {"keywords": "At least two keywords are required."} in errors
 
     def test_validates_submission_file_required(self, paper: Paper) -> None:
-        self.add_keyword(paper)
+        self.add_keywords(paper)
         self.add_author(paper, corresponding=True)
 
         with pytest.raises(PaperSubmissionError) as exc_info:
@@ -226,7 +241,7 @@ class TestPaperServiceSubmitPaper:
         assert {"submissions": "A submission file is required."} in errors
 
     def test_validates_authors_required(self, user: User, paper: Paper) -> None:
-        self.add_keyword(paper)
+        self.add_keywords(paper)
         self.add_submission(paper, user)
 
         with pytest.raises(PaperSubmissionError) as exc_info:
@@ -240,7 +255,7 @@ class TestPaperServiceSubmitPaper:
         user: User,
         paper: Paper,
     ) -> None:
-        self.add_keyword(paper)
+        self.add_keywords(paper)
         self.add_submission(paper, user)
         self.add_author(paper, corresponding=False)
 
@@ -255,7 +270,7 @@ class TestPaperServiceSubmitPaper:
         user: User,
         paper: Paper,
     ) -> None:
-        self.add_keyword(paper)
+        self.add_keywords(paper)
         self.add_submission(paper, user)
         self.add_author(
             paper,
@@ -295,7 +310,7 @@ class TestPaperServiceSubmitPaper:
         field: str,
         message: str,
     ) -> None:
-        self.add_keyword(paper)
+        self.add_keywords(paper)
         self.add_submission(paper, user)
         self.add_author(paper, **{field: ""}, corresponding=True)  # type: ignore[arg-type]
 
@@ -312,7 +327,7 @@ class TestPaperServiceSubmitPaper:
         user: User,
         paper: Paper,
     ) -> None:
-        self.add_keyword(paper)
+        self.add_keywords(paper)
         self.add_submission(paper, user)
         self.add_author(
             paper,
@@ -343,7 +358,7 @@ class TestPaperServiceSubmitPaper:
         assert {"title": "Title is required."} in errors
         assert {"abstract": "Abstract is required."} in errors
         assert {"contribution": "Contribution statement is required."} in errors
-        assert {"keywords": "At least one keyword is required."} in errors
+        assert {"keywords": "At least two keywords are required."} in errors
         assert {"submissions": "A submission file is required."} in errors
         assert {"authors": "At least one author is required."} in errors
 

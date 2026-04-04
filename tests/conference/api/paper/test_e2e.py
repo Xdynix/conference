@@ -216,7 +216,7 @@ class TestPaperE2E:
                 "title": "Revised Title",
                 "abstract": "Revised abstract.",
                 "contribution": "Revised contribution.",
-                "keywords": [kw2.text],
+                "keywords": [kw1.text, kw2.text],
                 "authors": [
                     {
                         "given_name": "Ada",
@@ -233,7 +233,7 @@ class TestPaperE2E:
         assert response.status_code == HTTPStatus.OK
         data = response.json()
         assert data["title"] == "Revised Title"
-        assert data["keywords"] == [kw2.text]
+        assert data["keywords"] == sorted([kw1.text, kw2.text])
 
         response = api_client.post(self.submit_path(conference.name, paper_code))
         assert response.status_code == HTTPStatus.OK

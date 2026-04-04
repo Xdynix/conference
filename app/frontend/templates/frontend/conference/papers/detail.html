@@ -611,7 +611,8 @@
             },
             {label: 'Abstract', passed: !!p.abstract},
             {label: 'Contribution', passed: !!p.contribution},
-            {label: 'Keywords', passed: (p.keywords?.length || 0) > 0},
+            {label: 'Keywords', passed: (p.keywords?.length || 0) >= 2,
+              detail: (p.keywords?.length || 0) < 2 ? 'At least 2 required' : null},
             {label: 'Submission file', passed: !!p.submission},
           ];
         },
