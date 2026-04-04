@@ -6,7 +6,7 @@ from django.db import IntegrityError
 from django.shortcuts import aget_object_or_404
 from django.utils import timezone
 from django.utils.translation import gettext as _
-from ninja import Schema
+from ninja import Schema, Status
 from ninja.errors import HttpError
 from ulid import ULID
 
@@ -60,7 +60,7 @@ async def assign_review(
     conference_name: str,
     paper_code: str,
     payload: AssignReviewRequest,
-) -> tuple[int, Review]:
+) -> Status:
     """Assign a reviewer to a paper.
 
     Creates a review assignment in PENDING state. The reviewer must accept the
@@ -133,7 +133,7 @@ async def assign_review(
         payload=payload,
     )
 
-    return HTTPStatus.CREATED, await prefetch_review(review, request)
+    return Status(HTTPStatus.CREATED, await prefetch_review(review, request))
 
 
 class ImportReviewRequest(Schema):
@@ -168,7 +168,7 @@ async def import_review(
     conference_name: str,
     paper_code: str,
     payload: ImportReviewRequest,
-) -> tuple[int, Review]:
+) -> Status:
     """Import a review from an external source.
 
     Creates or updates a review with no assigned reviewer in SUBMITTED state. If a
@@ -231,4 +231,4 @@ async def import_review(
     )
 
     status = HTTPStatus.CREATED if created else HTTPStatus.OK
-    return status, await prefetch_review(review, request)
+    return Status(status, await prefetch_review(review, request))

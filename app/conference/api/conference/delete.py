@@ -2,6 +2,7 @@ from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.http import Http404
+from ninja import Status
 
 from app.audit.services import audit
 from app.audit.types import AuditAction
@@ -20,10 +21,7 @@ from .core import router
     summary="Delete Conference",
     auth=has_any_roles(GlobalRole.ADMIN),
 )
-async def delete_conference(
-    request: AuthedHttpRequest,
-    conference_name: str,
-) -> tuple[int, None]:
+async def delete_conference(request: AuthedHttpRequest, conference_name: str) -> Status:
     """Delete a conference."""
     try:
         conference = await sync_to_async(ConferenceService.deactivate_conference)(
@@ -39,4 +37,4 @@ async def delete_conference(
         scope=conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)

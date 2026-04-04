@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 from django.db.models import Q
 from django.http import Http404
 from django.shortcuts import aget_object_or_404
-from ninja import Field, Router, Schema
+from ninja import Field, Router, Schema, Status
 from pydantic import AwareDatetime, BeforeValidator, StringConstraints
 from ulid import ULID
 
@@ -266,7 +266,7 @@ async def delete_duplicate_acknowledgment(
     conference_name: str,
     paper_uid_a: ULID,
     paper_uid_b: ULID,
-) -> tuple[int, None]:
+) -> Status:
     """Removes the acknowledgment for a duplicate paper pair."""
     conference = await aget_object_or_404(
         Conference.objects.active(),
@@ -289,7 +289,7 @@ async def delete_duplicate_acknowledgment(
         scope=conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)
 
 
 def _paper_view(

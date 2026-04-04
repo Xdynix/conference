@@ -2,6 +2,7 @@ from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
+from ninja import Status
 from ninja.errors import HttpError
 
 from app.audit.services import audit
@@ -31,7 +32,7 @@ async def submit_my_paper(
     request: AuthedHttpRequest,
     conference_name: str,
     paper_code: str,
-) -> tuple[int, Paper | ErrorResponse]:
+) -> Status:
     """Submit a paper for review.
 
     Validates that all required fields are present (title, abstract, contribution,
@@ -58,9 +59,9 @@ async def submit_my_paper(
     except PaperStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
     except PaperSubmissionError as exc:
-        return HTTPStatus.BAD_REQUEST, ErrorResponse(
-            message=str(exc),
-            details=exc.errors,
+        return Status(
+            HTTPStatus.BAD_REQUEST,
+            ErrorResponse(message=str(exc), details=exc.errors),
         )
 
     await audit(
@@ -70,7 +71,7 @@ async def submit_my_paper(
         scope=conference.name,
     )
 
-    return HTTPStatus.OK, await prefetch_paper(conference, paper, user, request)
+    return Status(HTTPStatus.OK, await prefetch_paper(conference, paper, user, request))
 
 
 @router.post(
@@ -137,7 +138,7 @@ async def submit_paper(
     request: AuthedHttpRequest,
     conference_name: str,
     paper_code: str,
-) -> tuple[int, Paper | ErrorResponse]:
+) -> Status:
     """Submit a paper for review as an admin.
 
     Performs minimal validation (only title is required) and transitions the paper
@@ -164,9 +165,9 @@ async def submit_paper(
     except PaperStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
     except PaperSubmissionError as exc:
-        return HTTPStatus.BAD_REQUEST, ErrorResponse(
-            message=str(exc),
-            details=exc.errors,
+        return Status(
+            HTTPStatus.BAD_REQUEST,
+            ErrorResponse(message=str(exc), details=exc.errors),
         )
 
     await audit(
@@ -176,4 +177,4 @@ async def submit_paper(
         scope=conference.name,
     )
 
-    return HTTPStatus.OK, await prefetch_paper(conference, paper, user, request)
+    return Status(HTTPStatus.OK, await prefetch_paper(conference, paper, user, request))

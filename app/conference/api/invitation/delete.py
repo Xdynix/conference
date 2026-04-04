@@ -3,6 +3,7 @@ from http import HTTPStatus
 from asgiref.sync import sync_to_async
 from django.http import Http404
 from django.shortcuts import aget_object_or_404
+from ninja import Status
 from ninja.errors import HttpError
 from ulid import ULID
 
@@ -39,7 +40,7 @@ async def delete_invitation(
     request: AuthedHttpRequest,
     conference_name: str,
     invitation_uid: ULID,
-) -> tuple[int, None]:
+) -> Status:
     """Delete a conference invitation."""
     user = await request.auser()
     conference = await aget_object_or_404(
@@ -67,4 +68,4 @@ async def delete_invitation(
         scope=conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)

@@ -2,16 +2,12 @@ from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.utils.translation import gettext as _
-from ninja import Field, Schema
+from ninja import Field, Schema, Status
 from ninja.errors import HttpError
 
 from app.audit.services import audit
 from app.audit.types import AuditAction
-from app.conference.models import (
-    Conference,
-    ConferenceVisibility,
-    TrackVisibility,
-)
+from app.conference.models import ConferenceVisibility, TrackVisibility
 from app.conference.services import ConferenceService, KeywordService
 from app.conference.services.conference import ConferenceNameConflict, TrackData
 from app.conference.types import Conference as ConferenceSchema
@@ -50,7 +46,7 @@ class CreateConferenceRequest(ConferenceSchema):
 async def create_conference(
     request: AuthedHttpRequest,
     payload: CreateConferenceRequest,
-) -> tuple[int, Conference]:
+) -> Status:
     """Create a conference."""
     try:
         keywords = await KeywordService.validate_keyword_texts(payload.keywords)
@@ -95,4 +91,4 @@ async def create_conference(
     )
 
     user = await request.auser()
-    return HTTPStatus.CREATED, await prefetch_conference(conference, user)
+    return Status(HTTPStatus.CREATED, await prefetch_conference(conference, user))
