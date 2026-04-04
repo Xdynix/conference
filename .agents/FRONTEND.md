@@ -620,6 +620,38 @@ extract complex logic to `.js` files for linting.
   Alpine's inline `display: none`. Use `x-if` with `<template>` instead, or put `x-show`
   on a parent/wrapper.
 
+## Text Styling
+
+Use Bootstrap utility classes to create a clear visual hierarchy across different text
+roles. The key principle: text importance should match visual weight.
+
+<!-- markdownlint-disable MD013 -->
+
+| Text Role                | Style                     | Classes                                                            | Example                         |
+|--------------------------|---------------------------|--------------------------------------------------------------------|---------------------------------|
+| Form labels              | Normal weight, body color | `form-label` (no `text-muted`)                                     | "Title", "Email"                |
+| Form hints               | Muted, italic, small      | `form-text text-muted fst-italic` or `text-muted small fst-italic` | "150 characters or fewer."      |
+| Empty states             | Normal body text          | No `text-muted`, no italic                                         | "No authors added yet."         |
+| Error/terminal states    | Normal body text          | No `text-muted`                                                    | "Conference not found."         |
+| Loading states           | Muted                     | `text-muted`                                                       | "Loading..."                    |
+| Data display (secondary) | Muted, small              | `text-muted small`                                                 | Author affiliation in view mode |
+
+<!-- markdownlint-enable MD013 -->
+
+**Form labels** use plain `form-label` without `text-muted`. Labels guide the user to
+inputs and need full visual weight.
+
+**Form hints** use `fst-italic` in addition to `text-muted` and size classes. The italic
+creates a typographic distinction from labels that works equally well in light and dark
+themes, since it changes shape rather than relying on subtle color differences.
+
+**Empty states** ("No items yet", "No reviews assigned") use normal body text. These are
+informational content, not decoration; the wording itself communicates absence. Muting
+them hides the signal.
+
+**Error and terminal states** ("Not found", "Failed to load") use normal body text.
+These are dead ends the user must notice.
+
 ## Table-Like List Layout
 
 Use CSS Grid for tabular data lists (e.g., members, tracks, code pools). The pattern

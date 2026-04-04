@@ -87,7 +87,7 @@
       x-data="profileForm()"
     >
       <form @submit.prevent="submit()">
-        <p class="text-muted small mb-3">All fields are required.</p>
+        <p class="text-muted small mb-3 fst-italic">All fields are required.</p>
 
         <div class="mb-3">
           <label for="given-name" class="form-label">
@@ -151,9 +151,8 @@
             required
           >
           <div class="invalid-feedback" x-text="errors.affiliation"></div>
-          <small class="form-text text-muted">
-            e.g., <em>Google LLC</em> or
-            <em>School of Computing, Example University</em>
+          <small class="form-text text-muted fst-italic">
+            e.g., Google LLC or School of Computing, Example University
           </small>
         </div>
 
@@ -246,8 +245,8 @@
             required
           >
           <div class="invalid-feedback" x-text="errors.username"></div>
-          <small class="form-text text-muted">
-            150 characters or fewer. Unicode letters, digits, and @/./+/-/_ only.
+          <small class="form-text text-muted fst-italic">
+            150 characters or fewer. Unicode letters, digits, and ./+/-/_ only.
           </small>
         </div>
 
@@ -299,7 +298,7 @@
 
         {% include "frontend/components/password-input.html" with id="new-password" label="New password" model="form.newPassword" error_key="new_password" autocomplete="new-password" wrapper_class="mb-1" blur="validateConfirmPassword()" %}
 
-        <ul class="form-text text-muted small mb-3">
+        <ul class="form-text text-muted small fst-italic mb-3">
           {% password_help_texts as help_texts %}
           {% for text in help_texts %}
             <li>{{ text }}</li>

@@ -44,7 +44,7 @@
                 required
               >
               <div class="invalid-feedback" x-text="errors.name"></div>
-              <div class="form-text text-muted small">
+              <div class="form-text text-muted small fst-italic">
                 Letters, numbers, underscores, or hyphens. Cannot be changed later.
               </div>
             </div>
@@ -78,7 +78,7 @@
 
     <template
       x-if="!$store.conferences.loading && $store.conferences.items.length === 0">
-      <div class="text-center text-muted py-4">
+      <div class="text-center py-4">
         <p>No conferences available.</p>
       </div>
     </template>

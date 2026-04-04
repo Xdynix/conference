@@ -21,11 +21,11 @@
     </div>
 
     <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Conference not found.</p>
+      <p class="mb-0">Conference not found.</p>
     </div>
 
     <div x-show="!$store.conference.loading && !loading && error" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Failed to load settings data.</p>
+      <p class="mb-0">Failed to load settings data.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && !error" x-cloak>
@@ -137,7 +137,7 @@
                   </template>
                 </select>
                 <div class="invalid-feedback" x-text="errors.visibility"></div>
-                <ul class="form-text text-muted small mt-1 mb-0 ps-3">
+                <ul class="form-text text-muted small mt-1 mb-0 ps-3 fst-italic">
                   <li><strong>Public</strong> — visible to everyone</li>
                   <li><strong>Member-Only</strong> — visible to anyone with a role (including Members)</li>
                   <li><strong>Admin-Only</strong> — visible to Chairs and Secretaries only</li>
@@ -171,7 +171,7 @@
                       <option :value="ks.name" x-text="ks.name"></option>
                     </template>
                   </select>
-                  <div class="form-text text-muted small">
+                  <div class="form-text text-muted small fst-italic">
                     Selecting a keyword set replaces all current keywords.
                   </div>
                   <div class="mt-2" x-show="form.keywords.length > 0">
@@ -179,12 +179,12 @@
                       <span class="badge bg-secondary me-1 mb-1" x-text="kw"></span>
                     </template>
                   </div>
-                  <div class="text-muted small mt-2" x-show="form.keywords.length === 0">
+                  <div class="small mt-2" x-show="form.keywords.length === 0">
                     No keywords set.
                   </div>
                 </div>
 
-                <p class="text-muted small mb-3">
+                <p class="text-muted small mb-3 fst-italic">
                   The following fields are for display purposes and are not enforced by the system.
                 </p>
 
@@ -245,7 +245,7 @@
                     rows="4"
                   ></textarea>
                   <div class="invalid-feedback" x-text="errors.paper_submission_instructions"></div>
-                  <div class="form-text text-muted small">
+                  <div class="form-text text-muted small fst-italic">
                     Displayed on the paper submission form. Markdown supported.
                   </div>
                 </div>
@@ -263,7 +263,7 @@
                     rows="4"
                   ></textarea>
                   <div class="invalid-feedback" x-text="errors.paper_final_instructions"></div>
-                  <div class="form-text text-muted small">
+                  <div class="form-text text-muted small fst-italic">
                     Displayed when authors upload the final version. Markdown supported.
                   </div>
                 </div>
@@ -422,7 +422,7 @@
                         required
                       >
                       <div class="invalid-feedback" x-text="errors.prefix"></div>
-                      <div class="form-text text-muted small">
+                      <div class="form-text text-muted small fst-italic">
                         Paper codes will be prefix + sequence number (e.g., CONF-2 → CONF-2001).
                       </div>
                     </div>
@@ -445,7 +445,7 @@
               </div>
             </div>
 
-            <div x-show="codePools.length === 0 && editing !== 'new'" class="text-muted">
+            <div x-show="codePools.length === 0 && editing !== 'new'">
               No code pools configured.
             </div>
 
@@ -537,7 +537,7 @@
                             required
                           >
                           <div class="invalid-feedback" x-text="errors.prefix"></div>
-                          <div class="form-text text-muted small">
+                          <div class="form-text text-muted small fst-italic">
                             Paper codes will be prefix + sequence number (e.g., CONF-2 → CONF-2001).
                             Changing the prefix only affects new paper codes.
                           </div>
@@ -648,7 +648,7 @@
                         </template>
                       </select>
                       <div class="invalid-feedback" x-text="errors.visibility"></div>
-                      <ul class="form-text text-muted small mt-1 mb-0 ps-3">
+                      <ul class="form-text text-muted small mt-1 mb-0 ps-3 fst-italic">
                         <li><strong>Public</strong> — visible to everyone</li>
                         <li><strong>Member-Only</strong> — visible to anyone with a role (including Members)</li>
                         <li><strong>Admin-Only</strong> — visible to Chairs and Secretaries only</li>
@@ -656,7 +656,7 @@
                     </div>
                   </div>
                   <div class="d-flex align-items-center mt-3">
-                    <p class="form-text text-muted small mb-0">
+                    <p class="form-text text-muted small mb-0 fst-italic">
                       Submissions are disabled by default. You can enable them after creating the track.
                     </p>
                     <div class="d-flex gap-2 ms-auto">
@@ -678,7 +678,7 @@
               </div>
             </div>
 
-            <div x-show="$store.conference.detail?.tracks?.length === 0 && editing !== 'new'" class="text-muted">
+            <div x-show="$store.conference.detail?.tracks?.length === 0 && editing !== 'new'">
               No tracks configured.
             </div>
 
@@ -822,7 +822,7 @@
                             </template>
                           </select>
                           <div class="invalid-feedback" x-text="errors.visibility"></div>
-                          <ul class="form-text text-muted small mt-1 mb-0 ps-3">
+                          <ul class="form-text text-muted small mt-1 mb-0 ps-3 fst-italic">
                             <li><strong>Public</strong> — visible to everyone</li>
                             <li><strong>Member-Only</strong> — visible to anyone with a role (including Members)</li>
                             <li><strong>Admin-Only</strong> — visible to Chairs and Secretaries only</li>
@@ -916,7 +916,7 @@
                   <span x-show="saving" class="spinner-border spinner-border-sm ms-1"></span>
                 </label>
               </div>
-              <div class="form-text text-muted small">
+              <div class="form-text text-muted small fst-italic">
                 When enabled, users can register for the conference.
               </div>
             </div>
@@ -992,7 +992,7 @@
                         Admin Only
                       </label>
                     </div>
-                    <div class="form-text text-muted small">
+                    <div class="form-text text-muted small fst-italic">
                       Hidden from the public registration form. Only admins can assign this type.
                     </div>
                   </div>
@@ -1009,7 +1009,7 @@
                         Paper Required
                       </label>
                     </div>
-                    <div class="form-text text-muted small">
+                    <div class="form-text text-muted small fst-italic">
                       Only available when registrant selects a paper.
                     </div>
                   </div>
@@ -1032,7 +1032,7 @@
               </div>
             </div>
 
-            <div x-show="attendanceTypes.length === 0 && editing !== 'new'" class="text-muted">
+            <div x-show="attendanceTypes.length === 0 && editing !== 'new'">
               No attendance types defined.
             </div>
 
@@ -1155,7 +1155,7 @@
                             Admin Only
                           </label>
                         </div>
-                        <div class="form-text text-muted small">
+                        <div class="form-text text-muted small fst-italic">
                           Hidden from the public registration form. Only admins can assign this type.
                         </div>
                       </div>
@@ -1172,7 +1172,7 @@
                             Paper Required
                           </label>
                         </div>
-                        <div class="form-text text-muted small">
+                        <div class="form-text text-muted small fst-italic">
                           Only available when registrant selects a paper.
                         </div>
                       </div>
@@ -1265,13 +1265,10 @@
 
               <div class="col-12">
                 <label class="form-label">Exempt Tracks</label>
-                <div class="form-text text-muted small mb-2">
+                <div class="form-text text-muted small mb-2 fst-italic">
                   Papers in these tracks will NOT require IEEE eCopyright consent.
                 </div>
-                <div
-                  x-show="$store.conference.detail?.tracks?.length === 0"
-                  class="text-muted small"
-                >
+                <div x-show="$store.conference.detail?.tracks?.length === 0" class="small">
                   No tracks defined.
                 </div>
                 <template x-for="track in $store.conference.detail?.tracks || []" :key="track.uid">

@@ -25,11 +25,11 @@
     </div>
 
     <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Conference not found.</p>
+      <p class="mb-0">Conference not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Paper not found.</p>
+      <p class="mb-0">Paper not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && !error && paper" x-cloak>
@@ -50,7 +50,7 @@
             <div class="card-body">
               {# Owner info #}
               <div class="mb-3">
-                <label class="form-label text-muted mb-1">Owner</label>
+                <label class="form-label mb-1">Owner</label>
                 <div x-text="paper?.owner.email"></div>
                 <template x-if="ownerDisplayName">
                   <div class="text-muted small" x-text="ownerDisplayName"></div>
@@ -93,7 +93,7 @@
                     <span x-show="claimLoading" class="spinner-border spinner-border-sm me-1"></span>
                     Auto-transfer to Author
                   </button>
-                  <div class="text-muted small mt-1">
+                  <div class="text-muted small mt-1 fst-italic">
                     Transfer ownership to the corresponding author.
                     If they haven't registered yet, it will happen automatically when they do.
                   </div>
@@ -103,21 +103,21 @@
 
               {# Create time #}
               <div class="mb-3">
-                <label class="form-label text-muted mb-1">Created</label>
+                <label class="form-label mb-1">Created</label>
                 <div x-text="formatDate(paper?.create_time)"></div>
               </div>
 
               {# Registrations - conference admins only #}
               <template x-if="$store.permissions.isConferenceAdmin">
                 <div class="mb-3">
-                  <label class="form-label text-muted mb-1">Registrations</label>
+                  <label class="form-label mb-1">Registrations</label>
                   <div x-show="loading" class="py-1">
                     <div class="spinner-border spinner-border-sm" role="status">
                       <span class="visually-hidden">Loading...</span>
                     </div>
                   </div>
                   <template x-if="!loading && registrations.length === 0">
-                    <div class="text-muted small">None</div>
+                    <div class="small">None</div>
                   </template>
                   <template x-for="r in registrations" :key="r.uid">
                     <div class="d-flex align-items-center justify-content-between mb-1">
@@ -139,7 +139,7 @@
               {# Announced status - for decided papers #}
               <template x-if="isDecided">
                 <div class="mb-3">
-                  <label class="form-label text-muted mb-1">Announced</label>
+                  <label class="form-label mb-1">Announced</label>
                   <div x-text="paper.announce_time ? formatDate(paper.announce_time) : 'No'"></div>
                   <template x-if="paper.acceptance_letter_url">
                     <a :href="paper.acceptance_letter_url" target="_blank" class="small">
@@ -152,7 +152,7 @@
               {# Final upload limit - only for conference admins, not withdrawn #}
               <template x-if="$store.permissions.isConferenceAdmin && !paper?.withdraw_time">
                 <div class="mb-3">
-                  <label class="form-label text-muted mb-1">Final Uploads</label>
+                  <label class="form-label mb-1">Final Uploads</label>
                   <div class="d-flex align-items-center gap-2">
                     <span x-text="finalLimitDisplay"></span>
                     <button
@@ -195,7 +195,7 @@
                           </button>
                         </template>
                         <template x-if="isDirty">
-                          <div class="text-muted small text-center py-2">
+                          <div class="text-muted small text-center py-2 fst-italic">
                             Save changes before submitting
                           </div>
                         </template>
@@ -273,7 +273,7 @@
                   >
                     Manage Reviews
                   </a>
-                  <div class="text-muted small">
+                  <div class="small">
                     <i class="bi bi-info-circle me-1"></i>
                     <span
                       x-text="paper?.withdraw_time ? 'This paper has been withdrawn and cannot be edited.' : 'This paper has a decision and cannot be edited.'"
@@ -307,7 +307,7 @@
                 min="0"
                 max="100"
               >
-              <div class="form-text">
+              <div class="form-text fst-italic">
                 Setting below current usage will prevent further uploads.
               </div>
             </div>

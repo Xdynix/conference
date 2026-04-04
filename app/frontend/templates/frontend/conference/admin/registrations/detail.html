@@ -20,11 +20,11 @@
     </div>
 
     <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Conference not found.</p>
+      <p class="mb-0">Conference not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Registration not found.</p>
+      <p class="mb-0">Registration not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && !error && registration" x-cloak>
@@ -48,7 +48,7 @@
               {# Paper info #}
               <template x-if="registration?.paper && paperDetail">
                 <div class="mb-3">
-                  <label class="form-label text-muted mb-1">Paper</label>
+                  <label class="form-label mb-1">Paper</label>
                   <div>
                     <a
                       :href="APP.urls.pages.adminPaperDetail(APP.params.conference_name, registration.paper.code)"
@@ -75,7 +75,7 @@
 
               {# Receipt #}
               <div class="mb-3" x-show="registration?.state !== APP.enums.RegistrationState.CANCELLED.value">
-                <label class="form-label text-muted mb-1">Receipt</label>
+                <label class="form-label mb-1">Receipt</label>
                 <div class="d-flex flex-column gap-1">
                   <button
                     type="button"
@@ -95,7 +95,7 @@
               {# Payments #}
               <template x-if="payments.length > 0">
                 <div class="mb-3">
-                  <label class="form-label text-muted mb-1">Payments</label>
+                  <label class="form-label mb-1">Payments</label>
                   <template x-for="payment in payments" :key="payment.uid">
                     <div class="d-flex justify-content-between align-items-start mb-1">
                       <div>
@@ -130,7 +130,7 @@
 
               {# Created by #}
               <div class="mb-3">
-                <label class="form-label text-muted mb-1">Created by</label>
+                <label class="form-label mb-1">Created by</label>
                 <div x-text="registration?.user?.email"></div>
                 <template x-if="ownerDisplayName">
                   <div class="text-muted small" x-text="ownerDisplayName"></div>
@@ -139,7 +139,7 @@
 
               {# Created #}
               <div class="mb-3">
-                <label class="form-label text-muted mb-1">Created</label>
+                <label class="form-label mb-1">Created</label>
                 <div x-text="formatDate(registration?.create_time)"></div>
               </div>
 

@@ -60,11 +60,11 @@
     </div>
 
     <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Conference not found.</p>
+      <p class="mb-0">Conference not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Failed to load data.</p>
+      <p class="mb-0">Failed to load data.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && !error && paper" x-cloak>
@@ -77,7 +77,7 @@
           </h2>
 
           <p x-show="reviewsError" x-cloak class="text-danger" x-text="reviewsError"></p>
-          <p x-show="!reviewsError && activeReviews.length === 0" x-cloak class="text-muted">
+          <p x-show="!reviewsError && activeReviews.length === 0" x-cloak>
             No reviewers assigned yet.
           </p>
 
@@ -178,12 +178,11 @@
             >
           </div>
 
-          <p x-show="assignBlockedReason" x-cloak class="text-muted" x-text="assignBlockedReason"></p>
+          <p x-show="assignBlockedReason" x-cloak x-text="assignBlockedReason"></p>
           <p x-show="!assignBlockedReason && candidatesError" x-cloak class="text-danger" x-text="candidatesError"></p>
           <p
             x-show="!assignBlockedReason && !candidatesError && filteredCandidates.length === 0"
             x-cloak
-            class="text-muted"
             x-text="candidateSearch ? 'No reviewers match your search.' : 'No available reviewers.'"
           ></p>
 

@@ -20,11 +20,11 @@
     </div>
 
     <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Conference not found.</p>
+      <p class="mb-0">Conference not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Registration not found.</p>
+      <p class="mb-0">Registration not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && !error && registration" x-cloak>
@@ -51,12 +51,12 @@
 
           {# State: Confirmed #}
           <template x-if="registration.state === APP.enums.RegistrationState.CONFIRMED.value">
-            <p class="text-muted small mb-4">Your registration has been confirmed.</p>
+            <p class="small mb-4">Your registration has been confirmed.</p>
           </template>
 
           {# State: Cancelled #}
           <template x-if="registration.state === APP.enums.RegistrationState.CANCELLED.value">
-            <p class="text-muted small mb-4">This registration has been cancelled.</p>
+            <p class="small mb-4">This registration has been cancelled.</p>
           </template>
 
           <form @submit.prevent="save()">

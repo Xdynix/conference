@@ -27,11 +27,11 @@
     </div>
 
     <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Conference not found.</p>
+      <p class="mb-0">Conference not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Review not found.</p>
+      <p class="mb-0">Review not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && !error && review" x-cloak>
@@ -51,7 +51,7 @@
             <div class="card-body">
               {# Reviewer info #}
               <div class="mb-3">
-                <label class="form-label text-muted mb-1">Reviewer</label>
+                <label class="form-label mb-1">Reviewer</label>
                 <template x-if="review.reviewer">
                   <div>
                     <div x-text="displayName(review.reviewer)"></div>
@@ -68,7 +68,7 @@
 
               {# Assignment info #}
               <div class="mb-3">
-                <label class="form-label text-muted mb-1">Assigned</label>
+                <label class="form-label mb-1">Assigned</label>
                 <div x-text="formatDate(review.create_time)"></div>
                 <template x-if="review.assigner">
                   <div class="text-muted small">
@@ -130,13 +130,13 @@
                     </template>
 
                     <template x-if="review.state === APP.enums.ReviewState.SUBMITTED.value && !review.reviewer">
-                      <div class="text-muted small text-center py-2">
+                      <div class="small text-center py-2">
                         Offline reviews cannot be unsubmitted.
                       </div>
                     </template>
 
                     <template x-if="mode === 'edit' && isDirty">
-                      <div class="text-muted small text-center py-2">
+                      <div class="text-muted small text-center py-2 fst-italic">
                         Save changes first
                       </div>
                     </template>
@@ -163,14 +163,14 @@
 
               {# Actions: Declined #}
               <template x-if="review.state === APP.enums.ReviewState.DECLINED.value">
-                <div class="text-muted small">
+                <div class="small">
                   This reviewer declined the assignment.
                 </div>
               </template>
 
               {# Actions: Cancelled #}
               <template x-if="review.state === APP.enums.ReviewState.CANCELLED.value">
-                <div class="text-muted small">
+                <div class="small">
                   This assignment was cancelled.
                 </div>
               </template>

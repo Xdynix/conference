@@ -24,7 +24,7 @@ Provides:
 {# Amount + Currency #}
 <div class="row mb-3">
   <div class="col-md-6">
-    <label for="amount" class="form-label text-muted">
+    <label for="amount" class="form-label">
       Amount <span class="text-danger">*</span>
     </label>
     <input
@@ -40,7 +40,7 @@ Provides:
     <div class="invalid-feedback" x-text="errors.amount"></div>
   </div>
   <div class="col-md-6">
-    <label for="currency" class="form-label text-muted">
+    <label for="currency" class="form-label">
       Currency <span class="text-danger">*</span>
     </label>
     <select
@@ -62,7 +62,7 @@ Provides:
 {# Type + Method #}
 <div class="row mb-3">
   <div class="col-md-6">
-    <label for="type" class="form-label text-muted">
+    <label for="type" class="form-label">
       Type <span class="text-danger">*</span>
     </label>
     <select
@@ -80,7 +80,7 @@ Provides:
     <div class="invalid-feedback" x-text="errors.type"></div>
   </div>
   <div class="col-md-6">
-    <label for="method" class="form-label text-muted">
+    <label for="method" class="form-label">
       Method <span class="text-danger">*</span>
     </label>
     <select
@@ -101,7 +101,7 @@ Provides:
 
 {# Reference #}
 <div class="mb-3">
-  <label for="reference" class="form-label text-muted">Reference</label>
+  <label for="reference" class="form-label">Reference</label>
   <input
     id="reference"
     type="text"
@@ -114,7 +114,7 @@ Provides:
 
 {# Note #}
 <div class="mb-3">
-  <label for="note" class="form-label text-muted">Note</label>
+  <label for="note" class="form-label">Note</label>
   <textarea
     id="note"
     class="form-control"
@@ -236,7 +236,7 @@ Provides:
   </template>
   <template x-if="form.items.length === 0">
     <tr>
-      <td colspan="5" class="text-muted text-center py-3">
+      <td colspan="5" class="text-center py-3">
         No items added yet. Click "Add Item" to add one.
       </td>
     </tr>
