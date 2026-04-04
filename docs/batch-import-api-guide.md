@@ -5,7 +5,7 @@
 This guide covers everything needed to write scripts that batch import papers and
 reviews into a conference. The typical workflow is:
 
-1. **Authenticate** with an API key to obtain a session.
+1. **Authenticate** with an API key.
 2. **Create papers** with metadata (title, abstract, authors, keywords).
 3. **Upload submission files** (PDF/DOCX) for each paper.
 4. **Submit papers** to transition them from Draft to Submitted state.
@@ -31,54 +31,15 @@ Before scripting, gather the following values from the web UI:
 
 ## 3. Authentication
 
-### Step 1: Generate an API key
-
 Navigate to `/account/#api-key` in the web UI. You will be prompted to confirm your
 password. The generated key has the prefix `cfk_` and is shown once; copy it
 immediately.
 
-### Step 2: Authenticate via API
-
-```http request
-POST /api/sessions/api-key
-Content-Type: application/json
-```
-
-```json
-{
-  "key": "cfk_your_api_key_here"
-}
-```
-
-The response sets two cookies:
-
-- `sessionid` -- your session identifier.
-- `csrftoken` -- the CSRF token required for all mutation requests.
-
-Persist these cookies across requests (e.g., using a `requests.Session` in Python).
-
-### CSRF handling
-
-All `POST`, `PATCH`, `PUT`, and `DELETE` requests must include two things:
-
-1. **CSRF token header.** Set `X-CSRFToken` to the value of the `csrftoken` cookie.
-   The server compares the secret in the header against the secret in the cookie; both
-   must be present and match.
-
-2. **`Referer` header.** The server verifies that the request originates from the same
-   host by checking the `Origin` or `Referer` header. The `requests` library does not
-   send either by default, so scripts must set `Referer` explicitly (e.g.,
-   `https://conference.example.com/`).
+Include the key in the `Authorization` header of every request:
 
 ```text
-X-CSRFToken: <value of csrftoken cookie>
-Referer: https://<host>/
+Authorization: Bearer cfk_your_api_key_here
 ```
-
-### Session lifetime
-
-Sessions expire after **1 hour**. When a request returns `401`, re-authenticate by
-calling the API key endpoint again.
 
 ## 4. Error Handling
 
@@ -89,8 +50,8 @@ calling the API key endpoint again.
 | 200  | Success                                                |
 | 201  | Created                                                |
 | 400  | Bad request (state violation, invalid operation)       |
-| 401  | Unauthorized (session expired or missing)              |
-| 403  | Forbidden (insufficient permissions or CSRF failure)   |
+| 401  | Unauthorized (missing or invalid API key)              |
+| 403  | Forbidden (insufficient permissions)                   |
 | 404  | Not found (conference, paper, or track does not exist) |
 | 422  | Validation error (invalid field values)                |
 
@@ -118,17 +79,15 @@ All API errors follow this schema:
 
 ### Common error scenarios
 
-- **CSRF failure** (403): The response body is HTML, not JSON. This means the
-  `X-CSRFToken` header is missing or does not match the `csrftoken` cookie.
-- **Session expired** (401): Re-authenticate with the API key endpoint.
+- **Invalid API key** (401): The `Authorization` header is missing, the key is invalid,
+  or the key has been revoked.
 - **State violation** (400): The paper is not in the required state for the operation
   (e.g., trying to submit a paper that is not in Draft state).
 
 ## 5. Endpoint Reference
 
-All endpoints require the session cookies (`sessionid`, `csrftoken`), the `X-CSRFToken`
-header, and the `Referer` header as described in section 3. JSON endpoints use
-`Content-Type: application/json`; the Upload Submission endpoint uses
+All endpoints require the `Authorization` header as described in section 3. JSON
+endpoints use `Content-Type: application/json`; the Upload Submission endpoint uses
 `Content-Type: multipart/form-data` instead.
 
 ### 5.1. Create Paper
@@ -507,7 +466,6 @@ Excel).
 ```python
 """Batch import papers and reviews via the conference API."""
 
-import sys
 from pathlib import Path
 
 import requests
@@ -520,6 +478,7 @@ BASE_URL = "https://conference.example.com/api"
 API_KEY = "cfk_your_api_key_here"
 CONFERENCE = "CBPK-2025"
 TRACK_UID = "01J5ABCDEF0000000000000000"
+AUTH_HEADER = {"Authorization": f"Bearer {API_KEY}"}
 
 # Paper data to import. Replace with your own data-loading logic.
 PAPERS = [
@@ -621,12 +580,6 @@ def api_url(path: str) -> str:
     return f"{BASE_URL}/{path.lstrip('/')}"
 
 
-def mutation_headers(session: requests.Session) -> dict[str, str]:
-    """Headers required for all mutation requests (CSRF token + Referer)."""
-    token = session.cookies.get("csrftoken", "")
-    return {"X-CSRFToken": token, "Referer": BASE_URL + "/"}
-
-
 def check_response(resp: requests.Response, context: str) -> dict | None:
     """Check response status and return JSON body, or None on failure."""
     if resp.ok:
@@ -651,19 +604,6 @@ def check_response(resp: requests.Response, context: str) -> dict | None:
 # ---------------------------------------------------------------------------
 
 
-def authenticate(session: requests.Session) -> bool:
-    """Authenticate with the API key and return True on success."""
-    resp = session.post(
-        api_url("/sessions/api-key"),
-        json={"key": API_KEY},
-    )
-    if not resp.ok:
-        print(f"Authentication failed [{resp.status_code}]: {resp.text[:200]}")
-        return False
-    print("Authenticated successfully.")
-    return True
-
-
 def create_paper(session: requests.Session, paper_data: dict) -> str | None:
     """Create a paper and return its code, or None on failure."""
     payload = {
@@ -679,7 +619,6 @@ def create_paper(session: requests.Session, paper_data: dict) -> str | None:
     resp = session.post(
         api_url(f"/conferences/{CONFERENCE}/papers"),
         json=payload,
-        headers=mutation_headers(session),
     )
     result = check_response(resp, f"Create paper '{paper_data['title'][:40]}'")
     if result is None:
@@ -702,7 +641,6 @@ def upload_submission(
         resp = session.post(
             api_url(f"/conferences/{CONFERENCE}/papers/{paper_code}/submissions"),
             files={"file": (path.name, f, "application/pdf")},
-            headers=mutation_headers(session),
         )
     result = check_response(resp, f"Upload submission for {paper_code}")
     if result is None:
@@ -715,7 +653,6 @@ def submit_paper(session: requests.Session, paper_code: str) -> bool:
     """Submit a paper (Draft -> Submitted). Returns True on success."""
     resp = session.post(
         api_url(f"/conferences/{CONFERENCE}/papers/{paper_code}:submit"),
-        headers=mutation_headers(session),
     )
     result = check_response(resp, f"Submit {paper_code}")
     if result is None:
@@ -731,7 +668,6 @@ def import_review(
     resp = session.post(
         api_url(f"/conferences/{CONFERENCE}/papers/{paper_code}/reviews:import"),
         json=review_data,
-        headers=mutation_headers(session),
     )
     reviewer = review_data.get("offline_reviewer_name", "anonymous")
     result = check_response(resp, f"Import review by '{reviewer}' for {paper_code}")
@@ -743,9 +679,7 @@ def import_review(
 
 def main() -> None:
     session = requests.Session()
-
-    if not authenticate(session):
-        sys.exit(1)
+    session.headers.update(AUTH_HEADER)
 
     success_count = 0
     fail_count = 0
@@ -783,14 +717,9 @@ if __name__ == "__main__":
 
 ### Script notes
 
-- **Session management:** The `requests.Session` object automatically persists cookies
-  (`sessionid` and `csrftoken`) across requests.
-- **CSRF and Referer:** The `mutation_headers()` helper includes both the `X-CSRFToken`
-  header (from the cookie jar) and the `Referer` header (derived from `BASE_URL`). The
-  server requires both.
+- **Authentication:** The `requests.Session` sends the `Authorization` header on every
+  request automatically via `session.headers`.
 - **Error handling:** The script prints errors and continues to the next paper. Adapt
-  the `check_response()` function for your needs (e.g., raise exceptions, retry on 401).
-- **Re-authentication:** For large batches, add a check for 401 responses and call
-  `authenticate()` again before retrying the failed request.
+  the `check_response()` function for your needs (e.g., raise exceptions).
 - **File paths:** The `submission_file` field expects a path relative to the script's
   working directory. Adjust for your file organization.

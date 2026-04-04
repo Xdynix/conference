@@ -2,7 +2,6 @@ from http import HTTPStatus
 from unittest.mock import MagicMock
 
 import pytest
-from django.contrib.auth import get_user
 from django.test import Client
 from django.urls import reverse
 from faker import Faker
@@ -194,10 +193,9 @@ class TestDeleteCurrentApiKey:
 
 @pytest.mark.django_db
 class TestApiKeyE2E:
-    create_api_key_path = reverse("api-1.0.0:create-api-key")
-    get_current_api_key_path = reverse("api-1.0.0:get-current-api-key")
-    delete_current_api_key_path = reverse("api-1.0.0:delete-current-api-key")
-    api_key_login_path = reverse("api-1.0.0:create-api-key-session")
+    create_path = reverse("api-1.0.0:create-api-key")
+    get_path = reverse("api-1.0.0:get-current-api-key")
+    revoke_path = reverse("api-1.0.0:delete-current-api-key")
 
     def test_lifecycle(
         self,
@@ -207,67 +205,57 @@ class TestApiKeyE2E:
     ) -> None:
         api_client.force_login(user)
 
-        # Create an API key.
-        response = api_client.post(
-            self.create_api_key_path,
-            data={"password": user_password},
-        )
+        # Create an API key via session auth.
+        response = api_client.post(self.create_path, data={"password": user_password})
         assert response.status_code == HTTPStatus.OK
         plaintext = response.json()["key"]
         assert plaintext.startswith(ApiKey.KEY_PREFIX)
 
-        # Log out the browser session; API key login starts unauthenticated.
+        # Use the key via bearer auth to access an authenticated endpoint.
         api_client.logout()
-        assert not get_user(api_client).is_authenticated
+        bearer = {"Authorization": f"Bearer {plaintext}"}
 
-        # Log in with the API key.
-        response = api_client.post(self.api_key_login_path, data={"key": plaintext})
-        assert response.status_code == HTTPStatus.OK
-        assert response.json()["user"]["uid"] == str(user.uid)
-
-        # The session can access authenticated endpoints;
-        # key metadata is populated after first use.
-        response = api_client.get(self.get_current_api_key_path)
+        response = api_client.get(self.get_path, headers=bearer)
         assert response.status_code == HTTPStatus.OK
         assert response.json()["last_use_time"] is not None
 
-        # Revoke the key; this also kills the current session.
-        response = api_client.delete(self.delete_current_api_key_path)
+        # Revoke the key.
+        response = api_client.delete(self.revoke_path, headers=bearer)
         assert response.status_code == HTTPStatus.NO_CONTENT
 
-        assert not get_user(api_client).is_authenticated
+        # Revoked key no longer authenticates.
+        response = api_client.get(self.get_path, headers=bearer)
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
 
-    def test_rotation(self, api_client: Client, user: User, user_password: str) -> None:
+    def test_rotation(
+        self,
+        api_client: Client,
+        user: User,
+        user_password: str,
+    ) -> None:
         api_client.force_login(user)
 
-        # Create the first key and log in with it.
-        response = api_client.post(
-            self.create_api_key_path,
-            data={"password": user_password},
-        )
+        # Create the first key.
+        response = api_client.post(self.create_path, data={"password": user_password})
         assert response.status_code == HTTPStatus.OK
         old_plaintext = response.json()["key"]
 
-        api_client.logout()
-
-        response = api_client.post(self.api_key_login_path, data={"key": old_plaintext})
-        assert response.status_code == HTTPStatus.OK
-
-        # Rotate: creating a new key revokes the old one and kills the current session.
-        response = api_client.post(
-            self.create_api_key_path,
-            data={"password": user_password},
-        )
+        # Rotate: creating a new key revokes the old one.
+        response = api_client.post(self.create_path, data={"password": user_password})
         assert response.status_code == HTTPStatus.OK
         new_plaintext = response.json()["key"]
         assert new_plaintext != old_plaintext
 
-        # Old key no longer works.
-        response = api_client.post(self.api_key_login_path, data={"key": old_plaintext})
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-        assert not get_user(api_client).is_authenticated
+        # Old key no longer authenticates.
+        response = api_client.get(
+            self.get_path,
+            headers={"Authorization": f"Bearer {old_plaintext}"},
+        )
+        assert response.status_code == HTTPStatus.UNAUTHORIZED
 
         # New key works.
-        response = api_client.post(self.api_key_login_path, data={"key": new_plaintext})
+        response = api_client.get(
+            self.get_path,
+            headers={"Authorization": f"Bearer {new_plaintext}"},
+        )
         assert response.status_code == HTTPStatus.OK
-        assert get_user(api_client) == user

@@ -3,11 +3,12 @@ from http import HTTPStatus
 from django.contrib.auth import aupdate_session_auth_hash
 from django.shortcuts import aget_object_or_404
 from ninja import Schema, Status
+from ninja.decorators import decorate_view
 from ulid import ULID
 
 from app.audit.services import audit
 from app.audit.types import AuditAction, AuditResource
-from app.core.auth import has_any_roles, is_authenticated
+from app.core.auth import has_any_roles, is_authenticated, session_auth_only
 from app.core.models import GlobalRole, User
 from app.core.services import UserService
 from app.core.services.user import InvalidPassword
@@ -28,6 +29,7 @@ class UpdateCurrentUserPasswordRequest(Schema):
     summary="Change My Password",
     auth=is_authenticated,
 )
+@decorate_view(session_auth_only)
 async def set_current_user_password(
     request: AuthedHttpRequest,
     payload: UpdateCurrentUserPasswordRequest,

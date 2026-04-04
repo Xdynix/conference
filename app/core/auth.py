@@ -15,11 +15,16 @@ __all__ = (
     "has_any_roles",
     "is_authenticated",
     "is_superuser",
+    "session_auth_only",
 )
 
 from collections.abc import Awaitable, Callable
+from functools import wraps
+from http import HTTPStatus
 from typing import Any
 
+from asgiref.sync import iscoroutinefunction
+from django.http import JsonResponse
 from ninja.errors import AuthorizationError
 from ninja.security import SessionAuth as SyncSessionAuth
 
@@ -107,3 +112,32 @@ def has_any_roles(*roles: GlobalRole) -> SessionAuth:
         ).aexists()
 
     return _has_any_roles
+
+
+def session_auth_only[F: Callable[..., Any]](view_func: F) -> F:
+    """Reject API key-authenticated requests, allowing only session-based auth.
+
+    Use via ``@session_auth_only`` on endpoints that manipulate session state or perform
+    operations incompatible with stateless API key auth (e.g., login, logout, password
+    change).
+    """
+
+    data = {"message": "This endpoint does not support API key authentication."}
+
+    if iscoroutinefunction(view_func):
+
+        @wraps(view_func)
+        async def wrapped(request: HttpRequest, *args: Any, **kwargs: Any) -> Any:
+            if request.api_key is not None:
+                return JsonResponse(data, status=HTTPStatus.FORBIDDEN)
+            return await view_func(request, *args, **kwargs)
+
+    else:  # pragma: no cover
+
+        @wraps(view_func)
+        def wrapped(request: HttpRequest, *args: Any, **kwargs: Any) -> Any:
+            if request.api_key is not None:
+                return JsonResponse(data, status=HTTPStatus.FORBIDDEN)
+            return view_func(request, *args, **kwargs)
+
+    return wrapped  # type: ignore[return-value]

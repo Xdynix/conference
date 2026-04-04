@@ -22,47 +22,15 @@ Before scripting, gather the following value:
 
 ## 3. Authentication
 
-### Step 1: Generate an API key
+Navigate to `/account/#api-key` in the web UI. You will be prompted to confirm your
+password. The generated key has the prefix `cfk_` and is shown once; copy it
+immediately.
 
-Navigate to `/account/#api-key` in the web UI. Confirm your password to generate a key
-with the prefix `cfk_`. The key is shown once; copy it immediately.
-
-### Step 2: Authenticate via API
-
-```http request
-POST /api/sessions/api-key
-Content-Type: application/json
-```
-
-```json
-{
-  "key": "cfk_your_api_key_here"
-}
-```
-
-The response sets two cookies:
-
-- `sessionid` -- your session identifier.
-- `csrftoken` -- the CSRF token required for all mutation requests.
-
-Persist these cookies across requests (e.g., using a `requests.Session` in Python).
-
-### CSRF handling
-
-All `POST`, `PATCH`, `PUT`, and `DELETE` requests require:
-
-1. **`X-CSRFToken` header** set to the value of the `csrftoken` cookie.
-2. **`Referer` header** set to the host URL (e.g., `https://conference.example.com/`).
+Include the key in the `Authorization` header of every request:
 
 ```text
-X-CSRFToken: <value of csrftoken cookie>
-Referer: https://<host>/
+Authorization: Bearer cfk_your_api_key_here
 ```
-
-### Session lifetime
-
-Sessions expire after **1 hour**. When a request returns `401`, re-authenticate by
-calling the API key endpoint again.
 
 ## 4. Error Handling
 
@@ -73,8 +41,8 @@ calling the API key endpoint again.
 | 200  | Success                                              |
 | 201  | Created                                              |
 | 400  | Bad request (state violation, invalid operation)     |
-| 401  | Unauthorized (session expired or missing)            |
-| 403  | Forbidden (insufficient permissions or CSRF failure) |
+| 401  | Unauthorized (missing or invalid API key)            |
+| 403  | Forbidden (insufficient permissions)                 |
 | 404  | Not found                                            |
 | 422  | Validation error (invalid field values)              |
 
@@ -100,9 +68,8 @@ calling the API key endpoint again.
 
 ### Common error scenarios
 
-- **CSRF failure** (403): The response body is HTML, not JSON. This means the
-  `X-CSRFToken` header is missing or does not match the `csrftoken` cookie.
-- **Session expired** (401): Re-authenticate by calling the API key endpoint again.
+- **Invalid API key** (401): The `Authorization` header is missing, the key is invalid,
+  or the key has been revoked.
 - **Attachment not found** (422): The referenced acceptance letter, receipt, or
   conference file does not exist or is not in the required state (e.g., the paper is not
   accepted, the receipt has not been generated). Acceptance letters and receipts are
@@ -365,6 +332,8 @@ REGISTRATION_PROCEDURE_NAME = "registration-procedure"
 # of the real recipients. Set to "" to send to real recipients.
 TEST_OVERRIDE_TO = "your-own-email@example.com"
 
+AUTH_HEADER = {"Authorization": f"Bearer {API_KEY}"}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -374,12 +343,6 @@ TEST_OVERRIDE_TO = "your-own-email@example.com"
 def api_url(path: str) -> str:
     """Build a full API URL from a relative path."""
     return f"{BASE_URL}/{path.lstrip('/')}"
-
-
-def mutation_headers(session: requests.Session) -> dict[str, str]:
-    """Headers required for all mutation requests (CSRF + Referer)."""
-    token = session.cookies.get("csrftoken", "")
-    return {"X-CSRFToken": token, "Referer": BASE_URL + "/"}
 
 
 def check_response(resp: requests.Response, context: str) -> dict | list | None:
@@ -406,16 +369,6 @@ def check_response(resp: requests.Response, context: str) -> dict | list | None:
 # ---------------------------------------------------------------------------
 
 
-def authenticate(session: requests.Session) -> bool:
-    """Authenticate and return True on success."""
-    resp = session.post(api_url("/sessions/api-key"), json={"key": API_KEY})
-    if not resp.ok:
-        print(f"Authentication failed [{resp.status_code}]: {resp.text[:200]}")
-        return False
-    print("Authenticated successfully.")
-    return True
-
-
 def upload_registration_procedure(session: requests.Session) -> bool:
     """Upload the registration procedure PDF as a conference file."""
     path = Path(REGISTRATION_PROCEDURE_PATH)
@@ -430,7 +383,6 @@ def upload_registration_procedure(session: requests.Session) -> bool:
                 f"/files/{REGISTRATION_PROCEDURE_NAME}:upload"
             ),
             files={"file": (path.name, f, "application/pdf")},
-            headers=mutation_headers(session),
         )
 
     result = check_response(resp, "Upload registration procedure")
@@ -504,7 +456,6 @@ def send_acceptance_email(
     resp = session.post(
         api_url(f"/conferences/{CONFERENCE}/emails:send"),
         json=payload,
-        headers=mutation_headers(session),
     )
     result = check_response(resp, f"Send email for {paper_code}")
     if result is None:
@@ -524,9 +475,7 @@ def send_acceptance_email(
 
 def main() -> None:
     session = requests.Session()
-
-    if not authenticate(session):
-        sys.exit(1)
+    session.headers.update(AUTH_HEADER)
 
     # 1. Upload the registration procedure PDF (creates or replaces).
     if not upload_registration_procedure(session):
@@ -602,5 +551,4 @@ if __name__ == "__main__":
 - **Multiple recipients:** To CC or BCC additional people, add emails to the `cc` or
   `bcc` arrays.
 - **Adapt the script:** This example is illustrative. For production use, adapt the
-  error handling, add session re-authentication on 401 responses, and adjust the
-  filtering logic to match your specific requirements.
+  error handling and adjust the filtering logic to match your specific requirements.

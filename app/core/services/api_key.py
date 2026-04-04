@@ -1,19 +1,11 @@
 import secrets
+from datetime import timedelta
 from hashlib import sha256
 
-from django.conf import settings
-from django.contrib.auth import login
-from django.contrib.sessions.models import Session
-from django.http import HttpRequest
 from django.utils import timezone
 
-from app.core.models import ApiKey, ApiKeySession, User
+from app.core.models import ApiKey, User
 from app.infra.models import Mutex
-
-# TODO: Add a Django system check (django.core.checks) that verifies SESSION_ENGINE is
-#  database-backed (db or cached_db). ApiKeySession has a FK to the Session model and
-#  revocation queries Session.objects directly; non-DB backends would silently break
-#  both.
 
 # TODO: Add a periodic job to auto-revoke API keys unused for 30 days (based on
 #  last_use_time, or create_time if never used). This catches forgotten keys, keys from
@@ -22,6 +14,7 @@ from app.infra.models import Mutex
 
 class ApiKeyService:
     key_length = 32
+    last_use_update_interval = timedelta(hours=1)
 
     @classmethod
     def create_key(cls, user: User) -> tuple[ApiKey, str]:
@@ -49,7 +42,7 @@ class ApiKeyService:
 
     @classmethod
     def revoke_key(cls, user: User) -> ApiKey | None:
-        """Revoke the active API key for the user and delete its linked sessions.
+        """Revoke the active API key for the user.
 
         Returns the revoked key, or ``None`` if no active key existed.
         """
@@ -62,7 +55,7 @@ class ApiKeyService:
 
         Returns ``None`` if the key is invalid, revoked, belongs to an inactive user, or
         has a stale auth hash (password changed since key creation). A stale auth hash
-        triggers auto-revocation of the key and its linked sessions.
+        triggers auto-revocation of the key.
         """
         hashed = cls._hash_key(raw_key)
         api_key = (
@@ -92,30 +85,20 @@ class ApiKeyService:
         return api_key
 
     @classmethod
-    def api_key_login(cls, request: HttpRequest, api_key: ApiKey) -> None:
-        """Create a Django session for the API key, replacing any existing one.
+    def touch_last_use(cls, api_key: ApiKey) -> None:
+        """Update ``last_use_time`` if it is stale beyond the update interval.
 
-        Deletes the previous session linked to this key (single active API key session),
-        logs the user in, sets a shorter session expiry, and creates the linking row.
+        Avoids a write on every request; hourly granularity is sufficient for the
+        auto-revocation policy.
         """
-        with Mutex.lock_in_transaction(str(api_key.user_id), namespace="api_key"):
-            api_key.refresh_from_db()
-            if api_key.revoke_time is not None:
-                raise ValueError("API key has been revoked.")
-
-            Session.objects.filter(api_key_link__api_key=api_key).delete()
-
-            login(request, api_key.user)
-            request.session.set_expiry(settings.API_KEY_SESSION_EXPIRY)
-
-            session_key = request.session.session_key
-            if session_key is None:  # pragma: no cover
-                raise RuntimeError("Session was not persisted after login.")
-
-            ApiKeySession.objects.create(api_key=api_key, session_id=session_key)
-
-            api_key.last_use_time = timezone.now()
-            api_key.save(update_fields=["last_use_time"])
+        now = timezone.now()
+        if (
+            api_key.last_use_time is not None
+            and now - api_key.last_use_time < cls.last_use_update_interval
+        ):
+            return
+        api_key.last_use_time = now
+        api_key.save(update_fields=["last_use_time"])
 
     @classmethod
     def _revoke_active_key(cls, user: User) -> ApiKey | None:
@@ -128,7 +111,6 @@ class ApiKeyService:
     def _revoke(cls, api_key: ApiKey) -> None:
         api_key.revoke_time = timezone.now()
         api_key.save(update_fields=["revoke_time"])
-        Session.objects.filter(api_key_link__api_key=api_key).delete()
 
     @classmethod
     def _generate_key(cls) -> str:

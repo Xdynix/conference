@@ -717,7 +717,7 @@
 
         async revoke() {
           if (this.revoking) return;
-          if (!confirm("Revoke your API key? All sessions created with this key will be terminated.")) return;
+          if (!confirm("Revoke your API key? It will stop working immediately.")) return;
           this.errors = {};
           this.revoking = true;
 
