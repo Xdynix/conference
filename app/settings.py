@@ -8,7 +8,6 @@ from decouple import Choices, Csv, config
 
 from app.logging import configure_logging
 from app.patches import (
-    monkeypatch_django_async_auth,
     monkeypatch_django_ninja_openapi_csrf,
     monkeypatch_django_ninja_openapi_examples,
     monkeypatch_django_ninja_patch_dict,
@@ -114,6 +113,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "app.core.middleware.api_key_auth_middleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -378,8 +378,6 @@ VERIKIT_VERIFICATION_RETENTION = config(
 
 # Core
 
-API_KEY_SESSION_EXPIRY = config("API_KEY_SESSION_EXPIRY", default=3600, cast=seconds)
-
 PASSWORD_RESET_TOKEN_INTERVAL = config(
     "PASSWORD_RESET_TOKEN_INTERVAL",
     default=60,
@@ -558,7 +556,6 @@ BRANDING_FAVICON_URL = config("BRANDING_FAVICON_URL", default="")
 
 # Monkeypatch
 
-monkeypatch_django_async_auth()
 monkeypatch_django_ninja_openapi_csrf()
 monkeypatch_django_ninja_openapi_examples()
 monkeypatch_django_ninja_patch_dict()

@@ -16,12 +16,15 @@ from pydantic import AfterValidator, Field, SecretStr, StringConstraints
 from pydantic import EmailStr as DefaultEmailStr
 from ulid import ULID
 
+from app.core.models import ApiKey
 from app.core.models import User as UserModel
 from app.middleware import HttpRequest as BaseHttpRequest
 
 
 class HttpRequest(BaseHttpRequest):
     user: UserModel | AnonymousUser
+    api_key: ApiKey | None
+    api_key_label: str
 
     async def auser(self) -> UserModel | AnonymousUser: ...  # type: ignore[empty-body]
 

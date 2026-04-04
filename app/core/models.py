@@ -3,7 +3,6 @@ from typing import ClassVar, Self, override
 from django.contrib.auth.models import AbstractUser
 from django.contrib.auth.models import UserManager as DjangoUserManager
 from django.contrib.auth.validators import UnicodeUsernameValidator
-from django.contrib.sessions.models import Session
 from django.db import models
 from django.db.models import Q
 from django.db.models.functions import Lower
@@ -231,28 +230,3 @@ class ApiKey(models.Model):
     def __str__(self) -> str:
         status = _("active") if self.revoke_time is None else _("revoked")
         return f"{self.user} ({status})"
-
-
-class ApiKeySession(models.Model):
-    """Links an API key to the Django session it created for revocation tracking."""
-
-    api_key = models.OneToOneField(
-        ApiKey,
-        on_delete=models.CASCADE,
-        related_name="session_link",
-        verbose_name=_("API key"),
-    )
-    session = models.OneToOneField(
-        Session,
-        on_delete=models.CASCADE,
-        related_name="api_key_link",
-        verbose_name=_("session"),
-    )
-    create_time = models.DateTimeField(_("create time"), auto_now_add=True)
-
-    class Meta:
-        verbose_name = _("API key session")
-        verbose_name_plural = _("API key sessions")
-
-    def __str__(self) -> str:
-        return str(self.api_key)

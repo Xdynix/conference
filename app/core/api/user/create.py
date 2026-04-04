@@ -11,7 +11,7 @@ from ninja.errors import HttpError
 from app.audit.services import audit
 from app.audit.types import AuditAction, AuditResource
 from app.core.api.session import Session
-from app.core.auth import has_any_roles
+from app.core.auth import has_any_roles, session_auth_only
 from app.core.models import GlobalRole
 from app.core.registry.create_user import create_user_registry
 from app.core.registry.user_response import user_response_registry
@@ -46,6 +46,7 @@ CreateAccountRequest = create_user_registry.extend_schema(
     },
     summary="Create Account",
 )
+@decorate_view(session_auth_only)
 @decorate_view(throttling(AnonThrottle("20/min")))
 @decorate_view(cf_turnstile_required)
 async def create_account(

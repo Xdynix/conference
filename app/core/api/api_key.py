@@ -41,9 +41,9 @@ async def create_api_key(
 ) -> CreateApiKeyResponse:
     """Create or rotate the caller's API key.
 
-    Requires the current password. If an active key already exists, it is revoked and
-    its sessions are deleted before the new key is created. The plaintext key is
-    returned once and cannot be retrieved again.
+    Requires the current password. If an active key already exists, it is revoked before
+    the new key is created. The plaintext key is returned once and cannot be retrieved
+    again.
     """
     user = await request.auser()
 
@@ -98,7 +98,7 @@ async def get_current_api_key(request: AuthedHttpRequest) -> ApiKey:
     auth=is_authenticated,
 )
 async def delete_current_api_key(request: AuthedHttpRequest) -> Status[None]:
-    """Revoke the caller's active API key and delete its linked sessions.
+    """Revoke the caller's active API key.
 
     Succeeds silently if no active key exists.
     """

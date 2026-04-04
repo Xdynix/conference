@@ -10,7 +10,7 @@ from pytest_mock import MockerFixture
 from ulid import ULID
 
 from app.core.models import User
-from app.core.services import UserService
+from app.core.services import ApiKeyService, UserService
 from app.core.services.user import InvalidPassword
 from tests.helpers import update_object
 
@@ -143,6 +143,24 @@ class TestSetCurrentUserPassword:
             },
         )
         assert response.status_code == HTTPStatus.UNAUTHORIZED
+
+        user_service_change_password.assert_not_called()
+
+    def test_bearer_auth_rejected(
+        self,
+        api_client: Client,
+        user: User,
+        user_service_change_password: MagicMock,
+    ) -> None:
+        _, plaintext = ApiKeyService.create_key(user)
+
+        response = api_client.post(
+            self.path,
+            data={"old_password": "x", "new_password": "y"},
+            headers={"Authorization": f"Bearer {plaintext}"},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert "API key" in response.json()["message"]
 
         user_service_change_password.assert_not_called()
 

@@ -5,7 +5,6 @@ from faker import Faker
 
 from app.core.models import (
     ApiKey,
-    ApiKeySession,
     GlobalRole,
     GlobalRoleAssignment,
     PasswordResetToken,
@@ -119,10 +118,3 @@ class TestApiKeyConstraint:
                 ),
             ]
         )
-
-
-class TestApiKeySession:
-    def test_str(self) -> None:
-        api_key = ApiKey(user=User(username="alice"))
-        session_link = ApiKeySession(api_key=api_key)
-        assert str(session_link) == "alice (active)"

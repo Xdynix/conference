@@ -129,8 +129,6 @@ class AuditAction(StrEnum):
     # Session
     SESSION_ASSUME = "session.assume"
     SESSION_CREATE = "session.create"
-    SESSION_CREATE_API_KEY = "session.create_api_key"
-    SESSION_CREATE_API_KEY_FAILED = "session.create_api_key_failed"
     SESSION_CREATE_FAILED = "session.create_failed"
     SESSION_DELETE = "session.delete"
     SESSION_REVERT = "session.revert"

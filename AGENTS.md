@@ -93,7 +93,8 @@ read `.agents/DEPLOYMENT.md`.
 
 ### Common Commands
 
-- **Run tests**: `uv run pytest <path>` (use `-q` or `-k` as needed)
+- **Run tests**: `uv run pytest <path>` (use `-q` or `-k` as needed). For full-suite
+  runs, use `-n auto` for parallel execution via pytest-xdist.
 - **Run linters**: `just lint` (runs ruff, mypy via pre-commit)
 - **Django management**: `uv run manage.py <command>`
 - **Run Python with Django**: `uv run manage.py shell -c "<code>"` (never use

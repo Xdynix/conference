@@ -10,9 +10,15 @@ from faker import Faker
 from pydantic import BaseModel, JsonValue
 
 from app.core.api.session import Session
-from app.core.models import ApiKey, ApiKeySession, User
+from app.core.models import User
 from app.core.services.api_key import ApiKeyService
-from tests.helpers import approx_now, update_object
+from tests.helpers import update_object
+
+
+@pytest.fixture
+def bearer_headers(user: User) -> dict[str, str]:
+    _, plaintext = ApiKeyService.create_key(user)
+    return {"Authorization": f"Bearer {plaintext}"}
 
 
 class UserCredentials(BaseModel):
@@ -76,6 +82,21 @@ class TestGetSession:
         assert response.status_code == HTTPStatus.OK
 
         assert response.json() == {}
+
+    def test_bearer_auth(self, api_client: Client, user: User) -> None:
+        _, plaintext = ApiKeyService.create_key(user)
+
+        response = api_client.get(
+            self.path,
+            HTTP_AUTHORIZATION=f"Bearer {plaintext}",
+        )
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["user"]["uid"] == str(user.uid)
+        assert data["api_key"].startswith("cfk_")
+        assert "..." in data["api_key"]
+        assert "impersonating" not in data
 
 
 @pytest.mark.django_db
@@ -225,6 +246,15 @@ class TestCreateSession:
 
         assert not get_user(api_client).is_authenticated
 
+    def test_bearer_auth_rejected(
+        self,
+        api_client: Client,
+        bearer_headers: dict[str, str],
+    ) -> None:
+        response = api_client.post(self.path, headers=bearer_headers)
+        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert "API key" in response.json()["message"]
+
 
 @pytest.mark.django_db
 class TestDeleteSession:
@@ -247,6 +277,15 @@ class TestDeleteSession:
         assert response.json() == {}
 
         assert not get_user(api_client).is_authenticated
+
+    def test_bearer_auth_rejected(
+        self,
+        api_client: Client,
+        bearer_headers: dict[str, str],
+    ) -> None:
+        response = api_client.delete(self.path, headers=bearer_headers)
+        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert "API key" in response.json()["message"]
 
 
 @pytest.fixture
@@ -357,32 +396,23 @@ class TestAssumeSession:
 
         assert get_user(api_client) == impersonator
 
-    def test_api_key_session(
+    def test_bearer_auth_blocked(
         self,
         api_client: Client,
         impersonator: User,
         impersonated: User,
     ) -> None:
-        api_client.force_login(impersonator)
-        session_key = api_client.session.session_key
-        assert session_key
-        api_key = ApiKey.objects.create(
-            user=impersonator,
-            hashed_key="test",
-            auth_hash="test",
-        )
-        ApiKeySession.objects.create(api_key=api_key, session_id=session_key)
+        _, plaintext = ApiKeyService.create_key(impersonator)
 
         response = api_client.post(
             self.path,
             data={"impersonated": impersonated.username},
+            HTTP_AUTHORIZATION=f"Bearer {plaintext}",
         )
-        assert response.status_code == HTTPStatus.BAD_REQUEST
-        assert response.json() == {
-            "message": "API key sessions cannot use impersonation."
-        }
+        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert "API key" in response.json()["message"]
 
-        assert get_user(api_client) == impersonator
+        assert not get_user(api_client).is_authenticated
 
 
 @pytest.mark.django_db
@@ -464,6 +494,15 @@ class TestRevertSession:
         assert response.status_code == HTTPStatus.OK
         assert response.json() == {}
 
+    def test_bearer_auth_rejected(
+        self,
+        api_client: Client,
+        bearer_headers: dict[str, str],
+    ) -> None:
+        response = api_client.post(self.path, headers=bearer_headers)
+        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert "API key" in response.json()["message"]
+
 
 @pytest.mark.django_db
 def test_impersonation_e2e(
@@ -484,70 +523,3 @@ def test_impersonation_e2e(
     response = api_client.post(reverse("api-1.0.0:revert-session"))
     assert response.status_code == HTTPStatus.OK
     assert get_user(api_client) == impersonator
-
-
-@pytest.mark.django_db
-class TestCreateApiKeySession:
-    path = reverse("api-1.0.0:create-api-key-session")
-
-    def test_happy_path(
-        self,
-        settings: LazySettings,
-        api_client: Client,
-        user: User,
-        authenticated_session: JsonValue,
-    ) -> None:
-        _, plaintext = ApiKeyService.create_key(user)
-        assert not get_user(api_client).is_authenticated
-
-        response = api_client.post(self.path, data={"key": plaintext})
-        assert response.status_code == HTTPStatus.OK
-
-        assert response.json() == authenticated_session
-
-        assert get_user(api_client) == user
-        assert settings.CSRF_COOKIE_NAME in api_client.cookies
-
-    def test_invalid_key(self, api_client: Client) -> None:
-        assert not get_user(api_client).is_authenticated
-
-        response = api_client.post(self.path, data={"key": "cfk_nonexistent"})
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-
-        assert response.json() == {"message": "Invalid credentials."}
-
-        assert not get_user(api_client).is_authenticated
-
-    def test_revoked_key(self, api_client: Client, user: User) -> None:
-        _, plaintext = ApiKeyService.create_key(user)
-        ApiKeyService.revoke_key(user)
-
-        response = api_client.post(self.path, data={"key": plaintext})
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-
-        assert response.json() == {"message": "Invalid credentials."}
-
-        assert not get_user(api_client).is_authenticated
-
-    def test_inactive_user(self, api_client: Client, user: User) -> None:
-        _, plaintext = ApiKeyService.create_key(user)
-        update_object(user, is_active=False)
-
-        response = api_client.post(self.path, data={"key": plaintext})
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-
-        assert response.json() == {"message": "Invalid credentials."}
-
-    def test_auth_hash_mismatch(self, api_client: Client, user: User) -> None:
-        api_key, plaintext = ApiKeyService.create_key(user)
-        user.set_password("new-password")
-        user.save(update_fields=["password"])
-
-        response = api_client.post(self.path, data={"key": plaintext})
-        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
-
-        assert response.json() == {"message": "Invalid credentials."}
-
-        assert not get_user(api_client).is_authenticated
-        api_key.refresh_from_db()
-        assert api_key.revoke_time == approx_now()

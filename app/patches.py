@@ -1,59 +1,6 @@
 """Temporary workarounds for known library bugs."""
 
 
-def monkeypatch_django_async_auth() -> None:
-    # TODO: Remove after django/django#19709 (Django #36540) released.
-    from django.contrib import auth as django_auth
-
-    default_login = django_auth.login
-    default_logout = django_auth.logout
-    default_alogin = django_auth.alogin
-    default_alogout = django_auth.alogout
-
-    def login(request, user, backend=None):  # type: ignore[no-untyped-def]
-        default_login(request, user, backend)
-        if hasattr(request, "auser"):
-
-            async def auser():  # type: ignore[no-untyped-def]
-                return user
-
-            request.auser = auser
-
-    def logout(request):  # type: ignore[no-untyped-def]
-        default_logout(request)
-        if hasattr(request, "auser"):
-            from django.contrib.auth.models import AnonymousUser
-
-            async def auser():  # type: ignore[no-untyped-def]
-                return AnonymousUser()
-
-            request.auser = auser
-
-    async def alogin(request, user, backend=None):  # type: ignore[no-untyped-def]
-        await default_alogin(request, user, backend)
-        if hasattr(request, "auser"):
-
-            async def auser():  # type: ignore[no-untyped-def]
-                return user
-
-            request.auser = auser
-
-    async def alogout(request):  # type: ignore[no-untyped-def]
-        await default_alogout(request)
-        if hasattr(request, "auser"):
-            from django.contrib.auth.models import AnonymousUser
-
-            async def auser():  # type: ignore[no-untyped-def]
-                return AnonymousUser()
-
-            request.auser = auser
-
-    django_auth.login = login
-    django_auth.logout = logout
-    django_auth.alogin = alogin
-    django_auth.alogout = alogout
-
-
 def monkeypatch_django_ninja_openapi_csrf() -> None:
     # TODO: Remove when there is an elegant solution.
     # Django Ninja's OpenAPI documentation page only includes the CSRF token when

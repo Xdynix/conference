@@ -1,7 +1,6 @@
 from http import HTTPStatus
 from typing import Annotated, Literal, Self, cast
 
-from asgiref.sync import sync_to_async
 from django.contrib.auth import aauthenticate, alogin, alogout
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
@@ -11,14 +10,13 @@ from loguru import logger
 from ninja import Field, Router, Schema
 from ninja.decorators import decorate_view
 from ninja.errors import HttpError
-from pydantic import SecretStr, StringConstraints
+from pydantic import StringConstraints
 
 from app.audit.services import audit
 from app.audit.types import AuditAction, AuditResource
-from app.core.auth import is_superuser
-from app.core.models import ApiKeySession, User
+from app.core.auth import is_superuser, session_auth_only
+from app.core.models import User
 from app.core.registry.user_response import user_response_registry
-from app.core.services.api_key import ApiKeyService
 from app.core.types import AuthedHttpRequest, HttpRequest, Password, Username
 from app.ninja.errors import ErrorResponse
 from app.utils.cf_turnstile.decorators import cf_turnstile_required
@@ -35,6 +33,7 @@ class Session(Schema):
 
     user: UserResponse | None  # type: ignore[valid-type]
     impersonating: Literal[True] | None
+    api_key: str | None
 
     @classmethod
     async def from_request(cls, request: HttpRequest) -> Self:
@@ -43,10 +42,19 @@ class Session(Schema):
             user_data = await user_response_registry.dump(user)
         else:
             user_data = None
+
+        if request.api_key is not None:
+            impersonating = None
+            api_key_label: str | None = request.api_key_label
+        else:
+            impersonating = (cls.Key.IMPERSONATOR_ID in request.session) or None
+            api_key_label = None
+
         return cls.model_validate(
             {
                 "user": user_data,
-                "impersonating": (cls.Key.IMPERSONATOR_ID in request.session) or None,
+                "impersonating": impersonating,
+                "api_key": api_key_label,
             }
         )
 
@@ -79,6 +87,7 @@ class CreateSessionRequest(Schema):
     },
     summary="Login",
 )
+@decorate_view(session_auth_only)
 @decorate_view(throttling(AnonThrottle("100/min")))
 @decorate_view(cf_turnstile_required)
 async def create_session(
@@ -115,74 +124,12 @@ async def create_session(
     return await Session.from_request(request)
 
 
-class CreateApiKeySessionRequest(Schema):
-    key: SecretStr
-
-
-@router.post(
-    "/sessions/api-key",
-    response={
-        HTTPStatus.OK: Session,
-        HTTPStatus.UNPROCESSABLE_ENTITY: ErrorResponse,
-    },
-    summary="API Key Login",
-)
-@decorate_view(ensure_csrf_cookie)
-@decorate_view(throttling(AnonThrottle("100/min")))
-async def create_api_key_session(
-    request: HttpRequest,
-    payload: CreateApiKeySessionRequest,
-) -> Session:
-    """Create a session using an API key.
-
-    Authenticates via API key instead of username/password, bypassing Turnstile. Scripts
-    should persist the returned session and CSRF cookies for subsequent requests.
-    """
-    api_key = await sync_to_async(ApiKeyService.authenticate_key)(
-        payload.key.get_secret_value()
-    )
-    if api_key is None:
-        await audit(
-            request=request,
-            action=AuditAction.SESSION_CREATE_API_KEY_FAILED,
-            resource=AuditResource.SESSION,
-            payload=payload,
-        )
-        raise HttpError(
-            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-            message=_("Invalid credentials."),
-        )
-
-    try:
-        await sync_to_async(ApiKeyService.api_key_login)(request, api_key)
-    except ValueError as exc:  # pragma: no cover
-        await audit(
-            request=request,
-            action=AuditAction.SESSION_CREATE_API_KEY_FAILED,
-            resource=AuditResource.SESSION,
-            payload=payload,
-        )
-        raise HttpError(
-            status_code=HTTPStatus.UNPROCESSABLE_ENTITY,
-            message=_("Invalid credentials."),
-        ) from exc
-
-    await audit(
-        request=request,
-        action=AuditAction.SESSION_CREATE_API_KEY,
-        resource=AuditResource.SESSION,
-        resource_id=str(api_key.user.uid),
-        payload=payload,
-    )
-
-    return await Session.from_request(request)
-
-
 @router.delete(
     "/sessions/current",
     response=Session,
     summary="Logout",
 )
+@decorate_view(session_auth_only)
 async def delete_session(request: HttpRequest) -> Session:
     """Log a user out."""
     if (user := await request.auser()).is_authenticated:
@@ -211,6 +158,7 @@ class AssumeSessionRequest(Schema):
     summary="Start Impersonation",
     auth=is_superuser,
 )
+@decorate_view(session_auth_only)
 async def assume_session(
     request: AuthedHttpRequest,
     payload: AssumeSessionRequest,
@@ -223,16 +171,7 @@ async def assume_session(
 
     - Only superusers can use this operation.
     - The user being impersonated cannot be a superuser.
-    - API key sessions cannot use impersonation.
     """
-    if await ApiKeySession.objects.filter(
-        session_id=request.session.session_key
-    ).aexists():
-        raise HttpError(
-            status_code=HTTPStatus.BAD_REQUEST,
-            message=_("API key sessions cannot use impersonation."),
-        )
-
     impersonated = await aget_object_or_404(
         User.objects.active(),
         username=payload.impersonated,
@@ -269,6 +208,7 @@ async def assume_session(
     response=Session,
     summary="Stop Impersonation",
 )
+@decorate_view(session_auth_only)
 async def revert_session(request: HttpRequest) -> Session:
     """Revert the current session to the state before impersonating.
 

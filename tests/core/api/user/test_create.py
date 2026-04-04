@@ -9,7 +9,7 @@ from faker import Faker
 from pytest_mock import MockerFixture
 
 from app.core.models import User
-from app.core.services import UserService
+from app.core.services import ApiKeyService, UserService
 from app.core.services.user import InvalidPassword, UserIdentityConflict
 from app.verikit.services import EmailVerificationService
 from tests.helpers import any_str
@@ -203,6 +203,24 @@ class TestCreateAccount:
         assert "too common" in error2["msg"]
 
         user_service_create.assert_called_once()
+
+    def test_bearer_auth_rejected(
+        self,
+        api_client: Client,
+        faker: Faker,
+        user_service_create: MagicMock,
+    ) -> None:
+        user = User.objects.create_user(username=faker.user_name())
+        _, plaintext = ApiKeyService.create_key(user)
+
+        response = api_client.post(
+            self.path,
+            headers={"Authorization": f"Bearer {plaintext}"},
+        )
+        assert response.status_code == HTTPStatus.FORBIDDEN
+        assert "API key" in response.json()["message"]
+
+        user_service_create.assert_not_called()
 
 
 @pytest.mark.django_db

@@ -92,6 +92,11 @@ async def audit(
             actor=actor_label or actor_uid or "anonymous",
         )
 
+        api_key_label = getattr(request, "api_key_label", "")
+        extra_detail: dict[str, Any] = {}
+        if api_key_label:
+            extra_detail["api_key"] = api_key_label
+
         await AuditLog.objects.acreate(
             action=action,
             resource=resource_type,
@@ -101,7 +106,7 @@ async def audit(
             actor_uid=actor_uid,
             actor_label=actor_label,
             payload=payload or {},
-            detail=detail or {},
+            detail={**(detail or {}), **extra_detail},
             ip_address=getattr(request, "client_ip", None),
             request_id=getattr(request, "request_id", ""),
         )
