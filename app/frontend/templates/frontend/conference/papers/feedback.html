@@ -27,7 +27,7 @@
     </div>
 
     <div x-show="!loading && error" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0" x-text="error"></p>
+      <p class="mb-0" x-text="error"></p>
     </div>
 
     <div x-show="!loading && !error" x-cloak>
@@ -47,7 +47,7 @@
 
           <template x-if="feedbacks.length === 0">
             <div class="text-center py-5">
-              <p class="text-muted mb-0">No feedback available yet.</p>
+              <p class="mb-0">No feedback available yet.</p>
             </div>
           </template>
 

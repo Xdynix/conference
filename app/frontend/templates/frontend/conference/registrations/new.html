@@ -20,11 +20,11 @@
     </div>
 
     <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Conference not found.</p>
+      <p class="mb-0">Conference not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Failed to load registration options.</p>
+      <p class="mb-0">Failed to load registration options.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && !error" x-cloak>
@@ -38,7 +38,7 @@
           </div>
 
           <template x-if="attendanceTypes.length === 0">
-            <p class="text-muted">Registration is not available at this time.</p>
+            <p>Registration is not available at this time.</p>
           </template>
 
           <template x-if="attendanceTypes.length > 0">

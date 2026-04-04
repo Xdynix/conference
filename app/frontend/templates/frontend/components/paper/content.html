@@ -16,7 +16,7 @@ Keywords handling:
 <template x-if="['create', 'edit', 'admin-create', 'admin-edit'].includes(mode)">
   <div>
     <div class="mb-3">
-      <label for="abstract" class="form-label text-muted">
+      <label for="abstract" class="form-label">
         Abstract
       </label>
       <textarea
@@ -30,7 +30,7 @@ Keywords handling:
     </div>
 
     <div class="mb-3">
-      <label for="contribution" class="form-label text-muted">
+      <label for="contribution" class="form-label">
         Contribution
       </label>
       <textarea
@@ -44,7 +44,7 @@ Keywords handling:
     </div>
 
     <div class="mb-3">
-      <label for="keywords" class="form-label text-muted">
+      <label for="keywords" class="form-label">
         Keywords
       </label>
       <select
@@ -81,7 +81,7 @@ Keywords handling:
         x-effect="$el._ts?.wrapper.classList.toggle('is-invalid', !!errors.keywords)"
       ></select>
       <div class="invalid-feedback" :class="{ 'd-block': errors.keywords }" x-text="errors.keywords"></div>
-      <small class="text-muted">
+      <small class="text-muted fst-italic">
         Select at least two of the available keywords that best match your paper.
       </small>
     </div>
@@ -93,17 +93,17 @@ Keywords handling:
     <div class="card-header">Content</div>
     <div class="card-body">
       <div class="mb-3">
-        <label class="form-label text-muted">Abstract</label>
+        <label class="form-label">Abstract</label>
         <div class="form-control-plaintext" x-text="paper?.abstract || '(No abstract provided)'"></div>
       </div>
 
       <div class="mb-3">
-        <label class="form-label text-muted">Contribution</label>
+        <label class="form-label">Contribution</label>
         <div class="form-control-plaintext" x-text="paper?.contribution || '(No contribution provided)'"></div>
       </div>
 
       <div>
-        <label class="form-label text-muted">Keywords</label>
+        <label class="form-label">Keywords</label>
         <div class="form-control-plaintext">
           <template x-if="!paper?.keywords?.length"><span>(No keywords)</span></template>
           <template x-for="keyword in paper?.keywords || []" :key="keyword">

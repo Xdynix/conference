@@ -21,16 +21,16 @@
         </div>
 
         <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-          <p class="text-muted mb-0">Conference not found.</p>
+          <p class="mb-0">Conference not found.</p>
         </div>
 
         <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
-          <p class="text-muted mb-0">Failed to load reviews.</p>
+          <p class="mb-0">Failed to load reviews.</p>
         </div>
 
         <div x-show="$store.conference.detail && !loading && !error" x-cloak>
           <template x-if="reviews.length === 0">
-            <p class="text-muted">No reviews assigned yet.</p>
+            <p>No reviews assigned yet.</p>
           </template>
 
           <template x-if="reviews.length > 0">

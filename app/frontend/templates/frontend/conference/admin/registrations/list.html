@@ -40,7 +40,7 @@
     </div>
 
     <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Conference not found.</p>
+      <p class="mb-0">Conference not found.</p>
     </div>
 
     <template x-if="!$store.conference.loading && $store.conference.detail">
@@ -82,7 +82,7 @@
             </div>
 
             <div x-show="!loading && error" x-cloak class="text-center py-5">
-              <p class="text-muted mb-0">Failed to load registrations.</p>
+              <p class="mb-0">Failed to load registrations.</p>
             </div>
 
             <table x-show="!loading && !error" x-cloak class="table table-striped table-hover">

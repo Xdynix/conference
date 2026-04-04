@@ -23,7 +23,7 @@
             required
           >
           <div class="invalid-feedback" x-text="errors.username"></div>
-          <small class="form-text text-muted">
+          <small class="form-text text-muted fst-italic">
             150 characters or fewer. Unicode letters, digits, and ./+/-/_ only.
           </small>
         </div>
@@ -32,7 +32,7 @@
 
         {% include "frontend/components/password-input.html" with id="password" label="Password" model="form.password" error_key="password" autocomplete="new-password" wrapper_class="mb-1" blur="validateConfirmPassword()" %}
 
-        <ul class="form-text text-muted small mb-3">
+        <ul class="form-text text-muted small fst-italic mb-3">
           {% password_help_texts as help_texts %}
           {% for text in help_texts %}
             <li>{{ text }}</li>
@@ -111,8 +111,8 @@
             required
           >
           <div class="invalid-feedback" x-text="errors['profile.affiliation']"></div>
-          <small class="form-text text-muted">
-            e.g., <em>Google LLC</em> or <em>School of Computing, Example University</em>
+          <small class="form-text text-muted fst-italic">
+            e.g., Google LLC or School of Computing, Example University
           </small>
         </div>
 

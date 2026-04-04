@@ -57,12 +57,12 @@
     </div>
 
     <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Conference not found.</p>
+      <p class="mb-0">Conference not found.</p>
     </div>
 
     {# Non-chair users will fail to load chair-only data (admin comments, decisions) and see this error. #}
     <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Failed to load data.</p>
+      <p class="mb-0">Failed to load data.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && !error && paper" x-cloak>
@@ -77,7 +77,7 @@
             </h2>
 
             <template x-if="visibleReviews().length === 0">
-              <p class="text-muted">No reviews available yet.</p>
+              <p>No reviews available yet.</p>
             </template>
 
             <template x-if="visibleReviews().length > 0">
@@ -216,7 +216,7 @@
           <section class="mb-4">
             <h2 class="h5 mb-3">Admin Comments</h2>
 
-            <p class="text-muted small mb-3">
+            <p class="text-muted small mb-3 fst-italic">
               Comments are shown anonymously to authors after decision announcement.
             </p>
 
@@ -228,7 +228,7 @@
             ></div>
 
             <template x-if="adminComments.length === 0 && !commentForm.content">
-              <p class="text-muted">No comments yet.</p>
+              <p>No comments yet.</p>
             </template>
 
             <template x-for="comment in adminComments" :key="comment.uid">
@@ -332,7 +332,7 @@
                     </template>
                   </select>
                   <div class="invalid-feedback" x-text="decisionForm.errors.state"></div>
-                  <div class="form-text">
+                  <div class="form-text fst-italic">
                     Decisions are hidden from authors until announced.
                     "Revision Needed" shows as "Accepted" to authors.
                   </div>
@@ -350,7 +350,7 @@
                     @input="decisionForm.error = null; decisionForm.errors = {}"
                   ></textarea>
                   <div class="invalid-feedback" x-text="decisionForm.errors.note"></div>
-                  <div class="form-text">Visible to other admins only.</div>
+                  <div class="form-text fst-italic">Visible to other admins only.</div>
                 </div>
 
                 <div class="d-grid">
@@ -372,7 +372,7 @@
               <h2 class="h5 mb-3">History</h2>
 
               <template x-if="decisions.length === 0">
-                <p class="text-muted mb-0">No decisions yet.</p>
+                <p class="mb-0">No decisions yet.</p>
               </template>
 
               <template x-for="(decision, index) in decisions" :key="decision._key">

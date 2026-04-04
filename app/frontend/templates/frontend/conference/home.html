@@ -20,7 +20,7 @@
 
     <template x-if="!$store.conference.loading && !$store.conference.detail">
       <div class="text-center py-5">
-        <p class="text-muted mb-0">Conference not found.</p>
+        <p class="mb-0">Conference not found.</p>
       </div>
     </template>
 
@@ -47,7 +47,7 @@
         <div class="row justify-content-center">
           <div class="col-lg-8 col-xl-6">
             <template x-if="$store.conference.detail.tracks.length === 0">
-              <p class="text-muted text-center">No tracks available.</p>
+              <p class="text-center">No tracks available.</p>
             </template>
             <template x-if="$store.conference.detail.tracks.length > 0">
               <section>

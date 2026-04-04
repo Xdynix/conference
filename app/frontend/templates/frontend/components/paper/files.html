@@ -29,7 +29,7 @@ The component is hidden in create modes (no paper exists yet).
         onUpload: (file, onProgress) => uploadSubmission(file, onProgress),
       })"
     >
-      <label class="form-label text-muted">Submission file</label>
+      <label class="form-label">Submission file</label>
 
       <div
         class="alert alert-info mb-3"
@@ -63,7 +63,7 @@ The component is hidden in create modes (no paper exists yet).
         </span>
       </div>
 
-      <div class="form-text">
+      <div class="form-text fst-italic">
         <span x-text="config.allowedTypes.map(t => t.slice(1).toUpperCase()).join(', ')"></span>.
         Maximum <span x-text="formatFileSize(config.maxSize)"></span>.
       </div>
@@ -91,7 +91,7 @@ The component is hidden in create modes (no paper exists yet).
           onUpload: (sourceFile, viewableFile, onProgress) => uploadFinal(sourceFile, viewableFile, onProgress),
         })"
       >
-        <label class="form-label text-muted">Final version</label>
+        <label class="form-label">Final version</label>
 
         <template x-if="paper?.final">
           <div class="d-flex align-items-center gap-3 mb-2 flex-wrap">
@@ -198,7 +198,7 @@ The component is hidden in create modes (no paper exists yet).
           </span>
         </div>
 
-        <div class="form-text">
+        <div class="form-text fst-italic">
           Source:
           <span x-text="sourceConfig.allowedTypes.map(t => t.slice(1).toUpperCase()).join(', ')"></span>,
           max <span x-text="formatFileSize(sourceConfig.maxSize)"></span>.
@@ -231,7 +231,7 @@ The component is hidden in create modes (no paper exists yet).
           </div>
         </template>
         <template x-if="!paper?.submission">
-          <span class="text-muted">No file uploaded.</span>
+          <span>No file uploaded.</span>
         </template>
       </div>
 

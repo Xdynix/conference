@@ -20,11 +20,11 @@
     </div>
 
     <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Conference not found.</p>
+      <p class="mb-0">Conference not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
-      <p class="text-muted mb-0">Review not found.</p>
+      <p class="mb-0">Review not found.</p>
     </div>
 
     <div x-show="$store.conference.detail && !loading && !error && review" x-cloak>
@@ -147,9 +147,7 @@
 
           {# State: Declined #}
           <template x-if="review?.state === APP.enums.ReviewState.DECLINED.value">
-            <div class="text-muted">
-              <p>You declined this review assignment.</p>
-            </div>
+            <p>You declined this review assignment.</p>
           </template>
         </div>
       </div>

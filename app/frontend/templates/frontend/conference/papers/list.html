@@ -21,16 +21,16 @@
         </div>
 
         <div x-show="!$store.conference.loading && !$store.conference.detail" x-cloak class="text-center py-5">
-          <p class="text-muted mb-0">Conference not found.</p>
+          <p class="mb-0">Conference not found.</p>
         </div>
 
         <div x-show="$store.conference.detail && !loading && error" x-cloak class="text-center py-5">
-          <p class="text-muted mb-0">Failed to load papers.</p>
+          <p class="mb-0">Failed to load papers.</p>
         </div>
 
         <div x-show="$store.conference.detail && !loading && !error" x-cloak>
           <template x-if="papers.length === 0">
-            <p class="text-muted">No papers yet. Submit your first paper.</p>
+            <p>No papers yet. Submit your first paper.</p>
           </template>
 
           <template x-if="papers.length > 0">

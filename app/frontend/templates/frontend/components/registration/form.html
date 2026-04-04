@@ -14,7 +14,7 @@ This component expects the parent to provide:
 {# State (admin-edit only) #}
 <template x-if="mode === 'admin-edit'">
   <div class="mb-3">
-    <label class="form-label text-muted">State <span class="text-danger">*</span></label>
+    <label class="form-label">State <span class="text-danger">*</span></label>
     <select
       id="state"
       class="form-select"
@@ -32,7 +32,7 @@ This component expects the parent to provide:
 
 {# Attendance type #}
 <div class="mb-3">
-  <label class="form-label text-muted">
+  <label class="form-label">
     Attendance Type
     <template x-if="mode === 'create' || mode === 'admin-edit'">
       <span class="text-danger">*</span>
@@ -81,7 +81,7 @@ This component expects the parent to provide:
 {# Paper (conditional on selected attendance type) #}
 <template x-if="mode === 'create'">
   <div class="mb-3" x-show="selectedAttendanceType?.paper_required" x-cloak>
-    <label class="form-label text-muted">
+    <label class="form-label">
       Paper <span class="text-danger">*</span>
     </label>
     <select
@@ -109,7 +109,7 @@ This component expects the parent to provide:
 </template>
 <template x-if="mode === 'admin-edit' && registration?.paper">
   <div class="mb-3">
-    <label class="form-label text-muted">Paper</label>
+    <label class="form-label">Paper</label>
     <div class="form-control-plaintext">
       <a
         :href="APP.urls.pages.adminPaperDetail(APP.params.conference_name, registration.paper.code)"
@@ -122,7 +122,7 @@ This component expects the parent to provide:
 </template>
 <template x-if="(mode === 'edit' || mode === 'view') && registration?.paper">
   <div class="mb-3">
-    <label class="form-label text-muted">Paper</label>
+    <label class="form-label">Paper</label>
     <div class="form-control-plaintext">
       <span x-text="registration.paper.code"></span>
       <span class="mx-1">·</span>
@@ -133,7 +133,7 @@ This component expects the parent to provide:
 
 {# Receipt title #}
 <div class="mb-3">
-  <label class="form-label text-muted">
+  <label class="form-label">
     Receipt Title
     <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
       <span class="text-danger">*</span>
@@ -150,7 +150,7 @@ This component expects the parent to provide:
         required
       >
       <div class="invalid-feedback" x-text="errors.receipt_title"></div>
-      <small class="form-text text-muted">Name to appear on the receipt, e.g. your institution.</small>
+      <small class="form-text text-muted fst-italic">Name to appear on the receipt, e.g. your institution.</small>
     </div>
   </template>
   <template x-if="mode === 'view'">
@@ -164,7 +164,7 @@ This component expects the parent to provide:
 <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
   <div class="row mb-3">
     <div class="col-md-3">
-      <label class="form-label text-muted">Title</label>
+      <label class="form-label">Title</label>
       <select
         id="title"
         class="form-select"
@@ -179,7 +179,7 @@ This component expects the parent to provide:
       <div class="invalid-feedback" x-text="errors.title"></div>
     </div>
     <div class="col-md">
-      <label class="form-label text-muted">
+      <label class="form-label">
         Given Name <span class="text-danger">*</span>
       </label>
       <input
@@ -195,7 +195,7 @@ This component expects the parent to provide:
       <div class="invalid-feedback" x-text="errors.given_name"></div>
     </div>
     <div class="col-md">
-      <label class="form-label text-muted">
+      <label class="form-label">
         Family Name <span class="text-danger">*</span>
       </label>
       <input
@@ -214,7 +214,7 @@ This component expects the parent to provide:
 </template>
 <template x-if="mode === 'view'">
   <div class="mb-3">
-    <label class="form-label text-muted">Name</label>
+    <label class="form-label">Name</label>
     <div
       class="form-control-plaintext"
       x-text="[registration?.title, registration?.given_name, registration?.family_name].filter(Boolean).join(' ')"
@@ -224,7 +224,7 @@ This component expects the parent to provide:
 
 {# Affiliation #}
 <div class="mb-3">
-  <label class="form-label text-muted">
+  <label class="form-label">
     Affiliation
     <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
       <span class="text-danger">*</span>
@@ -242,8 +242,8 @@ This component expects the parent to provide:
         required
       >
       <div class="invalid-feedback" x-text="errors.affiliation"></div>
-      <small class="form-text text-muted">
-        e.g., <em>Google LLC</em> or <em>School of Computing, Example University</em>
+      <small class="form-text text-muted fst-italic">
+        e.g., Google LLC or School of Computing, Example University
       </small>
     </div>
   </template>
@@ -254,7 +254,7 @@ This component expects the parent to provide:
 
 {# Region #}
 <div class="mb-3">
-  <label class="form-label text-muted">
+  <label class="form-label">
     Region
     <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
       <span class="text-danger">*</span>
@@ -294,7 +294,7 @@ This component expects the parent to provide:
 {# Email / Phone #}
 <div class="row mb-3">
   <div class="col-md-6">
-    <label class="form-label text-muted">
+    <label class="form-label">
       Email
       <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
         <span class="text-danger">*</span>
@@ -312,7 +312,7 @@ This component expects the parent to provide:
           required
         >
         <div class="invalid-feedback" x-text="errors.email"></div>
-        <small class="form-text text-muted">Conference correspondence and updates will be sent to this address.</small>
+        <small class="form-text text-muted fst-italic">Conference correspondence and updates will be sent to this address.</small>
       </div>
     </template>
     <template x-if="mode === 'view'">
@@ -320,7 +320,7 @@ This component expects the parent to provide:
     </template>
   </div>
   <div class="col-md-6">
-    <label class="form-label text-muted">
+    <label class="form-label">
       Phone
       <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
         <span class="text-danger">*</span>
@@ -338,7 +338,7 @@ This component expects the parent to provide:
           required
         >
         <div class="invalid-feedback" x-text="errors.phone"></div>
-        <small class="form-text text-muted">May be used for urgent communication. Please include the country code (e.g. +1 234 567 8900).</small>
+        <small class="form-text text-muted fst-italic">May be used for urgent communication. Please include the country code (e.g. +1 234 567 8900).</small>
       </div>
     </template>
     <template x-if="mode === 'view'">
@@ -349,7 +349,7 @@ This component expects the parent to provide:
 
 {# Self-introduction #}
 <div class="mb-3">
-  <label class="form-label text-muted">
+  <label class="form-label">
     Self-introduction
     <template x-if="['create', 'edit', 'admin-edit'].includes(mode)">
       <span class="text-danger">*</span>
@@ -366,7 +366,7 @@ This component expects the parent to provide:
         required
       ></textarea>
       <div class="invalid-feedback" x-text="errors.self_introduction"></div>
-      <small class="form-text text-muted">Please limit to 100 words.</small>
+      <small class="form-text text-muted fst-italic">Please limit to 100 words.</small>
     </div>
   </template>
   <template x-if="mode === 'view'">
