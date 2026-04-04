@@ -342,8 +342,10 @@ class PaperService:
                         {"contribution": _("Contribution statement is required.")}
                     )
 
-                if not paper.keywords.exists():
-                    errors.append({"keywords": _("At least one keyword is required.")})
+                if paper.keywords.count() < 2:
+                    errors.append(
+                        {"keywords": _("At least two keywords are required.")}
+                    )
                 if not paper.submissions.exists():
                     errors.append({"submissions": _("A submission file is required.")})
 

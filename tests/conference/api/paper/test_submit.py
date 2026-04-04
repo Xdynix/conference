@@ -113,7 +113,7 @@ class TestSubmitMyPaper:
             {"title": "Title is required."},
             {"abstract": "Abstract is required."},
             {"contribution": "Contribution statement is required."},
-            {"keywords": "At least one keyword is required."},
+            {"keywords": "At least two keywords are required."},
             {"submissions": "A submission file is required."},
             {"authors": "At least one author is required."},
         ]
@@ -129,7 +129,7 @@ class TestSubmitMyPaper:
                 {"title": "Title is required."},
                 {"abstract": "Abstract is required."},
                 {"contribution": "Contribution statement is required."},
-                {"keywords": "At least one keyword is required."},
+                {"keywords": "At least two keywords are required."},
                 {"submissions": "A submission file is required."},
                 {"authors": "At least one author is required."},
             ],
