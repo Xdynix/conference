@@ -4,7 +4,7 @@ from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
-from ninja import File
+from ninja import File, Status
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
 
@@ -14,13 +14,7 @@ from app.conference.auth import (
     has_any_conference_or_track_roles,
     has_any_conference_roles,
 )
-from app.conference.models import (
-    Conference,
-    ConferenceRole,
-    Paper,
-    PaperState,
-    TrackRole,
-)
+from app.conference.models import Conference, ConferenceRole, PaperState, TrackRole
 from app.conference.services import (
     ConferenceAccessService,
     ConferenceService,
@@ -59,7 +53,7 @@ async def create_my_submission(
     conference_name: str,
     paper_code: str,
     file: File[UploadedFile],
-) -> tuple[int, Paper]:
+) -> Status:
     """Upload a submission file for a paper.
 
     Creates a new revision of the submission. Only papers in Draft or Submitted state
@@ -108,7 +102,10 @@ async def create_my_submission(
         detail={"revision": submission.revision},
     )
 
-    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
+    return Status(
+        HTTPStatus.CREATED,
+        await prefetch_paper(conference, paper, user, request),
+    )
 
 
 @router.post(
@@ -132,7 +129,7 @@ async def create_submission(
     conference_name: str,
     paper_code: str,
     file: File[UploadedFile],
-) -> tuple[int, Paper]:
+) -> Status:
     """Upload a submission file for a paper as an admin.
 
     Track admins can upload to papers in Draft, Submitted, or Under Review state.
@@ -189,7 +186,10 @@ async def create_submission(
         detail={"revision": submission.revision},
     )
 
-    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
+    return Status(
+        HTTPStatus.CREATED,
+        await prefetch_paper(conference, paper, user, request),
+    )
 
 
 @router.post(
@@ -211,7 +211,7 @@ async def create_my_final(
     # using `| None` causes the parameter to always resolve as None. Use `= None`
     # default without union type annotation as a workaround.
     viewable_file: File[UploadedFile] = None,  # type: ignore[assignment]
-) -> tuple[int, Paper]:
+) -> Status:
     """Upload final version files for a paper.
 
     Creates a new revision of the final. Only papers in Accepted or Accepted (Revision
@@ -272,7 +272,10 @@ async def create_my_final(
         detail={"revision": final.revision},
     )
 
-    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
+    return Status(
+        HTTPStatus.CREATED,
+        await prefetch_paper(conference, paper, user, request),
+    )
 
 
 @router.post(
@@ -297,7 +300,7 @@ async def create_final(
     # using `| None` causes the parameter to always resolve as None. Use `= None`
     # default without union type annotation as a workaround.
     viewable_file: File[UploadedFile] = None,  # type: ignore[assignment]
-) -> tuple[int, Paper]:
+) -> Status:
     """Upload final version files for a paper as an admin.
 
     Admin uploads bypass the revision limit. Allows 4x the standard size limits.
@@ -343,4 +346,7 @@ async def create_final(
         detail={"revision": final.revision},
     )
 
-    return HTTPStatus.CREATED, await prefetch_paper(conference, paper, user, request)
+    return Status(
+        HTTPStatus.CREATED,
+        await prefetch_paper(conference, paper, user, request),
+    )

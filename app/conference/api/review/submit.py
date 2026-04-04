@@ -3,6 +3,7 @@ from typing import Literal
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
+from ninja import Status
 from ninja.errors import HttpError
 from ulid import ULID
 
@@ -54,7 +55,7 @@ async def submit_my_review(
     request: AuthedHttpRequest,
     conference_name: str,
     review_uid: ULID,
-) -> tuple[int, Review | ErrorResponse]:
+) -> Status:
     """Submit a review for a paper.
 
     Validates that all required fields are present (scores, contribution, decision
@@ -79,9 +80,9 @@ async def submit_my_review(
     except InvalidReviewStateError as exc:
         raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
     except ReviewSubmissionError as exc:
-        return HTTPStatus.BAD_REQUEST, ErrorResponse(
-            message=str(exc),
-            details=exc.errors,
+        return Status(
+            HTTPStatus.BAD_REQUEST,
+            ErrorResponse(message=str(exc), details=exc.errors),
         )
 
     await audit(
@@ -91,7 +92,7 @@ async def submit_my_review(
         scope=conference.name,
     )
 
-    return HTTPStatus.OK, await prefetch_review(review, request)
+    return Status(HTTPStatus.OK, await prefetch_review(review, request))
 
 
 @router.post(

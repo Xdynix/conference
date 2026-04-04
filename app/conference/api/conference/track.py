@@ -2,7 +2,7 @@ from http import HTTPStatus
 
 from asgiref.sync import sync_to_async
 from django.http import Http404
-from ninja import PatchDict, Schema
+from ninja import PatchDict, Schema, Status
 from ninja.errors import HttpError
 from ulid import ULID
 
@@ -37,7 +37,7 @@ async def create_track(
     request: AuthedHttpRequest,
     conference_name: str,
     payload: CreateTrackRequest,
-) -> tuple[int, Conference]:
+) -> Status:
     """Create a track for a conference."""
     try:
         track = await sync_to_async(TrackService.create_track)(
@@ -59,7 +59,7 @@ async def create_track(
     )
 
     user = await request.auser()
-    return HTTPStatus.CREATED, await prefetch_conference(conference, user)
+    return Status(HTTPStatus.CREATED, await prefetch_conference(conference, user))
 
 
 class TrackSchema(Schema):

@@ -2,7 +2,7 @@ from http import HTTPStatus
 from typing import Annotated
 
 from django.shortcuts import aget_object_or_404
-from ninja import Schema
+from ninja import Schema, Status
 from pydantic import AwareDatetime, StringConstraints
 from ulid import ULID
 
@@ -74,7 +74,7 @@ async def create_admin_comment(
     conference_name: str,
     paper_code: str,
     payload: CreateAdminCommentRequest,
-) -> tuple[int, AdminComment]:
+) -> Status:
     """Creates an admin comment on a paper."""
     user = await request.auser()
     conference = await aget_object_or_404(
@@ -100,9 +100,12 @@ async def create_admin_comment(
         payload=payload,
     )
 
-    return HTTPStatus.CREATED, await AdminComment.objects.select_related(
-        "author__profile"
-    ).aget(pk=comment.pk)
+    return Status(
+        HTTPStatus.CREATED,
+        await AdminComment.objects.select_related("author__profile").aget(
+            pk=comment.pk
+        ),
+    )
 
 
 @router.delete(
@@ -118,7 +121,7 @@ async def delete_admin_comment(
     request: AuthedHttpRequest,
     conference_name: str,
     comment_uid: ULID,
-) -> tuple[int, None]:
+) -> Status:
     """Deletes an admin comment."""
     conference = await aget_object_or_404(
         Conference.objects.active(),
@@ -141,4 +144,4 @@ async def delete_admin_comment(
         scope=conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)

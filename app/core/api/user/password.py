@@ -2,7 +2,7 @@ from http import HTTPStatus
 
 from django.contrib.auth import aupdate_session_auth_hash
 from django.shortcuts import aget_object_or_404
-from ninja import Schema
+from ninja import Schema, Status
 from ulid import ULID
 
 from app.audit.services import audit
@@ -31,7 +31,7 @@ class UpdateCurrentUserPasswordRequest(Schema):
 async def set_current_user_password(
     request: AuthedHttpRequest,
     payload: UpdateCurrentUserPasswordRequest,
-) -> tuple[int, None]:
+) -> Status:
     """Change the current user's password.
 
     The user's session remains active after the password change.
@@ -67,7 +67,7 @@ async def set_current_user_password(
         payload=payload,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)
 
 
 class UpdateUserPasswordRequest(Schema):
@@ -84,7 +84,7 @@ async def set_user_password(
     request: AuthedHttpRequest,
     uid: ULID,
     payload: UpdateUserPasswordRequest,
-) -> tuple[int, None]:
+) -> Status:
     """Change a user's password by admin.
 
     Allows administrators to change the password for any active, non-superuser user.
@@ -114,4 +114,4 @@ async def set_user_password(
         payload=payload,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)

@@ -4,7 +4,7 @@ from asgiref.sync import sync_to_async
 from django.http import Http404
 from django.utils import timezone
 from django.utils.translation import gettext as _
-from ninja import Schema
+from ninja import Schema, Status
 from ninja.errors import HttpError
 from ulid import ULID
 
@@ -104,7 +104,7 @@ async def lookup_invitation(
 async def redeem_invitation(
     request: AuthedHttpRequest,
     payload: InvitationTokenPayload,
-) -> tuple[int, None]:
+) -> Status:
     """Redeem an invitation using its token."""
     invitation = await sync_to_async(InvitationService.retrieve_invitation)(
         payload.invitation_token
@@ -134,7 +134,7 @@ async def redeem_invitation(
         scope=invitation.conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)
 
 
 @router.post(
@@ -145,13 +145,13 @@ async def redeem_invitation(
 async def reject_invitation(
     request: HttpRequest,
     payload: InvitationTokenPayload,
-) -> tuple[int, None]:
+) -> Status:
     """Reject an invitation."""
     invitation = await sync_to_async(InvitationService.retrieve_invitation)(
         payload.invitation_token
     )
     if invitation is None:
-        return HTTPStatus.NO_CONTENT, None
+        return Status(HTTPStatus.NO_CONTENT, None)
 
     if invitation.state != Invitation.State.ACCEPTED and invitation.reject_time is None:
         invitation.reject_time = timezone.now()
@@ -164,4 +164,4 @@ async def reject_invitation(
         scope=invitation.conference.name,
     )
 
-    return HTTPStatus.NO_CONTENT, None
+    return Status(HTTPStatus.NO_CONTENT, None)
