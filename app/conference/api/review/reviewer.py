@@ -178,7 +178,7 @@ async def list_reviewer_candidates(
             "Unreachable: auth passed but no access scope."
         )  # pragma: no cover
 
-    candidates_list = [
+    candidates_list: list[User] = [
         candidate
         async for candidate in candidates.select_related("profile").order_by("uid")
     ]
@@ -262,7 +262,7 @@ async def list_reviewers(
         )
     )
 
-    reviewers_list = [
+    reviewers_list: list[User] = [
         reviewer
         async for reviewer in reviewers.select_related("profile").order_by("uid")
     ]

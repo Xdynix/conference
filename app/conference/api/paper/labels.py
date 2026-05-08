@@ -41,7 +41,7 @@ async def update_paper_labels(
         code=paper_code,
     )
 
-    await sync_to_async(PaperService.set_paper_labels)(paper, **payload)  # type: ignore[misc]
+    await sync_to_async(PaperService.set_paper_labels)(paper, **payload)
 
     await audit(
         request=request,

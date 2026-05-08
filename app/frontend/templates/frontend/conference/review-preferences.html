@@ -62,6 +62,7 @@
                       items: form.interestedKeywords || [],
                       maxOptions: null,
                       plugins: ['remove_button'],
+                      clearAfterSelect: true,
                       /* Use splice instead of assignment to preserve array reference for Alpine reactivity. */
                       onChange: (v) => { form.interestedKeywords.splice(0, form.interestedKeywords.length, ...v); }
                     });
