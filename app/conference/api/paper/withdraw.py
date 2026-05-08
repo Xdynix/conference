@@ -43,7 +43,7 @@ async def withdraw_my_paper(
         name=conference_name,
     )
 
-    paper = await aget_object_or_404(
+    paper: Paper = await aget_object_or_404(
         conference.papers.active().filter(owner=user),
         code=paper_code,
     )
@@ -90,7 +90,7 @@ async def withdraw_paper(
         name=conference_name,
     )
 
-    paper = await aget_object_or_404(
+    paper: Paper = await aget_object_or_404(
         conference.papers.active(),
         code=paper_code,
     )

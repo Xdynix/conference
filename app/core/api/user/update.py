@@ -101,7 +101,7 @@ async def update_user(
     and password recovery). Unlike the update current user endpoint, this does not
     require email verification and can update managed users.
     """
-    user = await aget_object_or_404(
+    user: User = await aget_object_or_404(
         User.objects.active().non_superuser(),
         uid=uid,
     )

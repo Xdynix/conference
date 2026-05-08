@@ -29,7 +29,7 @@ def timedelta_cast(
     """
 
     def cast(s: str | float) -> timedelta:
-        return timedelta(**{unit: float(s)})  # type: ignore[misc]
+        return timedelta(**{unit: float(s)})
 
     return cast
 
