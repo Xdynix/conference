@@ -39,7 +39,7 @@ dev = [
 ]
 lint = [
     "django-stubs[compatible-mypy]~=6.0",
-    "mypy<1.21",
+    "mypy<2.1",
     "pre-commit>=4.2.0",
     "ruff>=0.12.4",
     "types-jsonschema>=4.25.1.20251009",
@@ -115,6 +115,7 @@ ignore = [
 strict = true
 cache_dir = ".cache/mypy"
 mypy_path = "etc/stubs"
+num_workers = 8
 plugins = [
     "mypy_django_plugin.main",
 ]
