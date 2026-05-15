@@ -54,9 +54,10 @@ repos:
         files: ^pyproject.toml$
       - id: mypy
         name: mypy
-        entry: uv run mypy
+        entry: uv run mypy .
         language: system
         types: [ python ]
+        pass_filenames: false
       - id: django-migration
         name: check Django migrations
         entry: uv run manage.py makemigrations --check --dry-run
