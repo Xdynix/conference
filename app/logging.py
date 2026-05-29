@@ -17,6 +17,13 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.loguru import LoguruIntegration
 from sentry_sdk.types import Event, Hint
 
+# Library logs route through stdlib into Loguru, so setting their level here drops
+# records at the source; the mute then applies to every sink, local and Sentry alike.
+LIBRARY_LOG_LEVELS: dict[str, int] = {
+    "httpx": logging.WARNING,
+    "apscheduler.executors": logging.WARNING,
+}
+
 
 # Intercept standard logging messages to Loguru.
 # Ref: https://github.com/Delgan/loguru#entirely-compatible-with-standard-logging
@@ -91,6 +98,9 @@ def configure_logging(
     intercept_handler = InterceptHandler()
     logging.basicConfig(handlers=[intercept_handler], level=logging.NOTSET, force=True)
 
+    for logger_name, log_level in LIBRARY_LOG_LEVELS.items():
+        logging.getLogger(logger_name).setLevel(log_level)
+
     logger.remove()  # Remove Loguru default sink (STDERR).
 
     log_format = (
@@ -100,10 +110,11 @@ def configure_logging(
         "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
         "<level>{message}</level> <i>extra={extra}</i>"
     )
+    # Governs only Loguru's own sinks (stderr, file). Library mutes belong in
+    # LIBRARY_LOG_LEVELS so they also reach Sentry; adding one here would leak to it.
     level_per_module: dict[str | None, str | int | bool] = {
         "": "INFO",
         "app": "DEBUG" if debug else "INFO",
-        "httpx": "WARNING",
     }
 
     logger.add(
@@ -126,7 +137,6 @@ def configure_logging(
         )
 
     if sentry_dsn:
-        # TODO: Explore using Sentry to send custom metrics (sentry_sdk.metrics).
         sentry_sdk.init(
             dsn=sentry_dsn,
             integrations=[
@@ -144,6 +154,7 @@ def configure_logging(
             # there.
             disabled_integrations=[LoggingIntegration()],
             before_send=sentry_before_send,
+            enable_logs=True,
             environment="development" if debug else "production",
             send_default_pii=False,
             traces_sampler=traces_sampler,

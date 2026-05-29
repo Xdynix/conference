@@ -5,6 +5,7 @@ from contextlib import suppress
 from threading import Event
 from typing import Any
 
+from apscheduler.schedulers import SchedulerNotRunningError
 from django.apps import apps
 from django.core.management import BaseCommand
 
@@ -48,7 +49,7 @@ class Command(BaseCommand):
     def register_shutdown(self) -> None:  # pragma: no cover
         def shutdown(*_: Any) -> None:
             """Shutdown the scheduler gracefully."""
-            if scheduler.running:
+            with suppress(SchedulerNotRunningError):
                 scheduler.shutdown()
             self.stop_event.set()
 
