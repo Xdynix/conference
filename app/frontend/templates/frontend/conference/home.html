@@ -26,7 +26,7 @@
 
     <template x-if="!$store.conference.loading && $store.conference.detail">
       <div>
-        <header class="mb-4 text-center">
+        <header class="conference-hero mb-4 text-center">
           <h1 class="h3 mb-1" x-text="$store.conference.detail.display_name"></h1>
           <p class="text-muted mb-2" x-text="subtitle()"></p>
           <div class="d-flex flex-wrap gap-2 justify-content-center">
@@ -52,9 +52,9 @@
             <template x-if="$store.conference.detail.tracks.length > 0">
               <section>
                 <h2 class="small text-muted text-uppercase mb-2">Tracks</h2>
-                <ul class="list-unstyled mb-0 border-top">
+                <ul class="track-list list-unstyled mb-0">
                   <template x-for="track in $store.conference.detail.tracks" :key="track.uid">
-                    <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                    <li class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
                       <span x-text="track.display_name"></span>
                       <span class="d-flex gap-2">
                         <span

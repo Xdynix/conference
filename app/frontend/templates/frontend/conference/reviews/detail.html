@@ -102,7 +102,7 @@
               </p>
             </template>
 
-            <form x-ref="reviewForm" @submit.prevent>
+            <form class="content-panel" x-ref="reviewForm" @submit.prevent>
               {% include "frontend/components/review/form.html" %}
 
               <template x-if="mode === 'edit'">

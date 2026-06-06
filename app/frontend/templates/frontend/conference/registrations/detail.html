@@ -29,7 +29,7 @@
 
     <div x-show="$store.conference.detail && !loading && !error && registration" x-cloak>
       <div class="row justify-content-center">
-        <div class="col-xl-8 col-xxl-6">
+        <div class="content-panel col-xl-8 col-xxl-6">
           <h1 class="h3 mb-4 d-flex align-items-center">
             <span x-text="'Registration: ' + registration?.reference_code">Registration</span>
             <span class="badge ms-2 fs-6" :class="stateBadge.class" x-text="stateBadge.label"></span>
