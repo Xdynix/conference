@@ -1,4 +1,4 @@
-<aside class="d-flex flex-column flex-shrink-0 border-end bg-body-tertiary" style="width: 250px;" x-data>
+<aside class="app-sidebar d-flex flex-column flex-shrink-0 border-end bg-body-tertiary" x-data>
   <nav class="flex-grow-1 overflow-auto p-3">
     <ul class="nav nav-pills flex-column">
       <li class="nav-item">
@@ -160,7 +160,7 @@
     </template>
   </nav>
   <template x-if="$store.session.user?.is_superuser">
-    <div class="p-3 border-top d-flex gap-2">
+    <div class="app-sidebar-footer p-3 border-top d-flex gap-2">
       <a
         href="{% url 'api-1.0.0:openapi-view' %}"
         class="btn btn-sm btn-secondary d-flex align-items-center gap-1"

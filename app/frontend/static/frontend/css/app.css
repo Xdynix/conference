@@ -115,3 +115,85 @@ legend {
 .badge {
   letter-spacing: 0;
 }
+
+/* Application shell */
+
+.app-navbar {
+  background-color: color-mix(
+    in srgb,
+    var(--bs-body-bg) 88%,
+    var(--bs-secondary-bg) 12%
+  ) !important;
+  border-color: var(--app-border) !important;
+  box-shadow: 0 1px 0 var(--app-border);
+}
+
+.app-navbar .navbar-brand {
+  min-width: 0;
+  color: var(--bs-emphasis-color);
+}
+
+.app-brand-title {
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.app-shell {
+  background: transparent;
+  min-height: 0;
+}
+
+.app-sidebar {
+  width: var(--app-sidebar-width);
+  background-color: var(--app-panel-bg) !important;
+  border-color: var(--app-border) !important;
+}
+
+.app-sidebar .nav {
+  gap: 0.125rem;
+}
+
+.app-sidebar .nav-link {
+  border-radius: var(--app-radius-sm);
+  color: var(--bs-body-color);
+  font-size: 0.925rem;
+  line-height: 1.25rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.app-sidebar .nav-link:hover {
+  background: var(--app-hover-bg);
+  color: var(--bs-emphasis-color);
+}
+
+.app-sidebar .nav-link.active {
+  background: var(--app-active-bg);
+  color: var(--bs-primary-text-emphasis);
+  font-weight: 600;
+}
+
+.app-sidebar hr {
+  border-color: var(--app-border);
+  opacity: 1;
+}
+
+.app-sidebar-footer {
+  border-color: var(--app-border) !important;
+  background: var(--app-panel-bg);
+}
+
+.app-main {
+  min-width: 0;
+  background: var(--app-bg);
+}
+
+.app-breadcrumb {
+  border-color: var(--app-border) !important;
+  color: var(--bs-secondary-color);
+}
+
+.app-breadcrumb .breadcrumb {
+  --bs-breadcrumb-divider-color: var(--bs-tertiary-color);
+  align-items: center;
+  font-size: 0.875rem;
+}
