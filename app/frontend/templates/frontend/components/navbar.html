@@ -17,7 +17,7 @@
     </button>
   </div>
 </template>
-<nav class="navbar navbar-expand-lg bg-body-tertiary border-bottom py-0 sticky-top">
+<nav class="app-navbar navbar navbar-expand-lg bg-body-tertiary border-bottom py-0 sticky-top">
   <div class="container-fluid ps-0">
     <div class="navbar-brand mb-0 py-0 d-flex align-items-center gap-2">
       {% if brand.logo_url %}
@@ -33,7 +33,7 @@
           >
         </a>
       {% endif %}
-      <span class="{% if not brand.logo_url %}ps-3 py-2{% endif %}">Paper Submission</span>
+      <span class="app-brand-title {% if not brand.logo_url %}ps-3 py-2{% endif %}">Paper Submission</span>
       <span
         x-data
         x-cloak
