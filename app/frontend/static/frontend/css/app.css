@@ -14,3 +14,104 @@
 .ts-wrapper.multi .ts-control > .item {
   background-color: var(--bs-secondary-bg) !important;
 }
+
+/* Theme tokens */
+
+:root {
+  --app-bg: color-mix(in srgb, var(--bs-body-bg) 92%, var(--bs-secondary-bg) 8%);
+  --app-panel-bg: color-mix(in srgb, var(--bs-body-bg) 82%, var(--bs-secondary-bg) 18%);
+  --app-raised-bg: var(--bs-body-bg);
+  --app-surface: var(--app-raised-bg);
+  --app-surface-muted: var(--app-panel-bg);
+  --app-border: color-mix(in srgb, var(--bs-border-color) 80%, transparent);
+  --app-border-strong: color-mix(in srgb, var(--bs-border-color) 72%, var(--bs-body-color) 28%);
+  --app-hover-bg: color-mix(in srgb, rgb(var(--bs-primary-rgb)) 7%, transparent);
+  --app-active-bg: color-mix(in srgb, rgb(var(--bs-primary-rgb)) 13%, transparent);
+  --app-shadow-sm: 0 0.25rem 0.8rem rgba(0, 0, 0, 0.045);
+  --app-shadow-md: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.08);
+  --app-radius: var(--bs-border-radius-lg);
+  --app-radius-sm: var(--bs-border-radius);
+  --app-sidebar-width: 250px;
+}
+
+[data-bs-theme="dark"] {
+  --app-bg: color-mix(in srgb, var(--bs-body-bg) 82%, var(--bs-secondary-bg) 18%);
+  --app-panel-bg: color-mix(in srgb, var(--bs-body-bg) 70%, var(--bs-secondary-bg) 30%);
+  --app-shadow-sm: 0 0.25rem 0.8rem rgba(0, 0, 0, 0.22);
+  --app-shadow-md: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.28);
+}
+
+/* Base surfaces */
+
+html {
+  background: var(--app-bg);
+}
+
+body {
+  background: var(--app-bg);
+}
+
+/* Bootstrap component re-theming */
+
+.card {
+  --bs-card-bg: var(--app-surface);
+  --bs-card-border-color: var(--app-border);
+  --bs-card-border-radius: var(--app-radius);
+}
+
+.card-header,
+.card-footer {
+  background: var(--app-surface-muted);
+  border-color: var(--app-border);
+}
+
+.list-group {
+  --bs-list-group-bg: var(--app-surface);
+  --bs-list-group-border-color: var(--app-border);
+  --bs-list-group-action-hover-bg: var(--app-surface-muted);
+}
+
+.table {
+  --bs-table-bg: var(--app-surface);
+  --bs-table-border-color: var(--app-border);
+}
+
+.table > thead th {
+  background: var(--app-surface-muted);
+  border-bottom-color: var(--app-border-strong);
+  color: var(--bs-secondary-color);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.table-hover > tbody > tr:hover > * {
+  --bs-table-hover-bg: var(--app-hover-bg);
+}
+
+.form-control,
+.form-select,
+.ts-wrapper.form-control,
+.ts-wrapper.form-select,
+.ts-control {
+  border-color: var(--app-border-strong);
+}
+
+.form-control:focus,
+.form-select:focus,
+.ts-wrapper.focus .ts-control {
+  border-color: rgba(var(--bs-primary-rgb), 0.55) !important;
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.12);
+}
+
+.form-control-plaintext {
+  color: var(--bs-body-color);
+}
+
+legend {
+  color: var(--bs-emphasis-color);
+}
+
+.badge {
+  letter-spacing: 0;
+}
