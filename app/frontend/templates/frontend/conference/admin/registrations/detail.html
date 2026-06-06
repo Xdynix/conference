@@ -35,7 +35,7 @@
 
       <div class="row">
         {# Form column #}
-        <div class="col-xl-8 order-xl-1 order-2">
+        <div class="content-panel col-xl-8 order-xl-1 order-2">
           <form id="registration-form" @submit.prevent="save()">
             {% include "frontend/components/registration/form.html" %}
           </form>
@@ -43,7 +43,7 @@
 
         {# Sidebar #}
         <div class="col-xl-4 order-xl-2 order-1 mb-4 mb-xl-0">
-          <div class="card position-sticky" style="top: 1rem;">
+          <div class="card sticky-action-card position-sticky">
             <div class="card-body">
               {# Paper info #}
               <template x-if="registration?.paper && paperDetail">

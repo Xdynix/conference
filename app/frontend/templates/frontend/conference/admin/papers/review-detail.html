@@ -40,14 +40,14 @@
         <div class="col-xl-8 order-xl-1 order-2">
           {% include "frontend/components/review/paper-card.html" %}
 
-          <form id="review-form" @submit.prevent="save()">
+          <form id="review-form" class="content-panel" @submit.prevent="save()">
             {% include "frontend/components/review/form.html" %}
           </form>
         </div>
 
         {# Sidebar #}
         <div class="col-xl-4 order-xl-2 order-1 mb-4 mb-xl-0">
-          <div class="card position-sticky" style="top: 1rem;">
+          <div class="card sticky-action-card position-sticky">
             <div class="card-body">
               {# Reviewer info #}
               <div class="mb-3">

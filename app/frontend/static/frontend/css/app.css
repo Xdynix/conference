@@ -311,3 +311,79 @@ legend {
 .simple-main .tab-pane {
   padding: 1.25rem;
 }
+
+/* Admin table shell */
+
+.admin-table-shell {
+  background: var(--app-surface);
+  margin: -1rem;
+}
+
+.admin-table-toolbar,
+.admin-table-footer {
+  background: var(--app-panel-bg);
+  border-color: var(--app-border) !important;
+  padding: 0.6rem 1rem;
+}
+
+.admin-table-toolbar {
+  min-height: 3.25rem;
+}
+
+.admin-table-footer {
+  min-height: 2.75rem;
+}
+
+.admin-table-main {
+  min-height: 0;
+}
+
+.admin-table-scroll {
+  background: var(--app-surface);
+}
+
+.admin-table-shell .table {
+  font-size: 0.875rem;
+}
+
+.admin-table-shell .table > thead th {
+  background: var(--app-panel-bg);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Admin filter panel */
+
+.admin-filter-panel {
+  width: 280px;
+  background: var(--app-panel-bg) !important;
+  border-color: var(--app-border) !important;
+}
+
+.admin-filter-panel .border-bottom {
+  border-color: var(--app-border) !important;
+}
+
+.admin-filter-panel .btn-link {
+  color: var(--bs-emphasis-color) !important;
+}
+
+.admin-filter-panel .form-control {
+  background: var(--app-surface);
+}
+
+.admin-paper-list .paper-row-selected > *,
+.admin-registration-list .registration-row-selected > * {
+  background-color: var(--app-active-bg) !important;
+}
+
+/* Markdown rendering */
+
+.markdown-body {
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+}

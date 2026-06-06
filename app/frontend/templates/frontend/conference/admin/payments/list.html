@@ -5,7 +5,7 @@
 
 {% block content %}
   <div
-    class="d-flex flex-column flex-grow-1 mx-n4 mb-n4"
+    class="admin-table-shell d-flex flex-column flex-grow-1"
     style="min-height: 0;"
     x-data="adminPaymentList()"
     x-init="
@@ -26,7 +26,7 @@
     <template x-if="!$store.conference.loading && $store.conference.detail">
       <div class="d-flex flex-column flex-grow-1 overflow-hidden">
         {# Header Actions #}
-        <div class="d-flex justify-content-between align-items-center gap-2 pb-2 border-bottom">
+        <div class="admin-table-toolbar d-flex justify-content-between align-items-center gap-2 border-bottom">
           <div>
             <a
               href="{% url 'frontend:admin-payment-new' conference_name=params.conference_name %}"
@@ -61,9 +61,9 @@
         </div>
 
         {# Main Content #}
-        <div class="d-flex flex-grow-1 overflow-hidden">
+        <div class="admin-table-main d-flex flex-grow-1 overflow-hidden">
           {# Payment Table #}
-          <div class="flex-grow-1 overflow-auto">
+          <div class="admin-table-scroll flex-grow-1 overflow-auto">
             <div x-show="loading" class="text-center py-5">
               <div class="spinner-border" role="status">
                 <span class="visually-hidden">Loading...</span>
@@ -75,7 +75,7 @@
             </div>
 
             <table x-show="!loading && !error" x-cloak class="table table-striped table-hover">
-              <thead class="bg-body" style="position: sticky; top: 0; z-index: 1;">
+              <thead class="bg-body">
               <tr>
                 <template x-for="col in columns" :key="col.key">
                   <th
@@ -124,7 +124,7 @@
           </div>
 
           {# Filter Sidebar #}
-          <div class="d-flex flex-column border-start bg-body-tertiary" style="width: 280px;">
+          <div class="admin-filter-panel d-flex flex-column border-start bg-body-tertiary">
             {# Search field #}
             <div class="border-bottom position-relative">
               <i class="bi-search position-absolute top-50 translate-middle-y text-muted" style="left: 0.75rem;"></i>
@@ -200,7 +200,7 @@
         </div>
 
         {# Footer #}
-        <div class="d-flex justify-content-between align-items-center gap-3 pt-2 border-top">
+        <div class="admin-table-footer d-flex justify-content-between align-items-center gap-3 border-top">
           <span class="text-muted" x-text="footerText"></span>
         </div>
       </div>

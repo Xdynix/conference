@@ -29,7 +29,7 @@
 
     <div x-show="$store.conference.detail && !loading && !error && payment" x-cloak>
       <div class="row justify-content-center">
-        <div class="col-xl-8 col-xxl-6">
+        <div class="content-panel col-xl-8 col-xxl-6">
           <h1 class="h3 mb-4">
             <span x-text="'Payment: ' + (payment?.reference || '...' + payment?.uid?.slice(-12))"></span>
           </h1>
