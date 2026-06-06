@@ -14,8 +14,11 @@ import random
 import shutil
 from dataclasses import dataclass, field
 from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
+from xml.sax.saxutils import escape
+from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
 from asgiref.sync import async_to_sync
 from django.conf import settings
@@ -77,6 +80,7 @@ from app.conference.services.registration import RegistrationService
 from app.conference.services.review import ReviewService
 from app.conference.services.revision import RevisionService
 from app.core.models import GlobalRole, GlobalRoleAssignment, User
+from app.utils.typst import compile_template
 
 logger = logger.opt(colors=True, depth=1)
 
@@ -305,6 +309,19 @@ Type: #data.registration.attendance_type.display_name
 Issued on behalf of the organizing committee.
 """
 
+SEED_PDF_TEMPLATE = """\
+#let data = json(bytes(sys.inputs.at("data")))
+#set page(margin: 2.5cm)
+#set text(size: 11pt)
+
+= #data.heading
+
+This is generated staging content for #data.paper_code.
+
+Conference: #data.conference_name \\
+Revision: #data.revision
+"""
+
 # ── Conference Specifications ─────────────────────────────────────────────────
 
 CONFERENCE_SPECS: list[dict[str, Any]] = [
@@ -432,6 +449,60 @@ def _generate_title() -> str:
         method=random.choice(METHODS),
         task=random.choice(TASKS),
     )
+
+
+def _create_pdf_bytes(paper: Paper, revision: int, heading: str) -> bytes:
+    return compile_template(
+        SEED_PDF_TEMPLATE,
+        {
+            "heading": heading,
+            "paper_code": paper.code,
+            "conference_name": paper.track.conference.name,
+            "revision": revision,
+        },
+    )
+
+
+def _create_docx_bytes(
+    template: bytes,
+    paper: Paper,
+    revision: int,
+    document_type: str,
+) -> bytes:
+    identifier = escape(
+        f"{document_type} for {paper.track.conference.name}/{paper.code}, "
+        f"revision {revision}."
+    )
+    paragraph = f"<w:p><w:r><w:t>{identifier}</w:t></w:r></w:p>".encode()
+    output = BytesIO()
+
+    with ZipFile(BytesIO(template)) as source, ZipFile(output, "w") as target:
+        for info in source.infolist():
+            content = source.read(info.filename)
+            if info.filename == "word/document.xml":
+                marker = b"<w:sectPr"
+                marker_index = content.index(marker)
+                content = content[:marker_index] + paragraph + content[marker_index:]
+            target.writestr(info, content)
+
+    return output.getvalue()
+
+
+def _create_zip_bytes(paper: Paper, revision: int) -> bytes:
+    content = (
+        f"= Final source for {paper.code}\n\n"
+        f"Conference: {paper.track.conference.name}\\\n"
+        f"Revision: {revision}\n"
+    ).encode()
+    output = BytesIO()
+    info = ZipInfo("main.typ", date_time=(1980, 1, 1, 0, 0, 0))
+    info.compress_type = ZIP_DEFLATED
+    info.external_attr = 0o644 << 16
+
+    with ZipFile(output, "w") as archive:
+        archive.writestr(info, content)
+
+    return output.getvalue()
 
 
 def _past_time(min_days: int = 1, max_days: int = 60) -> datetime.datetime:
@@ -984,8 +1055,7 @@ def _create_draft_papers(
 
 def _upload_submissions(plans: list[PaperPlan]) -> None:
     """Upload submission files for papers that will be submitted."""
-    pdf_bytes = (TEST_DATA_DIR / "sample.pdf").read_bytes()
-    docx_bytes = (TEST_DATA_DIR / "sample.docx").read_bytes()
+    docx_template = (TEST_DATA_DIR / "sample.docx").read_bytes()
 
     count = 0
     for plan in plans:
@@ -993,7 +1063,16 @@ def _upload_submissions(plans: list[PaperPlan]) -> None:
             continue
 
         use_pdf = random.random() < 0.8
-        content = pdf_bytes if use_pdf else docx_bytes
+        content = (
+            _create_pdf_bytes(plan.paper, 1, "Paper submission")
+            if use_pdf
+            else _create_docx_bytes(
+                docx_template,
+                plan.paper,
+                1,
+                "Paper submission",
+            )
+        )
         ext = ".pdf" if use_pdf else ".docx"
         content_type = (
             "application/pdf"
@@ -1018,6 +1097,16 @@ def _upload_submissions(plans: list[PaperPlan]) -> None:
 
         # ~15% have a second revision
         if random.random() < 0.15:
+            content = (
+                _create_pdf_bytes(plan.paper, 2, "Paper submission")
+                if use_pdf
+                else _create_docx_bytes(
+                    docx_template,
+                    plan.paper,
+                    2,
+                    "Paper submission",
+                )
+            )
             RevisionService.create_submission(
                 paper=plan.paper,
                 file=SimpleUploadedFile(
@@ -1343,7 +1432,7 @@ def _announce_papers(conference: Conference, plans: list[PaperPlan]) -> None:
 
 def _create_finals(plans: list[PaperPlan]) -> None:
     """Create final submissions for announced accepted papers."""
-    pdf_bytes = (TEST_DATA_DIR / "sample.pdf").read_bytes()
+    docx_template = (TEST_DATA_DIR / "sample.docx").read_bytes()
 
     count = 0
     for plan in plans:
@@ -1355,14 +1444,31 @@ def _create_finals(plans: list[PaperPlan]) -> None:
         if random.random() > 0.7:
             continue
 
+        use_docx = random.random() < 0.7
+        source_bytes = (
+            _create_docx_bytes(docx_template, paper, 1, "Final source")
+            if use_docx
+            else _create_zip_bytes(paper, 1)
+        )
+        source_extension = ".docx" if use_docx else ".zip"
+        source_content_type = (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            if use_docx
+            else "application/zip"
+        )
+
         RevisionService.create_final(
             paper=paper,
             source_file=SimpleUploadedFile(
+                f"{paper.code}-final{source_extension}",
+                source_bytes,
+                source_content_type,
+            ),
+            viewable_file=SimpleUploadedFile(
                 f"{paper.code}-final.pdf",
-                pdf_bytes,
+                _create_pdf_bytes(paper, 1, "Final viewable version"),
                 "application/pdf",
             ),
-            viewable_file=None,
             uploader=plan.owner,
             enforce_limit=False,
         )
