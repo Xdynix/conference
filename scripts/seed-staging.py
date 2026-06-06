@@ -12,11 +12,13 @@ It is NOT idempotent; run on a fresh or expendable database only.
 import datetime
 import random
 import shutil
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
 from io import BytesIO
+from itertools import combinations
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 from xml.sax.saxutils import escape
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
@@ -43,7 +45,6 @@ from app.conference.models import (
     ConferenceRoleAssignment,
     ConferenceVisibility,
     DuplicateAcknowledgment,
-    DuplicateMatch,
     DuplicateMatchType,
     DuplicateReport,
     DuplicateReportState,
@@ -72,6 +73,11 @@ from app.conference.models import (
     TrackRoleAssignment,
     TrackVisibility,
     UserConferenceProfile,
+)
+from app.conference.services.duplicate import (
+    DuplicatePaperRow,
+    DuplicateService,
+    match_title_similarity,
 )
 from app.conference.services.invitation import InvitationService
 from app.conference.services.paper import AuthorData, PaperService
@@ -428,6 +434,24 @@ class PaperPlan:
     paper: Paper = field(init=False)
 
 
+type DuplicateScenario = Literal[
+    "same_title",
+    "cross_title",
+    "same_file",
+    "cross_file",
+    "cross_both",
+]
+
+
+@dataclass(frozen=True)
+class DuplicatePairPlan:
+    scenario: DuplicateScenario
+    paper_a: Paper
+    paper_b: Paper
+    title_match: bool
+    file_match: bool
+
+
 # ── Utilities ─────────────────────────────────────────────────────────────────
 
 
@@ -442,13 +466,33 @@ def _weighted(options: dict[Any, int]) -> Any:
     return random.choices(keys, weights=weights, k=1)[0]
 
 
-def _generate_title() -> str:
-    pattern = random.choice(TITLE_PATTERNS)
-    return pattern.format(
-        adj=random.choice(ADJECTIVES),
-        method=random.choice(METHODS),
-        task=random.choice(TASKS),
-    )
+def _generate_unique_title(existing: list[DuplicatePaperRow]) -> str:
+    for _ in range(10_000):
+        pattern = random.choice(TITLE_PATTERNS)
+        title = pattern.format(
+            adj=random.choice(ADJECTIVES),
+            method=random.choice(METHODS),
+            task=random.choice(TASKS),
+        )
+        candidate = DuplicatePaperRow(
+            pk=len(existing) + 1,
+            title=title,
+            submission_sha256=None,
+            final_source_sha256=None,
+            final_viewable_sha256=None,
+        )
+        if any(
+            match_title_similarity(
+                [row, candidate],
+                settings.DUPLICATE_TITLE_SIMILARITY_THRESHOLD,
+            )
+            for row in existing
+        ):
+            continue
+        existing.append(candidate)
+        return title
+
+    raise RuntimeError("Could not generate another sufficiently distinct paper title.")
 
 
 def _create_pdf_bytes(paper: Paper, revision: int, heading: str) -> bytes:
@@ -528,10 +572,23 @@ def run() -> None:
 
     logger.info("Seeding keywords...")
     keywords = _seed_keywords()
+    title_rows: list[DuplicatePaperRow] = []
+    conference_admins: dict[int, list[User]] = {}
 
     for spec in CONFERENCE_SPECS:
         logger.info(f"Seeding conference: <green>{spec['name']}</>")
-        _seed_conference(fake, users, profiles, keywords, spec)
+        conference, admins = _seed_conference(
+            fake,
+            users,
+            profiles,
+            keywords,
+            spec,
+            title_rows,
+        )
+        conference_admins[conference.pk] = admins
+
+    logger.info("Seeding duplicate detection data...")
+    _create_duplicate_data(conference_admins)
 
     logger.info("<green>Staging seed complete.</>")
 
@@ -667,7 +724,8 @@ def _seed_conference(
     profiles: dict[int, dict[str, str]],
     keywords: list[Keyword],
     spec: dict[str, Any],
-) -> None:
+    title_rows: list[DuplicatePaperRow],
+) -> tuple[Conference, list[User]]:
     today = datetime.date.today()
     is_past = spec["start_delta_days"] < 0
 
@@ -733,7 +791,7 @@ def _seed_conference(
     _ensure_owner_membership(plans, conference)
 
     # 4. Create draft papers via PaperService (proper code pool allocation)
-    _create_draft_papers(fake, profiles, keywords, plans)
+    _create_draft_papers(fake, profiles, keywords, plans, title_rows)
 
     # 5. Upload submission files for papers that will be submitted
     _upload_submissions(plans)
@@ -789,14 +847,12 @@ def _seed_conference(
     # 20. Email send logs
     _create_email_logs(admins, conference)
 
-    # 21. Duplicate detection data
-    _create_duplicate_data(papers, admins, conference)
-
-    # 22. IEEE eCopyright (main conference only)
+    # 21. IEEE eCopyright (main conference only)
     if spec.get("ieee_ecopyright"):
         _create_ieee_ecopyright(conference, tracks, papers)
 
     logger.info(f"    <green>{spec['name']}</> complete")
+    return conference, admins
 
 
 # ── Attendance Types ──────────────────────────────────────────────────────────
@@ -1002,6 +1058,7 @@ def _create_draft_papers(
     profiles: dict[int, dict[str, str]],
     keywords: list[Keyword],
     plans: list[PaperPlan],
+    title_rows: list[DuplicatePaperRow],
 ) -> None:
     """Create all papers as DRAFT via PaperService for correct code pool allocation."""
     for plan in plans:
@@ -1040,7 +1097,7 @@ def _create_draft_papers(
         plan.paper = PaperService.create_paper(
             track=plan.track,
             owner=owner,
-            title=_generate_title(),
+            title=_generate_unique_title(title_rows),
             abstract=fake.paragraph(nb_sentences=8),
             contribution=fake.paragraph(nb_sentences=4),
             keywords=paper_keywords,
@@ -1922,58 +1979,204 @@ def _create_email_logs(
 # ── Duplicate Detection Data ─────────────────────────────────────────────────
 
 
-def _create_duplicate_data(
-    papers: list[Paper],
-    admins: list[User],
-    conference: Conference,
-) -> None:
-    active_papers = [p for p in papers if p.delete_time is None]
-    if len(active_papers) < 4:
-        return
-
-    # Create 2 reports (one success, one failed)
-    success_report = DuplicateReport.objects.create(state=DuplicateReportState.SUCCESS)
-    DuplicateReport.objects.create(
-        state=DuplicateReportState.FAILED,
-        error_message="Paper count exceeded safety threshold (simulated).",
-    )
-
-    # Create some matches in the success report
-    match_objects: list[DuplicateMatch] = []
-    num_matches = min(8, len(active_papers) // 5)
-    pairs_used: set[tuple[int, int]] = set()
-
-    for _ in range(num_matches):
-        a, b = random.sample(active_papers, 2)
-        pair = (min(a.pk, b.pk), max(a.pk, b.pk))
-        if pair in pairs_used:
-            continue
-        pairs_used.add(pair)
-        match_objects.append(
-            DuplicateMatch(
-                report=success_report,
-                paper_a_id=pair[0],
-                paper_b_id=pair[1],
-                match_type=random.choice(list(DuplicateMatchType)),
-                score=round(random.uniform(0.6, 1.0), 3),
+def _create_duplicate_data(conference_admins: dict[int, list[User]]) -> None:
+    pair_plans = _select_duplicate_pair_plans()
+    for plan in pair_plans:
+        if plan.title_match:
+            PaperService.update_paper(
+                paper=plan.paper_b,
+                mode="admin",
+                title=plan.paper_a.title,
             )
+        if plan.file_match:
+            _duplicate_latest_submission(plan.paper_a, plan.paper_b)
+
+    report = DuplicateService.scan(
+        scan_window=settings.DUPLICATE_SCAN_WINDOW,
+        paper_count_cap=settings.DUPLICATE_PAPER_COUNT_CAP,
+        title_similarity_threshold=settings.DUPLICATE_TITLE_SIMILARITY_THRESHOLD,
+        retention_successful=settings.DUPLICATE_RETENTION_SUCCESSFUL,
+        retention_failed=settings.DUPLICATE_RETENTION_FAILED,
+    )
+    if report is None:
+        report = (
+            DuplicateReport.objects.filter(state=DuplicateReportState.SUCCESS)
+            .order_by("-create_time", "-pk")
+            .first()
+        )
+    if report is None or report.state != DuplicateReportState.SUCCESS:
+        raise RuntimeError("The staging duplicate scan did not complete successfully.")
+
+    expected_matches = {
+        (
+            min(plan.paper_a.pk, plan.paper_b.pk),
+            max(plan.paper_a.pk, plan.paper_b.pk),
+            match_type,
+        )
+        for plan in pair_plans
+        for match_type, enabled in (
+            (DuplicateMatchType.TITLE_SIMILARITY, plan.title_match),
+            (DuplicateMatchType.FILE_HASH, plan.file_match),
+        )
+        if enabled
+    }
+    actual_matches = set(
+        report.matches.values_list("paper_a_id", "paper_b_id", "match_type")
+    )
+    if actual_matches != expected_matches:
+        raise RuntimeError(
+            "The staging duplicate scan produced unexpected matches: "
+            f"expected {len(expected_matches)}, got {len(actual_matches)}."
         )
 
-    DuplicateMatch.objects.bulk_create(match_objects)
+    acknowledged_plans: dict[DuplicateScenario, DuplicatePairPlan] = {}
+    for plan in pair_plans:
+        acknowledged_plans.setdefault(plan.scenario, plan)
 
-    # Acknowledge some matches
-    if match_objects and admins:
-        for match in match_objects[:3]:
-            DuplicateAcknowledgment.objects.create(
-                paper_a_id=match.paper_a_id,
-                paper_b_id=match.paper_b_id,
-                conference=conference,
-                user=random.choice(admins),
-                note="Reviewed and acknowledged." if random.random() < 0.5 else "",
-            )
+    for plan in acknowledged_plans.values():
+        paper_a, paper_b = sorted((plan.paper_a, plan.paper_b), key=lambda p: p.pk)
+        conferences = sorted(
+            {paper_a.conference, paper_b.conference},
+            key=lambda conference: conference.name,
+        )
+        conference = random.choice(conferences)
+        DuplicateAcknowledgment.objects.create(
+            paper_a=paper_a,
+            paper_b=paper_b,
+            conference=conference,
+            user=random.choice(conference_admins[conference.pk]),
+            note="Reviewed during staging seed.",
+        )
 
     logger.info(
-        f"    Created 2 duplicate reports, <green>{len(match_objects)}</> matches",
+        f"    Created 1 duplicate report, <green>{len(actual_matches)}</> matches, "
+        f"<green>{len(acknowledged_plans)}</> acknowledgments",
+    )
+
+
+def _select_duplicate_pair_plans() -> list[DuplicatePairPlan]:
+    papers = list(
+        Paper.objects.active()
+        .filter(withdraw_time__isnull=True, submission__isnull=False)
+        .select_related("conference", "track", "owner")
+        .distinct()
+        .order_by("conference__name", "code")
+    )
+    pools: dict[int, list[Paper]] = {}
+    for paper in papers:
+        pools.setdefault(paper.conference_id, []).append(paper)
+    for pool in pools.values():
+        random.shuffle(pool)
+
+    def same_conference_pair() -> tuple[Paper, Paper]:
+        candidates = sorted(pk for pk, pool in pools.items() if len(pool) >= 2)
+        if not candidates:
+            raise RuntimeError("Not enough papers for same-conference duplicate pairs.")
+        pool = pools[random.choice(candidates)]
+        return pool.pop(), pool.pop()
+
+    def cross_conference_pair() -> tuple[Paper, Paper]:
+        conference_pairs = [
+            pair
+            for pair in combinations(sorted(pools), 2)
+            if pools[pair[0]] and pools[pair[1]]
+        ]
+        if not conference_pairs:
+            raise RuntimeError(
+                "Not enough papers for cross-conference duplicate pairs."
+            )
+        conference_a, conference_b = random.choice(conference_pairs)
+        return pools[conference_a].pop(), pools[conference_b].pop()
+
+    plans: list[DuplicatePairPlan] = []
+
+    def add_plans(
+        scenario: DuplicateScenario,
+        count: int,
+        pair_factory: Callable[[], tuple[Paper, Paper]],
+        *,
+        title_match: bool,
+        file_match: bool,
+    ) -> None:
+        for _ in range(count):
+            paper_a, paper_b = pair_factory()
+            plans.append(
+                DuplicatePairPlan(
+                    scenario=scenario,
+                    paper_a=paper_a,
+                    paper_b=paper_b,
+                    title_match=title_match,
+                    file_match=file_match,
+                )
+            )
+
+    add_plans(
+        "same_title",
+        5,
+        same_conference_pair,
+        title_match=True,
+        file_match=False,
+    )
+    add_plans(
+        "cross_title",
+        5,
+        cross_conference_pair,
+        title_match=True,
+        file_match=False,
+    )
+    add_plans(
+        "same_file",
+        2,
+        same_conference_pair,
+        title_match=False,
+        file_match=True,
+    )
+    add_plans(
+        "cross_file",
+        2,
+        cross_conference_pair,
+        title_match=False,
+        file_match=True,
+    )
+    add_plans(
+        "cross_both",
+        1,
+        cross_conference_pair,
+        title_match=True,
+        file_match=True,
+    )
+    return plans
+
+
+def _duplicate_latest_submission(source: Paper, target: Paper) -> None:
+    submission = source.submissions.order_by("-revision").first()
+    if submission is None:
+        raise RuntimeError(f"Paper {source.code} has no submission to duplicate.")
+
+    extension = Path(submission.file.name).suffix.lower()
+    content_type = next(
+        (
+            mime
+            for mime, extensions in settings.ALLOWED_SUBMISSION_TYPES.items()
+            if extension in extensions
+        ),
+        None,
+    )
+    if content_type is None:
+        raise RuntimeError(f"Unsupported submission extension: {extension}")
+
+    with submission.file.open("rb") as file:
+        content = file.read()
+
+    RevisionService.create_submission(
+        paper=target,
+        file=SimpleUploadedFile(
+            f"{target.code}{extension}",
+            content,
+            content_type,
+        ),
+        uploader=target.owner,
+        skip_cleanup=True,
     )
 
 
