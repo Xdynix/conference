@@ -197,3 +197,117 @@ legend {
   align-items: center;
   font-size: 0.875rem;
 }
+
+/* Content surfaces */
+
+/* Bootstrap sm container width */
+.simple-main {
+  max-width: 540px;
+}
+
+.simple-panel,
+.content-panel {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow-sm);
+}
+
+.simple-panel {
+  padding: clamp(1.25rem, 4vw, 2rem);
+}
+
+.content-panel {
+  padding: 1.25rem;
+}
+
+/* Bootstrap md breakpoint */
+@media (min-width: 768px) {
+  .content-panel {
+    padding: 1.5rem;
+  }
+}
+
+.simple-panel .form-text {
+  color: var(--bs-secondary-color) !important;
+}
+
+.conference-hero {
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, rgb(var(--bs-primary-rgb)) 10%, transparent),
+      transparent 60%
+    ),
+    var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow-sm);
+  padding: clamp(1.5rem, 4vw, 2.25rem);
+}
+
+.track-list {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow-sm);
+  overflow: hidden;
+}
+
+.track-list > li:last-child {
+  border-bottom: 0 !important;
+}
+
+.entity-card {
+  border-color: var(--app-border);
+  box-shadow: var(--app-shadow-sm);
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+.entity-card:hover {
+  border-color: color-mix(in srgb, rgb(var(--bs-primary-rgb)) 32%, var(--app-border));
+  box-shadow: var(--app-shadow-md);
+  transform: translateY(-1px);
+}
+
+.entity-card .card-title {
+  line-height: 1.32;
+}
+
+.sticky-action-card {
+  top: 1rem;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+}
+
+/* Tabs */
+
+.app-main .nav-tabs,
+.simple-main .nav-tabs {
+  --bs-nav-tabs-border-color: var(--app-border);
+  --bs-nav-tabs-link-active-bg: var(--app-surface);
+  --bs-nav-tabs-link-active-border-color: var(--app-border) var(--app-border) var(--app-surface);
+}
+
+.app-main .tab-content,
+.simple-main .tab-content {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-top: 0;
+  border-radius: 0 0 var(--app-radius) var(--app-radius);
+  box-shadow: var(--app-shadow-sm);
+  margin-bottom: 1rem;
+}
+
+.app-main .tab-content.pt-4,
+.simple-main .tab-content.pt-4 {
+  padding-top: 0 !important;
+}
+
+.app-main .tab-pane,
+.simple-main .tab-pane {
+  padding: 1.25rem;
+}

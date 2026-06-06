@@ -50,7 +50,7 @@
                   <div x-show="!collapsed.pending">
                     <div class="d-flex flex-column gap-3">
                       <template x-for="review in pending" :key="review.uid">
-                        <div class="card">
+                        <div class="entity-card card">
                           <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-1">
                               <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
@@ -143,7 +143,7 @@
                   <div x-show="!collapsed.accepted">
                     <div class="d-flex flex-column gap-3">
                       <template x-for="review in accepted" :key="review.uid">
-                        <div class="card">
+                        <div class="entity-card card">
                           <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-1">
                               <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
@@ -190,7 +190,7 @@
                   <div x-show="!collapsed.submitted">
                     <div class="d-flex flex-column gap-3">
                       <template x-for="review in submitted" :key="review.uid">
-                        <div class="card">
+                        <div class="entity-card card">
                           <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-1">
                               <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
@@ -234,7 +234,7 @@
                   <div x-show="!collapsed.declined">
                     <div class="d-flex flex-column gap-3">
                       <template x-for="review in declined" :key="review.uid">
-                        <div class="card bg-body-tertiary">
+                        <div class="entity-card card bg-body-tertiary">
                           <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start mb-1">
                               <span class="font-monospace text-muted small" x-text="review.paper.code"></span>
