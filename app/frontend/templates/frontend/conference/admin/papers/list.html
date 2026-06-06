@@ -3,29 +3,9 @@
 
 {% block title %}Admin: Papers | {% endblock %}
 
-{% block styles %}
-  <style>
-    .admin-paper-list .paper-row-selected > * {
-      background-color: color-mix(
-        in srgb,
-        var(--bs-table-bg) 85%,
-        rgb(var(--bs-primary-rgb)) 15%
-      );
-    }
-
-    [data-bs-theme="dark"] .admin-paper-list .paper-row-selected > * {
-      background-color: color-mix(
-        in srgb,
-        var(--bs-table-bg) 85%,
-        rgb(var(--bs-primary-rgb)) 15%
-      );
-    }
-  </style>
-{% endblock %}
-
 {% block content %}
   <div
-    class="admin-paper-list d-flex flex-column flex-grow-1 mx-n4 mb-n4"
+    class="admin-table-shell admin-paper-list d-flex flex-column flex-grow-1"
     style="min-height: 0;"
     x-data="adminPaperList()"
     x-init="
@@ -46,7 +26,7 @@
     <template x-if="!$store.conference.loading && $store.conference.detail">
       <div class="d-flex flex-column flex-grow-1 overflow-hidden">
         {# Header Actions #}
-        <div class="d-flex justify-content-between align-items-center gap-2 pb-2 border-bottom">
+        <div class="admin-table-toolbar d-flex justify-content-between align-items-center gap-2 border-bottom">
           <div class="d-flex align-items-center gap-2">
             <a
               href="{% url 'frontend:admin-paper-new' conference_name=params.conference_name %}"
@@ -127,9 +107,9 @@
         </div>
 
         {# Main Content #}
-        <div class="d-flex flex-grow-1 overflow-hidden">
+        <div class="admin-table-main d-flex flex-grow-1 overflow-hidden">
           {# Paper Table #}
-          <div class="flex-grow-1 overflow-auto">
+          <div class="admin-table-scroll flex-grow-1 overflow-auto">
             <div x-show="loading" class="text-center py-5">
               <div class="spinner-border" role="status">
                 <span class="visually-hidden">Loading...</span>
@@ -141,7 +121,7 @@
             </div>
 
             <table x-show="!loading && !error" x-cloak class="table table-striped table-hover">
-              <thead class="bg-body" style="position: sticky; top: 0; z-index: 1;">
+              <thead class="bg-body">
               <tr>
                 <template x-for="col in visibleColumns" :key="col.key">
                   <th
@@ -223,7 +203,7 @@
           </div>
 
           {# Filter Sidebar #}
-          <div class="d-flex flex-column border-start bg-body-tertiary" style="width: 280px;">
+          <div class="admin-filter-panel d-flex flex-column border-start bg-body-tertiary">
             {# Search field #}
             <div class="border-bottom position-relative">
               <i class="bi-search position-absolute top-50 translate-middle-y text-muted" style="left: 0.75rem;"></i>
@@ -364,7 +344,7 @@
         </div>
 
         {# Footer #}
-        <div class="d-flex justify-content-between align-items-center gap-3 pt-2 border-top">
+        <div class="admin-table-footer d-flex justify-content-between align-items-center gap-3 border-top">
           <span class="text-muted" x-text="footerText"></span>
           <template x-if="availableBulkActions.length > 0">
             <div class="d-flex align-items-center gap-2">
