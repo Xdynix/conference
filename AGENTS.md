@@ -132,6 +132,23 @@ When adding new features, choose the appropriate app based on responsibility:
 - **Pure utilities without Django dependencies** -> `utils`.
 - **UI templates and frontend assets** -> `frontend`.
 
+### Admin Surfaces
+
+The word "admin" refers to two distinct surfaces; do not conflate them.
+
+- **Django admin** - `app/admin/` plus each app's `ModelAdmin` registrations, served at
+  `/admin/`. Gated to superusers only (`AdminSite.has_permission`), because fine-grained
+  permissions are hard to secure and features like autocomplete can leak data. Use it
+  for low-level model CRUD by maintainers, not for conference-scoped admin work.
+- **Frontend admin UI** - user-facing conference management built as ordinary frontend
+  pages under `app/frontend/templates/frontend/conference/admin/<feature>/`, routed at
+  `/<conference_name>/admin/<feature>/` via `protected_view`, and backed by API
+  endpoints (for example papers, payments, registrations, guides).
+
+When a request mentions an "admin {feature} page" for conference management, it usually
+means the frontend admin UI, not Django admin. Confirm which surface before changing
+search, filters, or columns, since each has its own separate implementation.
+
 ### Shared Modules
 
 - **`app/ninja/`** - Django Ninja utilities (error handlers, JSON serialization, core
