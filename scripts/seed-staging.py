@@ -2152,6 +2152,8 @@ def _duplicate_latest_submission(source: Paper, target: Paper) -> None:
     submission = source.submissions.order_by("-revision").first()
     if submission is None:
         raise RuntimeError(f"Paper {source.code} has no submission to duplicate.")
+    if not submission.file.name:
+        raise RuntimeError(f"Paper {source.code} submission has no file.")
 
     extension = Path(submission.file.name).suffix.lower()
     content_type = next(
