@@ -1,0 +1,69 @@
+{# Theme (light/dark/auto) selector. Self-contained Alpine component; include anywhere a dropdown fits. #}
+<div class="dropdown" x-data="themeSwitcher()">
+  <button
+    class="btn btn-link nav-link dropdown-toggle px-2"
+    type="button"
+    data-bs-toggle="dropdown"
+    aria-expanded="false"
+    aria-label="Theme"
+  >
+    <i x-cloak :class="icon"></i>
+  </button>
+  <ul class="dropdown-menu dropdown-menu-end">
+    <template x-for="opt in options" :key="opt.value">
+      <li>
+        <button
+          class="dropdown-item d-flex align-items-center"
+          :class="value === opt.value && 'active'"
+          type="button"
+          @click="set(opt.value)"
+        >
+          <i class="me-2" :class="opt.icon"></i>
+          <span x-text="opt.label"></span>
+          <i class="bi-check2 ms-auto" :class="value !== opt.value && 'invisible'"></i>
+        </button>
+      </li>
+    </template>
+  </ul>
+</div>
+
+<script>
+  function themeSwitcher() {
+    const options = [
+      {value: "light", label: "Light", icon: "bi-sun-fill"},
+      {value: "dark", label: "Dark", icon: "bi-moon-stars-fill"},
+      {value: "auto", label: "Auto", icon: "bi-circle-half"},
+    ];
+    const iconMap = Object.fromEntries(options.map((o) => [o.value, o.icon]));
+
+    return {
+      options,
+      value: localStorage.getItem("theme") || "auto",
+
+      get icon() {
+        return iconMap[this.value];
+      },
+
+      init() {
+        window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+          if (this.value === "auto") {
+            this.apply();
+          }
+        });
+      },
+
+      set(value) {
+        this.value = value;
+        localStorage.setItem("theme", value);
+        this.apply();
+      },
+
+      apply() {
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const resolved = this.value === "auto" ? (prefersDark ? "dark" : "light") : this.value;
+        document.documentElement.dataset.bsTheme = resolved;
+        document.documentElement.dataset.theme = resolved;
+      },
+    };
+  }
+</script>

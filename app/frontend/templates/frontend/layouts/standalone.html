@@ -1,0 +1,34 @@
+{% extends "frontend/layouts/base.html" %}
+{% load frontend_tags %}
+
+{# Chrome-free layout for token-link pages (e.g. paper proof): a static, link-free brand header instead of the portal navbar, so anonymous visitors have no affordance to log in, sign up, or browse the wider system. #}
+
+{% block body_wrapper %}
+  {% branding as brand %}
+  <nav class="app-navbar navbar bg-body-tertiary border-bottom py-0">
+    <div class="container-fluid ps-0">
+      <div class="navbar-brand mb-0 py-0 d-flex align-items-center gap-2">
+        {% if brand.logo_url %}
+          <span class="d-flex align-items-center py-2 px-3">
+            <img
+              src="{{ brand.logo_url }}"
+              alt="{{ brand.logo_alt|default:'Logo' }}"
+              {% if brand.logo_height %}
+              height="{{ brand.logo_height }}"
+              {% else %}
+              style="height: 1.5em"
+              {% endif %}
+            >
+          </span>
+        {% endif %}
+        <span class="app-brand-title {% if not brand.logo_url %}ps-3 py-2{% endif %}">{% site_name %}</span>
+      </div>
+      <div class="d-flex align-items-center gap-2 pe-3">
+        {% include "frontend/components/theme-switcher.html" %}
+      </div>
+    </div>
+  </nav>
+  <main class="container simple-main py-4">
+    {% block content %}{% endblock %}
+  </main>
+{% endblock %}
