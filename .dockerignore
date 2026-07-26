@@ -12,6 +12,7 @@
 # Dev only files
 /*.md
 /.agents
+/.commitlintrc.yaml
 /.env
 /.env.*
 !/.env.example
@@ -21,8 +22,6 @@
 /docker-compose.yml
 /etc/stubs/
 /justfile
-/package-lock.json
-/package.json
 /scripts
 /tests
 

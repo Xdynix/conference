@@ -3,64 +3,64 @@ name = "conference"
 version = "0.1.0"
 requires-python = "==3.14.*"
 dependencies = [
-    "apscheduler>=3.11.0",
+    "apscheduler>=3.11.3",
     "django-cleanup>=9.0.0",
     "django-extensions>=4.1",
     "django-ipware>=7.0.1",
     "django-mailer>=2.3.2",
-    "django-ninja>=1.4.3",
-    "django-stubs-ext~=6.0",
-    "django[argon2]~=6.0",
+    "django-ninja>=1.6.2",
+    "django-stubs-ext~=6.0.2",
+    "django[argon2]~=6.0.0",
     "httpx>=0.28.1",
-    "ipython>=9.4.0",
+    "ipython>=9.15.0",
     "jinja2>=3.1.6",
     "loguru>=0.7.3",
-    "magika>=1.0.1",
-    "markdown-it-py[linkify]>=4.0.0",
-    "nh3>=0.3.2",
-    "orjson>=3.11.0",
-    "pydantic[email]>=2.11.7",
+    "magika>=1.0.3",
+    "markdown-it-py[linkify]>=4.2.0",
+    "nh3>=0.3.6",
+    "orjson>=3.11.9",
+    "pydantic[email]>=2.13.4",
     "python-decouple>=3.8",
-    "python-ulid-django>=1.2.1",
-    "python-ulid[pydantic]>=3.0.0",
-    "pyyaml>=6.0.2",
-    "rapidfuzz>=3.14.3",
-    "sentry-sdk>=2.52.0",
-    "servestatic[brotli]>=3.1.0",
-    "typst>=0.14.8",
+    "python-ulid-django>=1.5.0",
+    "python-ulid[pydantic]>=4.0.1",
+    "pyyaml>=6.0.3",
+    "rapidfuzz>=3.14.5",
+    "sentry-sdk>=2.66.1",
+    "servestatic[brotli]>=4.3.1",
+    "typst>=0.15.0",
 ]
 
 [dependency-groups]
 dev = [
     "hupper>=1.12.1",
-    "pyopenssl>=25.1.0",
-    "rust-just>=1.42.3",
-    "werkzeug>=3.1.5",
+    "pyopenssl>=26.3.0",
+    "rust-just>=1.57.0",
+    "werkzeug>=3.1.8",
 ]
 lint = [
-    "django-stubs[compatible-mypy]~=6.0",
-    "mypy<2.2",
-    "pre-commit>=4.2.0",
-    "ruff>=0.12.4",
-    "types-jsonschema>=4.25.1.20251009",
+    "django-stubs[compatible-mypy]~=6.0.0",
+    "mypy>=2.3,<2.4",
+    "pre-commit>=4.6.1",
+    "ruff>=0.16.0",
+    "types-jsonschema>=4.26.0.20260518",
 ]
 prod = [
-    "granian>=2.7.2",
+    "granian>=2.7.9",
     "supervisor>=4.3.0 ; sys_platform != 'win32'",
 ]
 test = [
-    "faker>=37.4.2",
-    "jsonschema>=4.25.1",
-    "pypdf>=6.7.1",
-    "pytest>=8.4.1",
-    "pytest-asyncio>=1.1.0",
-    "pytest-cov>=6.2.1",
-    "pytest-django>=4.11.1",
-    "pytest-env>=1.2.0",
-    "pytest-mock>=3.14.1",
-    "pytest-randomly>=3.16.0",
+    "faker>=40.36.0",
+    "jsonschema>=4.26.0",
+    "pypdf>=6.14.2",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "pytest-django>=4.12.0",
+    "pytest-env>=1.7.0",
+    "pytest-mock>=3.15.1",
+    "pytest-randomly>=4.1.0",
     "pytest-xdist>=3.8.0",
-    "respx>=0.22.0",
+    "respx>=0.23.1",
 ]
 
 [tool.uv]
@@ -114,6 +114,7 @@ ignore = [
 [tool.mypy]
 strict = true
 cache_dir = ".cache/mypy"
+exclude = ["^scratch/"]
 mypy_path = "etc/stubs"
 num_workers = 8
 plugins = [
@@ -126,6 +127,7 @@ django_settings_module = "app.settings"
 [tool.pytest]
 strict = true
 cache_dir = ".cache/pytest"
+testpaths = ["tests", "app"]
 addopts = [
     "--doctest-modules",
     "--import-mode", "importlib",

@@ -13,8 +13,7 @@ This document defines frontend implementation patterns for the project.
 | Searchable Select | Tom Select      |
 
 All frontend dependencies are downloaded locally and served via Django's static files
-system. No npm, bundlers, or build steps are used. The `package.json` exists only for
-linting config, not for shipping assets.
+system. No npm, bundlers, or build steps are used.
 
 Vendor files are committed to the repository. Update them manually when upgrading
 library versions.

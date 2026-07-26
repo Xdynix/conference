@@ -479,9 +479,9 @@ the scheduler.
    ```python
    from app.infra.services import scheduler
 
+
    @scheduler.scheduled_job("cron", hour="*/6", jitter=120)
-   def my_periodic_task() -> None:
-       ...
+   def my_periodic_task() -> None: ...
    ```
 
 3. The job will be picked up automatically on the next `runscheduler` start; no

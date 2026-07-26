@@ -3,7 +3,7 @@ __all__ = ("cf_turnstile_required",)
 from collections.abc import Callable
 from functools import partial, wraps
 from http import HTTPStatus
-from typing import Any, overload
+from typing import Any, cast, overload
 from uuid import uuid4
 
 import httpx
@@ -183,4 +183,4 @@ def cf_turnstile_required[F: Callable[..., Any]](
                 return response
             return view_func(request, *args, **kwargs)
 
-    return wrapped
+    return cast(F, wrapped)

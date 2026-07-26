@@ -379,8 +379,7 @@ def upload_registration_procedure(session: requests.Session) -> bool:
     with path.open("rb") as f:
         resp = session.post(
             api_url(
-                f"/conferences/{CONFERENCE}"
-                f"/files/{REGISTRATION_PROCEDURE_NAME}:upload"
+                f"/conferences/{CONFERENCE}/files/{REGISTRATION_PROCEDURE_NAME}:upload"
             ),
             files={"file": (path.name, f, "application/pdf")},
         )
@@ -434,7 +433,7 @@ def send_acceptance_email(
         "body": (
             f"Dear {author_name},\n\n"
             f"We are pleased to inform you that your paper "
-            f"\"{paper['title']}\" ({paper_code}) has been accepted "
+            f'"{paper["title"]}" ({paper_code}) has been accepted '
             f"to {CONFERENCE}.\n\n"
             f"Please find attached your acceptance letter and the "
             f"registration procedure.\n\n"
@@ -490,8 +489,7 @@ def main() -> None:
     # 3. Filter to accepted papers whose decisions have been announced.
     accepted_states = {"Accepted", "Accepted (Revision Needed)"}
     accepted_papers = [
-        p for p in papers
-        if p["state"] in accepted_states and p.get("announce_time")
+        p for p in papers if p["state"] in accepted_states and p.get("announce_time")
     ]
     print(f"\nFound {len(accepted_papers)} accepted and announced papers.")
 
