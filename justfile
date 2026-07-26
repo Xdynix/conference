@@ -21,6 +21,11 @@ ruff:
 lint:
     uv run pre-commit run --all-files
 
+# audit locked dependencies for known vulnerabilities
+audit:
+    uv export --format requirements.txt --no-emit-project -o .cache/pip-audit/requirements.txt --quiet
+    uvx pip-audit -r .cache/pip-audit/requirements.txt --no-deps --cache-dir .cache/pip-audit
+
 # execute tests
 test *args:
     uv run pytest --cov app -n 8 {{ args }}
