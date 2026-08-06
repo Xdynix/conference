@@ -1039,7 +1039,7 @@ class TestAddTrackRole:
         )
         mock_validate_can_assign_roles.side_effect = ValueError("test error")
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="test error"):
             RoleAssignmentService.add_track_role(
                 conference=conference,
                 track=inactive_track,
@@ -1163,7 +1163,7 @@ class TestRemoveTrackRole:
         )
         mock_validate_can_assign_roles.side_effect = ValueError("test error")
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="test error"):
             RoleAssignmentService.remove_track_role(
                 conference=conference,
                 track=inactive_track,

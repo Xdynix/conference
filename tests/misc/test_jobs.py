@@ -30,7 +30,7 @@ def test_job_scheduled(job_func: Callable[..., Any]) -> None:
 
 
 @pytest.mark.parametrize(
-    "job_func, command",
+    ("job_func", "command"),
     [
         (jobs.clear_sessions, ClearSessionsCommand),
         (jobs.retry_deferred, RetryDeferredCommand),

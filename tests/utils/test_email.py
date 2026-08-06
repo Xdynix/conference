@@ -63,7 +63,7 @@ class TestEmailContext:
             name: str
 
         MyContext.model_validate({"name": "test"})
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Extra inputs are not permitted"):
             MyContext.model_validate({"name": "test", "extra": "fail"})
 
 

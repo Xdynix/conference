@@ -726,7 +726,7 @@ def _seed_conference(
     spec: dict[str, Any],
     title_rows: list[DuplicatePaperRow],
 ) -> tuple[Conference, list[User]]:
-    today = datetime.date.today()
+    today = timezone.localdate()
     is_past = spec["start_delta_days"] < 0
 
     # 1. Conference structure.

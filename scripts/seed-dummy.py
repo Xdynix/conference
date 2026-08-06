@@ -179,7 +179,7 @@ def seed_conference(
 ) -> tuple[Conference, dict[str, Track]]:
     logger.info("Seeding conference and tracks...")
 
-    today = datetime.date.today()
+    today = timezone.localdate()
     conference, created = Conference.objects.get_or_create(
         name="TEST-1000",
         defaults={

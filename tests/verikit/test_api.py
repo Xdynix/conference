@@ -230,7 +230,8 @@ class TestEmailVerificationE2E:
         assert isinstance(token, str)
 
         verified_email = EmailVerificationService.verify_token(token)
-        assert verified_email and verified_email.lower() == email.lower()
+        assert verified_email
+        assert verified_email.lower() == email.lower()
 
     def test_complete_flow_case_insensitive_email(
         self,
@@ -257,7 +258,8 @@ class TestEmailVerificationE2E:
         assert isinstance(token, str)
 
         verified_email = EmailVerificationService.verify_token(token)
-        assert verified_email and verified_email.lower() == email.lower()
+        assert verified_email
+        assert verified_email.lower() == email.lower()
 
     def test_wrong_code_blocks_flow(
         self,

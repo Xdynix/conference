@@ -161,7 +161,7 @@ class TestHasAnyRolesSingle(AuthTestCase):
         self.assert_response_is_ok(response)
 
     @pytest.mark.parametrize(
-        "user_roles,expected",
+        ("user_roles", "expected"),
         [
             ({GlobalRole.ADMIN}, True),
             ({GlobalRole.ADMIN, GlobalRole.READ_ALL}, True),
@@ -200,7 +200,7 @@ class TestHasAnyRolesMulti(AuthTestCase):
         self.assert_response_is_ok(response)
 
     @pytest.mark.parametrize(
-        "user_roles,expected",
+        ("user_roles", "expected"),
         [
             ({GlobalRole.ADMIN}, True),
             ({GlobalRole.ADMIN, GlobalRole.READ_ALL}, True),

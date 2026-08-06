@@ -102,7 +102,7 @@ def success_message() -> None:
         "🔹 Execute <u><i>just dev</></> to start the development server.",
         "🔹 The development server will run on <u><i>https://localhost:8000</></>",
     ):
-        logger.info(f"    {hint}")
+        logger.info("    {}", hint)
 
 
 if __name__ == "__main__":

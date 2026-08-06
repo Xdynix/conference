@@ -156,11 +156,11 @@ class TestValidateUpload:
         self,
         temp_uploaded_file: MagicMock,
     ) -> None:
+        disallowed = {"disallowed/mime": [".pdf"]}
         with pytest.raises(
             InvalidFileTypeError,
             match="File type not allowed",
         ):
-            disallowed = {"disallowed/mime": [".pdf"]}
             validate_upload(temp_uploaded_file, allowed_types=disallowed)
 
     def test_raises_runtime_error_when_in_memory_file_too_large(self) -> None:

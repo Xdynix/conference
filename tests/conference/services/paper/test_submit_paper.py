@@ -179,7 +179,7 @@ class TestPaperServiceSubmitPaper:
             PaperService.submit_paper(paper)
 
     @pytest.mark.parametrize(
-        "field,value,message",
+        ("field", "value", "message"),
         [
             ("title", "", "Title is required."),
             ("abstract", "", "Abstract is required."),
@@ -294,7 +294,7 @@ class TestPaperServiceSubmitPaper:
         assert {"authors": "Only one author can be marked as corresponding."} in errors
 
     @pytest.mark.parametrize(
-        "field,message",
+        ("field", "message"),
         [
             ("given_name", "given name"),
             ("family_name", "family name"),

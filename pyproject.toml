@@ -70,6 +70,8 @@ default-groups = "all"
 cache-dir = ".cache/ruff"
 
 [tool.ruff.lint]
+# Without this, the G rules do not recognize loguru's imported logger.
+logger-objects = ["loguru.logger"]
 select = [
     "F", # Pyflakes
     "E", # pycodestyle errors
@@ -81,6 +83,9 @@ select = [
     "B", # flake8-bugbear
     "C4", # flake8-comprehensions
     "DJ", # flake8-django
+    "DTZ", # flake8-datetimez
+    "G", # flake8-logging-format
+    "PT", # flake8-pytest-style
     "T20", # flake8-print
     "SIM", # flake8-simplify
     "ARG", # flake8-unused-arguments
@@ -97,9 +102,12 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"scripts/**/*.py" = [
+    "G004", # logging-f-string
+]
 "scripts/dev-setup.py" = [
     "S603", # subprocess-without-shell-equals-true
-    "S607", # Starting a process with a partial executable path
+    "S607", # start-process-with-partial-path
 ]
 "tests/**/*.py" = [
     "S101", # assert

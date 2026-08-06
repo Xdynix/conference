@@ -14,7 +14,7 @@ User = get_user_model()
 @pytest.mark.django_db
 @pytest.mark.parametrize("deny_unauthorized", [True, False])
 @pytest.mark.parametrize(
-    "has_permission, user_attrs",
+    ("has_permission", "user_attrs"),
     [
         (True, {"is_superuser": True}),
         (False, {}),

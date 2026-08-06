@@ -25,7 +25,7 @@ FONT_DIR = Path(settings.BASE_DIR) / "etc" / "fonts"
 
 class TestTypstJsonDefault:
     def test_naive_datetime(self) -> None:
-        result = typst_json_default(datetime(2024, 3, 15, 10, 30, 45))
+        result = typst_json_default(datetime(2024, 3, 15, 10, 30, 45))  # noqa: DTZ001
         assert result == {
             "year": 2024,
             "month": 3,
@@ -111,7 +111,7 @@ class TestCompileTemplate:
             b"#let d = datetime(..data.submitted_at)\n"
             b'Submitted on #d.display("[month repr:long] [day], [year]")'
         )
-        data = {"submitted_at": datetime(2024, 3, 15, 10, 30, 0)}
+        data = {"submitted_at": datetime(2024, 3, 15, 10, 30, 0)}  # noqa: DTZ001
         result = compile_template(template, data)
         assert result[:5] == b"%PDF-"
 

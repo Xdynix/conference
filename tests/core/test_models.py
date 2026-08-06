@@ -14,7 +14,7 @@ from tests.data import EMAIL_NORMALIZATION_DATA, USERNAME_NORMALIZATION_DATA
 
 
 @pytest.mark.parametrize(
-    "username, expected",
+    ("username", "expected"),
     USERNAME_NORMALIZATION_DATA,
 )
 def test_normalize_username(username: str | None, expected: str) -> None:
@@ -22,7 +22,7 @@ def test_normalize_username(username: str | None, expected: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "email, expected",
+    ("email", "expected"),
     EMAIL_NORMALIZATION_DATA,
 )
 def test_normalize_email(email: str | None, expected: str) -> None:

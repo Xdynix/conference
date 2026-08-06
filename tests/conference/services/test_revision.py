@@ -102,7 +102,7 @@ class TestRevisionFileCleanup:
         file_path = Path(submission.file.path)
         assert file_path.exists()
 
-        with pytest.raises(ValueError, match="forced rollback"), transaction.atomic():
+        with pytest.raises(ValueError, match="forced rollback"), transaction.atomic():  # noqa: PT012
             submission.delete()
             raise ValueError("forced rollback")
 
@@ -130,7 +130,7 @@ class TestRevisionFileCleanup:
         source_path = Path(final.source_file.path)
         viewable_path = Path(final.viewable_file.path)
 
-        with pytest.raises(ValueError, match="forced rollback"), transaction.atomic():
+        with pytest.raises(ValueError, match="forced rollback"), transaction.atomic():  # noqa: PT012
             final.delete()
             raise ValueError("forced rollback")
 

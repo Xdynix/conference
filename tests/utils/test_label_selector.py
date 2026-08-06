@@ -69,7 +69,7 @@ class TestLabelKey:
         assert schema["minLength"] == LabelKey.MIN_LENGTH
         assert schema["maxLength"] == LabelKey.MAX_LENGTH
 
-    @pytest.mark.parametrize("s, expected", VALID_DATA)
+    @pytest.mark.parametrize(("s", "expected"), VALID_DATA)
     def test_valid(self, s: str, expected: tuple[str, str]) -> None:
         key = LabelKey(s)
         assert key.prefix == expected[0]
@@ -88,12 +88,12 @@ class TestLabelKey:
         schema = TypeAdapter(LabelKey).json_schema()
         jsonschema.validate(s, schema)
 
-    @pytest.mark.parametrize("s, exc, message", INVALID_DATA)
+    @pytest.mark.parametrize(("s", "exc", "message"), INVALID_DATA)
     def test_invalid(self, s: Any, exc: type[Exception], message: str) -> None:
         with pytest.raises(exc, match=message):
             LabelKey(s)
 
-    @pytest.mark.parametrize("s, exc", [(s, exc) for s, exc, _ in INVALID_DATA])
+    @pytest.mark.parametrize(("s", "exc"), [(s, exc) for s, exc, _ in INVALID_DATA])
     def test_invalid_pydantic(self, s: Any, exc: type[Exception]) -> None:
         with pytest.raises(exc):
             TypeAdapter(LabelKey).validate_python(s)
@@ -160,12 +160,12 @@ class TestLabelValue:
         schema = TypeAdapter(LabelValue).json_schema()
         jsonschema.validate(s, schema)
 
-    @pytest.mark.parametrize("s, exc, message", INVALID_DATA)
+    @pytest.mark.parametrize(("s", "exc", "message"), INVALID_DATA)
     def test_invalid(self, s: Any, exc: type[Exception], message: str) -> None:
         with pytest.raises(exc, match=message):
             LabelValue(s)
 
-    @pytest.mark.parametrize("s, exc", [(s, exc) for s, exc, _ in INVALID_DATA])
+    @pytest.mark.parametrize(("s", "exc"), [(s, exc) for s, exc, _ in INVALID_DATA])
     def test_invalid_pydantic(self, s: Any, exc: type[Exception]) -> None:
         with pytest.raises(exc):
             TypeAdapter(LabelValue).validate_python(s)
@@ -182,8 +182,8 @@ _NOT_SET = object()
 
 class TestRequirement:
     @pytest.mark.parametrize(
-        "req, expected",
-        (
+        ("req", "expected"),
+        [
             (ls.build_requirement("key", "Equals", ["value"]), "key=value"),
             (ls.build_requirement("key", "DoubleEquals", ["value"]), "key==value"),
             (ls.build_requirement("key", "NotEquals", ["value"]), "key!=value"),
@@ -191,14 +191,14 @@ class TestRequirement:
             (ls.build_requirement("key", "NotIn", ["b", "a"]), "key notin (a,b)"),
             (ls.build_requirement("key", "Exists"), "key"),
             (ls.build_requirement("key", "DoesNotExist"), "!key"),
-        ),
+        ],
     )
     def test_str(self, req: Requirement, expected: str) -> None:
         assert str(req) == expected
 
     @pytest.mark.parametrize(
-        "data, expected_type",
-        (
+        ("data", "expected_type"),
+        [
             (
                 {"key": "k", "operator": "Equals", "values": ["v"]},
                 ls.EqualityRequirement,
@@ -227,7 +227,7 @@ class TestRequirement:
                 {"key": "k", "operator": "DoesNotExist"},
                 ls.PresenceRequirement,
             ),
-        ),
+        ],
     )
     def test_discriminator(
         self,
@@ -237,7 +237,7 @@ class TestRequirement:
         requirement = ls.build_requirement(**data)
         assert isinstance(requirement, expected_type)
 
-    @pytest.mark.parametrize("values", ([], ["value"], ["value1", "value2"]))
+    @pytest.mark.parametrize("values", [[], ["value"], ["value1", "value2"]])
     def test_invalid_discriminator(self, values: Any) -> None:
         with pytest.raises(pydantic.ValidationError):
             ls.build_requirement("k", "invalid", values)
@@ -286,14 +286,14 @@ class TestEqualityRequirement:
         ls.build_requirement("key", op, ["value"])
 
     @pytest.mark.parametrize("op", operators)
-    @pytest.mark.parametrize("values", (None, [], ["value1", "value2"]))
+    @pytest.mark.parametrize("values", [None, [], ["value1", "value2"]])
     def test_invalid_values(self, op: Any, values: Any) -> None:
         with pytest.raises(pydantic.ValidationError):
             ls.build_requirement("key", op, values)
 
     @pytest.mark.parametrize(
-        "op, labels, expected",
-        (
+        ("op", "labels", "expected"),
+        [
             (Operator.EQUALS, {"key": "value"}, True),
             (Operator.EQUALS, {"key": "other"}, False),
             (Operator.EQUALS, {}, False),
@@ -303,7 +303,7 @@ class TestEqualityRequirement:
             (Operator.NOT_EQUALS, {"key": "value"}, False),
             (Operator.NOT_EQUALS, {"key": "other"}, True),
             (Operator.NOT_EQUALS, {}, True),
-        ),
+        ],
     )
     def test_matches(self, op: Any, labels: dict[str, str], expected: bool) -> None:
         requirement = ls.build_requirement("key", op, ["value"])
@@ -321,14 +321,14 @@ class TestSetRequirement:
         ls.build_requirement("key", op, ["value1", "value2"])
 
     @pytest.mark.parametrize("op", operators)
-    @pytest.mark.parametrize("values", (None, []))
+    @pytest.mark.parametrize("values", [None, []])
     def test_invalid_values(self, op: Any, values: Any) -> None:
         with pytest.raises(pydantic.ValidationError):
             ls.build_requirement("key", op, values)
 
     @pytest.mark.parametrize(
-        "op, labels, expected",
-        (
+        ("op", "labels", "expected"),
+        [
             (Operator.IN, {"key": "value1"}, True),
             (Operator.IN, {"key": "value2"}, True),
             (Operator.IN, {"key": "other"}, False),
@@ -337,7 +337,7 @@ class TestSetRequirement:
             (Operator.NOT_IN, {"key": "value2"}, False),
             (Operator.NOT_IN, {"key": "other"}, True),
             (Operator.NOT_IN, {}, True),
-        ),
+        ],
     )
     def test_matches(self, op: Any, labels: dict[str, str], expected: bool) -> None:
         requirement = ls.build_requirement("key", op, ["value1", "value2"])
@@ -355,21 +355,21 @@ class TestPresenceRequirement:
         ls.build_requirement("key", op)
 
     @pytest.mark.parametrize("op", operators)
-    @pytest.mark.parametrize("values", (None, ["value"]))
+    @pytest.mark.parametrize("values", [None, ["value"]])
     def test_invalid_values(self, op: Any, values: Any) -> None:
         with pytest.raises(pydantic.ValidationError):
             ls.build_requirement("key", op, values)
 
     @pytest.mark.parametrize(
-        "op, labels, expected",
-        (
+        ("op", "labels", "expected"),
+        [
             (Operator.EXISTS, {"key": "value"}, True),
             (Operator.EXISTS, {"key": "other"}, True),
             (Operator.EXISTS, {}, False),
             (Operator.DOES_NOT_EXIST, {"key": "value"}, False),
             (Operator.DOES_NOT_EXIST, {"key": "other"}, False),
             (Operator.DOES_NOT_EXIST, {}, True),
-        ),
+        ],
     )
     def test_matches(self, op: Any, labels: dict[str, str], expected: bool) -> None:
         requirement = ls.build_requirement("key", op, ())
@@ -451,8 +451,8 @@ class TestLabelSelector:
         assert selector.matches({"key": "value"})
 
     @pytest.mark.parametrize(
-        "s, expected",
-        (
+        ("s", "expected"),
+        [
             # Single Requirement
             ("a=b", [{"key": "a", "operator": "Equals", "values": ["b"]}]),
             ("a==b", [{"key": "a", "operator": "DoubleEquals", "values": ["b"]}]),
@@ -541,14 +541,14 @@ class TestLabelSelector:
                 "a in (b,c), a in (c,b)",
                 [{"key": "a", "operator": "In", "values": ["b", "c"]}],
             ),
-        ),
+        ],
     )
     def test_from_str(self, s: str, expected: Any) -> None:
         assert LabelSelector.from_str(s) == LabelSelector.model_validate(expected)
 
     @pytest.mark.parametrize(
-        "s, match",
-        (
+        ("s", "match"),
+        [
             ("=a", "found '=', expected: !, identifier, or 'end of string'"),
             ("===", "found '==', expected: !, identifier, or 'end of string'"),
             ("a=b,", "found '', expected: identifier after ','"),
@@ -583,7 +583,7 @@ class TestLabelSelector:
                 "a in (a,=)",
                 r"unable to parse requirement: found '=', expected: ',', or identifier",
             ),
-        ),
+        ],
     )
     def test_from_str_invalid(self, s: str, match: str) -> None:
         with pytest.raises(ValueError, match=match):

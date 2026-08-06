@@ -137,7 +137,7 @@ class TestCursorPagination:
         pagination = paginator.Input(page_size=1, order="asc")
 
         queryset = User.objects.order_by("date_joined")
-        with pytest.warns(UserWarning):
+        with pytest.warns(UserWarning, match="ignores existing queryset ordering"):
             await paginator.apaginate_queryset(
                 queryset,
                 pagination,

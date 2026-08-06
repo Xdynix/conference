@@ -264,5 +264,5 @@ class TestUserResponseRegistry:
             batch_resolver=bad_batch,
         )
 
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="is shorter than argument"):
             await registry.dump_many(subset)
