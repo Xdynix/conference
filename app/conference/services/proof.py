@@ -193,7 +193,7 @@ class ProofService:
     def upload(
         cls,
         proof: PaperProof,
-        file: UploadedFile,
+        file: UploadedFile[bytes],
         *,
         max_size: int = 0,
         allowed_types: Mapping[str, Sequence[str]] | None = None,

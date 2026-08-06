@@ -8,12 +8,8 @@ from django.contrib.sessions.management.commands.clearsessions import (
     Command as ClearSessionsCommand,
 )
 from django.core.management import BaseCommand
-from mailer.management.commands.purge_mail_log import (  # type: ignore[import-untyped]
-    Command as PurgeMailLogCommand,
-)
-from mailer.management.commands.retry_deferred import (  # type: ignore[import-untyped]
-    Command as RetryDeferredCommand,
-)
+from mailer.management.commands.purge_mail_log import Command as PurgeMailLogCommand
+from mailer.management.commands.retry_deferred import Command as RetryDeferredCommand
 from pytest_mock import MockerFixture
 
 from app.infra.services import scheduler

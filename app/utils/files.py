@@ -47,7 +47,7 @@ def get_magika() -> Magika:
 
 
 def validate_upload(
-    file: UploadedFile,
+    file: UploadedFile[bytes],
     *,
     max_size: int = 0,
     allowed_types: Mapping[str, Sequence[str]] | None = None,
@@ -107,7 +107,7 @@ def validate_upload(
             )
 
 
-def compute_sha256(file: UploadedFile, *, chunk_size: int = 2**16) -> str:
+def compute_sha256(file: UploadedFile[bytes], *, chunk_size: int = 2**16) -> str:
     """Compute the SHA-256 hex digest of an uploaded file.
 
     Reads the file in chunks so large uploads don't need to fit in memory at once. The
