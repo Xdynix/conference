@@ -206,6 +206,12 @@ the ceiling. Granian's `--workers-max-rss` in `supervisord.conf` is the per-work
 recycling threshold. The total budget must fit: (workers x max-rss) + background
 workers + overhead < container limit. Exceeding the container limit causes OOM kills.
 
+Each granian worker binds its own listening socket, so a respawn triggered by
+`--workers-max-rss` can reset connections still queued in the retiring worker's accept
+backlog. Granian only warns about this above one worker, and logs the resulting
+handshake errors at `debug`, so a respawn-induced 502 leaves no server-side trace at the
+default log level.
+
 ### Upload Size Limit
 
 The maximum request body size is set via `client_max_body_size` in

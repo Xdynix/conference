@@ -12,7 +12,7 @@ dependencies = [
     "django-stubs-ext~=6.0.2",
     "django[argon2]~=6.0.0",
     "httpx>=0.28.1",
-    "ipython>=9.15.0",
+    "ipython>=9.16.1",
     "jinja2>=3.1.6",
     "loguru>=0.7.3",
     "magika>=1.0.3",
@@ -33,29 +33,29 @@ dependencies = [
 [dependency-groups]
 dev = [
     "hupper>=1.12.1",
-    "pyopenssl>=26.3.0",
-    "rust-just>=1.57.0",
+    "pyopenssl>=26.4.0",
+    "rust-just>=1.58.0",
     "werkzeug>=3.1.8",
 ]
 lint = [
     "django-stubs[compatible-mypy]~=6.0.0",
     "mypy>=2.3,<2.4",
     "pre-commit>=4.6.1",
-    "ruff>=0.16.0",
+    "ruff>=0.16.1",
     "types-jsonschema>=4.26.0.20260518",
 ]
 prod = [
-    "granian>=2.7.9",
+    "granian>=2.8.1",
     "supervisor>=4.3.0 ; sys_platform != 'win32'",
 ]
 test = [
     "faker>=40.36.0",
     "jsonschema>=4.26.0",
-    "pypdf>=6.14.2",
+    "pypdf>=6.15.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
-    "pytest-django>=4.12.0",
+    "pytest-django>=4.13.0",
     "pytest-env>=1.7.0",
     "pytest-mock>=3.15.1",
     "pytest-randomly>=4.1.0",
@@ -89,7 +89,7 @@ select = [
     "RUF", # Ruff-specific rules
 ]
 ignore = [
-    # Suppressed by ruff formatter.
+    # Conflict with the formatter.
     "W191", # tab-indentation
     "E111", # indentation-with-invalid-multiple
     "E114", # indentation-with-invalid-multiple-comment
@@ -137,6 +137,7 @@ addopts = [
     "--cov-fail-under", "100",
 ]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "expect_audit_error: test intentionally triggers audit error logging",
 ]

@@ -509,6 +509,10 @@ the scheduler.
   function or suite with `transaction=True`.
 - Use Django's async ORM methods (`acreate`, `acount`, `aexists`) in async tests.
 - Do not add `@pytest.mark.asyncio`; pytest-asyncio handles async tests automatically.
+- Annotate the `settings` fixture as `django.conf.LazySettings`, even though the fixture
+  actually yields `pytest_django.Settings`. Only the former gives typed access to
+  individual settings, including project-specific ones; the latter resolves every
+  attribute to `Any`.
 
 ### Test Organization and Best Practices
 

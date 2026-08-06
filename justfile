@@ -1,5 +1,7 @@
-set dotenv-load := true
-set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
+set dotenv-load
+
+[windows]
+set shell := ["powershell.exe", "-NoLogo", "-Command"]
 
 export PYTHONUTF8 := "1"
 export LOGURU_COLORIZE := "1"
