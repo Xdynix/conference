@@ -25,8 +25,7 @@ lint:
 
 # audit locked dependencies for known vulnerabilities
 audit:
-    uv export --format requirements.txt --no-emit-project -o .cache/pip-audit/requirements.txt --quiet
-    uvx pip-audit -r .cache/pip-audit/requirements.txt --no-deps --cache-dir .cache/pip-audit
+    uv audit --frozen
 
 # execute tests
 test *args:
