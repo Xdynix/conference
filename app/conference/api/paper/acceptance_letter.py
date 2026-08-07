@@ -317,7 +317,7 @@ class AcceptanceLetterResponse(Schema):
 
     @staticmethod
     def resolve_paper_uid(letter: AcceptanceLetter) -> ULID:
-        return cast(ULID, letter.paper.uid)
+        return letter.paper.uid
 
     @staticmethod
     def resolve_paper_code(letter: AcceptanceLetter) -> str:

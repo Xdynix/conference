@@ -331,7 +331,7 @@ class ReceiptResponse(Schema):
 
     @staticmethod
     def resolve_registration_uid(receipt: Receipt) -> ULID:
-        return cast(ULID, receipt.registration.uid)
+        return receipt.registration.uid
 
     @staticmethod
     def resolve_registration_reference_code(receipt: Receipt) -> str:
