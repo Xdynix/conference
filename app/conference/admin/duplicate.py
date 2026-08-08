@@ -10,6 +10,7 @@ from app.conference.models import (
 class DuplicateMatchInline(admin.TabularInline[DuplicateMatch, DuplicateReport]):
     model = DuplicateMatch
     extra = 0
+    autocomplete_fields = ("paper_a", "paper_b")
 
 
 @admin.register(DuplicateReport)

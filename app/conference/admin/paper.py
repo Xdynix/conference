@@ -37,12 +37,14 @@ class PaperClaimInline(admin.TabularInline[PaperClaim, Paper]):
 class PaperSubmissionInline(admin.TabularInline[PaperSubmission, Paper]):
     model = PaperSubmission
     extra = 0
+    autocomplete_fields = ("uploader",)
     readonly_fields = ("create_time", "update_time")
 
 
 class PaperFinalInline(admin.TabularInline[PaperFinal, Paper]):
     model = PaperFinal
     extra = 0
+    autocomplete_fields = ("uploader",)
     readonly_fields = ("create_time", "update_time")
 
 
