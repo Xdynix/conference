@@ -62,12 +62,16 @@ services:
     depends_on:
       app:
         condition: service_healthy
+        # The upstream block resolves app's IP once at startup; without this,
+        # recreating app leaves nginx proxying to a dead address.
+        restart: true
     volumes:
       - ./docker/10-normalize-subpath.sh:/docker-entrypoint.d/10-normalize-subpath.sh:ro
       - ./docker/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ${HOST_DATA_DIR:-./.data}/media:/media:ro
     healthcheck:
-      test: [ "CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/_ping" ]
+      # localhost resolves to ::1 first here, and this server block is IPv4-only.
+      test: [ "CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/_ping" ]
       interval: 30s
       timeout: 5s
       start_period: 5s
