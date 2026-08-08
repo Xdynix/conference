@@ -38,7 +38,7 @@ def enrich_request(request: HttpRequest) -> None:
 
 def _resolve_request_id(request: HttpRequest) -> str:
     header = settings.REVERSE_PROXY_REQUEST_ID_HEADER
-    if settings.REVERSE_PROXY_COUNT > 0 and header:
+    if settings.TRUSTED_PROXY and header:
         value: str = request.META.get(f"HTTP_{header.upper().replace('-', '_')}", "")
         sanitized = "".join(
             c for c in value[:_REQUEST_ID_MAX_LENGTH] if c in _REQUEST_ID_ALLOWED
@@ -50,6 +50,10 @@ def _resolve_request_id(request: HttpRequest) -> str:
 
 
 def _resolve_client_ip(request: HttpRequest) -> str | None:
+    if not settings.TRUSTED_PROXY:
+        ip, _ = get_client_ip(request, request_header_order=("REMOTE_ADDR",))
+        return ip
+
     kwargs: dict[str, Any] = {"proxy_count": settings.REVERSE_PROXY_COUNT}
     if settings.REVERSE_PROXY_IP_HEADERS:
         kwargs["request_header_order"] = settings.REVERSE_PROXY_IP_HEADERS

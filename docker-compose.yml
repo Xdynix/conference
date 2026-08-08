@@ -36,8 +36,9 @@ services:
       # Must match the hard-coded nginx sidecar internal location.
       FILE_DOWNLOAD_MODE: nginx
       FILE_DOWNLOAD_NGINX_INTERNAL_PREFIX: /internal-media
-      # 1 = sidecar nginx (appends to X-Forwarded-For); increase if another proxy is added.
-      REVERSE_PROXY_COUNT: ${REVERSE_PROXY_COUNT:-1}
+      # The app publishes no ports and is reachable only through the sidecar, so this
+      # holds in every topology rather than being a per-deployment choice.
+      TRUSTED_PROXY: "true"
       # Must match the volume mount target below.
       DATA_DIR: /data
     volumes:
@@ -59,6 +60,11 @@ services:
       # VIRTUAL_PATH: ${VIRTUAL_PATH}
       SUBPATH: ${VIRTUAL_PATH:-}
       APP_PORT: ${APP_PORT:-8000}
+      # Address or CIDR of whatever terminates traffic in front of this container,
+      # empty when nothing does. Behind a proxy this must be set: it decides the client
+      # address and scheme the app receives, not just this container's logs.
+      REAL_IP_FROM: ${REAL_IP_FROM:-}
+      REAL_IP_HEADER: ${REAL_IP_HEADER:-X-Real-IP}
     depends_on:
       app:
         condition: service_healthy
@@ -66,7 +72,8 @@ services:
         # recreating app leaves nginx proxying to a dead address.
         restart: true
     volumes:
-      - ./docker/10-normalize-subpath.sh:/docker-entrypoint.d/10-normalize-subpath.sh:ro
+      - ./docker/10-normalize-subpath.envsh:/docker-entrypoint.d/10-normalize-subpath.envsh:ro
+      - ./docker/11-write-real-ip-conf.sh:/docker-entrypoint.d/11-write-real-ip-conf.sh:ro
       - ./docker/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ${HOST_DATA_DIR:-./var}/media:/media:ro
     healthcheck:

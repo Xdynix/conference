@@ -46,7 +46,7 @@ CSRF_TRUSTED_ORIGINS: list[str] = config("CSRF_TRUSTED_ORIGINS", default="", cas
 #         proxy_pass http://127.0.0.1:8000/;  # Trailing slash strips prefix
 #         proxy_set_header Host $host;
 #         proxy_set_header X-Real-IP $remote_addr;
-#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-For $remote_addr;  # overwrite, never append
 #         proxy_set_header X-Forwarded-Proto $scheme;
 #         client_max_body_size 256m;  # Must exceed MAX_FINAL_SOURCE_SIZE * 4 (50MB * 4)
 #     }
@@ -293,24 +293,25 @@ DISK_FREE_THRESHOLD = config("DISK_FREE_THRESHOLD", default=2.0, cast=float)  # 
 
 # Reverse proxy
 
-# REVERSE_PROXY_COUNT controls how many proxy IPs are appended after the client IP in
-# X-Forwarded-For. django-ipware uses strict validation: len(ips) - 1 == proxy_count.
-# 0 (default) means direct connection; all proxy headers are ignored.
+# Forwarding headers are ignored until a proxy is declared trusted, because any client
+# can send them; defaulting off keeps a development server safe with no configuration.
+
+TRUSTED_PROXY: bool = config("TRUSTED_PROXY", default=False, cast=bool)
+
+# REVERSE_PROXY_COUNT applies only once a proxy is trusted, and counts the hops that
+# append to X-Forwarded-For rather than the proxies in the chain. django-ipware
+# validates strictly: len(ips) - 1 == proxy_count. The default of 0 suits a proxy that
+# overwrites the header, as the nginx sidecar does.
 #
-# Examples:
-#   Dev (no proxy):            (defaults are fine, no env vars needed)
-#   Sidecar nginx only:        REVERSE_PROXY_COUNT=1
-#   Sidecar + Cloudflare:      REVERSE_PROXY_COUNT=2
-#                              REVERSE_PROXY_IP_HEADERS=CF-Connecting-IP,X-Forwarded-For
-#   Adopt upstream request ID: REVERSE_PROXY_REQUEST_ID_HEADER=X-Request-ID
+# See .agents/DEPLOYMENT.md for the per-topology table.
 
 REVERSE_PROXY_COUNT: int = config("REVERSE_PROXY_COUNT", default=0, cast=int)
 
-# When behind a reverse proxy that terminates SSL, trust X-Forwarded-Proto so that
-# request.is_secure() returns True for HTTPS requests. This is required for correct CSRF
-# origin checks, secure cookie handling, and `build_absolute_uri()` scheme.
+# Without this, request.is_secure() is False behind a TLS-terminating proxy, breaking
+# CSRF origin checks, secure cookies, and the build_absolute_uri() scheme. A development
+# server holds its own certificate, so its connection scheme is already accurate.
 SECURE_PROXY_SSL_HEADER: tuple[str, str] | None = (
-    ("HTTP_X_FORWARDED_PROTO", "https") if REVERSE_PROXY_COUNT > 0 else None
+    ("HTTP_X_FORWARDED_PROTO", "https") if TRUSTED_PROXY else None
 )
 
 REVERSE_PROXY_REQUEST_ID_HEADER: str = config(

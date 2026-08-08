@@ -46,7 +46,7 @@ class TestRequestIdFromHeader:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
-        settings.REVERSE_PROXY_COUNT = 1
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = "X-Request-ID"
 
         request = _get_enriched_request(rf, HTTP_X_REQUEST_ID="abc-123")
@@ -57,7 +57,7 @@ class TestRequestIdFromHeader:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
-        settings.REVERSE_PROXY_COUNT = 1
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = "X-Request-ID"
 
         request = _get_enriched_request(rf, HTTP_X_REQUEST_ID="valid<>chars!here")
@@ -68,7 +68,7 @@ class TestRequestIdFromHeader:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
-        settings.REVERSE_PROXY_COUNT = 1
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = "X-Request-ID"
 
         request = _get_enriched_request(rf, HTTP_X_REQUEST_ID="abc-d\u00e9fg\u200b")
@@ -79,7 +79,7 @@ class TestRequestIdFromHeader:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
-        settings.REVERSE_PROXY_COUNT = 1
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = "X-Request-ID"
 
         long_id = "a" * 200
@@ -91,7 +91,7 @@ class TestRequestIdFromHeader:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
-        settings.REVERSE_PROXY_COUNT = 1
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = "X-Request-ID"
 
         request = _get_enriched_request(rf, HTTP_X_REQUEST_ID="<>!@#$")
@@ -102,7 +102,7 @@ class TestRequestIdFromHeader:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
-        settings.REVERSE_PROXY_COUNT = 1
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = "X-Request-ID"
 
         request = _get_enriched_request(rf)
@@ -111,7 +111,7 @@ class TestRequestIdFromHeader:
 
 class TestRequestIdFallback:
     def test_proxy_disabled(self, rf: RequestFactory, settings: LazySettings) -> None:
-        settings.REVERSE_PROXY_COUNT = 0
+        settings.TRUSTED_PROXY = False
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = "X-Request-ID"
 
         request = _get_enriched_request(rf, HTTP_X_REQUEST_ID="from-proxy")
@@ -122,7 +122,7 @@ class TestRequestIdFallback:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
-        settings.REVERSE_PROXY_COUNT = 1
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = ""
 
         request = _get_enriched_request(rf, HTTP_X_REQUEST_ID="from-proxy")
@@ -136,6 +136,7 @@ class TestClientIp:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_COUNT = 2
         settings.REVERSE_PROXY_IP_HEADERS = []
 
@@ -157,6 +158,7 @@ class TestClientIp:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_COUNT = 2
         headers = ["CF-Connecting-IP", "X-Forwarded-For"]
         settings.REVERSE_PROXY_IP_HEADERS = headers
@@ -171,6 +173,42 @@ class TestClientIp:
         _, kwargs = mock_get_ip.call_args
         assert kwargs["request_header_order"] == headers
 
+    def test_untrusted_proxy_ignores_configured_headers(
+        self,
+        mocker: MockerFixture,
+        rf: RequestFactory,
+        settings: LazySettings,
+    ) -> None:
+        settings.TRUSTED_PROXY = False
+        settings.REVERSE_PROXY_COUNT = 2
+        settings.REVERSE_PROXY_IP_HEADERS = ["CF-Connecting-IP"]
+
+        mock_get_ip = mocker.patch(
+            "app.middleware.get_client_ip",
+            return_value=("198.51.100.3", True),
+        )
+        request = _get_enriched_request(rf)
+
+        assert request.client_ip == "198.51.100.3"
+        _, kwargs = mock_get_ip.call_args
+        assert kwargs["request_header_order"] == ("REMOTE_ADDR",)
+        assert "proxy_count" not in kwargs
+
+    def test_untrusted_proxy_rejects_forged_forwarding_header(
+        self,
+        rf: RequestFactory,
+        settings: LazySettings,
+    ) -> None:
+        settings.TRUSTED_PROXY = False
+
+        request = _get_enriched_request(
+            rf,
+            HTTP_X_FORWARDED_FOR="9.9.9.9",
+            REMOTE_ADDR="203.0.113.7",
+        )
+
+        assert request.client_ip == "203.0.113.7"
+
 
 class TestSentryIntegration:
     def test_sets_sentry_tag(
@@ -179,7 +217,7 @@ class TestSentryIntegration:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
-        settings.REVERSE_PROXY_COUNT = 1
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = "X-Request-ID"
 
         mock_set_tag = mocker.patch("app.middleware.sentry_sdk.set_tag")
@@ -195,7 +233,7 @@ class TestAsyncPath:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
-        settings.REVERSE_PROXY_COUNT = 1
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = "X-Request-ID"
 
         response, inner = await _apply_async(rf, HTTP_X_REQUEST_ID="async-id")
@@ -213,7 +251,7 @@ class TestLoggerContextualization:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
-        settings.REVERSE_PROXY_COUNT = 1
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = "X-Request-ID"
 
         mock_ctx = mocker.patch("app.middleware.logger.contextualize")
@@ -227,7 +265,7 @@ class TestLoggerContextualization:
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
-        settings.REVERSE_PROXY_COUNT = 1
+        settings.TRUSTED_PROXY = True
         settings.REVERSE_PROXY_REQUEST_ID_HEADER = "X-Request-ID"
 
         mock_ctx = mocker.patch("app.middleware.logger.contextualize")

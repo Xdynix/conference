@@ -6,15 +6,16 @@ Reference for modifying Docker, nginx, process management, or production setting
 
 <!-- markdownlint-disable MD013 -->
 
-| File                             | Purpose                                                                                                                                |
-|----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
-| `Dockerfile`                     | App image: installs deps, collects static, sets healthcheck and entrypoint.                                                            |
-| `docker-compose.yml`             | Core services (`app`, `nginx`) and optional backup sidecars (`litestream`, `rclone`) gated behind the `backup` Compose profile.        |
-| `docker/entrypoint.sh`           | Runs migrations before starting the CMD process.                                                                                       |
-| `docker/supervisord.conf`        | Process manager config: app server (granian) and background workers.                                                                   |
-| `docker/nginx.conf.template`     | Sidecar nginx: strips subpath, serves media via X-Accel-Redirect, proxies to app. Uses `envsubst` variables (`$APP_PORT`, `$SUBPATH`). |
-| `docker/litestream.yml`          | Litestream config for continuous SQLite replication to Cloudflare R2. Uses env var placeholders expanded at runtime.                   |
-| `docker/10-normalize-subpath.sh` | Nginx entrypoint hook: strips trailing slash from `$SUBPATH` before `envsubst` runs. Mounted into `/docker-entrypoint.d/`.             |
+| File                                | Purpose                                                                                                                                                                                            |
+|-------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `Dockerfile`                        | App image: installs deps, collects static, sets healthcheck and entrypoint.                                                                                                                        |
+| `docker-compose.yml`                | Core services (`app`, `nginx`) and optional backup sidecars (`litestream`, `rclone`) gated behind the `backup` Compose profile.                                                                    |
+| `docker/entrypoint.sh`              | Runs migrations before starting the CMD process.                                                                                                                                                   |
+| `docker/supervisord.conf`           | Process manager config: app server (granian) and background workers.                                                                                                                               |
+| `docker/nginx.conf.template`        | Sidecar nginx: strips subpath, serves media via X-Accel-Redirect, proxies to app. Uses `envsubst` variables (`$APP_PORT`, `$SUBPATH`).                                                             |
+| `docker/litestream.yml`             | Litestream config for continuous SQLite replication to Cloudflare R2. Uses env var placeholders expanded at runtime.                                                                               |
+| `docker/10-normalize-subpath.envsh` | Nginx entrypoint hook: strips trailing slash from `$SUBPATH` before `envsubst` runs. Mounted into `/docker-entrypoint.d/`.                                                                         |
+| `docker/11-write-real-ip-conf.sh`   | Nginx entrypoint hook: generates the sidecar's trust boundary from `$REAL_IP_FROM`, deciding whose client address and scheme it believes. Required; the template references a variable it defines. |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -108,6 +109,24 @@ Each layer must finish before the next force-kills it. These live in `supervisor
 The nginx `upstream` block in `nginx.conf.template` uses `app` as the server hostname.
 This must match the compose service name for the application container.
 
+### Nginx Entrypoint Hooks
+
+The nginx image runs `/docker-entrypoint.d/*` in `sort -V` order before starting, and
+both the extension and the file mode change the outcome. Getting either wrong skips the
+hook without failing the container.
+
+- A hook that sets environment variables for later hooks must be named `*.envsh`, which
+  the entrypoint sources. A `*.sh` file runs in a child shell, losing any `export`, so
+  that form suits hooks which only write files.
+- Either kind must be executable. These are bind-mounted, so the mode comes from the
+  file in this repository and has to be committed as `100755`.
+- Anything that feeds `envsubst` must sort before `20-envsubst-on-templates.sh`.
+- Unmounting `11-write-real-ip-conf.sh` is the exception to the silent-skip rule: the
+  template uses `$forwarded_proto`, so nginx exits on an unknown variable instead.
+
+Confirm with `docker compose logs nginx`, which reports `Sourcing`, `Launching`, or
+`Ignoring ..., not executable` for each hook.
+
 ### Healthchecks
 
 Two independent healthchecks exist:
@@ -186,20 +205,25 @@ library. Never put these in the compose file or Dockerfile.
 
 ## Constraints
 
-### Reverse Proxy Count
+### App-Side Proxy Trust
 
-`REVERSE_PROXY_COUNT` controls how `django-ipware` validates `X-Forwarded-For`. It uses
-strict matching: `len(ips) - 1 == proxy_count`. A wrong count silently returns the wrong
-client IP. Set in compose `environment` with a default of 1; can be overridden via
-`.env`.
+Forwarding headers are ignored until `TRUSTED_PROXY` is set, because any client can send
+them. Until then the client IP comes from the socket peer and `X-Forwarded-Proto` is not
+believed, which is what a development server needs: it holds its own certificate, so the
+connection scheme is already accurate.
 
-- 0 = direct connection (all proxy headers ignored). This is the Django settings
-  default.
-- 1 = sidecar nginx only (compose default).
-- 2 = sidecar + an additional upstream proxy (e.g., Cloudflare).
+Compose hardcodes `TRUSTED_PROXY: "true"` for the app, since the app publishes no ports
+and is reachable only through the sidecar. That holds in every topology, so it is not a
+per-deployment choice.
 
-When `REVERSE_PROXY_COUNT > 0`, Django automatically trusts `X-Forwarded-Proto: https`
-(via `SECURE_PROXY_SSL_HEADER` in `app/settings.py`).
+When it is set, both the scheme and the client IP come from headers the sidecar wrote,
+so they are only as good as the trust boundary below.
+
+`REVERSE_PROXY_COUNT` is an escape hatch and should stay at its default of `0`. It
+counts hops that **append** to `X-Forwarded-For`, and the sidecar overwrites instead,
+so nothing appends. Raise it only after editing the template back to appending, and
+note that both failure directions are silent: too low returns a proxy address as the
+client, too high resolves `client_ip` to `None`.
 
 Related settings in `app/settings.py` (configured via `.env`):
 
@@ -208,10 +232,62 @@ Related settings in `app/settings.py` (configured via `.env`):
   otherwise differs from what Django reconstructs via the `Host` header (e.g.,
   `https://example.com:8443`). Without this, Django's CSRF middleware rejects POST
   requests with "Origin checking failed".
-- `REVERSE_PROXY_IP_HEADERS`: custom header order for IP resolution (e.g.,
-  `CF-Connecting-IP` for Cloudflare).
+- `REVERSE_PROXY_IP_HEADERS`: overrides which headers are tried, and in what order.
+  Leave unset while the sidecar is in the chain, since it normalizes into
+  `X-Forwarded-For` anyway. Ignored entirely when `TRUSTED_PROXY` is off.
 - `REVERSE_PROXY_REQUEST_ID_HEADER`: adopts an upstream request ID header instead of
-  generating one.
+  generating one. Also gated on `TRUSTED_PROXY`.
+
+### Sidecar Trust Boundary
+
+The sidecar is where client-supplied forwarding headers stop. It overwrites
+`X-Forwarded-For` with a single address instead of appending, and replaces
+`X-Forwarded-Proto` unless a trusted peer supplied it, so nothing a client sends reaches
+the app. `docker/11-write-real-ip-conf.sh` generates both rules from one setting.
+
+`REAL_IP_FROM` takes a comma-separated list of addresses or CIDRs to trust, and defaults
+to empty, meaning trust nothing. `REAL_IP_HEADER` names the header to read from a
+trusted peer and defaults to `X-Real-IP`. Prefer single-valued headers, since
+`X-Forwarded-For` additionally depends on `real_ip_recursive`, which this stack does not
+expose.
+
+`REAL_IP_FROM` therefore decides three things at once: the address in the sidecar's own
+access log, the client IP the app resolves, and whether `X-Forwarded-Proto` is believed.
+Leaving it empty behind a proxy is not merely a logging defect. The app then records
+the proxy's address and treats every request as plain HTTP, breaking CSRF origin checks
+on an HTTPS site. It fails closed rather than believing a forged value, but it fails.
+
+The sidecar only ever sees its immediate upstream, so configure it from that one hop
+rather than from the whole chain.
+
+| Immediate upstream              | `REAL_IP_FROM`           | `REAL_IP_HEADER`   |
+|---------------------------------|--------------------------|--------------------|
+| Nothing; the port is published  | *(empty)*                | *(unused)*         |
+| Cloudflare                      | Cloudflare's ranges      | `CF-Connecting-IP` |
+| `nginx-proxy`, configured below | nginx-proxy network CIDR | `X-Real-IP`        |
+
+Cloudflare behind `nginx-proxy` therefore gets no row of its own: by then `nginx-proxy`
+has already resolved the client into `$remote_addr`.
+
+That last row holds only if `nginx-proxy` is configured two ways, neither a default.
+
+`TRUST_DOWNSTREAM_PROXY=false` is wanted, though not for the client IP: `nginx-proxy`
+sets `X-Real-IP` from its own `$remote_addr` unconditionally, and the sidecar overwrites
+`X-Forwarded-For` regardless of what arrives. What the setting still governs is
+`X-Forwarded-Proto`. At its default of `true`, `nginx-proxy` passes a client's own value
+through, and the sidecar believes it because `nginx-proxy` is a trusted peer, letting a
+client assert `https` over a plaintext origin leg. With `false` it sends `$scheme`.
+
+Whether that `$remote_addr` is the real client depends on `nginx-proxy` resolving it,
+which for Cloudflare means its own `set_real_ip_from` list of Cloudflare's ranges plus
+`real_ip_header CF-Connecting-IP`. `nginx-proxy` ships neither, so that config has to be
+supplied to it. Without it `$remote_addr` is a Cloudflare edge address, and every layer
+below records that as the client. Such a list is maintained by hand, so it can also go
+stale against Cloudflare's published ranges with no symptom.
+
+Trusting a whole Docker network grants that trust to every container on it, any of which
+could then set the header. Narrow the CIDR when the network is shared with unrelated
+services.
 
 ### Data Directory Ownership
 

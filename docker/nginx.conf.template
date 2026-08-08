@@ -7,6 +7,9 @@
 # Hardcoded values that must match docker-compose.yml:
 #   "app"     - upstream hostname (compose service name)
 #   /media/   - media volume mount path in this container
+#
+# $forwarded_proto is defined by 11-write-real-ip-conf.sh, so nginx will not start
+# without that hook mounted.
 
 upstream app {
     server app:${APP_PORT};
@@ -50,8 +53,10 @@ server {
         proxy_pass http://app/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        # Overwrites rather than appends, so a client's own X-Forwarded-For never
+        # reaches the app.
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
         proxy_set_header Connection "";
     }
 }
