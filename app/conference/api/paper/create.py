@@ -67,7 +67,10 @@ async def persist_paper_entry(
     """
     tracks = await ConferenceService.visible_tracks(user)
     try:
-        track = await tracks.aget(conference=conference, uid=payload.track)
+        track = await tracks.select_related("code_pool").aget(
+            conference=conference,
+            uid=payload.track,
+        )
     except Track.DoesNotExist as exc:
         raise make_validation_error(
             path="track",

@@ -27,7 +27,7 @@ class InvitationTrackRoleEntryInline(
         self,
         request: HttpRequest,
     ) -> QuerySet[InvitationTrackRoleEntry]:  # pragma: no cover
-        return super().get_queryset(request).select_related("track")
+        return super().get_queryset(request).select_related("track__conference")
 
 
 @admin.register(Invitation)

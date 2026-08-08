@@ -207,6 +207,9 @@ async def generate_acceptance_letter(
                 paper=paper,
                 defaults={"template": payload.template, "context": context},
             )
+            # update_or_create doesn't cache FKs on the update path, and
+            # acceptance_letter_path traverses paper.conference.
+            letter.paper = paper
             letter.rendered_pdf.save(
                 "acceptance-letter.pdf",
                 ContentFile(pdf_bytes),

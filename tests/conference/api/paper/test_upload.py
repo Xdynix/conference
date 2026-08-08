@@ -387,7 +387,7 @@ class TestCreateSubmission:
         revision_service_create_submission: MagicMock,
         mock_visible_papers: AsyncMock,
     ) -> None:
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_papers.return_value = conference.papers.filter(pk=paper.pk)
         client.force_login(conference_chair)
 
         response = client.post(
@@ -440,7 +440,7 @@ class TestCreateSubmission:
             role=TrackRole.CHAIR,
         )
         update_object(paper, state=state)
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_papers.return_value = conference.papers.filter(pk=paper.pk)
         client.force_login(track_admin)
 
         response = client.post(
@@ -470,7 +470,7 @@ class TestCreateSubmission:
             role=TrackRole.CHAIR,
         )
         update_object(paper, state=state)
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_papers.return_value = conference.papers.filter(pk=paper.pk)
         client.force_login(track_admin)
 
         response = client.post(
@@ -496,7 +496,7 @@ class TestCreateSubmission:
         state: PaperState,
     ) -> None:
         update_object(paper, state=state)
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_papers.return_value = conference.papers.filter(pk=paper.pk)
         client.force_login(global_admin)
 
         response = client.post(
@@ -520,7 +520,7 @@ class TestCreateSubmission:
         state: PaperState,
     ) -> None:
         update_object(paper, state=state)
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_papers.return_value = conference.papers.filter(pk=paper.pk)
         client.force_login(conference_chair)
 
         response = client.post(
@@ -542,7 +542,7 @@ class TestCreateSubmission:
         mock_visible_papers: AsyncMock,
     ) -> None:
         update_object(paper, withdraw_time=timezone.now())
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_papers.return_value = conference.papers.filter(pk=paper.pk)
         client.force_login(conference_chair)
 
         response = client.post(
@@ -569,7 +569,7 @@ class TestCreateSubmission:
             "app.conference.services.revision.validate_upload",
             side_effect=InvalidFileTypeError("File type not allowed."),
         )
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_papers.return_value = conference.papers.filter(pk=paper.pk)
         client.force_login(conference_chair)
 
         response = client.post(
@@ -588,7 +588,7 @@ class TestCreateSubmission:
         sample_pdf: SimpleUploadedFile,
         mock_visible_papers: AsyncMock,
     ) -> None:
-        mock_visible_papers.return_value = Paper.objects.none()
+        mock_visible_papers.return_value = conference.papers.none()
         client.force_login(conference_chair)
 
         response = client.post(
@@ -670,7 +670,7 @@ class TestCreateSubmission:
         revision_service_create_submission: MagicMock,
         mock_visible_papers: AsyncMock,
     ) -> None:
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_papers.return_value = conference.papers.filter(pk=paper.pk)
         client.force_login(global_admin)
 
         response = client.post(
@@ -699,7 +699,7 @@ class TestCreateSubmission:
             user=admin,
             role=conference_role,
         )
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_papers.return_value = conference.papers.filter(pk=paper.pk)
         client.force_login(admin)
 
         response = client.post(
@@ -729,7 +729,7 @@ class TestCreateSubmission:
             user=admin,
             role=track_role,
         )
-        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_papers.return_value = conference.papers.filter(pk=paper.pk)
         client.force_login(admin)
 
         response = client.post(

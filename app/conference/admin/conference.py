@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.db.models import QuerySet
+from django.http.request import HttpRequest
 
 from app.conference.models import (
     AttendanceType,
@@ -23,6 +25,12 @@ class ConferenceRoleAssignmentInline(
     extra = 0
     autocomplete_fields = ("user",)
     readonly_fields = ("create_time", "update_time")
+
+    def get_queryset(
+        self,
+        request: HttpRequest,
+    ) -> QuerySet[ConferenceRoleAssignment]:  # pragma: no cover
+        return super().get_queryset(request).select_related("conference", "user")
 
 
 @admin.register(Conference)
@@ -60,6 +68,12 @@ class TrackRoleAssignmentInline(admin.TabularInline[TrackRoleAssignment, Track])
     extra = 0
     autocomplete_fields = ("track", "user")
     readonly_fields = ("create_time", "update_time")
+
+    def get_queryset(
+        self,
+        request: HttpRequest,
+    ) -> QuerySet[TrackRoleAssignment]:  # pragma: no cover
+        return super().get_queryset(request).select_related("track__conference", "user")
 
 
 @admin.register(Track)

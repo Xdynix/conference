@@ -218,7 +218,9 @@ class InvitationService:
                 current or new roles.
         """
         with Mutex.lock_in_transaction(str(invitation_uid), namespace="invitation"):
-            invitation = Invitation.objects.get(uid=invitation_uid)
+            invitation = Invitation.objects.select_related("conference").get(
+                uid=invitation_uid
+            )
 
             if not invitation.mutable:
                 raise ImmutableInvitation(_("Cannot update accepted invitation."))
@@ -318,7 +320,9 @@ class InvitationService:
                 roles.
         """
         with Mutex.lock_in_transaction(str(invitation_uid), namespace="invitation"):
-            invitation = Invitation.objects.get(uid=invitation_uid)
+            invitation = Invitation.objects.select_related("conference").get(
+                uid=invitation_uid
+            )
 
             conference_roles, track_roles = cls.get_invitation_roles(invitation)
             try:
@@ -574,7 +578,9 @@ class InvitationService:
             Mutex.lock_in_transaction(str(invitation.uid), namespace="invitation"),
             Mutex.lock_in_transaction(str(user.pk), namespace="user_role_assignments"),
         ):
-            invitation = Invitation.objects.get(pk=invitation.pk)
+            invitation = Invitation.objects.select_related("conference").get(
+                pk=invitation.pk
+            )
 
             if invitation.state == Invitation.State.ACCEPTED:
                 return False

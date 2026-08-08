@@ -213,7 +213,10 @@ async def upload_proof_file(
         code=paper_code,
     )
     proof = await aget_object_or_404(
-        PaperProof.objects.select_related("paper__track__conference"),
+        PaperProof.objects.select_related(
+            "paper__conference",
+            "paper__track__conference",
+        ),
         paper=paper,
     )
 

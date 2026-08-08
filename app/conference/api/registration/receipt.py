@@ -225,6 +225,9 @@ async def generate_receipt(
                 registration=registration,
                 defaults={"template": payload.template, "context": context},
             )
+            # update_or_create doesn't cache FKs on the update path, and
+            # receipt_path traverses registration.conference.
+            receipt.registration = registration
             receipt.rendered_pdf.save("receipt.pdf", ContentFile(pdf_bytes), save=False)
             receipt.save(update_fields=["rendered_pdf"])
 

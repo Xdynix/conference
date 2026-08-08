@@ -46,6 +46,7 @@ class PasswordResetTokenAdmin(admin.ModelAdmin[PasswordResetToken]):
     list_filter = ("create_time", "expire_time", "consume_time")
     list_select_related = ("user",)
     ordering = ("-create_time",)
+    autocomplete_fields = ("user",)
     readonly_fields = ("token_hash",)
     search_fields = ("user__username",)
 
@@ -57,5 +58,6 @@ class ApiKeyAdmin(admin.ModelAdmin[ApiKey]):
     list_filter = ("create_time", "revoke_time")
     list_select_related = ("user",)
     ordering = ("-create_time",)
+    autocomplete_fields = ("user",)
     readonly_fields = ("hashed_key", "auth_hash", "create_time", "last_use_time")
     search_fields = ("user__username",)
