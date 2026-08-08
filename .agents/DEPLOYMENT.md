@@ -13,7 +13,7 @@ Reference for modifying Docker, nginx, process management, or production setting
 | `docker/entrypoint.sh`           | Runs migrations before starting the CMD process.                                                                                       |
 | `docker/supervisord.conf`        | Process manager config: app server (granian) and background workers.                                                                   |
 | `docker/nginx.conf.template`     | Sidecar nginx: strips subpath, serves media via X-Accel-Redirect, proxies to app. Uses `envsubst` variables (`$APP_PORT`, `$SUBPATH`). |
-| `docker/litestream.yml`          | Litestream config for continuous SQLite replication to WebDAV. Uses env var placeholders expanded at runtime.                          |
+| `docker/litestream.yml`          | Litestream config for continuous SQLite replication to Cloudflare R2. Uses env var placeholders expanded at runtime.                   |
 | `docker/10-normalize-subpath.sh` | Nginx entrypoint hook: strips trailing slash from `$SUBPATH` before `envsubst` runs. Mounted into `/docker-entrypoint.d/`.             |
 
 <!-- markdownlint-enable MD013 -->
@@ -33,9 +33,9 @@ Reference for modifying Docker, nginx, process management, or production setting
 4. Verify the host-level nginx-proxy `client_max_body_size` is at least as large as the
    sidecar's value in `nginx.conf.template`. A smaller value on the outer proxy silently
    rejects uploads before they reach this stack.
-5. **(Optional) Enable backups:** Set `COMPOSE_PROFILES=backup` in `.env`, fill in the
-   `BACKUP_WEBDAV_*` credentials, and verify the WebDAV server is reachable from the
-   host.
+5. **(Optional) Enable backups:** Set `COMPOSE_PROFILES=backup` in `.env`, create the R2
+   bucket and an API token scoped to object read/write, then fill in the `BACKUP_S3_*`
+   values. Neither sidecar creates the bucket, so it must exist before first start.
 6. **(Optional) Typst assets:** Place asset files (logos, organization chop images) into
    `${HOST_DATA_DIR}/assets/` on the host. This directory is read at runtime from
    `DATA_DIR/assets/` inside the container. Receipts will generate without the seal if
@@ -127,6 +127,10 @@ The rclone volume mount (`/media:ro`) must point at the media subdirectory insid
 
 If the data directory layout or database filename changes, update both the Litestream
 config and the rclone volume mount accordingly.
+
+On the destination side, both sidecars write to the same R2 bucket under separate
+prefixes: Litestream owns `db/` (the `path` key in `docker/litestream.yml`) and rclone
+owns `media/`.
 
 ## Environment Variable Split
 
@@ -237,6 +241,12 @@ Litestream needs read-write access (WAL checkpointing); rclone only needs read a
 If `APP_UID` changes, update both sidecar `user` directives.
 
 The rclone entrypoint uses `$$` escaping to prevent Docker Compose from interpolating
-shell variables. It also runs `rclone obscure` at startup to convert the plaintext
-password into the obscured format rclone requires. Edits to the entrypoint script must
-preserve both mechanisms.
+shell variables. Edits to the entrypoint script must preserve it.
+
+Litestream applies R2's required signed-payload and concurrency settings automatically
+from the endpoint hostname, so they are deliberately absent from the config.
+
+`sync-interval` in `docker/litestream.yml` sets the worst-case data loss window. It is
+not the only driver of billed request volume: L0 retention checks and L1 compaction run
+on their own timers (`l0-retention-check-interval` and `levels`) regardless of write
+rate.

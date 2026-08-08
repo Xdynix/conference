@@ -1,8 +1,12 @@
 dbs:
   - path: /data/db.sqlite3
     replica:
-      type: webdav
-      webdav-url: ${LITESTREAM_WEBDAV_URL}
-      webdav-username: ${LITESTREAM_WEBDAV_USER}
-      webdav-password: ${LITESTREAM_WEBDAV_PASS}
+      type: s3
+      bucket: ${LITESTREAM_S3_BUCKET}
       path: db
+      endpoint: ${LITESTREAM_S3_ENDPOINT}
+      # R2 has no meaningful regions, but the S3 request signer requires a value.
+      region: auto
+      access-key-id: ${LITESTREAM_S3_ACCESS_KEY_ID}
+      secret-access-key: ${LITESTREAM_S3_SECRET_ACCESS_KEY}
+      sync-interval: 5m
