@@ -7,7 +7,7 @@
 # Before first run, ensure the host data directory is owned by the
 # container's non-root user (UID 900 by default):
 #
-#   mkdir -p .data/media && chown -R 900:900 .data
+#   mkdir -p var/media && chown -R 900:900 var
 
 x-logging: &default-logging
   driver: json-file
@@ -41,7 +41,7 @@ services:
       # Must match the volume mount target below.
       DATA_DIR: /data
     volumes:
-      - ${HOST_DATA_DIR:-./.data}:/data
+      - ${HOST_DATA_DIR:-./var}:/data
     deploy:
       resources:
         limits:
@@ -68,7 +68,7 @@ services:
     volumes:
       - ./docker/10-normalize-subpath.sh:/docker-entrypoint.d/10-normalize-subpath.sh:ro
       - ./docker/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
-      - ${HOST_DATA_DIR:-./.data}/media:/media:ro
+      - ${HOST_DATA_DIR:-./var}/media:/media:ro
     healthcheck:
       # localhost resolves to ::1 first here, and this server block is IPv4-only.
       test: [ "CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1/_ping" ]
@@ -91,7 +91,7 @@ services:
     user: "${APP_UID:-900}"
     logging: *default-logging
     volumes:
-      - ${HOST_DATA_DIR:-./.data}:/data
+      - ${HOST_DATA_DIR:-./var}:/data
       - ./docker/litestream.yml:/etc/litestream.yml:ro
     environment:
       LITESTREAM_WEBDAV_URL: ${BACKUP_WEBDAV_URL}
@@ -113,7 +113,7 @@ services:
     user: "${APP_UID:-900}"
     logging: *default-logging
     volumes:
-      - ${HOST_DATA_DIR:-./.data}/media:/media:ro
+      - ${HOST_DATA_DIR:-./var}/media:/media:ro
     environment:
       RCLONE_CONFIG_BACKUP_TYPE: webdav
       RCLONE_CONFIG_BACKUP_URL: ${BACKUP_WEBDAV_URL}

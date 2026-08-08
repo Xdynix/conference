@@ -123,7 +123,7 @@ The Litestream config (`docker/litestream.yml`) DB path must match `DATA_DIR` + 
 database filename used by Django settings. Currently `/data/db.sqlite3`.
 
 The rclone volume mount (`/media:ro`) must point at the media subdirectory inside
-`HOST_DATA_DIR`. Currently `${HOST_DATA_DIR:-./.data}/media`.
+`HOST_DATA_DIR`. Currently `${HOST_DATA_DIR:-./var}/media`.
 
 If the data directory layout or database filename changes, update both the Litestream
 config and the rclone volume mount accordingly.
