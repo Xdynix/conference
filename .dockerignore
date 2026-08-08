@@ -22,6 +22,7 @@
 /docker-compose.yml
 /etc/stubs/
 /justfile
+/scratch
 /scripts
 /tests
 

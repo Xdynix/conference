@@ -69,6 +69,7 @@ preview-features = ["audit-command"]
 
 [tool.ruff]
 cache-dir = ".cache/ruff"
+extend-exclude = ["scratch"]
 
 [tool.ruff.lint]
 # Without this, the G rules do not recognize loguru's imported logger.
