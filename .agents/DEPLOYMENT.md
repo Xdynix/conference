@@ -35,16 +35,19 @@ Reference for modifying Docker, nginx, process management, or production setting
    rejects uploads before they reach this stack.
 5. **(Optional) Enable backups:** Set `COMPOSE_PROFILES=backup` in `.env`, create the R2
    bucket and an API token scoped to object read/write, then fill in the `BACKUP_S3_*`
-   values. Neither sidecar creates the bucket, so it must exist before first start.
+   values. Neither sidecar creates the bucket, so it must exist before first start. Add
+   the bucket lifecycle rules described in [Backup Retention](#backup-retention); they
+   are created by hand and are not provisioned by this stack.
 6. **(Optional) Typst assets:** Place asset files (logos, organization chop images) into
    `${HOST_DATA_DIR}/assets/` on the host. This directory is read at runtime from
    `DATA_DIR/assets/` inside the container. Receipts will generate without the seal if
    it is absent.
 7. Build and start the stack: `docker compose up -d --build`.
-8. Verify healthchecks: `docker compose ps` should show `app` and `nginx` as healthy
-   (plus `litestream` and `rclone` if backups are enabled). The app healthcheck has a
-   start period (see `HEALTHCHECK` in the Dockerfile), so allow time for it to become
-   healthy after initial startup.
+8. Verify startup: `docker compose ps` should show `app` and `nginx` as healthy. The app
+   healthcheck has a start period (see `HEALTHCHECK` in the Dockerfile), so allow time
+   for it to become healthy after initial startup. The `litestream` and `rclone`
+   sidecars define no healthcheck and report only `Up` regardless of whether replication
+   is working, so confirm those from their container logs instead.
 
 ## Updating
 
@@ -128,9 +131,39 @@ The rclone volume mount (`/media:ro`) must point at the media subdirectory insid
 If the data directory layout or database filename changes, update both the Litestream
 config and the rclone volume mount accordingly.
 
-On the destination side, both sidecars write to the same R2 bucket under separate
-prefixes: Litestream owns `db/` (the `path` key in `docker/litestream.yml`) and rclone
-owns `media/`.
+On the destination side, the sidecars write to the same R2 bucket under three prefixes.
+Litestream owns `db/` (the `path` key in `docker/litestream.yml`), rclone mirrors the
+media directory into `media/`, and rclone's `--backup-dir` moves overwritten or deleted
+files into a dated folder under `media-trash/`. Without that backup directory a plain
+`rclone sync` would propagate local deletions to the only remote copy.
+
+### Backup Retention
+
+Retention is split between Litestream and R2, and the two must be configured to agree.
+
+`snapshot.retention` in `docker/litestream.yml` is what actually prunes database
+history. R2 bucket lifecycle rules are a backstop only, because R2 can acknowledge a
+delete request without performing it, leaving objects Litestream believes it removed.
+
+The bucket requires the lifecycle rules below. Create them by hand in the R2 dashboard
+under the bucket's Settings tab; nothing in this stack provisions them.
+
+<!-- markdownlint-disable MD013 -->
+
+| Prefix         | Action         | Age                           | Purpose                                                |
+|----------------|----------------|-------------------------------|--------------------------------------------------------|
+| `db/`          | Delete objects | At least `snapshot.retention` | Backstop for Litestream snapshot retention.            |
+| `media-trash/` | Delete objects | Match the `db/` rule          | Ages out files rclone moved aside instead of deleting. |
+
+<!-- markdownlint-enable MD013 -->
+
+Keep the `db/` rule at or above `snapshot.retention` in `docker/litestream.yml`. A
+shorter rule would delete history Litestream still considers live, and if replication
+has silently stopped it would eventually remove the last remaining snapshot.
+
+Never create a lifecycle rule on the `media/` prefix. That prefix holds the only copy of
+current media files rather than a history, so an age-based rule would delete backups of
+files that simply have not changed recently.
 
 ## Environment Variable Split
 
@@ -250,3 +283,6 @@ from the endpoint hostname, so they are deliberately absent from the config.
 not the only driver of billed request volume: L0 retention checks and L1 compaction run
 on their own timers (`l0-retention-check-interval` and `levels`) regardless of write
 rate.
+
+Retention is configured in two places that must agree; see
+[Backup Retention](#backup-retention).

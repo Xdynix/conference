@@ -131,7 +131,9 @@ services:
     command:
       - |
         while true; do
-          rclone sync /media backup:$$BACKUP_BUCKET/media --log-level INFO
+          rclone sync /media backup:$$BACKUP_BUCKET/media \
+            --backup-dir backup:$$BACKUP_BUCKET/media-trash/$$(date +%Y-%m-%d) \
+            --log-level INFO
           sleep $$BACKUP_MEDIA_INTERVAL
         done
     depends_on:
