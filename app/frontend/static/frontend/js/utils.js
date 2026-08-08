@@ -264,6 +264,21 @@
   }
 
   /**
+   * Parses a calendar date into a Date at local midnight.
+   *
+   * `new Date("2026-07-12")` yields UTC midnight, which the local-timezone
+   * formatters and getters below render as the previous day at negative offsets.
+   *
+   * @param {string} str - Date string, "YYYY-MM-DD" in the date-only case.
+   * @returns {Date} Parsed date.
+   */
+  function parseDateOnly(str) {
+    const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+    if (!parts) return new Date(str);
+    return new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
+  }
+
+  /**
    * Formats a date range for display.
    *
    * Handles various cases:
@@ -277,8 +292,8 @@
    * @returns {string} Formatted date range.
    */
   function formatDateRange(startStr, endStr) {
-    const start = startStr ? new Date(startStr) : null;
-    const end = endStr ? new Date(endStr) : null;
+    const start = startStr ? parseDateOnly(startStr) : null;
+    const end = endStr ? parseDateOnly(endStr) : null;
 
     if (start && end) {
       const sameMonthYear =
