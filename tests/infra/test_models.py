@@ -1,6 +1,7 @@
-import time
+from datetime import timedelta
 
 import pytest
+from django.utils import timezone
 from faker import Faker
 
 from app.infra.models import Mutex
@@ -39,12 +40,10 @@ class TestMutex:
         with Mutex.lock_in_transaction("key"):
             pass
 
-        key_lock = Mutex.objects.all()[0]
-        touch_time = key_lock.touch_time
-        time.sleep(0.01)
+        backdated_time = timezone.now() - timedelta(hours=1)
+        Mutex.objects.update(touch_time=backdated_time)
 
         with Mutex.lock_in_transaction("key"):
             pass
 
-        key_lock.refresh_from_db()
-        assert touch_time < key_lock.touch_time
+        assert Mutex.objects.get().touch_time > backdated_time
