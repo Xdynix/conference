@@ -88,7 +88,7 @@ select = [
     "DTZ", # flake8-datetimez
     "G", # flake8-logging-format
     "PT", # flake8-pytest-style
-    "T20", # flake8-print
+    "T", # flake8-debugger, flake8-print
     "SIM", # flake8-simplify
     "ARG", # flake8-unused-arguments
     "PTH", # flake8-use-pathlib
