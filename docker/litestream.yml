@@ -3,6 +3,16 @@
 snapshot:
   retention: 2160h
 
+# These fire on wall-clock timers regardless of write volume, and every tick costs an
+# R2 Class A operation; the upstream defaults (30s, 15s) are far more aggressive than
+# this backup needs.
+levels:
+  - interval: 30m
+  - interval: 6h
+  - interval: 24h
+
+l0-retention-check-interval: 30m
+
 dbs:
   - path: /data/db.sqlite3
     replica:
