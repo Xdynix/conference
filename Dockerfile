@@ -18,13 +18,17 @@ RUN chown ${APP_USER}:${APP_USER} ${HOME}
 ENV PATH="${HOME}/.venv/bin:$PATH"
 ENV PYTHONPATH="${HOME}"
 
-COPY --from=ghcr.io/astral-sh/uv:0.12.2 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.3 /uv /bin/uv
+# UV_CACHE_DIR is required: ENV HOME above moves uv's default cache to
+# $HOME/.cache/uv, which the BuildKit cache mount below would then miss,
+# baking the whole cache into the layer.
 ENV PYTHONUNBUFFERED=1 \
     PYTHONUTF8=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_FROZEN=1 \
-    UV_NO_SYNC=1
+    UV_NO_SYNC=1 \
+    UV_CACHE_DIR=/root/.cache/uv
 
 # Runs as root intentionally: the BuildKit cache mount defaults to root:root,
 # and the resulting .venv is read-only at runtime (UV_COMPILE_BYTECODE
