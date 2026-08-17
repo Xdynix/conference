@@ -5,7 +5,7 @@ paper submission and peer review through decisions, registration, and payments.
 
 ## Prerequisites
 
-- Python 3.13+
+- Python 3.14+
 - [uv](https://docs.astral.sh/uv/) (package manager)
 - [just](https://github.com/casey/just) (task runner)
 
