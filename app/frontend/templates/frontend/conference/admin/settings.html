@@ -132,7 +132,7 @@
                   :disabled="!$store.permissions.isChairRole"
                   required
                 >
-                  <template x-for="opt in Object.values(APP.enums.ConferenceVisibility)" :key="opt.value">
+                  <template x-for="opt in enumMembers(APP.enums.ConferenceVisibility)" :key="opt.value">
                     <option :value="opt.value" x-text="opt.label"></option>
                   </template>
                 </select>
@@ -643,7 +643,7 @@
                         :class="{'is-invalid': errors.visibility}"
                         required
                       >
-                        <template x-for="opt in Object.values(APP.enums.TrackVisibility)" :key="opt.value">
+                        <template x-for="opt in enumMembers(APP.enums.TrackVisibility)" :key="opt.value">
                           <option :value="opt.value" x-text="opt.label"></option>
                         </template>
                       </select>
@@ -817,7 +817,7 @@
                             :class="{'is-invalid': errors.visibility}"
                             required
                           >
-                            <template x-for="opt in Object.values(APP.enums.TrackVisibility)" :key="opt.value">
+                            <template x-for="opt in enumMembers(APP.enums.TrackVisibility)" :key="opt.value">
                               <option :value="opt.value" x-text="opt.label"></option>
                             </template>
                           </select>

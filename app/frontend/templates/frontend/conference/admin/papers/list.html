@@ -412,8 +412,7 @@
       'ecopyright', '-ecopyright',
     ];
 
-    const adminPaperListStateOptions = Object.values(APP.enums.PaperState)
-      .filter(s => s && typeof s.value === 'string')
+    const adminPaperListStateOptions = enumMembers(APP.enums.PaperState)
       .map(s => s.value);
 
     const adminPaperListColumnOptions = [
@@ -838,9 +837,7 @@
         // ---------------------------------------------------------------------------
 
         get stateOptions() {
-          return Object.values(APP.enums.PaperState)
-            .filter(s => s && typeof s.value === 'string')
-            .map(s => ({value: s.value, label: s.label}));
+          return enumMembers(APP.enums.PaperState);
         },
 
         get trackOptions() {

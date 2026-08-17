@@ -206,6 +206,17 @@
   // ---------------------------------------------------------------------------
 
   /**
+   * Lists an enum's members, skipping the `_collections` entry that
+   * `Object.values()` would also yield.
+   *
+   * @param {Object} enumObj - Enum object from APP.enums (e.g., APP.enums.InvitationState).
+   * @returns {Array<{value: string, label: string}>} The enum members in declaration order.
+   */
+  function enumMembers(enumObj) {
+    return Object.values(enumObj).filter((m) => typeof m.value === "string");
+  }
+
+  /**
    * Looks up an enum label by its value.
    *
    * @param {Object} enumObj - Enum object from APP.enums (e.g., APP.enums.InvitationState).
@@ -213,7 +224,7 @@
    * @returns {string|undefined} The label for the value, or undefined if not found.
    */
   function enumLabel(enumObj, value) {
-    return Object.values(enumObj).find((e) => e.value === value)?.label;
+    return enumMembers(enumObj).find((m) => m.value === value)?.label;
   }
 
   let regionsMap = null;
@@ -496,6 +507,7 @@
   // ---------------------------------------------------------------------------
 
   window.enumLabel = enumLabel;
+  window.enumMembers = enumMembers;
   window.extractUrlHash = extractUrlHash;
   window.formatDate = formatDate;
   window.formatDateRange = formatDateRange;

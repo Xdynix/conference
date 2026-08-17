@@ -433,7 +433,7 @@
               x-model="stateFilter"
             >
               <option value="">All states</option>
-              <template x-for="st in Object.values(APP.enums.InvitationState).filter(s => s.value)" :key="st.value">
+              <template x-for="st in enumMembers(APP.enums.InvitationState)" :key="st.value">
                 <option :value="st.value" x-text="st.label"></option>
               </template>
             </select>
@@ -1042,11 +1042,11 @@
         },
 
         get conferenceRoleOptions() {
-          return Object.values(APP.enums.ConferenceRole).filter(r => r.value && r.label);
+          return enumMembers(APP.enums.ConferenceRole);
         },
 
         get trackRoleOptions() {
-          return Object.values(APP.enums.TrackRole).filter(r => r.value && r.label);
+          return enumMembers(APP.enums.TrackRole);
         },
 
         {% comment %}

@@ -225,12 +225,10 @@
       'created', '-created',
     ];
 
-    const adminPaymentListTypeOptions = Object.values(APP.enums.PaymentType)
-      .filter(s => s && typeof s.value === 'string')
+    const adminPaymentListTypeOptions = enumMembers(APP.enums.PaymentType)
       .map(s => s.value);
 
-    const adminPaymentListMethodOptions = Object.values(APP.enums.PaymentMethod)
-      .filter(s => s && typeof s.value === 'string')
+    const adminPaymentListMethodOptions = enumMembers(APP.enums.PaymentMethod)
       .map(s => s.value);
 
     const adminPaymentListSchema = {
@@ -337,15 +335,11 @@
         // ---------------------------------------------------------------------------
 
         get typeOptions() {
-          return Object.values(APP.enums.PaymentType)
-            .filter(s => s && typeof s.value === 'string')
-            .map(s => ({value: s.value, label: s.label}));
+          return enumMembers(APP.enums.PaymentType);
         },
 
         get methodOptions() {
-          return Object.values(APP.enums.PaymentMethod)
-            .filter(s => s && typeof s.value === 'string')
-            .map(s => ({value: s.value, label: s.label}));
+          return enumMembers(APP.enums.PaymentMethod);
         },
 
         // ---------------------------------------------------------------------------

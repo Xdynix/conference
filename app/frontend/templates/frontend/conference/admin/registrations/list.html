@@ -321,8 +321,7 @@
       'receipt', '-receipt',
     ];
 
-    const adminRegistrationListStateOptions = Object.values(APP.enums.RegistrationState)
-      .filter(s => s && typeof s.value === 'string')
+    const adminRegistrationListStateOptions = enumMembers(APP.enums.RegistrationState)
       .map(s => s.value);
 
     const adminRegistrationListSchema = {
@@ -517,9 +516,7 @@
         // ---------------------------------------------------------------------------
 
         get stateOptions() {
-          return Object.values(APP.enums.RegistrationState)
-            .filter(s => s && typeof s.value === 'string')
-            .map(s => ({value: s.value, label: s.label}));
+          return enumMembers(APP.enums.RegistrationState);
         },
 
         get attendanceTypeOptions() {

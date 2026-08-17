@@ -51,7 +51,7 @@ Provides:
       required
     >
       <option value="">Select currency...</option>
-      <template x-for="c in Object.values(APP.enums.PaymentCurrency)" :key="c.value">
+      <template x-for="c in enumMembers(APP.enums.PaymentCurrency)" :key="c.value">
         <option :value="c.value" x-text="c.label"></option>
       </template>
     </select>
@@ -73,7 +73,7 @@ Provides:
       required
     >
       <option value="">Select type...</option>
-      <template x-for="t in Object.values(APP.enums.PaymentType)" :key="t.value">
+      <template x-for="t in enumMembers(APP.enums.PaymentType)" :key="t.value">
         <option :value="t.value" x-text="t.label"></option>
       </template>
     </select>
@@ -91,7 +91,7 @@ Provides:
       required
     >
       <option value="">Select method...</option>
-      <template x-for="m in Object.values(APP.enums.PaymentMethod)" :key="m.value">
+      <template x-for="m in enumMembers(APP.enums.PaymentMethod)" :key="m.value">
         <option :value="m.value" x-text="m.label"></option>
       </template>
     </select>

@@ -463,12 +463,19 @@ if (data.state === APP.enums.InvitationState.ACCEPTED.value) { ...
 // Display label (lookup by value)
 <span x-text="enumLabel(APP.enums.InvitationState, item.state)"></span>
 
+// Iterate members, e.g. to build select options
+<template x-for="s in enumMembers(APP.enums.InvitationState)" :key="s.value">
+
 // Check membership in a collection
 APP.enums.ConferenceRole._collections.admins.includes(user.role)
 ```
 
+Every enum object carries a `_collections` entry alongside its members, so iterate with
+`enumMembers()` rather than `Object.values()`; the latter yields a trailing non-member
+value that renders as a blank option.
+
 -> Implementation: `app/frontend/templatetags/frontend_tags.py` (`_enum_to_dict`,
-`enums_json`), `app/frontend/static/frontend/js/utils.js` (`enumLabel`)
+`enums_json`), `app/frontend/static/frontend/js/utils.js` (`enumLabel`, `enumMembers`)
 
 ### Role-Based Permissions
 
@@ -510,6 +517,7 @@ Common utilities in `app/frontend/static/frontend/js/utils.js`:
 |-----------------------|----------------------------------------------------|
 | `mapErrors(details)`  | Convert API validation errors to field-keyed map   |
 | `enumLabel(enum, v)`  | Look up enum label by value                        |
+| `enumMembers(enum)`   | List enum members, excluding `_collections`        |
 | `formatDate(iso)`     | Format ISO date string                             |
 | `formatDateRange()`   | Format date range with smart month/year handling   |
 | `formatFileSize()`    | Human-readable file size (KB, MB, etc.)            |

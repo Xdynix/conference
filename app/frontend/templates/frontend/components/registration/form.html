@@ -22,7 +22,7 @@ This component expects the parent to provide:
       x-model="form.state"
       required
     >
-      <template x-for="s in Object.values(APP.enums.RegistrationState)" :key="s.value">
+      <template x-for="s in enumMembers(APP.enums.RegistrationState)" :key="s.value">
         <option :value="s.value" x-text="s.label"></option>
       </template>
     </select>
@@ -172,7 +172,7 @@ This component expects the parent to provide:
         x-model="form.title"
       >
         <option value="">None</option>
-        <template x-for="t in Object.values(APP.enums.RegistrationTitle)" :key="t.value">
+        <template x-for="t in enumMembers(APP.enums.RegistrationTitle)" :key="t.value">
           <option :value="t.value" x-text="t.label"></option>
         </template>
       </select>
