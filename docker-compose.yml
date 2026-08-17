@@ -113,6 +113,9 @@ services:
       resources:
         limits:
           memory: 64m
+    # Litestream retries its final sync for up to 30s on SIGTERM; the 10s Compose
+    # default kills it mid-retry and drops the last replication window.
+    stop_grace_period: 35s
     restart: unless-stopped
 
   rclone:

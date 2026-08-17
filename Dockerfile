@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM debian:trixie-slim
 
 ARG APP_USER=main
@@ -18,7 +19,7 @@ RUN chown ${APP_USER}:${APP_USER} ${HOME}
 ENV PATH="${HOME}/.venv/bin:$PATH"
 ENV PYTHONPATH="${HOME}"
 
-COPY --from=ghcr.io/astral-sh/uv:0.12.3 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /bin/uv
 # UV_CACHE_DIR is required: ENV HOME above moves uv's default cache to
 # $HOME/.cache/uv, which the BuildKit cache mount below would then miss,
 # baking the whole cache into the layer.
@@ -26,8 +27,6 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONUTF8=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_FROZEN=1 \
-    UV_NO_SYNC=1 \
     UV_CACHE_DIR=/root/.cache/uv
 
 # Runs as root intentionally: the BuildKit cache mount defaults to root:root,
@@ -36,7 +35,7 @@ ENV PYTHONUNBUFFERED=1 \
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --no-install-project --no-default-groups --group prod
+    uv sync --locked --no-install-project --no-default-groups --group prod
 
 COPY --chown=${APP_USER}:${APP_USER} . .
 
@@ -46,7 +45,7 @@ ENV APP_USER=${APP_USER} APP_PORT=${APP_PORT}
 EXPOSE ${APP_PORT}
 # The healthcheck URL has no FORCE_SCRIPT_NAME prefix because granian receives
 # requests after the sidecar nginx strips the subpath.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --start-interval=2s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:${APP_PORT}/api/health-status')"
 USER ${APP_USER}
 
