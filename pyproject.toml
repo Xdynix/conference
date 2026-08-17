@@ -81,6 +81,7 @@ select = [
     "I", # isort
     "PGH", # pygrep-hooks
     "UP", # pyupgrade
+    "ASYNC", # flake8-async
     "S", # flake8-bandit
     "B", # flake8-bugbear
     "C4", # flake8-comprehensions
