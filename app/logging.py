@@ -146,6 +146,7 @@ def configure_logging(
                 LoguruIntegration(
                     event_format=lambda _: "{message}",
                     breadcrumb_format=lambda _: "{message}",
+                    capture_sentry_logs=True,
                 ),
             ],
             # Fully disable `LoggingIntegration` to prevent it from monkey-patching
@@ -154,7 +155,6 @@ def configure_logging(
             # there.
             disabled_integrations=[LoggingIntegration()],
             before_send=sentry_before_send,
-            enable_logs=True,
             environment="development" if debug else "production",
             send_default_pii=False,
             traces_sampler=traces_sampler,
