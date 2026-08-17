@@ -23,7 +23,7 @@ This component expects the parent to provide:
       required
     >
       <template x-for="s in Object.values(APP.enums.RegistrationState)" :key="s.value">
-        <option :value="s.value" x-text="s.label" :selected="s.value === form.state"></option>
+        <option :value="s.value" x-text="s.label"></option>
       </template>
     </select>
     <div class="invalid-feedback" x-text="errors.state"></div>

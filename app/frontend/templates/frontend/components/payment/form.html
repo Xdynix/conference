@@ -52,7 +52,7 @@ Provides:
     >
       <option value="">Select currency...</option>
       <template x-for="c in Object.values(APP.enums.PaymentCurrency)" :key="c.value">
-        <option :value="c.value" x-text="c.label" :selected="c.value === form.currency"></option>
+        <option :value="c.value" x-text="c.label"></option>
       </template>
     </select>
     <div class="invalid-feedback" x-text="errors.currency"></div>
@@ -74,7 +74,7 @@ Provides:
     >
       <option value="">Select type...</option>
       <template x-for="t in Object.values(APP.enums.PaymentType)" :key="t.value">
-        <option :value="t.value" x-text="t.label" :selected="t.value === form.type"></option>
+        <option :value="t.value" x-text="t.label"></option>
       </template>
     </select>
     <div class="invalid-feedback" x-text="errors.type"></div>
@@ -92,7 +92,7 @@ Provides:
     >
       <option value="">Select method...</option>
       <template x-for="m in Object.values(APP.enums.PaymentMethod)" :key="m.value">
-        <option :value="m.value" x-text="m.label" :selected="m.value === form.method"></option>
+        <option :value="m.value" x-text="m.label"></option>
       </template>
     </select>
     <div class="invalid-feedback" x-text="errors.method"></div>
