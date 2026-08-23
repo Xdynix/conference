@@ -15,7 +15,14 @@ class AuditLogAdmin(admin.ModelAdmin[AuditLog]):
         "resource_id",
         "scope",
     )
-    list_filter = ("action", "resource", "scope")
+    list_filter = (
+        "action",
+        "resource",
+        "scope",
+        # Blank scope is unselectable in the default filter, hence the paired entry.
+        ("scope", admin.EmptyFieldListFilter),
+        ("actor_uid", admin.EmptyFieldListFilter),
+    )
     search_fields = (
         "actor_uid",
         "actor_label",
