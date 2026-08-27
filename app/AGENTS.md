@@ -1,6 +1,7 @@
 # Backend Guidelines
 
-This document defines backend implementation patterns for the project.
+Conventions for Python under `app/`: API endpoints, services, authorization, audit
+logging, and background jobs.
 
 ## Architecture Principles
 
@@ -72,7 +73,7 @@ from asgiref.sync import sync_to_async
 
 
 @router.post("/endpoint")
-async def my_endpoint(request: HttpRequest) -> dict[str, str]:
+async def my_endpoint(request: AuthedHttpRequest) -> dict[str, str]:
     user = await request.auser()
     await sync_to_async(MyService.transactional_operation)(user)
     return {"status": "ok"}
@@ -186,8 +187,8 @@ The application uses layered authorization with roles at three scopes.
 **Global roles** (`GlobalRole` in `app/core/models.py`): Platform-wide, not scoped to
 any conference.
 
-- **ADMIN** — Platform operator. Full read/write access across all conferences.
-- **READ_ALL** — Auditor/observer. Cross-conference read access without write
+- **ADMIN** - Platform operator. Full read/write access across all conferences.
+- **READ_ALL** - Auditor/observer. Cross-conference read access without write
   privileges.
 
 Both are treated as "globally privileged" and receive full conference scope.
@@ -195,13 +196,13 @@ Both are treated as "globally privileged" and receive full conference scope.
 **Conference roles** (`ConferenceRole` in `app/conference/models/role.py`): Scoped to
 one conference via `ConferenceRoleAssignment`.
 
-- **CHAIR** — The authority. Full administrative access, including the ability to
+- **CHAIR** - The authority. Full administrative access, including the ability to
   delegate admin power (assign any role, including Chair/Secretary).
-- **SECRETARY** — Operational admin. Same access as Chair for day-to-day operations, but
+- **SECRETARY** - Operational admin. Same access as Chair for day-to-day operations, but
   cannot escalate privileges (can only assign Reviewer/Member).
-- **REVIEWER** — Subject-matter expert. Participates in the review process but has no
+- **REVIEWER** - Subject-matter expert. Participates in the review process but has no
   administrative access.
-- **MEMBER** — Basic participant. Grants visibility into member-only resources. No admin
+- **MEMBER** - Basic participant. Grants visibility into member-only resources. No admin
   or review privileges.
 
 **Track roles** (`TrackRole` in `app/conference/models/role.py`): Same four roles as
@@ -213,23 +214,23 @@ Both role enums provide grouping helpers: `admins()` returns [CHAIR, SECRETARY];
 
 ### Two-Layer Enforcement
 
-**Layer 1 — API gate**: The `auth=` parameter on each endpoint controls entry using
+**Layer 1 - API gate**: The `auth=` parameter on each endpoint controls entry using
 composable `SessionAuth` instances. Two modules provide guards:
 
-`app/core/auth.py` — global guards:
+`app/core/auth.py` - global guards:
 
-- `is_authenticated` — any active, logged-in user. Use when further scoping happens at
+- `is_authenticated` - any active, logged-in user. Use when further scoping happens at
   layer 2 (e.g., "list my papers").
-- `has_any_roles(GlobalRole.ADMIN)` — global admins only (superusers always pass).
-- `has_any_roles(GlobalRole.ADMIN, GlobalRole.READ_ALL)` — admins or read-all users.
+- `has_any_roles(GlobalRole.ADMIN)` - global admins only (superusers always pass).
+- `has_any_roles(GlobalRole.ADMIN, GlobalRole.READ_ALL)` - admins or read-all users.
 - Combine with `&` (all required) or `|` (any sufficient) for composed guards.
 
-`app/conference/auth.py` — conference-scoped guards that resolve the conference from URL
+`app/conference/auth.py` - conference-scoped guards that resolve the conference from URL
 path parameters and check conference or track roles. Most conference endpoints use
 these. Use global guards only for platform-wide endpoints (user management, sessions) or
 when combined with conference guards via `|`.
 
-**Layer 2 — data scoping**: Services use `ConferenceAccessService.context()` to build a
+**Layer 2 - data scoping**: Services use `ConferenceAccessService.context()` to build a
 `ConferenceAccessContext` and filter querysets by the user's effective scope.
 
 -> Implementation: `app/core/auth.py`, `app/conference/auth.py`,
@@ -240,16 +241,21 @@ when combined with conference guards via `|`.
 `ConferenceAccessService.context()` resolves a user's effective privileges for a
 conference into a frozen dataclass with these key fields:
 
-- `has_full_conference_scope` — `True` when the user is globally privileged (superuser
+- `has_full_conference_scope` - `True` when the user is globally privileged (superuser
   or global admin/read-all) or a conference admin (CHAIR or SECRETARY). Grants access to
   all tracks.
-- `administered_track_ids` — tracks where the user is a track CHAIR or SECRETARY. Only
+- `administered_track_ids` - tracks where the user is a track CHAIR or SECRETARY. Only
   populated when `has_full_conference_scope` is `False`.
+
+The default `global_roles` includes READ_ALL. Mutation endpoints must narrow it to
+`(GlobalRole.ADMIN,)`; read paths pass their `global_readable` roles through.
 
 Services use this to scope querysets:
 
 ```python
-ctx = await ConferenceAccessService.context(conference=conference, user=user)
+ctx = await ConferenceAccessService.context(
+    conference=conference, user=user, global_roles=(GlobalRole.ADMIN,)
+)
 if ctx.has_full_conference_scope:
     return papers
 if not ctx.administered_track_ids:
@@ -311,6 +317,8 @@ PaperAbstract = Annotated[
   endpoints, or define them inline in `api.py` when endpoint-specific.
 - See `app/conference/types.py` for examples, particularly `Invitation` which composes
   base schemas (`UserConferenceProfile`, `Profile`) without resolvers.
+- Enums the frontend reads must be registered in `enums_json()`
+  (`app/frontend/templatetags/frontend_tags.py`).
 
 ### Response Prefetch Pattern
 
@@ -318,18 +326,13 @@ Complex responses often require prefetching related data to avoid N+1 queries. D
 prefetch helpers that annotate querysets with computed fields:
 
 ```python
-async def with_paper_prefetch(queryset: QuerySet[Paper]) -> QuerySet[Paper]:
-    return (
-        queryset.select_related("conference", "track", "owner__profile")
-        .annotate(
-            submitted_average=Avg("reviews__recommendation", filter=Q(...)),
-            final_count=Count("revisions", filter=Q(is_final=True)),
-        )
-        .prefetch_related(...)
-    )
+async def with_paper_prefetch(queryset: QuerySet[Paper], ...) -> QuerySet[Paper]:
+    return queryset.select_related(...).annotate(...).prefetch_related(...)
 ```
 
 Call prefetch helpers before returning paginated or detailed objects.
+
+-> Example: `with_paper_prefetch` in `app/conference/api/paper/core.py`.
 
 ## Error Handling
 
@@ -365,7 +368,7 @@ Always chain exceptions with `from exc` to preserve the original traceback:
 
 ```python
 except PaperStateError as exc:
-raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
+    raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 ```
 
 ### Logging Practices
@@ -379,7 +382,7 @@ raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 - Do not add `logger.info()` calls for successful mutations in API views or services;
   the audit log covers these. The `audit()` helper emits its own structured log line.
 
-### Audit Logging
+## Audit Logging
 
 All mutation API endpoints must call `audit()` from `app.audit.services` to record who
 did what. The audit helper writes to both the database and the application logger, so no
@@ -426,8 +429,9 @@ await audit(
 
 - **Scope**: Pass `scope=conference.name` for conference-scoped endpoints. Global
   endpoints (user management, sessions, password reset) omit it.
-- **Resource ID**: Always `str(instance.uid)` for ULID-based models. Leave empty for
-  batch operations with no single target.
+- **Resource ID**: Always `str(instance.uid)` for ULID-based models. Batch operations
+  emit one entry with the `AuditResource` enum as `resource`, no resource ID, and counts
+  in `detail`.
 - **Payload**: Pass the request payload directly. `SecretStr` fields (passwords)
   serialize as masked values automatically. Omit when the payload only contains data
   already captured in resource metadata.
@@ -493,64 +497,3 @@ the scheduler.
 - Use `jitter` to spread execution when exact timing is not critical.
 - Jobs run outside Django's request-response cycle, so database connections are cleaned
   up automatically by a listener in `app/infra/services.py`.
-
-## Testing
-
-### Framework and Database Testing
-
-- Use pytest with pytest-django, pytest-asyncio, faker, and pytest-mock.
-- Use `pytest-mock`'s `mocker` fixture instead of `unittest.mock.patch`.
-- Use `@pytest.mark.django_db` for tests that access the database.
-- Prefer synchronous tests whenever the system under test is synchronous; async test
-  cases are only needed when the subject itself is async because sync tests are simpler
-  and faster.
-- If the system under test is async or the test covers transactional behavior (
-  `IntegrityError` propagation, rollbacks, `transaction.on_commit`, etc.), mark the test
-  function or suite with `transaction=True`.
-- Use Django's async ORM methods (`acreate`, `acount`, `aexists`) in async tests.
-- Do not add `@pytest.mark.asyncio`; pytest-asyncio handles async tests automatically.
-- Annotate the `settings` fixture as `django.conf.LazySettings`, even though the fixture
-  actually yields `pytest_django.Settings`. Only the former gives typed access to
-  individual settings, including project-specific ones; the latter resolves every
-  attribute to `Any`.
-
-### Test Organization and Best Practices
-
-- **Naming**: Use `test_happy_path` or `test_smoke` for main functionality tests and
-  descriptive names for edge cases.
-- **Structure**: Create helper factory functions with sensible defaults for test data
-  setup.
-- **Class-based vs Function-based Tests**: Both function-based and class-based tests are
-  acceptable. Use class-based tests when there are several components in the same test
-  file that need boundaries between them (e.g., to avoid sharing fixtures or helpers).
-  Use function-based tests for simpler, standalone tests.
-- **Fixtures**: Use fixtures for common mocks (e.g., `mock_send` fixture for email
-  mocking). Only fixtures with truly generic concepts (e.g., global mocks, common API
-  clients) should be placed in `conftest.py`. Component-specific or test-class-specific
-  fixtures should be defined inline.
-- **Docstrings**: Do not add docstrings to test cases if their names are clear enough.
-  Docstrings for test helpers are acceptable when they clarify complex setup or
-  behavior.
-- **Assertions**: Use `tests.helpers.any_*` values for flexible type-based assertions.
-- **Code Quality**: Write concise assertions like
-  `assert await Model.objects.filter().acount() == 1`.
-- **Annotations**: Add `# noqa: ARG002` for intentionally unused fixture parameters.
-- **Imports**: Import `MagicMock` from `unittest.mock` for better type hints.
-
-### API Test Pattern
-
-Cover these cases (see `tests/conference/api/conference/test_create.py` for examples):
-
-- Happy path with full response and service call verification.
-- Input parsing/sanitization and defaults.
-- Validation errors with `loc`/`msg` assertions.
-- Service exception -> HTTP response mapping.
-- Authorization (unauthenticated, unauthorized, allowed roles).
-- Partial updates: "omit keeps existing" and "empty clears value".
-
-### Service Test Pattern
-
-- Test services directly with `@pytest.mark.django_db`.
-- Mock external dependencies (email, external APIs) but not the database.
-- Test domain exceptions are raised for invalid states.
-- See `tests/conference/services/` for examples.

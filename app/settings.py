@@ -303,7 +303,7 @@ TRUSTED_PROXY: bool = config("TRUSTED_PROXY", default=False, cast=bool)
 # validates strictly: len(ips) - 1 == proxy_count. The default of 0 suits a proxy that
 # overwrites the header, as the nginx sidecar does.
 #
-# See .agents/DEPLOYMENT.md for the per-topology table.
+# See docker/AGENTS.md for the per-topology table.
 
 REVERSE_PROXY_COUNT: int = config("REVERSE_PROXY_COUNT", default=0, cast=int)
 

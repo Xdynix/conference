@@ -1,6 +1,7 @@
 # Deployment Guidelines
 
-Reference for modifying Docker, nginx, process management, or production settings.
+Conventions and coupling rules for the production stack: `Dockerfile`,
+`docker-compose.yml`, the files under `docker/`, and the settings they configure.
 
 ## Deployment Files
 
@@ -21,10 +22,9 @@ Reference for modifying Docker, nginx, process management, or production setting
 
 ## First Deployment Checklist
 
-1. Create `.env` from the project's environment variable documentation and fill in all
-   secrets and site-specific values (see
-   [Environment Variable Split](#environment-variable-split) for what belongs in `.env`
-   vs. compose `environment`).
+1. Create `.env` from `.env.example` and fill in all secrets and site-specific values
+   (see [Environment Variable Split](#environment-variable-split) for what belongs in
+   `.env` vs. compose `environment`).
 2. Create the external Docker network that nginx-proxy expects:
    `docker network create nginx-proxy`.
 3. Create the host data directory (including the `media` subdirectory) and set ownership
@@ -194,14 +194,14 @@ current set and the comments explaining each.
 
 ### `.env` File (secrets and user-configurable settings)
 
-Application secrets (`SECRET_KEY`), database path overrides, email credentials,
-Cloudflare Turnstile keys, branding, and site name. Loaded by Django's `decouple`
-library. Never put these in the compose file or Dockerfile.
+Secrets, credentials, and site-specific settings (e.g. `SECRET_KEY`, email credentials,
+Cloudflare Turnstile keys, branding); `.env.example` documents the full set. Loaded by
+Django's `decouple` library. Never put these in the compose file or Dockerfile.
 
 ### Compose-level variables (in `.env`, consumed by compose itself)
 
-`VIRTUAL_HOST`, `VIRTUAL_PATH`, `HOST_DATA_DIR`. These appear in compose interpolation
-(`${VAR}`) and are not passed to Django directly.
+Values that compose itself interpolates (`${VAR}` in `docker-compose.yml`), e.g.
+`VIRTUAL_HOST`, `VIRTUAL_PATH`, `HOST_DATA_DIR`. They are not passed to Django directly.
 
 ## Constraints
 
@@ -328,9 +328,11 @@ default log level.
 ### Upload Size Limit
 
 The maximum request body size is set via `client_max_body_size` in
-`nginx.conf.template`. Each proxy in the chain enforces its own limit independently; the
-host-level nginx-proxy must allow at least as much as the sidecar, otherwise it rejects
-the request before it reaches this stack.
+`nginx.conf.template`. It must exceed the largest per-file limit in `app/settings.py`
+(`MAX_*_SIZE`) including the multiplier the upload endpoints apply for admins; the
+comment above those settings states the current bound. Each proxy in the chain enforces
+its own limit independently; the host-level nginx-proxy must allow at least as much as
+the sidecar, otherwise it rejects the request before it reaches this stack.
 
 ### Dependency Installation
 

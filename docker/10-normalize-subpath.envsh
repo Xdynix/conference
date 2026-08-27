@@ -2,5 +2,5 @@
 # Strip trailing slash from SUBPATH before envsubst processes the nginx template.
 #
 # The .envsh extension and the executable bit are both load-bearing; see
-# "Nginx Entrypoint Hooks" in .agents/DEPLOYMENT.md.
+# "Nginx Entrypoint Hooks" in docker/AGENTS.md.
 export SUBPATH="${SUBPATH%/}"

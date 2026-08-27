@@ -1,5 +1,5 @@
 # 90 days. Prunes database history; the R2 lifecycle rule on the db/ prefix must be at
-# least as long. See .agents/DEPLOYMENT.md "Backup Retention".
+# least as long. See docker/AGENTS.md "Backup Retention".
 snapshot:
   retention: 2160h
 

@@ -11,7 +11,8 @@
 
 # Dev only files
 /*.md
-/.agents
+**/AGENTS.md
+**/CLAUDE.md
 /.commitlintrc.yaml
 /.env
 /.env.*

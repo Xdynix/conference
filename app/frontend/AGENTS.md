@@ -1,16 +1,19 @@
 # Frontend Guidelines
 
-This document defines frontend implementation patterns for the project.
+Conventions for templates, Alpine.js components, and static assets under
+`app/frontend/`.
 
 ## Technology Stack
 
-| Layer             | Technology      |
-|-------------------|-----------------|
-| CSS Framework     | Bootstrap 5.3+  |
-| Reactivity        | Alpine.js 3     |
-| Icons             | Bootstrap Icons |
-| HTTP Client       | axios           |
-| Searchable Select | Tom Select      |
+| Layer             | Technology                        |
+|-------------------|-----------------------------------|
+| CSS Framework     | Bootstrap 5.3+                    |
+| Reactivity        | Alpine.js 3                       |
+| Icons             | Bootstrap Icons                   |
+| HTTP Client       | axios                             |
+| Searchable Select | Tom Select                        |
+| Markdown Display  | highlight.js, github-markdown-css |
+| Client-Side Zip   | fflate                            |
 
 All frontend dependencies are downloaded locally and served via Django's static files
 system. No npm, bundlers, or build steps are used.
@@ -103,7 +106,9 @@ $store.breadcrumb.set([
 
 ## Views
 
-Two view classes handle authentication requirements:
+`PublicView` and `ProtectedView` in `app/frontend/views.py` handle authentication
+requirements; `app/frontend/urls.py` aliases their `as_view` as `public_view` and
+`protected_view`:
 
 ```python
 # Public pages (login, registration)
@@ -122,7 +127,7 @@ path("account/", protected_view(template_name="frontend/account.html"))
 | Static config         | `APP.config` | CSRF, upload limits, site name |
 | Enum definitions      | `APP.enums`  | PaperState, ConferenceRole     |
 | Page parameters       | `APP.params` | conference_name, paper_code    |
-| API URLs              | `APP.urls`   | session.get, myPaper.create    |
+| API URLs              | `APP.urls`   | session.get, paper.get(...)    |
 | Reactive shared state | Alpine store | Session, theme, conference     |
 | Component-local state | `x-data`     | Form fields, loading, errors   |
 
@@ -183,10 +188,10 @@ prevents accidental data loss during saves.
 **Usage**:
 
 ```javascript
-// CSRF header is automatically included
-const {data} = await api.post(APP.urls.paper.create, payload);
-const {data} = await api.patch(APP.urls.paper.update(code), payload);
-const {data} = await api.delete(APP.urls.paper.delete(code));
+// CSRF header is automatically included; URLs come from APP.urls or {% url %}
+const {data} = await api.post(APP.urls.<group>.<name>, payload);
+const {data} = await api.patch(APP.urls.<group>.<name>(code), payload);
+const {data} = await api.delete(APP.urls.<group>.<name>(code));
 ```
 
 ## Forms
@@ -283,13 +288,13 @@ Components are Django template includes with parameters:
 <!-- markdownlint-disable MD013 -->
 
 ```html
-{% include "frontend/components/region-select.html" with id="region-code" label="Region" model="form.regionCode" error_key="region_code" required=True autocomplete="country-name" %}
+{% include "frontend/components/password-input.html" with id="password" label="Password" model="form.password" error_key="password" autocomplete="new-password" %}
 ```
 
 <!-- markdownlint-enable MD013 -->
 
-The `model` parameter uses camelCase (path to form field), while `error_key` uses
-snake_case (matches API error `loc`).
+The `model` parameter uses camelCase (path to the form field), while `error_key` uses
+snake_case (matches the API error `loc`).
 
 Document parameters in a comment block at the top of the component file.
 
@@ -407,7 +412,7 @@ Use `urlTemplate()` for URLs with dynamic segments:
 urls: {
   paper: {
     get: urlTemplate(
-      "{% url 'api-1.0.0:get-my-paper' '__CONFERENCE_NAME__' '__PAPER_CODE__' %}",
+      "{% url 'api-1.0.0:get-paper' conference_name='__CONFERENCE_NAME__' paper_code='__PAPER_CODE__' %}",
       "conference_name", "paper_code"
     )
   }
@@ -477,7 +482,7 @@ value that renders as a blank option.
 -> Implementation: `app/frontend/templatetags/frontend_tags.py` (`_enum_to_dict`,
 `enums_json`), `app/frontend/static/frontend/js/utils.js` (`enumLabel`, `enumMembers`)
 
-### Role-Based Permissions
+## Role-Based Permissions
 
 The `permissions` Alpine store (computed from the user's session and conference profile)
 provides boolean flags for UI gating:
@@ -511,23 +516,9 @@ const trackRoles = $store.conference.profile?.track_roles;
 
 ## Utilities Reference
 
-Common utilities in `app/frontend/static/frontend/js/utils.js`:
-
-| Function              | Purpose                                            |
-|-----------------------|----------------------------------------------------|
-| `mapErrors(details)`  | Convert API validation errors to field-keyed map   |
-| `enumLabel(enum, v)`  | Look up enum label by value                        |
-| `enumMembers(enum)`   | List enum members, excluding `_collections`        |
-| `formatDate(iso)`     | Format ISO date string                             |
-| `formatDateRange()`   | Format date range with smart month/year handling   |
-| `formatFileSize()`    | Human-readable file size (KB, MB, etc.)            |
-| `validateFile()`      | Validate file against upload constraints           |
-| `formatProfileName()` | Format name from given_name/family_name fields     |
-| `paperStateBadge()`   | Get badge class and label for paper state          |
-| `reviewStateBadge()`  | Get badge class and label for review state         |
-| `regionName(code)`    | Look up region name by code                        |
-| `safeRedirectUrl()`   | Validate redirect URL is same-origin               |
-| `urlTemplate()`       | Create URL builder from template with placeholders |
+Shared helpers live in `app/frontend/static/frontend/js/utils.js`; each function carries
+a doc comment. Check there before writing a new helper (e.g. formatters, badge mappers,
+URL builders).
 
 ## Dark Mode
 
@@ -579,8 +570,8 @@ new Intl.DateTimeFormat('en-US', {dateStyle: 'medium', timeStyle: 'short'})
 
 ### Content Security Policy
 
-Currently using relaxed CSP (`'unsafe-inline'`) for inline scripts and Alpine.js
-directives. When Django 6.0 is available, migrate to nonce-based script allowlisting.
+No CSP is configured. Inline scripts and Alpine.js directives would need nonce-based
+allowlisting (Django's built-in CSP support) before one can be enabled.
 
 ## Accessibility
 
@@ -610,8 +601,8 @@ Baseline approach: don't break what Bootstrap and semantic HTML provide for free
 | Alpine stores  | `static/frontend/js/stores.js`    |
 | URL state      | `static/frontend/js/url-state.js` |
 
-Page-specific logic goes in inline `<script>` tags. Inline scripts are not linted;
-extract complex logic to `.js` files for linting.
+Page-specific logic goes in inline `<script>` tags; shared logic goes in the `.js`
+files above. No JavaScript linter is configured.
 
 ## Coding Conventions
 
@@ -725,8 +716,3 @@ variable:
 
 -> Example: `app/frontend/templates/frontend/conference/admin/members.html`,
 `app/frontend/templates/frontend/conference/admin/settings.html`
-
-## Testing
-
-Frontend testing is not yet implemented. When added, tests will use pytest with
-Playwright for end-to-end browser testing.
