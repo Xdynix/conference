@@ -34,6 +34,7 @@ repos:
     rev: v0.49.1
     hooks:
       - id: markdownlint
+        exclude: (^|/)CLAUDE\.md$
         args:
           - --config
           - pyproject.toml

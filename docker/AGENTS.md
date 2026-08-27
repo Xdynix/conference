@@ -5,8 +5,6 @@ Conventions and coupling rules for the production stack: `Dockerfile`,
 
 ## Deployment Files
 
-<!-- markdownlint-disable MD013 -->
-
 | File                                | Purpose                                                                                                                                                                                            |
 |-------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `Dockerfile`                        | App image: installs deps, collects static, sets healthcheck and entrypoint.                                                                                                                        |
@@ -17,8 +15,6 @@ Conventions and coupling rules for the production stack: `Dockerfile`,
 | `docker/litestream.yml`             | Litestream config for continuous SQLite replication to Cloudflare R2. Uses env var placeholders expanded at runtime.                                                                               |
 | `docker/10-normalize-subpath.envsh` | Nginx entrypoint hook: strips trailing slash from `$SUBPATH` before `envsubst` runs. Mounted into `/docker-entrypoint.d/`.                                                                         |
 | `docker/11-write-real-ip-conf.sh`   | Nginx entrypoint hook: generates the sidecar's trust boundary from `$REAL_IP_FROM`, deciding whose client address and scheme it believes. Required; the template references a variable it defines. |
-
-<!-- markdownlint-enable MD013 -->
 
 ## First Deployment Checklist
 
@@ -92,13 +88,9 @@ template.
 
 Three timeout values must satisfy a strict ordering:
 
-<!-- markdownlint-disable MD013 -->
-
 ```text
 granian --workers-kill-timeout  <  supervisord stopwaitsecs (app program)  <  docker stop_grace_period
 ```
-
-<!-- markdownlint-enable MD013 -->
 
 Each layer must finish before the next force-kills it. These live in `supervisord.conf`
 (granian command args and `stopwaitsecs`), and `docker-compose.yml`
@@ -167,14 +159,10 @@ delete request without performing it, leaving objects Litestream believes it rem
 The bucket requires the lifecycle rules below. Create them by hand in the R2 dashboard
 under the bucket's Settings tab; nothing in this stack provisions them.
 
-<!-- markdownlint-disable MD013 -->
-
 | Prefix         | Action         | Age                           | Purpose                                                |
 |----------------|----------------|-------------------------------|--------------------------------------------------------|
 | `db/`          | Delete objects | At least `snapshot.retention` | Backstop for Litestream snapshot retention.            |
 | `media-trash/` | Delete objects | Match the `db/` rule          | Ages out files rclone moved aside instead of deleting. |
-
-<!-- markdownlint-enable MD013 -->
 
 Keep the `db/` rule at or above `snapshot.retention` in `docker/litestream.yml`. A
 shorter rule would delete history Litestream still considers live, and if replication

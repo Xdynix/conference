@@ -247,8 +247,6 @@ Email scripts typically need to fetch data to determine recipients and compose m
 The endpoints below cover the most common needs. Make a `GET` request to explore the
 response structure; all return JSON.
 
-<!-- markdownlint-disable MD013 -->
-
 ### Papers
 
 | Endpoint                                                            | Description                               |
@@ -276,8 +274,6 @@ communicated to the author), `withdrawn_time` (non-null for withdrawn papers), `
 |------------------------------------------------|-------------------------------------------------|
 | `GET /api/conferences/{conference_name}`       | Conference detail (tracks, keywords, settings). |
 | `GET /api/conferences/{conference_name}/files` | List uploaded conference files.                 |
-
-<!-- markdownlint-enable MD013 -->
 
 To discover the full response structure of any endpoint, make a request and inspect the
 JSON. Fields use `snake_case` naming; IDs are ULIDs (26-character strings); datetimes

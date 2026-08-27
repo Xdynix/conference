@@ -260,8 +260,6 @@ function profileForm() {
 
 ### Naming Conventions
 
-<!-- markdownlint-disable MD013 -->
-
 | Context         | Convention | Example                                                     |
 |-----------------|------------|-------------------------------------------------------------|
 | HTML `id`/`for` | kebab-case | `given-name`, `region-code`                                 |
@@ -274,10 +272,7 @@ snake_case because they come directly from API validation responses (the `loc` f
 error details). This separation makes it clear which values are internal state versus
 API contract.
 
-Autocomplete tokens follow the
-[HTML standard](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill-field).
-
-<!-- markdownlint-enable MD013 -->
+Autocomplete tokens follow the [HTML standard][autofill].
 
 ## Reusable Components
 
@@ -285,13 +280,9 @@ Autocomplete tokens follow the
 
 Components are Django template includes with parameters:
 
-<!-- markdownlint-disable MD013 -->
-
 ```html
 {% include "frontend/components/password-input.html" with id="password" label="Password" model="form.password" error_key="password" autocomplete="new-password" %}
 ```
-
-<!-- markdownlint-enable MD013 -->
 
 The `model` parameter uses camelCase (path to the form field), while `error_key` uses
 snake_case (matches the API error `loc`).
@@ -405,8 +396,6 @@ window.APP = {
 
 Use `urlTemplate()` for URLs with dynamic segments:
 
-<!-- markdownlint-disable MD013 -->
-
 ```javascript
 // In base.html - define with placeholders
 urls: {
@@ -417,8 +406,6 @@ urls: {
     )
   }
 }
-
-<!-- markdownlint-enable MD013 -->
 
 // Usage - call with values
 APP.urls.paper.get("icse-2025", "PAPER-2000")
@@ -623,8 +610,6 @@ files above. No JavaScript linter is configured.
 Use Bootstrap utility classes to create a clear visual hierarchy across different text
 roles. The key principle: text importance should match visual weight.
 
-<!-- markdownlint-disable MD013 -->
-
 | Text Role                | Style                     | Classes                                                            | Example                         |
 |--------------------------|---------------------------|--------------------------------------------------------------------|---------------------------------|
 | Form labels              | Normal weight, body color | `form-label` (no `text-muted`)                                     | "Title", "Email"                |
@@ -633,8 +618,6 @@ roles. The key principle: text importance should match visual weight.
 | Error/terminal states    | Normal body text          | No `text-muted`                                                    | "Conference not found."         |
 | Loading states           | Muted                     | `text-muted`                                                       | "Loading..."                    |
 | Data display (secondary) | Muted, small              | `text-muted small`                                                 | Author affiliation in view mode |
-
-<!-- markdownlint-enable MD013 -->
 
 **Form labels** use plain `form-label` without `text-muted`. Labels guide the user to
 inputs and need full visual weight.
@@ -659,8 +642,6 @@ uses a CSS custom property for column definitions so that headers and rows stay 
 
 Wrap the table content (header + rows) in a scrollable container that defines the column
 variable:
-
-<!-- markdownlint-disable MD013 -->
 
 ```html
 
@@ -690,8 +671,6 @@ variable:
 </div>
 ```
 
-<!-- markdownlint-enable MD013 -->
-
 ### Key Rules
 
 - **Use `minmax(Xrem, 1fr)` for the flexible column**, not `minmax(0, 1fr)`. A zero
@@ -702,17 +681,14 @@ variable:
   set
   the custom property dynamically:
 
-<!-- markdownlint-disable MD013 -->
-
   ```html
-
-<div
-  style="overflow-x: auto;"
-  :style="{'--cols': isAdmin ? 'minmax(10rem,1fr) 8rem 10rem' : 'minmax(10rem,1fr) 8rem'}"
->
+  <div
+    style="overflow-x: auto;"
+    :style="{'--cols': isAdmin ? 'minmax(10rem,1fr) 8rem 10rem' : 'minmax(10rem,1fr) 8rem'}"
+  >
   ```
-
-<!-- markdownlint-enable MD013 -->
 
 -> Example: `app/frontend/templates/frontend/conference/admin/members.html`,
 `app/frontend/templates/frontend/conference/admin/settings.html`
+
+[autofill]: https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill-field
