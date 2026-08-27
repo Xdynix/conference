@@ -5,7 +5,7 @@ paper submission and peer review through decisions, registration, and payments.
 
 ## Prerequisites
 
-- Python 3.14+
+- Python 3.14
 - [uv](https://docs.astral.sh/uv/) (package manager)
 - [just](https://github.com/casey/just) (task runner)
 
@@ -23,6 +23,6 @@ Run `just --list` to see all available commands.
 
 ## Documentation
 
-- **[WORKFLOWS.md](WORKFLOWS.md)** — User-facing workflows and state machines.
-- **[AGENTS.md](AGENTS.md)** — Development guidelines, project structure, and coding
+- **[WORKFLOWS.md](WORKFLOWS.md)** - User-facing workflows and state machines.
+- **[AGENTS.md](AGENTS.md)** - Development guidelines, project structure, and coding
   conventions.
