@@ -8,7 +8,7 @@ dependencies = [
     "django-extensions>=4.1",
     "django-ipware>=7.0.1",
     "django-mailer>=2.3.2",
-    "django-ninja>=1.6.2",
+    "django-ninja>=1.6.3",
     "django-stubs-ext~=6.1.0",
     "django[argon2]~=6.1.0",
     "httpx>=0.28.1",
@@ -17,11 +17,11 @@ dependencies = [
     "loguru>=0.7.3",
     "magika>=1.0.3",
     "markdown-it-py[linkify]>=4.2.0",
-    "nh3>=0.3.6",
+    "nh3>=0.3.7",
     "orjson>=3.11.9",
     "pydantic[email]>=2.13.4",
     "python-decouple>=3.8",
-    "python-ulid-django>=1.5.0",
+    "python-ulid-django>=1.6.0",
     "python-ulid[pydantic]>=4.0.1",
     "pyyaml>=6.0.3",
     "rapidfuzz>=3.14.5",
@@ -39,7 +39,7 @@ dev = [
 ]
 lint = [
     "django-stubs[compatible-mypy]~=6.1.0",
-    "mypy>=2.3,<2.4",
+    "mypy>=2.3,<3",
     "pre-commit>=4.6.1",
     "ruff>=0.16.1",
     "types-jsonschema>=4.26.0.20260518",
@@ -52,7 +52,7 @@ test = [
     "faker>=40.36.0",
     "jsonschema>=4.26.0",
     "pypdf>=6.15.0",
-    "pytest>=9.1.1",
+    "pytest>=9.1.1,<10",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "pytest-django>=4.13.0",
@@ -74,6 +74,7 @@ extend-exclude = ["scratch"]
 [tool.ruff.lint]
 # Without this, the G rules do not recognize loguru's imported logger.
 logger-objects = ["loguru.logger"]
+# TODO: evaluate ruff's "D" rules; nothing enforces AGENTS.md's docstring style.
 select = [
     "F", # Pyflakes
     "E", # pycodestyle errors
@@ -124,6 +125,7 @@ ignore = [
 
 [tool.mypy]
 strict = true
+enable_error_code = ["deprecated"]
 cache_dir = ".cache/mypy"
 exclude = ["^scratch/"]
 mypy_path = "etc/stubs"
@@ -153,6 +155,8 @@ addopts = [
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
+# TODO: evaluate gating warnings via filterwarnings or max_warnings. Tests leaking an
+# unclosed FileResponse would need fixing first; the GC attributes them at random.
 markers = [
     "expect_audit_error: test intentionally triggers audit error logging",
 ]
@@ -174,7 +178,6 @@ omit = [
 [tool.coverage.report]
 exclude_also = [
     "if __name__ == .__main__.:",
-    "if TYPE_CHECKING:",
     "class .*\\bProtocol\\):",
     "@overload",
     "case _ as unreachable:",

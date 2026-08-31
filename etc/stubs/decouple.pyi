@@ -13,12 +13,12 @@ ValueT = TypeVar("ValueT")
 
 class Undefined: ...
 
-class Repository:
+class RepositoryEmpty:
     def __contains__(self, key: str) -> bool: ...
     def __getitem__(self, key: str) -> str: ...
 
 class AutoConfig:
-    SUPPORTED: ClassVar[dict[str, Repository]]
+    SUPPORTED: ClassVar[dict[str, type[RepositoryEmpty]]]
 
     @overload
     def __call__(

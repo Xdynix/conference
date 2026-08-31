@@ -1,3 +1,5 @@
+# [windows] on a `set` item is what requires 1.56.0.
+set minimum-version := '1.56.0'
 set dotenv-load
 
 [windows]
@@ -10,6 +12,7 @@ default: ruff
 
 # set up development environment
 dev-setup:
+    uv python upgrade 3.14
     uv sync
     uv run pre-commit install
     uv run scripts/dev-setup.py

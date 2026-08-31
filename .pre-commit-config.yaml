@@ -22,6 +22,7 @@ repos:
       - id: check-docstring-first
       - id: check-executables-have-shebangs
       - id: check-illegal-windows-names
+      - id: check-merge-conflict
       - id: check-shebang-scripts-are-executable
       - id: check-toml
       - id: check-yaml
@@ -40,15 +41,19 @@ repos:
           - pyproject.toml
           - --configPointer
           - /tool/markdownlint
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.3
-    hooks:
-      - id: ruff-check
-        args: [ --fix ]
-      - id: ruff-format
-        types_or: [ python, pyi, jupyter, markdown ]
   - repo: local
     hooks:
+      # Run through uv so the lock file is the only place ruff's version is set.
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --force-exclude --fix
+        language: system
+        types_or: [ python, pyi, jupyter ]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --force-exclude
+        language: system
+        types_or: [ python, pyi, jupyter, markdown ]
       - id: uv-lock-check
         name: check UV lock file
         entry: uv lock --check
@@ -65,7 +70,9 @@ repos:
         name: mypy
         entry: uv run mypy .
         language: system
-        types: [ python ]
+        # A types/types_or filter cannot reach uv.lock, which identify tags as
+        # toml; mypy resolves against the locked packages, so bumps must retrigger.
+        files: ^(.*\.pyi?|pyproject\.toml|uv\.lock)$
         pass_filenames: false
       - id: django-migration
         name: check Django migrations

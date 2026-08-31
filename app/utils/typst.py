@@ -232,6 +232,10 @@ def compile_template(
         if validate_only:
             output = f"{sandbox}/out.pdf"
         try:
+            # TODO: research how to surface typst's compile warnings, which
+            #  compile() drops. A template naming a font outside TYPST_FONT_DIR
+            #  falls back silently and the PDF is wrong; templates are
+            #  admin-supplied, so the right audience is an open question.
             return typst.compile(  # type: ignore[no-any-return, call-overload]
                 vfs,
                 output=str(output) if output is not None else None,
