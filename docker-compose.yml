@@ -21,6 +21,7 @@ services:
       context: .
       args:
         APP_PORT: ${APP_PORT:-8000}
+        APP_UID: ${APP_UID:-900}
     env_file: .env
     logging: *default-logging
     environment:

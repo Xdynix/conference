@@ -337,7 +337,8 @@ before the dependency installation step.
 
 Both backup containers run as `${APP_UID:-900}` to match data directory ownership.
 Litestream needs read-write access (WAL checkpointing); rclone only needs read access.
-If `APP_UID` changes, update both sidecar `user` directives.
+`APP_UID` reaches the image through `build.args`, so changing it needs a rebuild for the
+sidecars and the app to agree.
 
 The rclone entrypoint uses `$$` escaping to prevent Docker Compose from interpolating
 shell variables. Edits to the entrypoint script must preserve it.
