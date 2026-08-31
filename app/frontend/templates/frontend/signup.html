@@ -158,7 +158,11 @@
       <div x-show="errors._form" x-cloak class="alert alert-danger" role="alert" x-text="errors._form"></div>
 
       <div class="d-grid mb-3">
-        <button type="submit" class="btn btn-primary" :disabled="loading || !cfTurnstileReady()">
+        <button
+          type="submit"
+          class="btn btn-primary"
+          :disabled="loading || !cfTurnstileReady() || !form.emailToken"
+        >
           <span x-show="loading" x-cloak class="spinner-border spinner-border-sm me-1" role="status">
             <span class="visually-hidden">Creating account...</span>
           </span>
