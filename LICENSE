@@ -76,9 +76,9 @@ component is listed with its license. Full license texts follow at the end.
    Source: https://tom-select.js.org/
 
 10. EB Garamond
-    Files: etc/fonts/EBGaramond-*
+    Files: etc/fonts/EBGaramond*
     License: SIL Open Font License 1.1
-    Source: https://github.com/georgd/EB-Garamond
+    Source: https://github.com/octaviopardo/EBGaramond12
 
 11. Inter
     Files: etc/fonts/Inter-*
