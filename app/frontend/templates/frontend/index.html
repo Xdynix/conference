@@ -125,7 +125,7 @@
         formatConferenceSubtitle(conf) {
           const datePart = formatDateRange(conf.start_date, conf.end_date);
           const location = (conf.location || "").trim();
-          return [datePart, location].filter(Boolean).join(", ");
+          return [datePart, location].filter(Boolean).join(" · ");
         },
       };
     }

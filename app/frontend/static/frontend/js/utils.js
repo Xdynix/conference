@@ -253,15 +253,16 @@
   // Formatting utilities
   // ---------------------------------------------------------------------------
 
-  const dateFmt = {
-    day: new Intl.DateTimeFormat("en-US", {day: "numeric"}),
-    monthYear: new Intl.DateTimeFormat("en-US", {month: "long", year: "numeric"}),
-    full: new Intl.DateTimeFormat("en-US", {
-      day: "numeric",
-      month: "short",
-      year: "numeric"
-    }),
-  };
+  const timestampFmt = new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  });
+
+  const MONTH_NAMES = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
 
   /**
    * Formats a date for display.
@@ -271,52 +272,59 @@
    */
   function formatDate(isoString) {
     if (!isoString) return "";
-    return dateFmt.full.format(new Date(isoString));
+    return timestampFmt.format(new Date(isoString));
   }
 
   /**
-   * Parses a calendar date into a Date at local midnight.
+   * A calendar date carries no timezone, so it is never parsed into a `Date`:
+   * `new Date("2026-07-12")` is UTC midnight, which local-timezone formatting
+   * renders as the previous day at negative offsets.
    *
-   * `new Date("2026-07-12")` yields UTC midnight, which the local-timezone
-   * formatters and getters below render as the previous day at negative offsets.
-   *
-   * @param {string} str - Date string, "YYYY-MM-DD" in the date-only case.
-   * @returns {Date} Parsed date.
+   * @returns {{year: string, month: number, day: number}|null} Null if `str` is
+   *   not a "YYYY-MM-DD" calendar date.
    */
-  function parseDateOnly(str) {
+  function splitCalendarDate(str) {
     const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
-    if (!parts) return new Date(str);
-    return new Date(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
+    if (!parts) return null;
+    return {year: parts[1], month: Number(parts[2]), day: Number(parts[3])};
   }
 
   /**
-   * Formats a date range for display.
+   * @param {{year: string, month: number, day: number}} parts
+   * @returns {string} Formatted date (e.g., "May 1, 2026").
+   */
+  function formatCalendarDate(parts) {
+    return `${MONTH_NAMES[parts.month - 1]} ${parts.day}, ${parts.year}`;
+  }
+
+  /**
+   * Formats a calendar date range for display.
    *
    * Handles various cases:
-   * - Same month/year: "11-13 January 2026"
-   * - Different months: "11 Jan 2026 - 13 Feb 2026"
-   * - Only start or end date: "11 Jan 2026"
+   * - Same day: "May 1, 2026"
+   * - Same month and year: "May 1-3, 2026"
+   * - Different months: "May 1, 2026 - Jun 3, 2026"
+   * - Only start or end date: "May 1, 2026"
    * - No dates: ""
    *
-   * @param {string|null} startStr - ISO date string for start date.
-   * @param {string|null} endStr - ISO date string for end date.
+   * @param {string|null} startStr - Calendar date string for start date.
+   * @param {string|null} endStr - Calendar date string for end date.
    * @returns {string} Formatted date range.
    */
   function formatDateRange(startStr, endStr) {
-    const start = startStr ? parseDateOnly(startStr) : null;
-    const end = endStr ? parseDateOnly(endStr) : null;
+    const start = startStr ? splitCalendarDate(startStr) : null;
+    const end = endStr ? splitCalendarDate(endStr) : null;
 
     if (start && end) {
-      const sameMonthYear =
-        start.getMonth() === end.getMonth() &&
-        start.getFullYear() === end.getFullYear();
-      if (sameMonthYear) {
-        return `${dateFmt.day.format(start)}-${dateFmt.day.format(end)} ${dateFmt.monthYear.format(start)}`;
+      if (start.year !== end.year || start.month !== end.month) {
+        return `${formatCalendarDate(start)} - ${formatCalendarDate(end)}`;
       }
-      return `${dateFmt.full.format(start)} - ${dateFmt.full.format(end)}`;
+      const days =
+        start.day === end.day ? `${start.day}` : `${start.day}-${end.day}`;
+      return `${MONTH_NAMES[start.month - 1]} ${days}, ${start.year}`;
     }
-    if (start) return dateFmt.full.format(start);
-    if (end) return dateFmt.full.format(end);
+    if (start) return formatCalendarDate(start);
+    if (end) return formatCalendarDate(end);
     return "";
   }
 
