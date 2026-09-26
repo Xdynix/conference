@@ -1,3 +1,5 @@
+import pytest
+
 from app.conference.models import (
     AcceptanceLetter,
     Conference,
@@ -142,6 +144,25 @@ class TestPaperProof:
             recipient_email="a@b.com",
         )
         assert str(proof) == "Proof for [CBPK-2024 - Main] PAPER-001"
+
+    @pytest.fixture
+    def paper(self) -> Paper:
+        conference = Conference(name="CBPK-2024")
+        track = Track(conference=conference, display_name="Main")
+        user = User(username="alice")
+        return Paper(conference=conference, track=track, code="PAPER-001", owner=user)
+
+    def test_display_name(self, paper: Paper) -> None:
+        proof = PaperProof(paper=paper, file="proof.pdf")
+        assert proof.display_name == "PAPER-001-proof.pdf"
+
+    def test_display_name_lowercases_extension(self, paper: Paper) -> None:
+        proof = PaperProof(paper=paper, file="proof.PDF")
+        assert proof.display_name == "PAPER-001-proof.pdf"
+
+    def test_display_name_without_extension(self, paper: Paper) -> None:
+        proof = PaperProof(paper=paper, file="proof")
+        assert proof.display_name == "PAPER-001-proof"
 
 
 class TestPaperProofPath:

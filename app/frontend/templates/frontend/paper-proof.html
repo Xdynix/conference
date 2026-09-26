@@ -172,6 +172,7 @@
 
         async confirm() {
           if (this.confirming) return;
+          if (!window.confirm('Confirm this proof as the final version? This cannot be undone.')) return;
           this.errors = {};
           this.confirming = true;
 
