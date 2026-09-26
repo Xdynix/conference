@@ -145,7 +145,9 @@ DATABASES = {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": config("DATABASE_PATH", default=DATA_DIR / "db.sqlite3", cast=Path),
         "OPTIONS": {
-            "timeout": 60,
+            # Kept below the nginx sidecar's 30-second proxy_read_timeout so a lock
+            # wait surfaces as an error instead of a lost response.
+            "timeout": 20,
             "transaction_mode": "IMMEDIATE",
             "init_command": "PRAGMA journal_mode=WAL;",
         },
@@ -219,6 +221,10 @@ MAILER_EMAIL_BACKEND: str = config(
 )
 
 MAILER_EMPTY_QUEUE_SLEEP = 5
+
+# The mailer holds a write transaction across each SMTP send, and back-to-back sends
+# starve other SQLite writers. The pause between messages gives them a window.
+MAILER_EMAIL_THROTTLE = 0.5
 
 EMAIL_FILE_PATH = config("EMAIL_FILE_PATH", default=DATA_DIR / "emails", cast=str)
 
