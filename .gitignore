@@ -5,6 +5,7 @@
 
 # Coding agent configurations
 /.claude
+/CLAUDE.local.md
 
 # Local scratch work, not part of the project
 scratch/
