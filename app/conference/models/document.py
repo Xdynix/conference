@@ -109,6 +109,11 @@ class PaperProof(Auditable, TimeStampedModel, ULIDModel):
     def __str__(self) -> str:
         return f"Proof for {self.paper}"
 
+    @property
+    def display_name(self) -> str:
+        ext = Path(self.file.name).suffix.lower()  # type: ignore[arg-type]
+        return f"{self.paper.code}-proof{ext}"
+
     def audit_resource_info(self) -> AuditResourceInfo:
         return AuditResourceInfo(
             resource=AuditResource.PAPER_PROOF,

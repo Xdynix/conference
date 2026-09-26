@@ -812,13 +812,20 @@ class TestGetProof:
         response = api_client.get(self.path(proof.uid))
         assert response.status_code == HTTPStatus.OK
 
-        assert response.json() == {
+        data = response.json()
+        assert data == {
             "paper_code": "PAPER-001",
             "paper_title": "Test Paper",
             "comment": "",
             "proof_url": any_str,
             "file_url": any_str,
         }
+        assert data["file_url"].endswith(
+            reverse(
+                "api-1.0.0:download-proof-file-ex",
+                args=[proof.uid, "PAPER-001-proof.pdf"],
+            )
+        )
 
     def test_without_file(
         self,
@@ -998,4 +1005,25 @@ class TestDownloadProofFile:
         file_path.unlink()
 
         response = api_client.get(self.path(proof.uid))
+        assert response.status_code == HTTPStatus.NOT_FOUND
+
+
+@pytest.mark.django_db
+class TestDownloadProofFileDecorated:
+    @classmethod
+    def path(cls, uid: ULID, filename: str) -> str:
+        return reverse("api-1.0.0:download-proof-file-ex", args=[uid, filename])
+
+    def test_happy_path(self, api_client: Client, proof: PaperProof) -> None:
+        response = api_client.get(self.path(proof.uid, "PAPER-001-proof.pdf"))
+        assert response.status_code == HTTPStatus.OK
+
+        assert response["Content-Type"] == "application/pdf"
+        assert (
+            response["Content-Disposition"] == 'inline; filename="PAPER-001-proof.pdf"'
+        )
+        assert b"".join(response.streaming_content) == b"%PDF-proof-content"  # type: ignore[attr-defined]
+
+    def test_not_found(self, api_client: Client) -> None:
+        response = api_client.get(self.path(ULID(), "PAPER-001-proof.pdf"))
         assert response.status_code == HTTPStatus.NOT_FOUND

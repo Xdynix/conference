@@ -73,7 +73,10 @@ class ProofResponse(Schema):
         if not proof.file:
             return None
         base_url: str = proof.base_url  # type: ignore[attr-defined]
-        path = reverse("api-1.0.0:download-proof-file", args=[proof.uid])
+        path = reverse(
+            "api-1.0.0:download-proof-file-ex",
+            args=[proof.uid, proof.display_name],
+        )
         return HttpUrl(urljoin(base_url, path))
 
 
@@ -390,7 +393,10 @@ class AuthorProofResponse(Schema):
         if not proof.file:
             return None
         base_url: str = proof.base_url  # type: ignore[attr-defined]
-        path = reverse("api-1.0.0:download-proof-file", args=[proof.uid])
+        path = reverse(
+            "api-1.0.0:download-proof-file-ex",
+            args=[proof.uid, proof.display_name],
+        )
         return HttpUrl(urljoin(base_url, path))
 
 
@@ -515,8 +521,23 @@ async def download_proof_file(
     try:
         return build_file_download_response(
             proof.file,
-            filename=f"{proof.paper.code}-proof.pdf",
+            filename=proof.display_name,
             content_type="application/pdf",
         )
     except (ValueError, FileNotFoundError) as exc:
         raise Http404 from exc
+
+
+@router.get(
+    "/conferences/-/paper-proofs/{ulid:uid}/file/{str:filename}",
+    openapi_extra=DOWNLOAD_FILE_OPENAPI_EXTRA,
+    summary="Download Proof File",
+    auth=None,
+)
+async def download_proof_file_ex(
+    request: HttpRequest,
+    uid: ULID,
+    filename: str,  # noqa: ARG001
+) -> HttpResponse | StreamingHttpResponse:
+    """Download the proof PDF for a paper with a decorative filename segment."""
+    return await download_proof_file(request, uid)
