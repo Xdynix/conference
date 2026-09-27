@@ -25,6 +25,7 @@ from app.conference.models import (
 from app.conference.services import ProofService
 from app.conference.services.proof import (
     ProofEligibilityError,
+    ProofStateError,
     RecipientDerivationError,
     SendProofNotifyResult,
     SendProofNotifyStatus,
@@ -839,19 +840,25 @@ class TestGetProof:
         assert "file_url" not in data
 
     def test_with_confirmation(self, api_client: Client, proof: PaperProof) -> None:
-        update_object(
-            proof,
-            confirmed_time=timezone.now(),
-            comment="looks good",
-            comment_time=timezone.now(),
-        )
+        update_object(proof, confirmed_time=timezone.now())
 
         response = api_client.get(self.path(proof.uid))
         assert response.status_code == HTTPStatus.OK
 
         data = response.json()
         assert data["confirmed_time"] == approx_now()
-        assert data["comment"] == "looks good"
+        assert data["comment"] == ""
+        assert "comment_time" not in data
+
+    def test_with_comment(self, api_client: Client, proof: PaperProof) -> None:
+        update_object(proof, comment="typo on page 2", comment_time=timezone.now())
+
+        response = api_client.get(self.path(proof.uid))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert "confirmed_time" not in data
+        assert data["comment"] == "typo on page 2"
         assert data["comment_time"] == approx_now()
 
     def test_not_found(self, api_client: Client) -> None:
@@ -910,6 +917,21 @@ class TestConfirmProof:
 
         proof_service_confirm.assert_not_called()
 
+    def test_state_error_returns_400(
+        self,
+        api_client: Client,
+        proof: PaperProof,
+        proof_service_confirm: MagicMock,
+    ) -> None:
+        proof_service_confirm.side_effect = ProofStateError(
+            "Proof cannot be confirmed while it has a comment."
+        )
+
+        response = api_client.post(self.path(proof.uid))
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+
+        assert "while it has a comment" in response.json()["message"]
+
 
 @pytest.fixture
 def proof_service_comment(mocker: MockerFixture) -> MagicMock:
@@ -964,6 +986,35 @@ class TestCommentProof:
         assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
         proof_service_comment.assert_not_called()
+
+    def test_empty_comment_is_accepted(
+        self,
+        api_client: Client,
+        proof: PaperProof,
+        proof_service_comment: MagicMock,
+    ) -> None:
+        response = api_client.post(self.path(proof.uid), data={"comment": ""})
+        assert response.status_code == HTTPStatus.OK
+
+        assert proof_service_comment.call_args.args[1] == ""
+
+    def test_state_error_returns_400(
+        self,
+        api_client: Client,
+        proof: PaperProof,
+        proof_service_comment: MagicMock,
+    ) -> None:
+        proof_service_comment.side_effect = ProofStateError(
+            "Proof has already been confirmed."
+        )
+
+        response = api_client.post(
+            self.path(proof.uid),
+            data={"comment": "too late"},
+        )
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+
+        assert "already been confirmed" in response.json()["message"]
 
 
 @pytest.mark.django_db

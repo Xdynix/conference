@@ -14,7 +14,8 @@ the scripted API workflows in the admin API guides are deliberately not describe
 - **Cross-references** link to other workflows with `(see §N: Name)`.
 - **Altitude:** steps describe what the actor does and what the system does, not which
   page element they use; preconditions state the gate, not the validation rules behind
-  it.
+  it. State each rule once, in the section intro or the flow it belongs to; other flows
+  reference it through their preconditions rather than restating it.
 
 ## State Machine Reference
 
@@ -481,8 +482,9 @@ Before finalizing proceedings, the committee edits accepted papers for formattin
 typos, then asks authors to review the edited version and confirm or leave feedback.
 
 Proof records do not have a formal state enum. Status is derived from timestamps
-(confirmed, commented, notified). These are not mutually exclusive; a proof can be both
-confirmed and commented. Uploading a new file resets confirmation and comments.
+(confirmed, commented, notified). Confirmation and comment are mutually exclusive;
+clearing the comment withdraws it. Uploading a new file resets confirmation and
+comments.
 
 ### Create Proof Record
 
@@ -525,7 +527,8 @@ confirmed and commented. Uploading a new file resets confirmation and comments.
 
 - **Actor:** Author (via token link)
 - **Goal:** Approve the edited version for proceedings.
-- **Preconditions:** Author has the proof URL (from notification email).
+- **Preconditions:** Author has the proof URL (from notification email); the proof has
+  no comment.
 - **Steps:**
     1. Author opens the proof link, which shows the paper code, title, and instructions,
        and downloads the proof PDF.
@@ -536,8 +539,8 @@ confirmed and commented. Uploading a new file resets confirmation and comments.
 ### Comment on Proof
 
 - **Actor:** Author (via token link)
-- **Goal:** Report errors or request changes to the edited version.
-- **Preconditions:** Author has the proof URL.
+- **Goal:** Report editing or formatting errors in the edited version.
+- **Preconditions:** Author has the proof URL; the proof is not confirmed.
 - **Steps:**
     1. Author submits feedback as a comment on the proof page.
 - **Outcome:** Comment stored with timestamp. Admin sees "Commented" status on the proof

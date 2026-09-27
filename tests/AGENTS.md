@@ -67,7 +67,9 @@ Cover these cases (see `tests/conference/api/conference/test_create.py` for exam
 - Happy path with full response and service call verification.
 - Input parsing/sanitization and defaults.
 - Validation errors with `loc`/`msg` assertions.
-- Service exception -> HTTP response mapping.
+- Service exception -> HTTP response mapping: set `side_effect` on the service spy
+  rather than building the state that makes the service raise; that state belongs to
+  the service tests.
 - Authorization (unauthenticated, unauthorized, allowed roles).
 - Partial updates: "omit keeps existing" and "empty clears value".
 

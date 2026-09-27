@@ -1,4 +1,6 @@
 import pytest
+from django.db import IntegrityError
+from django.utils import timezone
 
 from app.conference.models import (
     AcceptanceLetter,
@@ -163,6 +165,28 @@ class TestPaperProof:
     def test_display_name_without_extension(self, paper: Paper) -> None:
         proof = PaperProof(paper=paper, file="proof")
         assert proof.display_name == "PAPER-001-proof"
+
+
+@pytest.mark.django_db
+class TestPaperProofConstraint:
+    @pytest.fixture
+    def paper(self, conference: Conference, track: Track, user: User) -> Paper:
+        return Paper.objects.create(
+            conference=conference,
+            track=track,
+            owner=user,
+            code="PAPER-001",
+        )
+
+    def test_rejects_confirmed_with_comment(self, paper: Paper) -> None:
+        with pytest.raises(IntegrityError):
+            PaperProof.objects.create(
+                paper=paper,
+                recipient_name="Alice",
+                recipient_email="a@b.com",
+                confirmed_time=timezone.now(),
+                comment="typo on page 2",
+            )
 
 
 class TestPaperProofPath:
