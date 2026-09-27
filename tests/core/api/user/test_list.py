@@ -121,7 +121,13 @@ class TestListUsers:
         [item] = data["items"]
         assert item["email"] == target_user.email
 
-    @pytest.mark.parametrize("managed", [True, False])
+    @pytest.mark.parametrize(
+        "managed",
+        [
+            pytest.param(True, id="managed"),
+            pytest.param(False, id="unmanaged"),
+        ],
+    )
     def test_filter_by_managed(
         self,
         api_client: Client,

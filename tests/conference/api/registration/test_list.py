@@ -455,11 +455,11 @@ class TestListRegistrations:
     @pytest.mark.parametrize(
         ("search_term", "expected_given_name"),
         [
-            ("REF-ABC123", "Alice"),  # reference_code
-            ("PAPER-001", "Alice"),  # paper__code
-            ("Alice", "Alice"),  # given_name
-            ("Smith", "Alice"),  # family_name
-            ("alice@example.com", "Alice"),  # email
+            pytest.param("REF-ABC123", "Alice", id="reference_code"),
+            pytest.param("PAPER-001", "Alice", id="paper_code"),
+            pytest.param("Alice", "Alice", id="given_name"),
+            pytest.param("Smith", "Alice", id="family_name"),
+            pytest.param("alice@example.com", "Alice", id="email"),
         ],
     )
     def test_search_filter(

@@ -227,7 +227,13 @@ class TestCreateAccount:
 class TestCreateUser:
     path = reverse("api-1.0.0:create-user")
 
-    @pytest.mark.parametrize("managed", [True, False])
+    @pytest.mark.parametrize(
+        "managed",
+        [
+            pytest.param(True, id="managed"),
+            pytest.param(False, id="unmanaged"),
+        ],
+    )
     def test_happy_path(
         self,
         mocker: MockerFixture,

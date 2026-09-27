@@ -109,8 +109,20 @@ class AuthTestCase(ResponseAssertionsMixin, URLConfTestCase):
 class TestIsAuthenticated(AuthTestCase):
     auth = is_authenticated
 
-    @pytest.mark.parametrize("authenticated", [True, False])
-    @pytest.mark.parametrize("is_active", [True, False])
+    @pytest.mark.parametrize(
+        "authenticated",
+        [
+            pytest.param(True, id="authenticated"),
+            pytest.param(False, id="anonymous"),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "is_active",
+        [
+            pytest.param(True, id="active"),
+            pytest.param(False, id="inactive"),
+        ],
+    )
     def test_smoke(
         self,
         client: Client,
@@ -131,7 +143,13 @@ class TestIsAuthenticated(AuthTestCase):
 class TestIsSuperuser(AuthTestCase):
     auth = is_superuser
 
-    @pytest.mark.parametrize("superuser", [True, False])
+    @pytest.mark.parametrize(
+        "superuser",
+        [
+            pytest.param(True, id="superuser"),
+            pytest.param(False, id="regular_user"),
+        ],
+    )
     def test_smoke(
         self,
         client: Client,
@@ -163,10 +181,12 @@ class TestHasAnyRolesSingle(AuthTestCase):
     @pytest.mark.parametrize(
         ("user_roles", "expected"),
         [
-            ({GlobalRole.ADMIN}, True),
-            ({GlobalRole.ADMIN, GlobalRole.READ_ALL}, True),
-            ({GlobalRole.READ_ALL}, False),
-            (set(), False),
+            pytest.param({GlobalRole.ADMIN}, True, id="admin"),
+            pytest.param(
+                {GlobalRole.ADMIN, GlobalRole.READ_ALL}, True, id="admin_and_read_all"
+            ),
+            pytest.param({GlobalRole.READ_ALL}, False, id="read_all"),
+            pytest.param(set(), False, id="no_roles"),
         ],
     )
     def test_smoke(
@@ -202,10 +222,12 @@ class TestHasAnyRolesMulti(AuthTestCase):
     @pytest.mark.parametrize(
         ("user_roles", "expected"),
         [
-            ({GlobalRole.ADMIN}, True),
-            ({GlobalRole.ADMIN, GlobalRole.READ_ALL}, True),
-            ({GlobalRole.READ_ALL}, True),
-            (set(), False),
+            pytest.param({GlobalRole.ADMIN}, True, id="admin"),
+            pytest.param(
+                {GlobalRole.ADMIN, GlobalRole.READ_ALL}, True, id="admin_and_read_all"
+            ),
+            pytest.param({GlobalRole.READ_ALL}, True, id="read_all"),
+            pytest.param(set(), False, id="no_roles"),
         ],
     )
     def test_smoke(

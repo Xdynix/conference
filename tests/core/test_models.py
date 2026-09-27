@@ -10,12 +10,17 @@ from app.core.models import (
     PasswordResetToken,
     User,
 )
-from tests.data import EMAIL_NORMALIZATION_DATA, USERNAME_NORMALIZATION_DATA
 
 
 @pytest.mark.parametrize(
     ("username", "expected"),
-    USERNAME_NORMALIZATION_DATA,
+    [
+        pytest.param("User", "User", id="ascii"),
+        pytest.param("用户", "用户", id="cjk"),
+        pytest.param("Ω", "Ω", id="greek"),
+        pytest.param("ﬁ", "fi", id="ligature"),
+        pytest.param("⑨", "9", id="circled_digit"),
+    ],
 )
 def test_normalize_username(username: str | None, expected: str) -> None:
     assert User.normalize_username(username) == expected
@@ -23,7 +28,13 @@ def test_normalize_username(username: str | None, expected: str) -> None:
 
 @pytest.mark.parametrize(
     ("email", "expected"),
-    EMAIL_NORMALIZATION_DATA,
+    [
+        (None, ""),
+        ("email@example.com", "email@example.com"),
+        ("User-One@Example.Com", "user-one@example.com"),
+        ("UPPERCASE-000@EXAMPLE.COM", "uppercase-000@example.com"),
+        ("user+alias@example.com", "user+alias@example.com"),
+    ],
 )
 def test_normalize_email(email: str | None, expected: str) -> None:
     assert User.objects.normalize_email(email) == expected

@@ -253,16 +253,17 @@ class TestValidateUploadE2E:
     @pytest.mark.parametrize(
         ("filename", "allowed_types"),
         [
-            (SAMPLE_PNG, {"image/png": [".png"]}),
-            (SAMPLE_PDF, {"application/pdf": [".pdf"]}),
-            (SAMPLE_ZIP, {"application/zip": [".zip"]}),
-            (SAMPLE_DOC, {"application/msword": [".doc"]}),
-            (
+            pytest.param(SAMPLE_PNG, {"image/png": [".png"]}, id="png"),
+            pytest.param(SAMPLE_PDF, {"application/pdf": [".pdf"]}, id="pdf"),
+            pytest.param(SAMPLE_ZIP, {"application/zip": [".zip"]}, id="zip"),
+            pytest.param(SAMPLE_DOC, {"application/msword": [".doc"]}, id="doc"),
+            pytest.param(
                 SAMPLE_DOCX,
                 {
                     "application/vnd.openxmlformats-officedocument"
                     ".wordprocessingml.document": [".docx"]
                 },
+                id="docx",
             ),
         ],
     )
@@ -284,11 +285,11 @@ class TestValidateUploadE2E:
     @pytest.mark.parametrize(
         ("filename", "disallowed_allowed_types"),
         [
-            (SAMPLE_PNG, {"application/pdf": [".png"]}),
-            (SAMPLE_PDF, {"image/png": [".pdf"]}),
-            (SAMPLE_ZIP, {"text/plain": [".zip"]}),
+            pytest.param(SAMPLE_PNG, {"application/pdf": [".png"]}, id="png"),
+            pytest.param(SAMPLE_PDF, {"image/png": [".pdf"]}, id="pdf"),
+            pytest.param(SAMPLE_ZIP, {"text/plain": [".zip"]}, id="zip"),
             # DOCX is ZIP-based but Magika correctly distinguishes it.
-            (SAMPLE_DOCX, {"application/zip": [".docx"]}),
+            pytest.param(SAMPLE_DOCX, {"application/zip": [".docx"]}, id="docx"),
         ],
     )
     def test_magika_rejects_mismatched_types(

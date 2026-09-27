@@ -36,9 +36,11 @@ class TestMedia:
     @pytest.mark.parametrize(
         "user_attrs",
         [
-            {},
-            {"is_staff": True},
-            {"is_active": False, "is_superuser": True},
+            pytest.param({}, id="regular_user"),
+            pytest.param({"is_staff": True}, id="staff"),
+            pytest.param(
+                {"is_active": False, "is_superuser": True}, id="inactive_superuser"
+            ),
         ],
     )
     def test_reject_non_superuser(

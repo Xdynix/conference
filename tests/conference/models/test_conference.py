@@ -111,10 +111,10 @@ class TestTrack:
     @pytest.mark.parametrize(
         ("submissions_enabled", "has_pool", "expected"),
         [
-            (True, True, True),
-            (True, False, False),
-            (False, True, False),
-            (False, False, False),
+            pytest.param(True, True, True, id="enabled_with_pool"),
+            pytest.param(True, False, False, id="enabled_without_pool"),
+            pytest.param(False, True, False, id="disabled_with_pool"),
+            pytest.param(False, False, False, id="disabled_without_pool"),
         ],
     )
     def test_accepts_submissions(
