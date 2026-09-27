@@ -14,6 +14,7 @@
 from pathlib import Path
 
 from django.db import models
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 from app.audit.types import Auditable, AuditResource, AuditResourceInfo
@@ -105,6 +106,12 @@ class PaperProof(Auditable, TimeStampedModel, ULIDModel):
     class Meta:
         verbose_name = _("paper proof")
         verbose_name_plural = _("paper proofs")
+        constraints = (
+            models.CheckConstraint(
+                name="paper_proof_confirmed_excludes_comment",
+                condition=Q(confirmed_time__isnull=True) | Q(comment=""),
+            ),
+        )
 
     def __str__(self) -> str:
         return f"Proof for {self.paper}"

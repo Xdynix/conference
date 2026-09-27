@@ -24,6 +24,7 @@ from app.conference.services import ProofService
 from app.conference.services.proof import (
     ProofEligibilityError,
     ProofNotifyEmailContext,
+    ProofStateError,
     RecipientDerivationError,
     SendProofNotifyResult,
     SendProofNotifyStatus,
@@ -417,7 +418,10 @@ async def get_proof(
 
 @router.post(
     "/conferences/-/paper-proofs/{ulid:uid}:confirm",
-    response=AuthorProofResponse,
+    response={
+        HTTPStatus.OK: AuthorProofResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
+    },
     summary="Confirm Proof",
     auth=None,
 )
@@ -425,7 +429,10 @@ async def confirm_proof(
     request: HttpRequest,
     uid: ULID,
 ) -> PaperProof:
-    """Confirm that the proof is acceptable. Idempotent."""
+    """Confirm that the proof is acceptable. Idempotent.
+
+    Rejected while the proof carries a comment; clear the comment first.
+    """
     proof = await aget_object_or_404(
         PaperProof.objects.select_related(
             "paper__conference",
@@ -434,7 +441,10 @@ async def confirm_proof(
         uid=uid,
     )
 
-    proof = await sync_to_async(ProofService.confirm)(proof)
+    try:
+        proof = await sync_to_async(ProofService.confirm)(proof)
+    except ProofStateError as exc:
+        raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
     await audit(
         request=request,
@@ -459,8 +469,11 @@ class CommentProofRequest(Schema):
 
 @router.post(
     "/conferences/-/paper-proofs/{ulid:uid}:comment",
-    response=AuthorProofResponse,
-    summary="Add Proof Comment",
+    response={
+        HTTPStatus.OK: AuthorProofResponse,
+        HTTPStatus.BAD_REQUEST: ErrorResponse,
+    },
+    summary="Set Proof Comment",
     auth=None,
 )
 async def comment_proof(
@@ -468,7 +481,10 @@ async def comment_proof(
     uid: ULID,
     payload: CommentProofRequest,
 ) -> PaperProof:
-    """Add or update a comment on the proof."""
+    """Set, update, or clear the comment on the proof.
+
+    An empty comment withdraws it. Rejected once the proof is confirmed.
+    """
     proof = await aget_object_or_404(
         PaperProof.objects.select_related(
             "paper__conference",
@@ -477,7 +493,10 @@ async def comment_proof(
         uid=uid,
     )
 
-    proof = await sync_to_async(ProofService.comment)(proof, payload.comment)
+    try:
+        proof = await sync_to_async(ProofService.comment)(proof, payload.comment)
+    except ProofStateError as exc:
+        raise HttpError(HTTPStatus.BAD_REQUEST, str(exc)) from exc
 
     await audit(
         request=request,

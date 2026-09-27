@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
@@ -23,6 +24,7 @@ from app.conference.services.proof import (
     ProofEligibilityError,
     ProofNotifyEmailContext,
     ProofService,
+    ProofStateError,
     RecipientDerivationError,
     SendProofNotifyStatus,
 )
@@ -260,33 +262,42 @@ class TestProofServiceUpload:
         assert bool(result.file)
         assert Path(result.file.path).read_bytes() == b"pdf content"
 
-    def test_first_upload_does_not_reset_confirmation(
+    @pytest.mark.parametrize(
+        "response",
+        [
+            {"confirmed_time": timezone.now()},
+            {"comment": "typo on page 2", "comment_time": timezone.now()},
+        ],
+    )
+    def test_first_upload_keeps_response(
         self,
         proof: PaperProof,
+        response: dict[str, Any],
     ) -> None:
-        update_object(
-            proof,
-            confirmed_time=proof.create_time,
-            comment="looks good",
-            comment_time=proof.create_time,
-        )
+        update_object(proof, **response)
         file = SimpleUploadedFile("proof.pdf", b"pdf content")
 
         result = ProofService.upload(proof, file)
 
-        assert result.confirmed_time is not None
-        assert result.comment == "looks good"
-        assert result.comment_time is not None
+        result.refresh_from_db()
+        for field, value in response.items():
+            assert getattr(result, field) == value
 
-    def test_reupload_resets_confirmation(self, proof: PaperProof) -> None:
+    @pytest.mark.parametrize(
+        "response",
+        [
+            {"confirmed_time": timezone.now()},
+            {"comment": "typo on page 2", "comment_time": timezone.now()},
+        ],
+    )
+    def test_reupload_resets_response(
+        self,
+        proof: PaperProof,
+        response: dict[str, Any],
+    ) -> None:
         first_file = SimpleUploadedFile("proof.pdf", b"first")
         ProofService.upload(proof, first_file)
-        update_object(
-            proof,
-            confirmed_time=proof.create_time,
-            comment="looks good",
-            comment_time=proof.create_time,
-        )
+        update_object(proof, **response)
 
         second_file = SimpleUploadedFile("proof.pdf", b"second")
         result = ProofService.upload(proof, second_file)
@@ -363,6 +374,15 @@ class TestProofServiceConfirm:
 
         assert proof.confirmed_time == first_time
 
+    def test_rejects_when_commented(self, proof: PaperProof) -> None:
+        update_object(proof, comment="typo on page 2", comment_time=timezone.now())
+
+        with pytest.raises(ProofStateError, match="while it has a comment"):
+            ProofService.confirm(proof)
+
+        proof.refresh_from_db()
+        assert proof.confirmed_time is None
+
 
 @pytest.mark.django_db
 class TestProofServiceComment:
@@ -382,6 +402,24 @@ class TestProofServiceComment:
 
         assert proof.comment == "updated comment"
         assert proof.comment_time >= first_time  # type: ignore[operator]
+
+    def test_empty_text_withdraws_comment(self, proof: PaperProof) -> None:
+        ProofService.comment(proof, "first comment")
+
+        ProofService.comment(proof, "")
+        proof.refresh_from_db()
+
+        assert proof.comment == ""
+        assert proof.comment_time is None
+
+    def test_rejects_when_confirmed(self, proof: PaperProof) -> None:
+        update_object(proof, confirmed_time=timezone.now())
+
+        with pytest.raises(ProofStateError, match="already been confirmed"):
+            ProofService.comment(proof, "too late")
+
+        proof.refresh_from_db()
+        assert proof.comment == ""
 
 
 @pytest.fixture

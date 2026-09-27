@@ -23,6 +23,10 @@ class ProofEligibilityError(Exception):
     """Raised when a paper is not eligible for proof creation."""
 
 
+class ProofStateError(Exception):
+    """Raised when an author action conflicts with the proof's current response."""
+
+
 class RecipientDerivationError(Exception):
     """Raised when recipient name or email cannot be derived.
 
@@ -74,9 +78,10 @@ class SendProofNotifyResult(BaseModel):
 
 
 # No Mutex is used for proof operations. Unlike revision uploads (which require
-# read-then-write sequencing for revision numbers), proof is a singleton resource with
-# admin-only mutations. Concurrent access is unlikely and the worst case is an orphaned
-# file in storage. Add a Mutex if this assumption changes.
+# read-then-write sequencing for revision numbers), proof is a singleton resource: admin
+# mutations are rare, and author mutations come from a single person on a single page.
+# The worst cases are an orphaned file in storage, or a confirm racing a comment, which
+# the database constraint rejects. Add a Mutex if this assumption changes.
 
 
 class ProofService:
@@ -93,13 +98,13 @@ class ProofService:
         announced, not withdrawn, and not deleted.
         """
         if paper.delete_time is not None:
-            raise ProofEligibilityError("Paper has been deleted.")
+            raise ProofEligibilityError(_("Paper has been deleted."))
         if paper.state not in cls._ELIGIBLE_STATES:
-            raise ProofEligibilityError("Paper is not in an accepted state.")
+            raise ProofEligibilityError(_("Paper is not in an accepted state."))
         if paper.announce_time is None:
-            raise ProofEligibilityError("Decision has not been announced.")
+            raise ProofEligibilityError(_("Decision has not been announced."))
         if paper.withdraw_time is not None:
-            raise ProofEligibilityError("Paper has been withdrawn.")
+            raise ProofEligibilityError(_("Paper has been withdrawn."))
 
     @classmethod
     def _derive_recipient(
@@ -232,18 +237,34 @@ class ProofService:
 
     @classmethod
     def confirm(cls, proof: PaperProof) -> PaperProof:
-        """Confirm a proof. Idempotent; confirming again is a no-op."""
+        """Confirm a proof. Idempotent; confirming again is a no-op.
+
+        Raises:
+            ProofStateError: If the proof carries a comment.
+        """
         if proof.confirmed_time is not None:
             return proof
+        if proof.comment:
+            raise ProofStateError(
+                _("Proof cannot be confirmed while it has a comment.")
+            )
         proof.confirmed_time = timezone.now()
         proof.save(update_fields=["confirmed_time", "update_time"])
         return proof
 
     @classmethod
     def comment(cls, proof: PaperProof, text: str) -> PaperProof:
-        """Upsert a comment on a proof."""
+        """Set, update, or clear the comment on a proof.
+
+        Empty text withdraws the comment, leaving the proof as if never commented.
+
+        Raises:
+            ProofStateError: If the proof is already confirmed.
+        """
+        if proof.confirmed_time is not None:
+            raise ProofStateError(_("Proof has already been confirmed."))
         proof.comment = text
-        proof.comment_time = timezone.now()
+        proof.comment_time = timezone.now() if text else None
         proof.save(update_fields=["comment", "comment_time", "update_time"])
         return proof
 
