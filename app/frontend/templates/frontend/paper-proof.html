@@ -38,15 +38,13 @@
 
       <p class="text-muted small">
         Please download and review the proof below. This is the final version that will
-        be included in the proceedings. If everything looks correct, confirm the proof.
-        If you notice any errors or formatting issues, leave a comment and we will reach
-        out to you.
+        be included in the proceedings. Once you have checked it, choose your response.
       </p>
 
       {# Download #}
       <template x-if="proof?.file_url">
         <div class="d-grid mb-4">
-          <a :href="proof.file_url" target="_blank" class="btn btn-outline-secondary">
+          <a :href="proof.file_url" target="_blank" class="btn btn-primary">
             <i class="bi bi-file-earmark-pdf me-1"></i>
             Download Proof PDF
           </a>
@@ -58,7 +56,7 @@
         </div>
       </template>
 
-      {# Confirmation #}
+      {# Response #}
       <template x-if="proof?.confirmed_time">
         <div class="alert alert-success mb-4" role="alert">
           <i class="bi bi-check-circle me-1"></i>
@@ -66,78 +64,127 @@
         </div>
       </template>
       <template x-if="proof && !proof.confirmed_time">
-        <div class="mb-4">
-          <div class="d-grid">
-            <button
-              type="button"
-              class="btn btn-primary"
-              :disabled="confirming"
-              @click="confirm()"
-            >
-              <span
-                x-show="confirming"
-                x-cloak
-                class="spinner-border spinner-border-sm me-1"
-                role="status"
+        <div>
+          <fieldset class="mb-3">
+            <legend class="form-label fs-6">Your response</legend>
+            <div class="form-check">
+              <input
+                type="radio"
+                id="response-confirm"
+                class="form-check-input"
+                value="confirm"
+                x-model="response"
+                :disabled="hasComment"
               >
-                <span class="visually-hidden">Confirming...</span>
-              </span>
-              Confirm Proof
-            </button>
-          </div>
-        </div>
-      </template>
+              <label for="response-confirm" class="form-check-label">
+                Confirm the proof as is
+              </label>
+              <div
+                x-show="hasComment"
+                x-cloak
+                class="form-text text-muted fst-italic"
+                x-text="proof.comment ? 'Clear and save your comment to confirm.' : 'Clear your comment to confirm.'"
+              ></div>
+            </div>
+            <div class="form-check">
+              <input
+                type="radio"
+                id="response-report"
+                class="form-check-input"
+                value="report"
+                x-model="response"
+              >
+              <label for="response-report" class="form-check-label">
+                Report errors introduced during editing or formatting
+              </label>
+            </div>
+          </fieldset>
 
-      {# Comment #}
-      <div class="mb-3">
-        <label for="proof-comment" class="form-label">Comment</label>
-        <textarea
-          id="proof-comment"
-          class="form-control"
-          :class="{'is-invalid': errors.comment}"
-          rows="4"
-          x-model="commentText"
-          @input="commentSuccess = false"
-          placeholder="Leave a comment if you have corrections or feedback..."
-        ></textarea>
-        <div class="invalid-feedback" x-text="errors.comment"></div>
-      </div>
+          <template x-if="response === 'confirm'">
+            <div class="d-grid mb-3">
+              <button
+                type="button"
+                class="btn btn-success"
+                :disabled="confirming"
+                @click="confirm()"
+              >
+                <span
+                  x-show="confirming"
+                  x-cloak
+                  class="spinner-border spinner-border-sm me-1"
+                  role="status"
+                >
+                  <span class="visually-hidden">Confirming...</span>
+                </span>
+                Confirm Proof
+              </button>
+            </div>
+          </template>
 
-      <div
-        x-show="errors._form"
-        x-cloak
-        class="alert alert-danger"
-        role="alert"
-        x-text="errors._form"
-      ></div>
+          <template x-if="response === 'report'">
+            <div>
+              <div class="mb-3">
+                <label for="proof-comment" class="form-label">Comment</label>
+                <p class="text-muted small fst-italic">
+                  This review is only for catching errors introduced during editing or
+                  typesetting. Content changes such as additions, deletions, or rewrites
+                  cannot be accepted at this stage.
+                </p>
+                <textarea
+                  id="proof-comment"
+                  class="form-control"
+                  :class="{'is-invalid': errors.comment}"
+                  rows="4"
+                  x-model="commentText"
+                  @input="commentSuccess = false"
+                  placeholder="Describe each error and where it appears (page, section, line)..."
+                ></textarea>
+                <div class="invalid-feedback" x-text="errors.comment"></div>
+              </div>
 
-      <div class="d-grid mb-2">
-        <button
-          type="button"
-          class="btn btn-outline-primary"
-          :disabled="commenting"
-          @click="submitComment()"
-        >
-          <span
-            x-show="commenting"
+              <div class="d-grid mb-2">
+                <button
+                  type="button"
+                  class="btn btn-outline-primary"
+                  :disabled="commenting || (!commentText.trim() && !proof.comment)"
+                  @click="submitComment()"
+                >
+                  <span
+                    x-show="commenting"
+                    x-cloak
+                    class="spinner-border spinner-border-sm me-1"
+                    role="status"
+                  >
+                    <span class="visually-hidden">Saving...</span>
+                  </span>
+                  Save Comment
+                </button>
+              </div>
+
+              <div
+                x-show="commentSuccess"
+                x-cloak
+                class="alert alert-success small py-2"
+                role="alert"
+                x-text="proof.comment ? 'Comment saved.' : 'Comment cleared.'"
+              ></div>
+
+              <template x-if="proof.comment_time">
+                <p class="text-muted small">
+                  Last updated: <span x-text="formatDate(proof.comment_time)"></span>
+                </p>
+              </template>
+            </div>
+          </template>
+
+          <div
+            x-show="errors._form"
             x-cloak
-            class="spinner-border spinner-border-sm me-1"
-            role="status"
-          >
-            <span class="visually-hidden">Submitting...</span>
-          </span>
-          Submit Comment
-        </button>
-      </div>
-
-      <div x-show="commentSuccess" x-cloak class="alert alert-success small py-2" role="alert">
-        Comment saved.
-      </div>
-
-      <template x-if="proof?.comment_time">
-        <p class="text-muted small">
-          Last updated: <span x-text="formatDate(proof.comment_time)"></span>
-        </p>
+            class="alert alert-danger"
+            role="alert"
+            x-text="errors._form"
+          ></div>
+        </div>
       </template>
     </div>
   </div>
@@ -151,23 +198,34 @@
         proof: null,
         loading: true,
         error: null,
+        response: null,
         commentText: "",
         confirming: false,
         commenting: false,
         commentSuccess: false,
         errors: {},
 
+        get hasComment() {
+          return Boolean(this.proof?.comment) || this.commentText.trim() !== "";
+        },
+
         async init() {
           try {
             const {data} = await api.get("{% url 'api-1.0.0:get-proof' uid=params.proof_uid %}");
             this.proof = data;
             this.commentText = data.comment;
+            this.response = data.comment ? "report" : null;
             document.title = document.title.replace('Paper Proof | ', `Paper Proof - ${data.paper_code} | `);
           } catch {
             this.error = "This proof link is invalid or the proof could not be found.";
           } finally {
             this.loading = false;
           }
+
+          this.$watch("response", () => {
+            this.errors = {};
+            this.commentSuccess = false;
+          });
         },
 
         async confirm() {
@@ -199,6 +257,7 @@
               {comment: this.commentText}
             );
             this.proof = data;
+            this.commentText = data.comment;
             this.commentSuccess = true;
           } catch (error) {
             const data = error.response?.data;
