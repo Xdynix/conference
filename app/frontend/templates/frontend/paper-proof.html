@@ -83,7 +83,7 @@
                 x-show="hasComment"
                 x-cloak
                 class="form-text text-muted fst-italic"
-                x-text="proof.comment ? 'Clear and save your comment to confirm.' : 'Clear your comment to confirm.'"
+                x-text="proof.comment ? 'Clear and withdraw your comment to confirm.' : 'Clear your comment to confirm.'"
               ></div>
             </div>
             <div class="form-check">
@@ -155,9 +155,9 @@
                     class="spinner-border spinner-border-sm me-1"
                     role="status"
                   >
-                    <span class="visually-hidden">Saving...</span>
+                    <span class="visually-hidden">Submitting...</span>
                   </span>
-                  Save Comment
+                  <span x-text="commentText.trim() ? 'Submit Comment' : 'Withdraw Comment'"></span>
                 </button>
               </div>
 
@@ -166,7 +166,7 @@
                 x-cloak
                 class="alert alert-success small py-2"
                 role="alert"
-                x-text="proof.comment ? 'Comment saved.' : 'Comment cleared.'"
+                x-text="proof.comment ? 'Comment submitted.' : 'Comment withdrawn.'"
               ></div>
 
               <template x-if="proof.comment_time">

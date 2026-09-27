@@ -54,6 +54,11 @@ Conventions for the pytest suite under `tests/`.
   Docstrings for test helpers are acceptable when they clarify complex setup or
   behavior.
 - **Assertions**: Use `tests.helpers.any_*` values for flexible type-based assertions.
+- **Parametrize ids**: Wrap a case in `pytest.param(..., id=...)` when the generated
+  id would be opaque (e.g. dicts, sets, bools, exceptions, non-ASCII strings); leave
+  string and enum cases bare. Ids name the input state, not the expected outcome, and
+  use underscores inside an id since pytest joins stacked parametrizations with
+  hyphens.
 - **Code Quality**: Write concise assertions like
   `assert await Model.objects.filter().acount() == 1`.
 - **Annotations**: Add `# noqa: ARG001` (functions) or `# noqa: ARG002` (methods) for

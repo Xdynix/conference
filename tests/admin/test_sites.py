@@ -12,14 +12,22 @@ User = get_user_model()
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("deny_unauthorized", [True, False])
+@pytest.mark.parametrize(
+    "deny_unauthorized",
+    [
+        pytest.param(True, id="deny_unauthorized"),
+        pytest.param(False, id="redirect_unauthorized"),
+    ],
+)
 @pytest.mark.parametrize(
     ("has_permission", "user_attrs"),
     [
-        (True, {"is_superuser": True}),
-        (False, {}),
-        (False, {"is_staff": True}),
-        (False, {"is_active": False, "is_superuser": True}),
+        pytest.param(True, {"is_superuser": True}, id="superuser"),
+        pytest.param(False, {}, id="regular_user"),
+        pytest.param(False, {"is_staff": True}, id="staff"),
+        pytest.param(
+            False, {"is_active": False, "is_superuser": True}, id="inactive_superuser"
+        ),
     ],
 )
 def test_admin_site_superuser_only(
@@ -43,7 +51,13 @@ def test_admin_site_superuser_only(
         assert response.status_code == HTTPStatus.FOUND
 
 
-@pytest.mark.parametrize("deny_unauthorized", [True, False])
+@pytest.mark.parametrize(
+    "deny_unauthorized",
+    [
+        pytest.param(True, id="deny_unauthorized"),
+        pytest.param(False, id="redirect_unauthorized"),
+    ],
+)
 def test_admin_login_denied_when_configured(
     settings: LazySettings,
     client: Client,

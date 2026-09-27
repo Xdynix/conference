@@ -116,7 +116,13 @@ class TestUpdateUser:
     def path(cls, user_id: ULID) -> str:
         return reverse("api-1.0.0:update-user", args=[user_id])
 
-    @pytest.mark.parametrize("managed", [True, False])
+    @pytest.mark.parametrize(
+        "managed",
+        [
+            pytest.param(True, id="managed"),
+            pytest.param(False, id="unmanaged"),
+        ],
+    )
     def test_happy_path(
         self,
         faker: Faker,

@@ -180,8 +180,13 @@ class TestCfTurnstileRequired(URLConfTestCase):
     @pytest.mark.parametrize(
         "mock_verify_side_effect",
         [
-            httpx.HTTPStatusError("Foobar", request=MagicMock(), response=MagicMock()),
-            httpx.RequestError("Foobar"),
+            pytest.param(
+                httpx.HTTPStatusError(
+                    "Foobar", request=MagicMock(), response=MagicMock()
+                ),
+                id="http_status_error",
+            ),
+            pytest.param(httpx.RequestError("Foobar"), id="request_error"),
         ],
     )
     @pytest.mark.parametrize(

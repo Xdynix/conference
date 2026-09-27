@@ -19,7 +19,13 @@ class TestUserServiceCreateUser:
             return_value={},
         )
 
-    @pytest.mark.parametrize("managed", [True, False])
+    @pytest.mark.parametrize(
+        "managed",
+        [
+            pytest.param(True, id="managed"),
+            pytest.param(False, id="unmanaged"),
+        ],
+    )
     def test_happy_path(
         self,
         faker: Faker,

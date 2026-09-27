@@ -265,8 +265,11 @@ class TestProofServiceUpload:
     @pytest.mark.parametrize(
         "response",
         [
-            {"confirmed_time": timezone.now()},
-            {"comment": "typo on page 2", "comment_time": timezone.now()},
+            pytest.param({"confirmed_time": timezone.now()}, id="confirmed"),
+            pytest.param(
+                {"comment": "typo on page 2", "comment_time": timezone.now()},
+                id="commented",
+            ),
         ],
     )
     def test_first_upload_keeps_response(
@@ -286,8 +289,11 @@ class TestProofServiceUpload:
     @pytest.mark.parametrize(
         "response",
         [
-            {"confirmed_time": timezone.now()},
-            {"comment": "typo on page 2", "comment_time": timezone.now()},
+            pytest.param({"confirmed_time": timezone.now()}, id="confirmed"),
+            pytest.param(
+                {"comment": "typo on page 2", "comment_time": timezone.now()},
+                id="commented",
+            ),
         ],
     )
     def test_reupload_resets_response(
