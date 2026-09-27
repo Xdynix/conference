@@ -14,7 +14,8 @@ the scripted API workflows in the admin API guides are deliberately not describe
 - **Cross-references** link to other workflows with `(see §N: Name)`.
 - **Altitude:** steps describe what the actor does and what the system does, not which
   page element they use; preconditions state the gate, not the validation rules behind
-  it.
+  it. State each rule once, in the section intro or the flow it belongs to; other flows
+  reference it through their preconditions rather than restating it.
 
 ## State Machine Reference
 
