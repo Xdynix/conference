@@ -46,8 +46,10 @@
           x-model="statusFilter"
         >
           <option value="">All proofs</option>
-          <option value="commented">Commented</option>
           <option value="not_notified">Not notified</option>
+          <option value="no_response">No response</option>
+          <option value="commented">Commented</option>
+          <option value="confirmed">Confirmed</option>
         </select>
         <button
           type="button"
@@ -194,6 +196,13 @@
 {% block scripts %}
   {{ block.super }}
   <script>
+    const STATUS_FILTERS = {
+      not_notified: p => !p.notification_time,
+      no_response: p => !p.confirmed_time && !p.comment,
+      commented: p => Boolean(p.comment),
+      confirmed: p => Boolean(p.confirmed_time),
+    };
+
     function proofList() {
       return {
         ...sendProofNotificationModal(),
@@ -209,11 +218,8 @@
         get filteredProofs() {
           let list = [...this.proofs];
 
-          if (this.statusFilter === "commented") {
-            list = list.filter(p => p.comment);
-          } else if (this.statusFilter === "not_notified") {
-            list = list.filter(p => !p.notification_time);
-          }
+          const matches = STATUS_FILTERS[this.statusFilter];
+          if (matches) list = list.filter(matches);
 
           const q = this.search.trim().toLowerCase();
           if (q) {
@@ -233,8 +239,11 @@
           const filtered = this.filteredProofs.length;
           const total = this.proofs.length;
           const label = total === 1 ? "proof" : "proofs";
-          if (filtered === total) return `${total} ${label}`;
-          return `${filtered} of ${total} ${label}`;
+          const count = filtered === total ? `${total} ${label}` : `${filtered} of ${total} ${label}`;
+          const confirmed = this.proofs.filter(STATUS_FILTERS.confirmed).length;
+          const commented = this.proofs.filter(STATUS_FILTERS.commented).length;
+          const noResponse = total - confirmed - commented;
+          return `${count} · ${noResponse} no response, ${commented} commented, ${confirmed} confirmed`;
         },
 
         toggleComment(uid) {
