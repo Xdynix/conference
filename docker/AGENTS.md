@@ -351,5 +351,13 @@ not the only driver of billed request volume: L0 retention checks and L1 compact
 on their own timers (`l0-retention-check-interval` and `levels`) regardless of write
 rate.
 
+rclone's request volume is set by its comparison mode more than by
+`BACKUP_MEDIA_INTERVAL`. With `--fast-list --checksum` a run costs about one list per
+1,000 objects plus two Class A operations per changed file; without them it costs one
+list per directory (one per paper) and one HEAD per object on every run. The trade is
+that `--checksum` reads the whole media directory from local disk each run and
+`--fast-list` holds the remote listing in memory, roughly 1 KB per object against the
+container's memory limit. Lengthen the interval before dropping either flag.
+
 Retention is configured in two places that must agree; see
 [Backup Retention](#backup-retention).

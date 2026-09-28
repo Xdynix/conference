@@ -142,8 +142,11 @@ services:
     command:
       - |
         while true; do
+          # The two comparison flags keep the run cost flat in file count; see
+          # docker/AGENTS.md "Backup Sidecars" before changing them.
           rclone sync /media backup:$$BACKUP_BUCKET/media \
             --backup-dir backup:$$BACKUP_BUCKET/media-trash/$$(date +%Y-%m-%d) \
+            --fast-list --checksum \
             --log-level INFO
           sleep $$BACKUP_MEDIA_INTERVAL
         done
