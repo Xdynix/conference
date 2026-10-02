@@ -44,7 +44,10 @@ Conventions and coupling rules for the production stack: `Dockerfile`,
    healthcheck has a start period (see `HEALTHCHECK` in the Dockerfile), so allow time
    for it to become healthy after initial startup. The `litestream` and `rclone`
    sidecars define no healthcheck and report only `Up` regardless of whether replication
-   is working, so confirm those from their container logs instead.
+   is working. Confirm rclone from its container logs. Litestream's logs do not show
+   individual syncs, so run `litestream ltx` in its container with the database path
+   from `docker/litestream.yml`: it lists the files in the replica, and the newest
+   `created` time should follow the latest database write.
 
 ## Updating
 

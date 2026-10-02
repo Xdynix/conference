@@ -153,7 +153,7 @@ def configure_logging(
             # stdlib `callHandlers`. The `LoguruIntegration` above handles event capture
             # through `loguru`, and the `InterceptHandler` routes all stdlib logging
             # there.
-            disabled_integrations=[LoggingIntegration()],
+            disabled_integrations=[LoggingIntegration],
             before_send=sentry_before_send,
             environment="development" if debug else "production",
             send_default_pii=False,

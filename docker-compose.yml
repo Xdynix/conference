@@ -52,7 +52,9 @@ services:
     restart: unless-stopped
 
   nginx:
-    image: nginx:alpine
+    # Image tags in this file are exact: `up -d` does not re-pull a tag that is already
+    # present, so a floating one would never update.
+    image: nginx:1.31.6-alpine
     logging: *default-logging
     environment:
       VIRTUAL_HOST: ${VIRTUAL_HOST:-}
@@ -94,7 +96,7 @@ services:
       - nginx-proxy
 
   litestream:
-    image: litestream/litestream:0.5
+    image: litestream/litestream:0.5.17
     profiles: [ "backup" ]
     user: "${APP_UID:-900}"
     logging: *default-logging
@@ -120,7 +122,7 @@ services:
     restart: unless-stopped
 
   rclone:
-    image: rclone/rclone:1
+    image: rclone/rclone:1.75.1
     profiles: [ "backup" ]
     user: "${APP_UID:-900}"
     logging: *default-logging
