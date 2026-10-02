@@ -18,9 +18,11 @@
 /.env.*
 !/.env.example
 /.git
+/.gitattributes
 /.pre-commit-config.yaml
 /Dockerfile
 /docker-compose.yml
+/docs
 /etc/stubs/
 /justfile
 /scratch

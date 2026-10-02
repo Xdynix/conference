@@ -8,8 +8,8 @@ from app.core.types import AuthedHttpRequest
 router = Router(tags=["Doc"], exclude_none=True)
 
 DOCS: dict[str, str] = {
-    "batch-import-guide": "docs/batch-import-api-guide.md",
-    "email-sending-guide": "docs/email-sending-api-guide.md",
+    "batch-import-guide": "app/conference/guides/batch-import-api-guide.md",
+    "email-sending-guide": "app/conference/guides/email-sending-api-guide.md",
 }
 
 
