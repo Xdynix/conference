@@ -23,6 +23,6 @@ Run `just --list` to see all available commands.
 
 ## Documentation
 
-- **[WORKFLOWS.md](WORKFLOWS.md)** - User-facing workflows and state machines.
+- **[docs/workflows.md](docs/workflows.md)** - User-facing workflows and state machines.
 - **[AGENTS.md](AGENTS.md)** - Development guidelines, project structure, and coding
   conventions.

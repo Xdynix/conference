@@ -36,10 +36,14 @@ def enrich_request(request: HttpRequest) -> None:
         sentry_sdk.set_tag("request_id", request.request_id)
 
 
+def _meta_key(header: str) -> str:
+    return f"HTTP_{header.upper().replace('-', '_')}"
+
+
 def _resolve_request_id(request: HttpRequest) -> str:
     header = settings.REVERSE_PROXY_REQUEST_ID_HEADER
     if settings.TRUSTED_PROXY and header:
-        value: str = request.META.get(f"HTTP_{header.upper().replace('-', '_')}", "")
+        value: str = request.META.get(_meta_key(header), "")
         sanitized = "".join(
             c for c in value[:_REQUEST_ID_MAX_LENGTH] if c in _REQUEST_ID_ALLOWED
         )
@@ -50,15 +54,18 @@ def _resolve_request_id(request: HttpRequest) -> str:
 
 
 def _resolve_client_ip(request: HttpRequest) -> str | None:
-    if not settings.TRUSTED_PROXY:
-        ip, _ = get_client_ip(request, request_header_order=("REMOTE_ADDR",))
-        return ip
+    if settings.TRUSTED_PROXY:
+        # Never left to ipware's default order, which trusts headers a client can set.
+        headers = settings.REVERSE_PROXY_IP_HEADERS or ["X-Forwarded-For"]
+        ip, _ = get_client_ip(
+            request,
+            proxy_count=settings.REVERSE_PROXY_COUNT,
+            request_header_order=[_meta_key(header) for header in headers],
+        )
+        if ip is not None:
+            return ip
 
-    kwargs: dict[str, Any] = {"proxy_count": settings.REVERSE_PROXY_COUNT}
-    if settings.REVERSE_PROXY_IP_HEADERS:
-        kwargs["request_header_order"] = settings.REVERSE_PROXY_IP_HEADERS
-
-    ip, _ = get_client_ip(request, **kwargs)
+    ip, _ = get_client_ip(request, request_header_order=("REMOTE_ADDR",))
     return ip
 
 

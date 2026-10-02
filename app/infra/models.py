@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from hashlib import sha256
 
@@ -36,7 +36,7 @@ class Mutex(models.Model):
         *,
         namespace: str = "",
         using: str | None = None,
-    ) -> Iterator[None]:
+    ) -> Generator[None]:
         """Acquire a lock for ``namespace`` + ``key`` and hold it for the transaction.
 
         Opens a database transaction, acquires an exclusive lock on the given key, and

@@ -18,8 +18,12 @@ Conventions for templates, Alpine.js components, and static assets under
 All frontend dependencies are downloaded locally and served via Django's static files
 system. No npm, bundlers, or build steps are used.
 
-Vendor files are committed to the repository. Update them manually when upgrading
-library versions.
+Vendor files are committed to the repository as byte-identical copies of upstream
+release files, so they can be compared against upstream directly; pre-commit hooks skip
+the directory for that reason. `app/frontend/static/frontend/vendor/README.md` records
+each library's version and upstream source. When adding, updating, or removing a
+library, update that record in the same change and keep the vendored entries in
+`LICENSE` in step.
 
 ### Browser Support
 

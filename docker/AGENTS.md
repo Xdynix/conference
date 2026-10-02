@@ -44,7 +44,10 @@ Conventions and coupling rules for the production stack: `Dockerfile`,
    healthcheck has a start period (see `HEALTHCHECK` in the Dockerfile), so allow time
    for it to become healthy after initial startup. The `litestream` and `rclone`
    sidecars define no healthcheck and report only `Up` regardless of whether replication
-   is working, so confirm those from their container logs instead.
+   is working. Confirm rclone from its container logs. Litestream's logs do not show
+   individual syncs, so run `litestream ltx` in its container with the database path
+   from `docker/litestream.yml`: it lists the files in the replica, and the newest
+   `created` time should follow the latest database write.
 
 ## Updating
 
@@ -205,13 +208,15 @@ and is reachable only through the sidecar. That holds in every topology, so it i
 per-deployment choice.
 
 When it is set, both the scheme and the client IP come from headers the sidecar wrote,
-so they are only as good as the trust boundary below.
+so they are only as good as the trust boundary below. A client IP header that is
+missing or fails the hop-count check falls back to the socket peer, which is the
+sidecar's own address.
 
 `REVERSE_PROXY_COUNT` is an escape hatch and should stay at its default of `0`. It
 counts hops that **append** to `X-Forwarded-For`, and the sidecar overwrites instead,
 so nothing appends. Raise it only after editing the template back to appending, and
-note that both failure directions are silent: too low returns a proxy address as the
-client, too high resolves `client_ip` to `None`.
+note that a wrong value fails silently: every request resolves to the sidecar's
+address.
 
 Related settings in `app/settings.py` (configured via `.env`):
 
@@ -220,9 +225,11 @@ Related settings in `app/settings.py` (configured via `.env`):
   otherwise differs from what Django reconstructs via the `Host` header (e.g.,
   `https://example.com:8443`). Without this, Django's CSRF middleware rejects POST
   requests with "Origin checking failed".
-- `REVERSE_PROXY_IP_HEADERS`: overrides which headers are tried, and in what order.
-  Leave unset while the sidecar is in the chain, since it normalizes into
-  `X-Forwarded-For` anyway. Ignored entirely when `TRUSTED_PROXY` is off.
+- `REVERSE_PROXY_IP_HEADERS`: header names (e.g. `CF-Connecting-IP`) read for the
+  client IP in place of `X-Forwarded-For`, in order. Leave unset while the sidecar is
+  in the chain: the app believes these headers from any peer, so a CDN's header
+  belongs in the sidecar's `REAL_IP_HEADER` instead. Ignored entirely when
+  `TRUSTED_PROXY` is off.
 - `REVERSE_PROXY_REQUEST_ID_HEADER`: adopts an upstream request ID header instead of
   generating one. Also gated on `TRUSTED_PROXY`.
 
@@ -230,8 +237,10 @@ Related settings in `app/settings.py` (configured via `.env`):
 
 The sidecar is where client-supplied forwarding headers stop. It overwrites
 `X-Forwarded-For` with a single address instead of appending, and replaces
-`X-Forwarded-Proto` unless a trusted peer supplied it, so nothing a client sends reaches
-the app. `docker/11-write-real-ip-conf.sh` generates both rules from one setting.
+`X-Forwarded-Proto` unless a trusted peer supplied it.
+`docker/11-write-real-ip-conf.sh` generates both rules from one setting. By default the
+app reads no other forwarding header, so one a client sends under another name (e.g.
+`X-Real-IP`) is ignored.
 
 `REAL_IP_FROM` takes a comma-separated list of addresses or CIDRs to trust, and defaults
 to empty, meaning trust nothing. `REAL_IP_HEADER` names the header to read from a

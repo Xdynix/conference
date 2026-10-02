@@ -6,10 +6,12 @@ dependencies = [
     "apscheduler>=3.11.3",
     "django-cleanup>=9.0.0",
     "django-extensions>=4.1",
-    "django-ipware>=7.0.1",
+    "django-ipware>=8.0.0",
     "django-mailer>=2.3.2",
     "django-ninja>=1.6.3",
     "django-stubs-ext~=6.1.0",
+    # TODO: replace django-mailer and the EMAIL_* settings with MAILERS before Django
+    # 7.0 removes them.
     "django[argon2]~=6.1.0",
     "httpx>=0.28.1",
     "ipython>=9.16.1",
@@ -25,7 +27,7 @@ dependencies = [
     "python-ulid[pydantic]>=4.0.1",
     "pyyaml>=6.0.3",
     "rapidfuzz>=3.14.5",
-    "sentry-sdk>=2.66.1",
+    "sentry-sdk>=2.69.2",
     "servestatic[brotli]>=4.3.1",
     "typst>=0.15.0",
 ]
@@ -157,6 +159,10 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 # TODO: evaluate gating warnings via filterwarnings or max_warnings. Tests leaking an
 # unclosed FileResponse would need fixing first; the GC attributes them at random.
+filterwarnings = [
+    # Goes away with the django-mailer TODO under [project] dependencies.
+    "ignore:The EMAIL_\\w+ setting is deprecated:django.utils.deprecation.RemovedInDjango70Warning",
+]
 markers = [
     "expect_audit_error: test intentionally triggers audit error logging",
 ]

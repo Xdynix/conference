@@ -102,13 +102,20 @@ Every `AGENTS.md` above a file applies to it; the nearest wins on conflict.
 - **`docker/AGENTS.md`** - Deployment. Also covers `Dockerfile`, `docker-compose.yml`,
   and the production settings they reference; these files are coupled, so read the guide
   before editing any of them.
-- **`WORKFLOWS.md`** (repository root) - State machines, transitions, actor roles, and
-  step-by-step happy paths. Read it before implementing, modifying, or designing
-  features that involve states, multistep user flows, or behavior spanning backend and
-  frontend. New workflows follow its conventions and structure.
 
 `CLAUDE.md` files are one-line includes so Claude Code loads the adjacent `AGENTS.md`
 automatically; edit the `AGENTS.md`, not the include.
+
+## On-Demand Docs
+
+Docs under `docs/` are not loaded automatically; read one when its situation applies.
+
+- **`docs/workflows.md`** - State machines, transitions, actor roles, and step-by-step
+  happy paths. Read it before implementing, modifying, or designing features that
+  involve states, multistep user flows, or behavior spanning backend and frontend. New
+  workflows follow its conventions and structure.
+- **`docs/authoring-agent-docs.md`** - Where a fact for agents belongs and what earns a
+  place. Read it before editing an `AGENTS.md` or a doc under `docs/`.
 
 ## Self-Review Protocol
 

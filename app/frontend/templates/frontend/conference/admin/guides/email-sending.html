@@ -6,5 +6,5 @@
 {% block copy_url %}{% url 'api-1.0.0:get-doc' params.conference_name 'email-sending-guide' %}{% endblock %}
 
 {% block guide_content %}
-  {% render_markdown_file "docs/email-sending-api-guide.md" %}
+  {% render_markdown_file "app/conference/guides/email-sending-api-guide.md" %}
 {% endblock %}

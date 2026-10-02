@@ -1,11 +1,14 @@
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from django.conf import LazySettings
 from django.http import HttpResponse
 from django.test import RequestFactory
 from pytest_mock import MockerFixture
 
 from app.middleware import HttpRequest, request_meta_middleware
+
+_PROXY_ADDR = "172.18.0.3"
 
 
 def _apply_sync(
@@ -130,69 +133,132 @@ class TestRequestIdFallback:
 
 
 class TestClientIp:
-    def test_forwards_proxy_count(
+    def test_trusted_proxy_reads_forwarded_for(
         self,
-        mocker: MockerFixture,
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
         settings.TRUSTED_PROXY = True
-        settings.REVERSE_PROXY_COUNT = 2
-        settings.REVERSE_PROXY_IP_HEADERS = []
 
-        mock_get_ip = mocker.patch(
-            "app.middleware.get_client_ip",
-            return_value=("198.51.100.1", True),
+        request = _get_enriched_request(
+            rf,
+            HTTP_X_FORWARDED_FOR="198.51.100.1",
+            REMOTE_ADDR=_PROXY_ADDR,
         )
-        request = _get_enriched_request(rf)
 
         assert request.client_ip == "198.51.100.1"
-        mock_get_ip.assert_called_once()
-        _, kwargs = mock_get_ip.call_args
-        assert kwargs["proxy_count"] == 2
-        assert "request_header_order" not in kwargs
 
-    def test_forwards_ip_headers(
+    def test_trusted_proxy_honors_proxy_count(
         self,
-        mocker: MockerFixture,
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
         settings.TRUSTED_PROXY = True
-        settings.REVERSE_PROXY_COUNT = 2
-        headers = ["CF-Connecting-IP", "X-Forwarded-For"]
-        settings.REVERSE_PROXY_IP_HEADERS = headers
+        settings.REVERSE_PROXY_COUNT = 1
 
-        mock_get_ip = mocker.patch(
-            "app.middleware.get_client_ip",
-            return_value=("198.51.100.2", True),
+        request = _get_enriched_request(
+            rf,
+            HTTP_X_FORWARDED_FOR="198.51.100.1, 198.51.100.2",
+            REMOTE_ADDR=_PROXY_ADDR,
         )
-        request = _get_enriched_request(rf)
 
+        assert request.client_ip == "198.51.100.1"
+
+    @pytest.mark.parametrize(
+        ("forged_header", "forged_value"),
+        [
+            ("HTTP_CLIENT_IP", "9.9.9.9"),
+            ("HTTP_X_REAL_IP", "9.9.9.9"),
+            ("HTTP_TRUE_CLIENT_IP", "9.9.9.9"),
+            ("HTTP_FORWARDED", "for=9.9.9.9"),
+        ],
+    )
+    def test_trusted_proxy_ignores_unlisted_headers(
+        self,
+        rf: RequestFactory,
+        settings: LazySettings,
+        forged_header: str,
+        forged_value: str,
+    ) -> None:
+        settings.TRUSTED_PROXY = True
+
+        request = _get_enriched_request(
+            rf,
+            HTTP_X_FORWARDED_FOR="10.0.0.5",
+            REMOTE_ADDR=_PROXY_ADDR,
+            **{forged_header: forged_value},
+        )
+
+        assert request.client_ip == "10.0.0.5"
+
+    @pytest.mark.parametrize(
+        ("proxy_count", "meta"),
+        [
+            pytest.param(
+                0,
+                {"HTTP_X_FORWARDED_FOR": "198.51.100.1, 198.51.100.2"},
+                id="count_too_low",
+            ),
+            pytest.param(
+                2,
+                {"HTTP_X_FORWARDED_FOR": "198.51.100.1"},
+                id="count_too_high",
+            ),
+            pytest.param(0, {"HTTP_CLIENT_IP": "9.9.9.9"}, id="header_missing"),
+        ],
+    )
+    def test_trusted_proxy_falls_back_to_socket_peer(
+        self,
+        rf: RequestFactory,
+        settings: LazySettings,
+        proxy_count: int,
+        meta: dict[str, str],
+    ) -> None:
+        settings.TRUSTED_PROXY = True
+        settings.REVERSE_PROXY_COUNT = proxy_count
+
+        request = _get_enriched_request(rf, REMOTE_ADDR=_PROXY_ADDR, **meta)
+
+        assert request.client_ip == _PROXY_ADDR
+
+    def test_configured_headers_replace_forwarded_for(
+        self,
+        rf: RequestFactory,
+        settings: LazySettings,
+    ) -> None:
+        settings.TRUSTED_PROXY = True
+        settings.REVERSE_PROXY_IP_HEADERS = ["CF-Connecting-IP"]
+
+        request = _get_enriched_request(
+            rf,
+            HTTP_CF_CONNECTING_IP="198.51.100.2",
+            HTTP_X_FORWARDED_FOR="198.51.100.1",
+            REMOTE_ADDR=_PROXY_ADDR,
+        )
         assert request.client_ip == "198.51.100.2"
-        _, kwargs = mock_get_ip.call_args
-        assert kwargs["request_header_order"] == headers
+
+        request = _get_enriched_request(
+            rf,
+            HTTP_X_FORWARDED_FOR="198.51.100.1",
+            REMOTE_ADDR=_PROXY_ADDR,
+        )
+        assert request.client_ip == _PROXY_ADDR
 
     def test_untrusted_proxy_ignores_configured_headers(
         self,
-        mocker: MockerFixture,
         rf: RequestFactory,
         settings: LazySettings,
     ) -> None:
         settings.TRUSTED_PROXY = False
-        settings.REVERSE_PROXY_COUNT = 2
         settings.REVERSE_PROXY_IP_HEADERS = ["CF-Connecting-IP"]
 
-        mock_get_ip = mocker.patch(
-            "app.middleware.get_client_ip",
-            return_value=("198.51.100.3", True),
+        request = _get_enriched_request(
+            rf,
+            HTTP_CF_CONNECTING_IP="9.9.9.9",
+            REMOTE_ADDR="203.0.113.7",
         )
-        request = _get_enriched_request(rf)
 
-        assert request.client_ip == "198.51.100.3"
-        _, kwargs = mock_get_ip.call_args
-        assert kwargs["request_header_order"] == ("REMOTE_ADDR",)
-        assert "proxy_count" not in kwargs
+        assert request.client_ip == "203.0.113.7"
 
     def test_untrusted_proxy_rejects_forged_forwarding_header(
         self,
