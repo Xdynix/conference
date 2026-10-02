@@ -5,7 +5,7 @@ match upstream.
 
 | Directory | Version | Notes |
 | --- | --- | --- |
-| `alpine/` | 3.17.0 | npm `alpinejs`; `dist/cdn.min.js` saved as `alpine.min.js` |
+| `alpine/` | 3.17.4 | npm `alpinejs`; `dist/cdn.min.js` saved as `alpine.min.js` |
 | `axios/` | 1.20.0 | |
 | `bootstrap/` | 5.3.8 | |
 | `bootstrap-icons/` | 1.13.1 | |
