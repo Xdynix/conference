@@ -24,22 +24,20 @@ def monkeypatch_django_ninja_openapi_examples() -> None:
     # parameters with examples. This patch converts the array format to the map format.
     from typing import Any
 
-    import ninja.openapi.schema
+    from ninja.openapi.schema import OpenAPISchema
 
-    original_class = ninja.openapi.schema.OpenAPISchema
+    original = OpenAPISchema._extract_parameters
 
-    class OpenAPISchema(original_class):  # type: ignore[misc, valid-type]
-        def _extract_parameters(self, model: Any) -> list[dict[str, Any]]:
-            result = super()._extract_parameters(model)
-            for param in result:
-                if "examples" in param and isinstance(param["examples"], list):
-                    param["examples"] = {
-                        f"example{i}": {"value": v}
-                        for i, v in enumerate(param["examples"])
-                    }
-            return result  # type: ignore[no-any-return]
+    def _extract_parameters(self: OpenAPISchema, model: Any) -> list[dict[str, Any]]:
+        result = original(self, model)
+        for param in result:
+            if isinstance(param.get("examples"), list):
+                param["examples"] = {
+                    f"example{i}": {"value": v} for i, v in enumerate(param["examples"])
+                }
+        return result
 
-    ninja.openapi.schema.OpenAPISchema = OpenAPISchema  # type: ignore[misc]
+    OpenAPISchema._extract_parameters = _extract_parameters  # type: ignore[method-assign]
 
 
 def monkeypatch_django_ninja_patch_dict() -> None:
