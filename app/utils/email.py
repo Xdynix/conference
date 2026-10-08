@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import Any, Self
 
 from django.core.mail import EmailMultiAlternatives
-from jinja2 import StrictUndefined, TemplateSyntaxError
+from jinja2 import StrictUndefined, TemplateError, TemplateSyntaxError
 from jinja2.sandbox import SandboxedEnvironment
 from pydantic import AnyUrl, BaseModel, ConfigDict, ValidationInfo, field_validator
 
@@ -140,7 +140,15 @@ EMAIL_FORMATS: dict[EmailFormatName, type[EmailFormat]] = {
 MAX_RENDERED_BODY_LENGTH = 100_000
 
 
-class RenderedBodyTooLongError(ValueError):
+class EmailRenderError(ValueError):
+    """Raised when a template cannot be rendered with the given context.
+
+    The message describes the template problem (an undefined variable, a sandbox
+    violation, an oversized body) and is safe to show to the template's author.
+    """
+
+
+class RenderedBodyTooLongError(EmailRenderError):
     """Raised when a rendered email body exceeds ``MAX_RENDERED_BODY_LENGTH``."""
 
 
@@ -265,19 +273,21 @@ class EmailTemplate(BaseModel):
     def render(self, context: EmailContext) -> RenderedEmail:
         """Render the template with the given context.
 
-        Raises ``RenderedBodyTooLongError`` when the rendered body exceeds
+        Raises ``EmailRenderError`` when the template fails at render time, including
+        ``RenderedBodyTooLongError`` when the rendered body exceeds
         ``MAX_RENDERED_BODY_LENGTH``; a template can expand far beyond its own size.
         """
         format_cls = EMAIL_FORMATS[self.format]
         context_dict = context.model_dump()
-        body = format_cls.render(self.body, context_dict)
-        if len(body) > MAX_RENDERED_BODY_LENGTH:
-            raise RenderedBodyTooLongError(
-                f"Rendered email body exceeds {MAX_RENDERED_BODY_LENGTH} characters."
-            )
-        return RenderedEmail(
-            format=self.format,
-            subject=format_cls.render(self.subject, context_dict),
-            body=body,
-            html=format_cls.render_html(self.body, context_dict),
-        )
+        try:
+            body = format_cls.render(self.body, context_dict)
+            if len(body) > MAX_RENDERED_BODY_LENGTH:
+                raise RenderedBodyTooLongError(
+                    f"Rendered body exceeds {MAX_RENDERED_BODY_LENGTH} characters."
+                )
+            subject = format_cls.render(self.subject, context_dict)
+            html = format_cls.render_html(self.body, context_dict)
+        except (TemplateError, OverflowError) as exc:
+            # The sandbox reports an oversized range as a plain OverflowError.
+            raise EmailRenderError(str(exc)) from exc
+        return RenderedEmail(format=self.format, subject=subject, body=body, html=html)

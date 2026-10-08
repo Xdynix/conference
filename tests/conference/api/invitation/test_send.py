@@ -90,6 +90,21 @@ class TestPreviewInvitationEmail:
 
         assert "exceeds" in response.json()["message"]
 
+    def test_sandbox_violation_returns_422(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={"subject": "Subject", "body": "{{ ''.__class__ }}"},
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert "unsafe" in response.json()["message"]
+
     def test_undefined_variable_returns_422(
         self,
         api_client: Client,

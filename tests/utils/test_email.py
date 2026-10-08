@@ -12,6 +12,7 @@ from app.utils.email import (
     MAX_RENDERED_BODY_LENGTH,
     EmailContext,
     EmailFormatName,
+    EmailRenderError,
     EmailTemplate,
     MarkdownFormat,
     RenderedBodyTooLongError,
@@ -146,6 +147,19 @@ class TestEmailTemplate:
         rendered = template.render(MyContext(name="User"))
         spy.assert_called_once_with("Dear **{{ name }}**", {"name": "User"})
         assert rendered.html == spy.spy_return
+
+    @pytest.mark.parametrize(
+        ("body", "message"),
+        [
+            pytest.param("{{ missing }}", "'missing' is undefined", id="undefined"),
+            pytest.param("{{ ''.__class__ }}", "unsafe", id="sandbox_violation"),
+            pytest.param("{{ range(10**6) }}", "Range too big", id="range_too_big"),
+        ],
+    )
+    def test_render_wraps_template_errors(self, body: str, message: str) -> None:
+        template = EmailTemplate(subject="Subject", body=body)
+        with pytest.raises(EmailRenderError, match=message):
+            template.render(EmailContext())
 
     @pytest.mark.parametrize(
         ("length", "ok"),

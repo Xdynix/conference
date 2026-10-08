@@ -3,7 +3,6 @@ from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
-from jinja2 import UndefinedError
 from ninja import Schema
 from ninja.errors import HttpError
 from pydantic import Field
@@ -23,7 +22,7 @@ from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest, EmailStr
 from app.ninja.errors import ErrorResponse
-from app.utils.email import EmailTemplate, RenderedBodyTooLongError, RenderedEmail
+from app.utils.email import EmailRenderError, EmailTemplate, RenderedEmail
 
 from .core import router
 
@@ -69,7 +68,7 @@ async def preview_reviewer_notification_email(
         return await sync_to_async(payload.render, thread_sensitive=False)(
             sample_context
         )
-    except (UndefinedError, RenderedBodyTooLongError) as exc:
+    except EmailRenderError as exc:
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
 
 
