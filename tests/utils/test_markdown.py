@@ -1,6 +1,17 @@
+import html
+import string
 from textwrap import dedent
 
-from app.utils.markdown import render
+import pytest
+
+from app.utils.markdown import escape, render
+
+SAMPLE_VALUE = f"{string.punctuation} x_y *z* <b>q</b> [l](http://e.test) 1. two # h"
+
+
+def html_literal(value: str) -> str:
+    """Return the value as the sanitized renderer emits it when it is plain text."""
+    return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 class TestRender:
@@ -210,3 +221,110 @@ class TestComplexMarkdown:
         assert "<blockquote>" in result
         assert "<code>inline code</code>" in result
         assert '<a href="https://example.com"' in result
+
+
+class TestEscape:
+    def test_all_punctuation_renders_literally(self) -> None:
+        rendered = render(escape(string.punctuation))
+        inner = rendered.removeprefix("<p>").removesuffix("</p>\n")
+        assert html.unescape(inner) == string.punctuation
+
+    def test_non_punctuation_untouched(self) -> None:
+        assert escape("Héllo wörld 123") == "Héllo wörld 123"
+
+    @pytest.mark.parametrize(
+        ("template", "expected"),
+        [
+            pytest.param("Dear {v}, hello", "<p>Dear {v}, hello</p>", id="inline"),
+            pytest.param("{v}", "<p>{v}</p>", id="line_start"),
+            pytest.param("**{v}**", "<strong>{v}</strong>", id="in_bold"),
+            pytest.param(
+                "[{v}](https://e.test/)",
+                '<a href="https://e.test/" rel="noopener noreferrer">{v}</a>',
+                id="in_link_text",
+            ),
+            pytest.param("- {v}", "<li>{v}</li>", id="in_list_item"),
+            pytest.param("| h |\n|---|\n| {v} |", "<td>{v}</td>", id="in_table_cell"),
+        ],
+    )
+    def test_value_renders_literally_in_position(
+        self,
+        template: str,
+        expected: str,
+    ) -> None:
+        result = render(template.format(v=escape(SAMPLE_VALUE)))
+        assert expected.format(v=html_literal(SAMPLE_VALUE)) in result
+
+    @pytest.mark.parametrize(
+        ("template", "value", "expected"),
+        [
+            pytest.param(
+                "- {v}",
+                "Vector<T> Operations in Modern C++",
+                "<li>Vector&lt;T&gt; Operations in Modern C++</li>",
+                id="generic_type_brackets",
+            ),
+            pytest.param(
+                "**{v}**",
+                "Rethinking __init__ and __call__ in Python",
+                "<strong>Rethinking __init__ and __call__ in Python</strong>",
+                id="dunder_names",
+            ),
+            pytest.param(
+                "- {v}",
+                "A *Really* Simple Baseline for Few-Shot Learning",
+                "<li>A *Really* Simple Baseline for Few-Shot Learning</li>",
+                id="asterisk_emphasis",
+            ),
+            pytest.param(
+                "| h |\n|---|\n| {v} |",
+                "Accuracy | Efficiency Tradeoffs",
+                "<td>Accuracy | Efficiency Tradeoffs</td>",
+                id="pipe_in_table_cell",
+            ),
+            pytest.param(
+                "{v}",
+                "Dept. of CS, [State University](https://phish.example/login)",
+                "<p>Dept. of CS, [State University](https://phish.example/login)</p>",
+                id="markdown_link",
+            ),
+            pytest.param(
+                "{v}",
+                'Deep Learning <img src="https://tracker.example/1.gif"> for Proteins',
+                '<p>Deep Learning &lt;img src="https://tracker.example/1.gif"&gt;'
+                " for Proteins</p>",
+                id="img_tag",
+            ),
+            pytest.param(
+                "{v}",
+                "<script>alert(1)</script>",
+                "<p>&lt;script&gt;alert(1)&lt;/script&gt;</p>",
+                id="script_tag",
+            ),
+        ],
+    )
+    def test_syntax_like_value_renders_literally(
+        self,
+        template: str,
+        value: str,
+        expected: str,
+    ) -> None:
+        """Values modelled on user-entered free text."""
+        assert expected in render(template.format(v=escape(value)))
+
+    @pytest.mark.parametrize(
+        ("template", "expected"),
+        [
+            pytest.param("`{v}`", "<code>a\\*b</code>", id="code_span"),
+            pytest.param("<div>\n{v}\n</div>", "<div>\na\\*b\n</div>", id="html_block"),
+        ],
+    )
+    def test_escapes_stay_literal_in_raw_contexts(
+        self,
+        template: str,
+        expected: str,
+    ) -> None:
+        assert expected in render(template.format(v=escape("a*b")))
+
+    def test_indented_value_becomes_code_block(self) -> None:
+        assert "<pre><code>indented" in render(escape("    indented"))

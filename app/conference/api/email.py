@@ -221,6 +221,8 @@ async def build_email_message(
         reply_to=reply_to,
     )
     if payload.format == "html":
+        # TODO: Consider sending a text part alongside the HTML, as the template
+        #  formats do, instead of an HTML-only message.
         message.content_subtype = "html"
 
     for filename, content in resolved:

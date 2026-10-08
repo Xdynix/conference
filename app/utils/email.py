@@ -8,8 +8,8 @@ This module provides a type-safe email system with:
   template variables with type safety.
 - **RenderedEmail**: A fully rendered email that can build Django ``EmailMessage``
   instances for sending.
-- **EmailFormat**: Extensible format handlers (text, HTML, Markdown) that control
-  template rendering and message building.
+- **EmailFormat**: Extensible format handlers (text, Markdown) that control template
+  rendering.
 
 Example usage::
 
@@ -39,40 +39,33 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any, Self
 
-from django.core.mail import EmailMessage as DjangoEmailMessage
+from django.core.mail import EmailMultiAlternatives
 from jinja2 import StrictUndefined, TemplateSyntaxError
 from jinja2.sandbox import SandboxedEnvironment
-from pydantic import BaseModel, ConfigDict, ValidationInfo, field_validator
+from pydantic import AnyUrl, BaseModel, ConfigDict, ValidationInfo, field_validator
 
+from app.utils.markdown import escape as escape_markdown
+from app.utils.markdown import render as render_markdown
 from app.utils.sanitization import sanitize_email_subject
 
 
 class EmailFormat(ABC):
     """Base class for email format handlers.
 
-    Subclass to define how different content formats (text, HTML, Markdown) render
-    templates and build email messages.
+    Subclass to define how a content format renders templates. Formats that produce
+    HTML override ``render_html``; the rendered email then carries it as an
+    alternative to the plain-text body.
     """
 
     @classmethod
     @abstractmethod
-    def build_message(
-        cls,
-        subject: str,
-        body: str,
-        *,
-        to: Sequence[str],
-        cc: Sequence[str],
-        bcc: Sequence[str],
-        reply_to: Sequence[str],
-        from_email: str | None,
-    ) -> DjangoEmailMessage:
-        """Build a Django ``EmailMessage`` from rendered content."""
+    def render(cls, template: str, context: dict[str, Any]) -> str:
+        """Render a template string to plain text."""
 
     @classmethod
-    @abstractmethod
-    def render(cls, template: str, context: dict[str, Any]) -> str:
-        """Render a template string with context."""
+    def render_html(cls, template: str, context: dict[str, Any]) -> str | None:  # noqa: ARG003
+        """Render a template string to HTML. Returns ``None`` for text-only formats."""
+        return None
 
     @classmethod
     def validate_template(cls, template: str) -> str | None:  # noqa: ARG003  # pragma: no cover
@@ -93,28 +86,6 @@ class TextFormat(EmailFormat):
     )
 
     @classmethod
-    def build_message(
-        cls,
-        subject: str,
-        body: str,
-        *,
-        to: Sequence[str],
-        cc: Sequence[str],
-        bcc: Sequence[str],
-        reply_to: Sequence[str],
-        from_email: str | None,
-    ) -> DjangoEmailMessage:
-        return DjangoEmailMessage(
-            subject=subject,
-            body=body,
-            from_email=from_email,
-            to=to,
-            cc=cc,
-            bcc=bcc,
-            reply_to=reply_to,
-        )
-
-    @classmethod
     def render(cls, template: str, context: dict[str, Any]) -> str:
         return cls.jinja_env.from_string(template).render(context)
 
@@ -127,16 +98,50 @@ class TextFormat(EmailFormat):
             return str(exc)
 
 
+def _escape_markdown_value(value: object) -> object:
+    return value if isinstance(value, AnyUrl) else escape_markdown(str(value))
+
+
+class MarkdownFormat(TextFormat):
+    """Markdown email format with a plain-text body and an HTML alternative.
+
+    The text part is the Markdown source and the HTML part is its rendering; the
+    subject is always plain text. Context values are escaped in the HTML part, so
+    user-supplied text renders literally rather than as Markdown or HTML. Type URL
+    fields as ``HttpUrl`` in the context model so they are output verbatim and
+    autolink, and do not wrap them in ``_``, which linkify would absorb into the URL.
+    """
+
+    html_jinja_env = SandboxedEnvironment(
+        autoescape=False,
+        undefined=StrictUndefined,
+        finalize=_escape_markdown_value,
+    )
+
+    @classmethod
+    def render_html(cls, template: str, context: dict[str, Any]) -> str:
+        markdown = cls.html_jinja_env.from_string(template).render(context)
+        return render_markdown(markdown)
+
+
 class EmailFormatName(StrEnum):
     TEXT = "text"
+    MARKDOWN = "markdown"
 
 
 EMAIL_FORMATS: dict[EmailFormatName, type[EmailFormat]] = {
     EmailFormatName.TEXT: TextFormat,
+    EmailFormatName.MARKDOWN: MarkdownFormat,
 }
 
 # TODO: Add HTML format.
-# TODO: Add Markdown format.
+
+
+MAX_RENDERED_BODY_LENGTH = 100_000
+
+
+class RenderedBodyTooLongError(ValueError):
+    """Raised when a rendered email body exceeds ``MAX_RENDERED_BODY_LENGTH``."""
 
 
 class EmailContext(BaseModel):
@@ -157,6 +162,7 @@ class RenderedEmail(BaseModel):
     format: EmailFormatName
     subject: str
     body: str
+    html: str | None = None
 
     def build_message(
         self,
@@ -166,8 +172,8 @@ class RenderedEmail(BaseModel):
         bcc: str | Sequence[str] = (),
         reply_to: str | Sequence[str] = (),
         from_email: str | None = None,
-    ) -> DjangoEmailMessage:
-        """Build a Django ``EmailMessage`` for sending."""
+    ) -> EmailMultiAlternatives:
+        """Build a Django email message, with the HTML body as an alternative part."""
         if isinstance(to, str):
             to = [to]
         if isinstance(cc, str):
@@ -176,16 +182,18 @@ class RenderedEmail(BaseModel):
             bcc = [bcc]
         if isinstance(reply_to, str):
             reply_to = [reply_to]
-        format_cls = EMAIL_FORMATS[self.format]
-        return format_cls.build_message(
+        message = EmailMultiAlternatives(
             subject=self.subject,
             body=self.body,
+            from_email=from_email,
             to=to,
             cc=cc,
             bcc=bcc,
             reply_to=reply_to,
-            from_email=from_email,
         )
+        if self.html is not None:
+            message.attach_alternative(self.html, "text/html")
+        return message
 
     @field_validator("format", mode="after")
     @classmethod
@@ -255,15 +263,21 @@ class EmailTemplate(BaseModel):
         return cls(format=format, subject=subject, body=body)
 
     def render(self, context: EmailContext) -> RenderedEmail:
-        """Render the template with the given context."""
+        """Render the template with the given context.
+
+        Raises ``RenderedBodyTooLongError`` when the rendered body exceeds
+        ``MAX_RENDERED_BODY_LENGTH``; a template can expand far beyond its own size.
+        """
         format_cls = EMAIL_FORMATS[self.format]
         context_dict = context.model_dump()
-
-        subject = format_cls.render(self.subject, context_dict)
         body = format_cls.render(self.body, context_dict)
-
+        if len(body) > MAX_RENDERED_BODY_LENGTH:
+            raise RenderedBodyTooLongError(
+                f"Rendered email body exceeds {MAX_RENDERED_BODY_LENGTH} characters."
+            )
         return RenderedEmail(
             format=self.format,
-            subject=subject,
+            subject=format_cls.render(self.subject, context_dict),
             body=body,
+            html=format_cls.render_html(self.body, context_dict),
         )

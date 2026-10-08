@@ -2,15 +2,19 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from django.core.mail import EmailMessage
+from django.core.mail import EmailMultiAlternatives
 from jinja2 import UndefinedError
+from pydantic import HttpUrl
 from pytest_mock import MockerFixture
 
 from app.utils.email import (
     EMAIL_FORMATS,
+    MAX_RENDERED_BODY_LENGTH,
     EmailContext,
     EmailFormatName,
     EmailTemplate,
+    MarkdownFormat,
+    RenderedBodyTooLongError,
     RenderedEmail,
     TextFormat,
 )
@@ -36,25 +40,44 @@ class TestTextFormat:
         assert error is not None
         assert "unexpected end of template" in error
 
-    def test_build_message(self) -> None:
-        msg = TextFormat.build_message(
-            subject="Test Subject",
-            body="Test Body",
-            to=["user@example.com"],
-            cc=["cc@example.com"],
-            bcc=["bcc@example.com"],
-            reply_to=["reply@example.com"],
-            from_email="admin@example.com",
+    def test_render_html_is_none(self) -> None:
+        assert TextFormat.render_html("Hello {{ name }}", {"name": "World"}) is None
+
+
+class TestMarkdownFormat:
+    def test_render_is_plain_text(self) -> None:
+        assert (
+            MarkdownFormat.render("Hi **{{ name }}**", {"name": "a*b"}) == "Hi **a*b**"
         )
-        assert isinstance(msg, EmailMessage)
-        assert msg.subject == "Test Subject"
-        assert msg.body == "Test Body"
-        assert msg.to == ["user@example.com"]
-        assert msg.cc == ["cc@example.com"]
-        assert msg.bcc == ["bcc@example.com"]
-        assert msg.reply_to == ["reply@example.com"]
-        assert msg.from_email == "admin@example.com"
-        assert msg.content_subtype == "plain"
+
+    def test_render_html_happy_path(self) -> None:
+        template = "Hi **{{ name }}**, you have {{ count }} items:\n\n- {{ title }}"
+        context = {"name": "Ann", "count": 2, "title": "T"}
+        html = MarkdownFormat.render_html(template, context)
+        assert "<strong>Ann</strong>, you have 2 items:" in html
+        assert "<li>T</li>" in html
+
+    @pytest.mark.parametrize(
+        ("value", "expected"),
+        [
+            pytest.param("a *b* <i>c</i>", "a *b* &lt;i&gt;c&lt;/i&gt;", id="str"),
+            pytest.param(
+                ["a *b*", "<i>c</i>"],
+                "['a *b*', '&lt;i&gt;c&lt;/i&gt;']",
+                id="list",
+            ),
+            pytest.param(3, "3", id="int"),
+        ],
+    )
+    def test_variable_is_escaped(self, value: object, expected: str) -> None:
+        html = MarkdownFormat.render_html("{{ v }}", {"v": value})
+        assert html == f"<p>{expected}</p>\n"
+
+    def test_url_value_autolinks(self) -> None:
+        context = {"url": HttpUrl("https://e.test/a_b")}
+        html = MarkdownFormat.render_html("See {{ url }}", context)
+        link = '<a href="https://e.test/a_b" rel="noopener noreferrer">'
+        assert f"{link}https://e.test/a_b</a>" in html
 
 
 class TestEmailContext:
@@ -107,7 +130,37 @@ class TestEmailTemplate:
         assert isinstance(rendered, RenderedEmail)
         assert rendered.subject == "Hello User"
         assert rendered.body == "Body Content"
+        assert rendered.html is None
         assert rendered.format == EmailFormatName.TEXT
+
+    def test_render_passes_body_to_render_html(self, mocker: MockerFixture) -> None:
+        class MyContext(EmailContext):
+            name: str
+
+        spy = mocker.spy(MarkdownFormat, "render_html")
+        template = EmailTemplate(
+            format=EmailFormatName.MARKDOWN,
+            subject="Hello {{ name }}",
+            body="Dear **{{ name }}**",
+        )
+        rendered = template.render(MyContext(name="User"))
+        spy.assert_called_once_with("Dear **{{ name }}**", {"name": "User"})
+        assert rendered.html == spy.spy_return
+
+    @pytest.mark.parametrize(
+        ("length", "ok"),
+        [
+            pytest.param(MAX_RENDERED_BODY_LENGTH, True, id="at_limit"),
+            pytest.param(MAX_RENDERED_BODY_LENGTH + 1, False, id="over_limit"),
+        ],
+    )
+    def test_render_body_length_limit(self, length: int, ok: bool) -> None:
+        template = EmailTemplate(subject="Subject", body=f"{{{{ 'a' * {length} }}}}")
+        if ok:
+            assert len(template.render(EmailContext()).body) == length
+        else:
+            with pytest.raises(RenderedBodyTooLongError):
+                template.render(EmailContext())
 
     def test_from_files(self, tmp_path: Path) -> None:
         subject_file = tmp_path / "subject.txt"
@@ -146,13 +199,29 @@ class TestRenderedEmail:
             cc="cc@example.com",
             bcc="bcc@example.com",
             reply_to="reply@example.com",
+            from_email="admin@example.com",
         )
+        assert isinstance(msg, EmailMultiAlternatives)
         assert msg.to == ["user@example.com"]
         assert msg.cc == ["cc@example.com"]
         assert msg.bcc == ["bcc@example.com"]
         assert msg.reply_to == ["reply@example.com"]
+        assert msg.from_email == "admin@example.com"
         assert msg.subject == "Subject"
         assert msg.body == "Body"
+        assert msg.content_subtype == "plain"
+        assert msg.alternatives == []
+
+    def test_build_message_html_alternative(self) -> None:
+        rendered = RenderedEmail(
+            format=EmailFormatName.MARKDOWN,
+            subject="Subject",
+            body="**Body**",
+            html="<p><strong>Body</strong></p>",
+        )
+        msg = rendered.build_message(to="user@example.com")
+        assert msg.body == "**Body**"
+        assert msg.alternatives == [("<p><strong>Body</strong></p>", "text/html")]
 
     def test_build_message_lists(self) -> None:
         rendered = RenderedEmail(
