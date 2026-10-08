@@ -44,23 +44,24 @@ def monkeypatch_django_ninja_openapi_examples() -> None:
 
 def monkeypatch_django_ninja_patch_dict() -> None:
     # TODO: Remove after vitalik/django-ninja#1592 released.
-    # TODO: This patch causes field constraints (minLength, maxLength) to appear twice
-    #  in OpenAPI schemas. The `field._copy()` preserves constraints in field metadata
-    #  (top level), while `annotation | None` embeds them in the anyOf variant.
+    # Django Ninja's `PatchDict` rebuilds each field from the class annotation and a
+    # bare `None` default, discarding `Field` constraints (minLength, maxLength, ge,
+    # etc.) and validators. This patch copies the original `FieldInfo` instead. It
+    # pairs the copy with the bare `field.annotation`, not the class annotation,
+    # because the copy already carries the `Annotated` metadata; using both would
+    # duplicate constraints in the OpenAPI schema.
+    from typing import Any
+
     import ninja.patch_dict
-    from ninja.patch_dict import (  # type: ignore[attr-defined]
-        ModelToDict,
-        get_schema_annotations,
-        is_optional_type,
-    )
+    from ninja.patch_dict import ModelToDict
+    from ninja.utils import is_optional_type
     from pydantic import BaseModel
 
     def create_patch_schema(schema_cls: type[BaseModel]) -> type[ModelToDict]:
-        schema_annotations = get_schema_annotations(schema_cls)
         values, annotations = {}, {}
 
         for name, field in schema_cls.model_fields.items():
-            annotation = schema_annotations[name]
+            annotation: Any = field.annotation
             if is_optional_type(annotation):
                 continue
             patch_field = field._copy()
