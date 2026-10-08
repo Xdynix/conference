@@ -510,6 +510,31 @@
     return {class: cls, label: enumLabel(typeEnum, type) || type};
   }
 
+  /**
+   * Wraps sanitized HTML in a minimal document for a sandboxed preview iframe, styled
+   * like the page's body text in the theme active at call time.
+   *
+   * @param {string} html - Sanitized HTML to display.
+   * @returns {string} A complete HTML document for the iframe's srcdoc.
+   */
+  function sandboxedPreviewDocument(html) {
+    // The sandbox cannot see the page's stylesheet, so the theme's values are baked in.
+    const vars = getComputedStyle(document.documentElement);
+    const v = (name) => vars.getPropertyValue(name).trim();
+    const style = `
+      body {
+        margin: .75rem;
+        font-family: ${v("--bs-body-font-family")};
+        font-size: ${v("--bs-body-font-size")};
+        line-height: ${v("--bs-body-line-height")};
+        color: ${v("--bs-body-color")};
+        background: ${v("--bs-body-bg")};
+      }
+      a { color: ${v("--bs-link-color")}; }
+    `;
+    return `<!doctype html><html><head><meta charset="utf-8"><style>${style}</style></head><body>${html}</body></html>`;
+  }
+
   // ---------------------------------------------------------------------------
   // Exports
   // ---------------------------------------------------------------------------
@@ -530,6 +555,7 @@
   window.registrationStateBadge = registrationStateBadge;
   window.reviewStateBadge = reviewStateBadge;
   window.safeRedirectUrl = safeRedirectUrl;
+  window.sandboxedPreviewDocument = sandboxedPreviewDocument;
   window.setModelValue = setModelValue;
   window.urlTemplate = urlTemplate;
   window.validateFile = validateFile;

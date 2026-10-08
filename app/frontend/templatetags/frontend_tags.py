@@ -26,6 +26,7 @@ from app.conference.models import (
 )
 from app.core.models import GlobalRole
 from app.frontend.views import ProtectedView
+from app.utils.email import EmailFormatName
 from app.utils.enums import Region
 from app.utils.markdown import render as render_markdown
 
@@ -157,6 +158,7 @@ def enums_json() -> SafeString:
                 ),
                 "ConferenceVisibility": _enum_to_dict(ConferenceVisibility),
                 "DuplicateMatchType": _enum_to_dict(DuplicateMatchType),
+                "EmailFormatName": _enum_to_dict(EmailFormatName),
                 "GlobalRole": _enum_to_dict(GlobalRole),
                 "InvitationState": _enum_to_dict(Invitation.State),
                 "PaperState": _enum_to_dict(

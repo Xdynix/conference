@@ -108,26 +108,38 @@ Example:
                 <label class="form-label mb-0" for="send-inv-body">
                   Body <span class="text-danger">*</span>
                 </label>
-                <div class="btn-group btn-group-sm" role="group">
-                  <button
-                    type="button"
-                    class="btn"
-                    :class="!sendModal.previewMode ? 'btn-primary' : 'btn-outline-secondary'"
-                    :disabled="sendModal.sending || sendModal.previewing"
-                    @click="sendModal.previewMode = false; sendModal.previewResult = null;"
+                <div class="d-flex align-items-center gap-2">
+                  <label class="visually-hidden" for="send-inv-format">Format</label>
+                  <select
+                    id="send-inv-format"
+                    class="form-select form-select-sm w-auto"
+                    x-model="sendModal.format"
+                    :disabled="sendModal.sending || sendModal.previewMode"
                   >
-                    Write
-                  </button>
-                  <button
-                    type="button"
-                    class="btn"
-                    :class="sendModal.previewMode ? 'btn-primary' : 'btn-outline-secondary'"
-                    :disabled="sendModal.sending || sendModal.previewing || !sendModal.body.trim()"
-                    @click="previewEmail()"
-                  >
-                    <span x-show="sendModal.previewing" class="spinner-border spinner-border-sm me-1"></span>
-                    Preview
-                  </button>
+                    <option value="text">Plain text</option>
+                    <option value="markdown">Markdown</option>
+                  </select>
+                  <div class="btn-group btn-group-sm" role="group">
+                    <button
+                      type="button"
+                      class="btn"
+                      :class="!sendModal.previewMode ? 'btn-primary' : 'btn-outline-secondary'"
+                      :disabled="sendModal.sending || sendModal.previewing"
+                      @click="sendModal.previewMode = false; sendModal.previewResult = null;"
+                    >
+                      Write
+                    </button>
+                    <button
+                      type="button"
+                      class="btn"
+                      :class="sendModal.previewMode ? 'btn-primary' : 'btn-outline-secondary'"
+                      :disabled="sendModal.sending || sendModal.previewing || !sendModal.body.trim()"
+                      @click="previewEmail()"
+                    >
+                      <span x-show="sendModal.previewing" class="spinner-border spinner-border-sm me-1"></span>
+                      Preview
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -154,14 +166,30 @@ Example:
                     <code>accept_url</code>,
                     <code>reject_url</code>
                   </div>
+                  <template x-if="sendModal.format === APP.enums.EmailFormatName.MARKDOWN.value">
+                    <div class="form-text fst-italic">
+                      Markdown applies to the body only. Variable values are inserted as
+                      literal text, and a URL variable on its own becomes a link; do not
+                      wrap it in <code>_</code> or <code>*</code>.
+                    </div>
+                  </template>
                 </div>
               </template>
-              <template x-if="sendModal.previewMode && sendModal.previewResult">
+              <template x-if="sendModal.previewMode && sendModal.previewResult && !sendModal.previewResult.html">
                 <div
                   class="form-control bg-body-tertiary"
                   style="min-height: 10rem; white-space: pre-wrap; overflow-y: auto; max-height: 20rem;"
                   x-text="sendModal.previewResult.body"
                 ></div>
+              </template>
+              <template x-if="sendModal.previewMode && sendModal.previewResult?.html">
+                <iframe
+                  class="form-control p-0"
+                  style="height: 20rem;"
+                  sandbox
+                  title="Rendered email preview"
+                  :srcdoc="sandboxedPreviewDocument(sendModal.previewResult.html)"
+                ></iframe>
               </template>
             </div>
 
@@ -234,6 +262,7 @@ Example:
         invitationUids: [],
         subject: "",
         body: "",
+        format: "text",
         sending: false,
         previewing: false,
         done: false,
@@ -250,6 +279,7 @@ Example:
           invitationUids: uids,
           subject: "",
           body: "",
+          format: "text",
           sending: false,
           previewing: false,
           done: false,
@@ -299,6 +329,7 @@ Example:
           const {data} = await api.post(url, {
             subject: this.sendModal.subject,
             body: this.sendModal.body,
+            format: this.sendModal.format,
           });
           this.sendModal.previewResult = data;
           this.sendModal.previewMode = true;
@@ -326,6 +357,7 @@ Example:
           const {data} = await api.post(url, {
             subject: this.sendModal.subject,
             body: this.sendModal.body,
+            format: this.sendModal.format,
             invitations: this.sendModal.invitationUids,
             force_send_to_rejected: this.sendModal.forceSendToRejected,
             force_send_to_recent: this.sendModal.forceSendToRecent,
