@@ -23,6 +23,7 @@ from app.conference.services.invitation import (
     SendInvitationStatus,
 )
 from app.core.models import User
+from app.utils.email import MAX_RENDERED_BODY_LENGTH
 
 
 @pytest.mark.django_db
@@ -69,6 +70,25 @@ class TestPreviewInvitationEmail:
         assert response.status_code == HTTPStatus.OK
 
         assert response.json()["format"] == "text"
+
+    def test_oversized_rendered_body_returns_422(
+        self,
+        api_client: Client,
+        global_admin: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(global_admin)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "subject": "Subject",
+                "body": f"{{{{ 'a' * {MAX_RENDERED_BODY_LENGTH + 1} }}}}",
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert "exceeds" in response.json()["message"]
 
     def test_undefined_variable_returns_422(
         self,

@@ -554,38 +554,50 @@ class ReviewerNotificationService:
         Raises:
             User.DoesNotExist: If the user is not found.
         """
+        reviewer = User.objects.active().select_related("profile").get(uid=reviewer_uid)
+
+        counts = (
+            Review.objects.active()
+            .filter(
+                paper__conference=conference,
+                reviewer=reviewer,
+                state__in=[ReviewState.PENDING, ReviewState.ACCEPTED],
+            )
+            .aggregate(
+                pending_review_count=Count(
+                    "pk",
+                    filter=Q(state=ReviewState.PENDING),
+                ),
+                accepted_review_count=Count(
+                    "pk",
+                    filter=Q(state=ReviewState.ACCEPTED),
+                ),
+            )
+        )
+        pending_review_count: int = counts["pending_review_count"]
+        accepted_review_count: int = counts["accepted_review_count"]
+
+        if pending_review_count == 0 and accepted_review_count == 0:
+            return False, reviewer.email
+
+        profile = getattr(reviewer, "profile", None)
+        context = ReviewerNotificationContext(
+            site_name=settings.SITE_NAME,
+            conference_name=conference.name,
+            conference_display_name=conference.display_name,
+            given_name=profile.given_name if profile else "",
+            family_name=profile.family_name if profile else "",
+            affiliation=profile.affiliation if profile else "",
+            pending_review_count=pending_review_count,
+            accepted_review_count=accepted_review_count,
+        )
+        # Rendering can be slow, and the lock serializes every writer on SQLite.
+        rendered = template.render(context)
+
         with Mutex.lock_in_transaction(
             f"{conference.pk}:{reviewer_uid}",
             namespace="reviewer_notification",
         ):
-            reviewer = (
-                User.objects.active().select_related("profile").get(uid=reviewer_uid)
-            )
-
-            counts = (
-                Review.objects.active()
-                .filter(
-                    paper__conference=conference,
-                    reviewer=reviewer,
-                    state__in=[ReviewState.PENDING, ReviewState.ACCEPTED],
-                )
-                .aggregate(
-                    pending_review_count=Count(
-                        "pk",
-                        filter=Q(state=ReviewState.PENDING),
-                    ),
-                    accepted_review_count=Count(
-                        "pk",
-                        filter=Q(state=ReviewState.ACCEPTED),
-                    ),
-                )
-            )
-            pending_review_count: int = counts["pending_review_count"]
-            accepted_review_count: int = counts["accepted_review_count"]
-
-            if pending_review_count == 0 and accepted_review_count == 0:
-                return False, reviewer.email
-
             now = timezone.now()
             log = ReviewerNotificationLog.objects.filter(
                 conference=conference,
@@ -599,18 +611,6 @@ class ReviewerNotificationService:
             ):
                 return False, reviewer.email
 
-            profile = getattr(reviewer, "profile", None)
-            context = ReviewerNotificationContext(
-                site_name=settings.SITE_NAME,
-                conference_name=conference.name,
-                conference_display_name=conference.display_name,
-                given_name=profile.given_name if profile else "",
-                family_name=profile.family_name if profile else "",
-                affiliation=profile.affiliation if profile else "",
-                pending_review_count=pending_review_count,
-                accepted_review_count=accepted_review_count,
-            )
-            rendered = template.render(context)
             email_message = rendered.build_message(
                 to=reviewer.email,
                 reply_to=reply_to or (),

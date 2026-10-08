@@ -25,7 +25,7 @@ from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse, make_validation_error
-from app.utils.email import EmailTemplate, RenderedEmail
+from app.utils.email import EmailTemplate, RenderedBodyTooLongError, RenderedEmail
 
 from .core import router
 
@@ -78,8 +78,10 @@ async def preview_invitation_email(
     )
 
     try:
-        return payload.render(sample_context)
-    except UndefinedError as exc:
+        return await sync_to_async(payload.render, thread_sensitive=False)(
+            sample_context
+        )
+    except (UndefinedError, RenderedBodyTooLongError) as exc:
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
 
 

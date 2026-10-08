@@ -402,9 +402,29 @@ class InvitationService:
             Invitation.DoesNotExist: If invitation not found.
             ImmutableInvitation: If the invitation is already accepted.
         """
+        invitation = Invitation.objects.select_related("conference").get(
+            uid=invitation_uid
+        )
+        context = InvitationEmailContext(
+            site_name=settings.SITE_NAME,
+            conference_name=invitation.conference.name,
+            conference_display_name=invitation.conference.display_name,
+            given_name=invitation.given_name,
+            family_name=invitation.family_name,
+            affiliation=invitation.affiliation,
+            accept_url=HttpUrl(
+                cls.get_accept_url(invitation, invitation_accept_page_url)
+            ),
+            reject_url=HttpUrl(
+                cls.get_reject_url(invitation, invitation_reject_page_url)
+            ),
+        )
+        # Rendering can be slow, and the lock serializes every writer on SQLite.
+        rendered = template.render(context)
+
         with Mutex.lock_in_transaction(str(invitation_uid), namespace="invitation"):
-            invitation = Invitation.objects.select_related("conference").get(
-                uid=invitation_uid
+            invitation.refresh_from_db(
+                fields=["accept_time", "reject_time", "last_email_send_time"]
             )
 
             if invitation.state == Invitation.State.ACCEPTED:
@@ -427,21 +447,6 @@ class InvitationService:
             ):
                 return False, invitation.invitee_email
 
-            context = InvitationEmailContext(
-                site_name=settings.SITE_NAME,
-                conference_name=invitation.conference.name,
-                conference_display_name=invitation.conference.display_name,
-                given_name=invitation.given_name,
-                family_name=invitation.family_name,
-                affiliation=invitation.affiliation,
-                accept_url=HttpUrl(
-                    cls.get_accept_url(invitation, invitation_accept_page_url)
-                ),
-                reject_url=HttpUrl(
-                    cls.get_reject_url(invitation, invitation_reject_page_url)
-                ),
-            )
-            rendered = template.render(context)
             email_message = rendered.build_message(to=invitation.invitee_email, cc=cc)
 
             invitation.last_email_send_time = now

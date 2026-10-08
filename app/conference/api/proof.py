@@ -33,7 +33,7 @@ from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest, EmailStr
 from app.ninja.errors import ErrorResponse, make_validation_error
-from app.utils.email import EmailTemplate, RenderedEmail
+from app.utils.email import EmailTemplate, RenderedBodyTooLongError, RenderedEmail
 from app.utils.files import UploadValidationError, build_file_download_response
 from app.utils.sanitization import sanitize_formatted_text
 
@@ -284,8 +284,10 @@ async def preview_proof_notify(
     sample_context = ProofNotifyEmailContext.sample(base_url=base_url)
 
     try:
-        return payload.render(sample_context)
-    except UndefinedError as exc:
+        return await sync_to_async(payload.render, thread_sensitive=False)(
+            sample_context
+        )
+    except (UndefinedError, RenderedBodyTooLongError) as exc:
         raise HttpError(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc)) from exc
 
 

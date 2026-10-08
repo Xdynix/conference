@@ -31,6 +31,7 @@ from app.conference.services.proof import (
     SendProofNotifyStatus,
 )
 from app.core.models import User
+from app.utils.email import MAX_RENDERED_BODY_LENGTH
 from app.utils.files import InvalidFileTypeError
 from tests.helpers import any_str, approx_now, update_object
 
@@ -588,6 +589,25 @@ class TestPreviewProofNotify:
         assert "PAPER-001" in data["subject"]
         assert "John Doe" in data["body"]
         assert "paper-proofs/" in data["body"]
+
+    def test_oversized_rendered_body_returns_422(
+        self,
+        api_client: Client,
+        conference_chair: User,
+        conference: Conference,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data={
+                "subject": "Subject",
+                "body": f"{{{{ 'a' * {MAX_RENDERED_BODY_LENGTH + 1} }}}}",
+            },
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+
+        assert "exceeds" in response.json()["message"]
 
     def test_undefined_variable_returns_422(
         self,
