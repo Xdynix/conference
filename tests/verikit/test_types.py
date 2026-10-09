@@ -5,7 +5,18 @@ from faker import Faker
 from pydantic import TypeAdapter, ValidationError
 from pytest_mock import MockerFixture
 
-from app.verikit.types import VerifiedEmailStr
+from app.verikit.types import EmailStr, VerifiedEmailStr
+
+
+class TestEmailStr:
+    def test_happy_path(self) -> None:
+        assert TypeAdapter(EmailStr).validate_python("John@Example.com") == (
+            "john@example.com"
+        )
+
+    def test_rejects_non_ascii_local_part(self) -> None:
+        with pytest.raises(ValidationError, match="must contain only ASCII"):
+            TypeAdapter(EmailStr).validate_python("jöhn@example.com")
 
 
 class TestVerifiedEmailStr:
