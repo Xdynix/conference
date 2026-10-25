@@ -165,9 +165,11 @@ addopts = [
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-# TODO: evaluate gating warnings via filterwarnings or max_warnings. Tests leaking an
-# unclosed FileResponse would need fixing first; the GC attributes them at random.
+# Quoted because pytest declares this option as a string.
+max_warnings = "0"
 filterwarnings = [
+    # Python hides ResourceWarning by default; show it so unclosed files fail the run.
+    "default::ResourceWarning",
     # Goes away with the django-mailer TODO under [project] dependencies.
     "ignore:The EMAIL_\\w+ setting is deprecated:django.utils.deprecation.RemovedInDjango70Warning",
 ]

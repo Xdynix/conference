@@ -1,4 +1,6 @@
 import hashlib
+from collections.abc import Iterator
+from contextlib import ExitStack
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -352,14 +354,17 @@ class TestValidateUploadE2E:
 
 class TestBuildFileDownloadResponse:
     @pytest.fixture
-    def mock_field_file(self, tmp_path: Path) -> MagicMock:
+    def mock_field_file(self, tmp_path: Path) -> Iterator[MagicMock]:
         file_path = tmp_path / "test_file.pdf"
         file_path.write_bytes(b"test content")
 
         mock = MagicMock()
         mock.name = "uploads/test_file.pdf"
-        mock.open.side_effect = lambda mode: file_path.open(mode)
-        return mock
+        with ExitStack() as opened_files:
+            mock.open.side_effect = lambda mode: opened_files.enter_context(
+                file_path.open(mode)
+            )
+            yield mock
 
     def test_happy_path_django_mode(self, mock_field_file: MagicMock) -> None:
         response = build_file_download_response(mock_field_file)

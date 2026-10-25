@@ -96,6 +96,7 @@ class TestDownloadSubmission:
 
         assert response.status_code == HTTPStatus.OK
         assert response["Content-Type"] == expected_content_type
+        response.close()
 
     def test_submission_not_found(self, api_client: Client, user: User) -> None:
         api_client.force_login(user)
@@ -243,6 +244,7 @@ class TestDownloadFinal:
 
         assert response.status_code == HTTPStatus.OK
         assert response["Content-Type"] == expected_content_type
+        response.close()
 
     def test_final_not_found(self, api_client: Client, user: User) -> None:
         api_client.force_login(user)
@@ -351,6 +353,7 @@ class TestDownloadFinalViewable:
 
         assert response.status_code == HTTPStatus.OK
         assert response["Content-Type"] == expected_content_type
+        response.close()
 
     def test_final_not_found(self, api_client: Client, user: User) -> None:
         api_client.force_login(user)

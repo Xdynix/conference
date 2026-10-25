@@ -317,6 +317,7 @@ class TestDownloadConferenceFile:
 
         response = api_client.get(self.path(conference.name, conference_file.name))
         assert response.status_code == HTTPStatus.OK
+        response.close()
 
     def test_authorization_conference_chair(
         self,
@@ -329,6 +330,7 @@ class TestDownloadConferenceFile:
 
         response = api_client.get(self.path(conference.name, conference_file.name))
         assert response.status_code == HTTPStatus.OK
+        response.close()
 
     def test_authorization_conference_secretary(
         self,
@@ -341,6 +343,7 @@ class TestDownloadConferenceFile:
 
         response = api_client.get(self.path(conference.name, conference_file.name))
         assert response.status_code == HTTPStatus.OK
+        response.close()
 
     def test_authorization_conference_reviewer_forbidden(
         self,
