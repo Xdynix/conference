@@ -19,7 +19,8 @@ RUN chown ${APP_USER}:${APP_USER} ${HOME}
 ENV PATH="${HOME}/.venv/bin:$PATH"
 ENV PYTHONPATH="${HOME}"
 
-COPY --from=ghcr.io/astral-sh/uv:0.12.22 /uv /bin/uv
+# Also the required-version floor under [tool.uv] in pyproject.toml.
+COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /bin/uv
 # UV_CACHE_DIR is required: ENV HOME above moves uv's default cache to
 # $HOME/.cache/uv, which the BuildKit cache mount below would then miss,
 # baking the whole cache into the layer.
