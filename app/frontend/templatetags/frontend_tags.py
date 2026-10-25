@@ -148,7 +148,6 @@ def upload_config_json() -> SafeString:
 @register.simple_tag
 def enums_json() -> SafeString:
     """Export enums to frontend as JSON with value and label for each member."""
-
     return mark_safe(  # noqa: S308
         json.dumps(
             {

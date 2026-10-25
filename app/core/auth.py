@@ -121,7 +121,6 @@ def session_auth_only[F: Callable[..., Any]](view_func: F) -> F:
     operations incompatible with stateless API key auth (e.g., login, logout, password
     change).
     """
-
     data = {"message": "This endpoint does not support API key authentication."}
 
     if iscoroutinefunction(view_func):

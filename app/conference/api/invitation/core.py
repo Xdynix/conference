@@ -118,7 +118,6 @@ def with_invitation_prefetch(
     request: HttpRequest,
 ) -> QuerySet[Invitation]:
     """Apply prefetch_related for invitation serialization to a queryset."""
-
     invitation_accept_page_url = request.build_absolute_uri(
         reverse("frontend:invitation-accept")
     )

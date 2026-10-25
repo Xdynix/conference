@@ -50,7 +50,6 @@ def api_key_auth_middleware[F: Callable[..., Any]](get_response: F) -> F:
     authorization checks (``is_staff``, ``is_superuser``). CSRF enforcement is skipped
     for bearer-authenticated requests because they are not browser-initiated.
     """
-
     if iscoroutinefunction(get_response):
 
         async def middleware(request: HttpRequest) -> HttpResponse:

@@ -183,11 +183,9 @@ Challenger principles:
 - **Comments**: Write self-explanatory code. Do not add comments that repeat what the
   code does. Comment only design decisions, non-obvious behavior, or context that cannot
   be expressed through code.
-- **Docstrings**: Google Style for Python functions and classes, except API view
-  docstrings that serve the generated API documentation (keep those concise and
-  reader-facing). Describe behavior from the caller's perspective, not implementation.
-  Omit the `Args` section when all arguments are self-explanatory from their names and
-  types.
+- **Docstrings**: Google style; ruff enforces the layout. Describe behavior from the
+  caller's perspective, not implementation, and omit the `Args` section when all
+  arguments are self-explanatory from their names and types.
 - **Commits**: Subjects at or under 50 characters, body and footer lines at or under
   72 (commitlint enforces all three), conventional commit format with a type prefix and
   no scope (`fix: resolve session expiry`, not `fix(core): resolve session expiry`).

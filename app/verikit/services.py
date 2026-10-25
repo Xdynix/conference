@@ -111,7 +111,6 @@ class EmailVerificationService:
             The normalized email address if the token is valid and within the allowed
             lifetime. Returns ``None`` for expired, tampered, or malformed tokens.
         """
-
         try:
             email = cls.token_signer.unsign(
                 token,

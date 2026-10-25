@@ -72,7 +72,6 @@ def _resolve_client_ip(request: HttpRequest) -> str | None:
 @sync_and_async_middleware
 def request_meta_middleware[F: Callable[..., Any]](get_response: F) -> F:
     """Attach request metadata (client IP, request ID) to every request."""
-
     if iscoroutinefunction(get_response):
 
         async def middleware(request: HttpRequest) -> HttpResponse:
