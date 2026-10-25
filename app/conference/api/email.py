@@ -6,6 +6,7 @@ from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.db import transaction
+from django.db.models.fields.files import FieldFile
 from django.shortcuts import aget_object_or_404
 from django.utils import timezone
 from ninja import Router, Schema
@@ -59,6 +60,16 @@ class AttachmentRefBase(Schema):
         raise NotImplementedError
 
 
+def read_field_file(field_file: FieldFile) -> bytes:
+    """Read a stored file to bytes without leaving its storage handle open.
+
+    ``FieldFile.read()`` opens the handle implicitly and never closes it.
+    """
+    with field_file.open("rb") as f:
+        content: bytes = f.read()
+    return content
+
+
 class AcceptanceLetterRef(AttachmentRefBase):
     type: Literal["acceptance_letter"]
     paper_code: str
@@ -79,7 +90,7 @@ class AcceptanceLetterRef(AttachmentRefBase):
             raise ValueError(f"No acceptance letter for paper {self.paper_code}.")
 
         filename = self.filename or Path(letter.rendered_pdf.name).name  # type: ignore[arg-type]
-        content = await sync_to_async(letter.rendered_pdf.read)()
+        content = await sync_to_async(read_field_file)(letter.rendered_pdf)
         return filename, content
 
 
@@ -101,7 +112,7 @@ class ReceiptRef(AttachmentRefBase):
             raise ValueError(f"No receipt for registration {self.registration_uid}.")
 
         filename = self.filename or Path(receipt.rendered_pdf.name).name  # type: ignore[arg-type]
-        content = await sync_to_async(receipt.rendered_pdf.read)()
+        content = await sync_to_async(read_field_file)(receipt.rendered_pdf)
         return filename, content
 
 
@@ -115,7 +126,7 @@ class ConferenceFileRef(AttachmentRefBase):
             raise ValueError(f"Conference file {self.name} not found.")
 
         filename = self.filename or conf_file.filename
-        content = await sync_to_async(conf_file.file.read)()
+        content = await sync_to_async(read_field_file)(conf_file.file)
         return filename, content
 
 
