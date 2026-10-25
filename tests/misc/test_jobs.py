@@ -57,7 +57,7 @@ def test_check_disk_usage_above_threshold(
     settings: LazySettings,
 ) -> None:
     settings.DISK_FREE_THRESHOLD = 2.0
-    mocker.patch(
+    mock_usage = mocker.patch(
         "app.misc.jobs.shutil.disk_usage",
         return_value=SimpleNamespace(total=100 * GB, used=80 * GB, free=20 * GB),
     )
@@ -65,6 +65,7 @@ def test_check_disk_usage_above_threshold(
 
     jobs.check_disk_usage()
 
+    mock_usage.assert_called_once_with(settings.DATA_DIR)
     mock_error.assert_not_called()
 
 

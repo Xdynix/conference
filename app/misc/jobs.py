@@ -25,7 +25,7 @@ def purge_mail_log() -> None:
 @scheduler.scheduled_job("interval", minutes=10, jitter=60)
 def check_disk_usage() -> None:
     """Log an error when free disk space drops below the configured threshold."""
-    usage = shutil.disk_usage("/")
+    usage = shutil.disk_usage(settings.DATA_DIR)
     free_gb = usage.free / (1024**3)
     if free_gb >= settings.DISK_FREE_THRESHOLD:
         return
