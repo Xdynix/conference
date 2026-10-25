@@ -156,6 +156,12 @@ def configure_logging(
             disabled_integrations=[LoggingIntegration],
             before_send=sentry_before_send,
             environment="development" if debug else "production",
-            send_default_pii=False,
+            data_collection={
+                "user_info": False,
+                "cookies": {"mode": "off"},
+                "http_bodies": [],
+                "database_query_data": False,
+                "stack_frame_variables": {"mode": "denylist"},
+            },
             traces_sampler=traces_sampler,
         )
