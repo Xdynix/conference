@@ -15,9 +15,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import wraps
 from http import HTTPStatus
+from inspect import iscoroutinefunction
 from typing import Any, Literal, cast
 
-from asgiref.sync import async_to_sync, iscoroutinefunction
+from asgiref.sync import async_to_sync
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from django.utils.translation import gettext_lazy as _

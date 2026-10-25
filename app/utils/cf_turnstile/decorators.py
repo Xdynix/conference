@@ -3,11 +3,12 @@ __all__ = ("cf_turnstile_required",)
 from collections.abc import Callable
 from functools import partial, wraps
 from http import HTTPStatus
+from inspect import iscoroutinefunction
 from typing import Any, cast, overload
 from uuid import uuid4
 
 import httpx
-from asgiref.sync import async_to_sync, iscoroutinefunction
+from asgiref.sync import async_to_sync
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils.translation import gettext_lazy as _

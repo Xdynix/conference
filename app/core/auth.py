@@ -21,9 +21,9 @@ __all__ = (
 from collections.abc import Awaitable, Callable
 from functools import wraps
 from http import HTTPStatus
+from inspect import iscoroutinefunction
 from typing import Any
 
-from asgiref.sync import iscoroutinefunction
 from django.http import JsonResponse
 from ninja.errors import AuthorizationError
 from ninja.security import SessionAuth as SyncSessionAuth

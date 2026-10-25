@@ -1,8 +1,9 @@
 from collections.abc import Callable
 from http import HTTPStatus
+from inspect import iscoroutinefunction
 from typing import Any
 
-from asgiref.sync import iscoroutinefunction, sync_to_async
+from asgiref.sync import sync_to_async
 from django.http import HttpResponse, JsonResponse
 from django.utils.decorators import sync_and_async_middleware
 

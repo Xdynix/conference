@@ -1,9 +1,9 @@
 import string
 import uuid
 from collections.abc import Callable
+from inspect import iscoroutinefunction
 from typing import Any
 
-from asgiref.sync import iscoroutinefunction
 from django.conf import settings
 from django.http import HttpRequest as DjangoHttpRequest
 from django.http import HttpResponse
