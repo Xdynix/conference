@@ -67,7 +67,7 @@ test = [
 
 [tool.uv]
 # Floor matches the uv image tag in the Dockerfile; raise both together.
-required-version = ">=0.13.5"
+required-version = ">=0.13.6"
 default-groups = "all"
 preview-features = ["audit-command"]
 

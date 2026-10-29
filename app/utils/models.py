@@ -22,10 +22,10 @@ class ULIDModel(models.Model):
     - ULID chosen over UUID v4: ULIDs are time-sortable and have better index
       performance due to their sequential prefix, while remaining globally unique.
       UUID v4 uses random bits, causing index fragmentation and unpredictable ordering.
-    - ULID chosen over UUID v7: UUID v7 would also work (time-ordered like ULID), but
-      it's not available in Python's standard library until Python 3.14. ULID provides
-      similar benefits with existing library support and a more concise string
-      representation (26 chars vs 36 chars).
+    - ULID rather than UUID v7: the choice predates ``uuid.uuid7()`` in the standard
+      library and is now baked into URLs, API payloads, and every model's ``uid``
+      index. A new project would use UUID v7; switching here is not worth the
+      migration.
     """
 
     uid = ULIDField(_("UID"), unique=True, default=ULID, editable=False)

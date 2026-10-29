@@ -6,7 +6,7 @@ match upstream.
 | Directory | Version | Notes |
 | --- | --- | --- |
 | `alpine/` | 3.17.5 | npm `alpinejs`; `dist/cdn.min.js` saved as `alpine.min.js` |
-| `axios/` | 1.20.0 | |
+| `axios/` | 1.21.0 | |
 | `bootstrap/` | 5.3.8 | |
 | `bootstrap-icons/` | 1.13.2 | |
 | `fflate/` | 0.8.3 | the `umd/` build |

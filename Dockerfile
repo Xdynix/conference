@@ -20,7 +20,7 @@ ENV PATH="${HOME}/.venv/bin:$PATH"
 ENV PYTHONPATH="${HOME}"
 
 # Also the required-version floor under [tool.uv] in pyproject.toml.
-COPY --from=ghcr.io/astral-sh/uv:0.13.5 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /bin/uv
 # UV_CACHE_DIR is required: ENV HOME above moves uv's default cache to
 # $HOME/.cache/uv, which the BuildKit cache mount below would then miss,
 # baking the whole cache into the layer.
