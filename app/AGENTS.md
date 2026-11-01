@@ -87,24 +87,9 @@ Django's `select_for_update()` has **no effect on SQLite**. It does not acquire 
 locks. This means code relying on it for serialization will have race conditions during
 development and testing (which use SQLite).
 
-Use the `Mutex` primitive from `app.infra.models` instead. It provides database-backed
-distributed locking that works on both PostgreSQL (using `SELECT FOR UPDATE`) and SQLite
-(using write transactions that serialize writers).
-
-**Example pattern**:
-
-```python
-from app.infra.models import Mutex
-
-
-class MyService:
-    @classmethod
-    def update_with_lock(cls, resource_id: str) -> None:
-        with Mutex.lock_in_transaction(resource_id, namespace="my_resource"):
-            resource = Resource.objects.get(pk=resource_id)
-            # ... modify resource ...
-            resource.save()
-```
+Use the `Mutex` primitive from `app.infra.models` instead. It is a cross-process lock
+on both PostgreSQL and SQLite; its docstring explains the mechanism and contention
+behavior.
 
 **Key points**:
 

@@ -10,11 +10,11 @@ from django.utils.translation import gettext_lazy as _
 class Mutex(models.Model):
     """A database-backed distributed mutex.
 
-    Stores one row per logical lock key and uses the database to coordinate mutual
-    exclusion across processes and machines. On databases that support row-level locks (
-    e.g., PostgreSQL, MySQL/InnoDB), it uses ``SELECT ... FOR UPDATE``. On SQLite, it
-    relies on a write transaction, which serializes writers for the duration of the
-    transaction.
+    On PostgreSQL the lock is per key, so only callers of the same key wait. On SQLite
+    it is the database write lock, so every writer waits, and transactions must take
+    that lock at ``BEGIN``; ``check_sqlite_transaction_mode`` explains why. Contention
+    waits on PostgreSQL and raises ``OperationalError`` on SQLite once the connection
+    ``timeout`` elapses.
     """
 
     key_hash = models.CharField(_("key hash"), max_length=64, primary_key=True)
@@ -39,37 +39,31 @@ class Mutex(models.Model):
     ) -> Generator[None]:
         """Acquire a lock for ``namespace`` + ``key`` and hold it for the transaction.
 
-        Opens a database transaction, acquires an exclusive lock on the given key, and
-        holds it until the transaction ends. The lock remains held until the
-        **outermost** transaction ends.
-
-        This function is re-entrant within the same transaction, reacquiring the same
-        key won't deadlock. When acquiring multiple different keys, ensure a consistent
-        ordering to avoid deadlocks.
-
-        Args:
-            key: The logical key to lock on (arbitrary string).
-            namespace: Optional namespace to avoid collisions across components.
-            using:  Optional Django DB alias.
+        Joins the current transaction or opens one, and holds the lock until the
+        outermost transaction ends. Re-entrant within a transaction: reacquiring the
+        same key does not deadlock. Acquire different keys in a consistent order.
 
         Examples::
 
-            with Mutex.lock_in_transaction("user_profile_123", namespace="updates"):
-                user.profile.update(data)
+            with Mutex.lock_in_transaction(str(resource_id), namespace="resource"):
+                resource = Resource.objects.get(pk=resource_id)
+                ...
         """
         key_raw = sha256(namespace.encode()).digest() + sha256(key.encode()).digest()
         key_hash = sha256(key_raw).hexdigest()
 
-        qs = cls.objects.using(using)
+        features = transaction.get_connection(using).features
         with transaction.atomic(using=using):
-            # Ensure the row exists and "touch" it atomically (upsert).
-            # On SQLite this initiates a write transaction, serializing other writers.
-            qs.bulk_create(
+            # The upsert is the lock: the row lock on PostgreSQL, the database write
+            # lock on SQLite.
+            cls.objects.using(using).bulk_create(
                 [cls(key_hash=key_hash, touch_time=Now())],  # type: ignore[list-item]
                 update_conflicts=True,
                 update_fields=["touch_time"],
-                unique_fields=["key_hash"],
+                unique_fields=(
+                    ["key_hash"]
+                    if features.supports_update_conflicts_with_target
+                    else None
+                ),
             )
-            # Lock the row for the remainder of the transaction (no-op on SQLite).
-            qs.select_for_update().only("key_hash").get(key_hash=key_hash)
             yield
