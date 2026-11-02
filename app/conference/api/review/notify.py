@@ -18,23 +18,14 @@ from app.conference.services.review import (
     SendNotificationResult,
     SendNotificationStatus,
 )
+from app.conference.types import EmailTemplateRequest
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest, EmailStr
 from app.ninja.errors import ErrorResponse
-from app.utils.email import (
-    MAX_SUBJECT_LENGTH,
-    EmailRenderError,
-    EmailTemplate,
-    RenderedEmail,
-)
+from app.utils.email import EmailRenderError, RenderedEmail
 
 from .core import router
-
-
-class EmailTemplateRequest(EmailTemplate, Schema):
-    subject: str = Field(min_length=1, max_length=MAX_SUBJECT_LENGTH)
-    body: str = Field(min_length=1, max_length=100_000)
 
 
 class PreviewNotificationEmailRequest(EmailTemplateRequest):

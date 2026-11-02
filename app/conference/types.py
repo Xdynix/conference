@@ -8,6 +8,7 @@ __all__ = (
     "ConferenceLocation",
     "ConferenceName",
     "ConferenceUser",
+    "EmailTemplateRequest",
     "FamilyName",
     "FromName",
     "GivenName",
@@ -102,7 +103,12 @@ from app.conference.models import Track as TrackModel
 from app.conference.models import UserConferenceProfile as UserConferenceProfileModel
 from app.conference.models.review import MAX_SCORE, MIN_SCORE, ReviewState
 from app.core.types import EmailStr
-from app.utils.email import validate_from_name
+from app.utils.email import (
+    MAX_RENDERED_BODY_LENGTH,
+    MAX_SUBJECT_LENGTH,
+    EmailTemplate,
+    validate_from_name,
+)
 from app.utils.enums import Region
 from app.utils.sanitization import sanitize_formatted_text, sanitize_text
 
@@ -292,6 +298,13 @@ FromName = Annotated[
     AfterValidator(validate_from_name),
 ]
 RegionCode = StrEnum("RegionCode", {region.name: region.name for region in Region})  # type: ignore[misc]
+
+
+class EmailTemplateRequest(EmailTemplate, Schema):
+    """Template input bounded as ``EmailTemplate.render`` bounds the output."""
+
+    subject: str = Field(min_length=1, max_length=MAX_SUBJECT_LENGTH)
+    body: str = Field(min_length=1, max_length=MAX_RENDERED_BODY_LENGTH)
 
 
 class Profile(Schema):

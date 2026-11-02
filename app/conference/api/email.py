@@ -29,7 +29,11 @@ from app.core.auth import has_any_roles
 from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest, EmailStr
 from app.infra.models import Mutex
-from app.utils.email import MAX_SUBJECT_LENGTH, format_from_email
+from app.utils.email import (
+    MAX_RENDERED_BODY_LENGTH,
+    MAX_SUBJECT_LENGTH,
+    format_from_email,
+)
 from app.utils.sanitization import sanitize_email_subject, sanitize_filename
 
 router = Router(tags=["Email"], exclude_none=True)
@@ -157,7 +161,7 @@ class SendEmailRequest(Schema):
     force: bool = False
     to: list[EmailStr] = Field(min_length=1, max_length=100)
     subject: str = Field(min_length=1, max_length=MAX_SUBJECT_LENGTH)
-    body: str = Field(min_length=1, max_length=100_000)
+    body: str = Field(min_length=1, max_length=MAX_RENDERED_BODY_LENGTH)
     format: Literal["text", "html"] = "text"
     from_name: FromName = ""
     cc: list[EmailStr] = Field(default_factory=list, max_length=100)

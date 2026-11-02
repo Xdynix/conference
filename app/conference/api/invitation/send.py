@@ -20,23 +20,14 @@ from app.conference.services.invitation import (
     SendInvitationResult,
     SendInvitationStatus,
 )
+from app.conference.types import EmailTemplateRequest
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest
 from app.ninja.errors import ErrorResponse, make_validation_error
-from app.utils.email import (
-    MAX_SUBJECT_LENGTH,
-    EmailRenderError,
-    EmailTemplate,
-    RenderedEmail,
-)
+from app.utils.email import EmailRenderError, RenderedEmail
 
 from .core import router
-
-
-class EmailTemplateRequest(EmailTemplate, Schema):
-    subject: str = Field(min_length=1, max_length=MAX_SUBJECT_LENGTH)
-    body: str = Field(min_length=1, max_length=100_000)
 
 
 class PreviewInvitationEmailRequest(EmailTemplateRequest):
