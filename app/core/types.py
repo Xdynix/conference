@@ -19,6 +19,7 @@ from ulid import ULID
 from app.core.models import ApiKey
 from app.core.models import User as UserModel
 from app.middleware import HttpRequest as BaseHttpRequest
+from app.utils.email import require_valid_address
 from app.utils.sanitization import require_ascii_local_part
 
 
@@ -65,6 +66,7 @@ EmailStr = Annotated[
     DefaultEmailStr,
     AfterValidator(require_ascii_local_part),
     AfterValidator(UserModel.objects.normalize_email),
+    AfterValidator(require_valid_address),
 ]
 
 

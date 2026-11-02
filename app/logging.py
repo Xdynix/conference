@@ -22,6 +22,8 @@ from sentry_sdk.types import Event, Hint
 LIBRARY_LOG_LEVELS: dict[str, int] = {
     "httpx": logging.WARNING,
     "apscheduler.executors": logging.WARNING,
+    # Narrates every delivery batch at INFO; failures are logged at ERROR.
+    "post_office": logging.WARNING,
 }
 
 
@@ -97,6 +99,10 @@ def configure_logging(
     # Route built-in logging to Loguru.
     intercept_handler = InterceptHandler()
     logging.basicConfig(handlers=[intercept_handler], level=logging.NOTSET, force=True)
+    # post_office adds its own StreamHandler on import when its logger has none,
+    # duplicating every line. The NullHandler prevents that; records still
+    # propagate to the root interceptor.
+    logging.getLogger("post_office").addHandler(logging.NullHandler())
 
     for logger_name, log_level in LIBRARY_LOG_LEVELS.items():
         logging.getLogger(logger_name).setLevel(log_level)

@@ -306,7 +306,7 @@ class PaperService:
                 abstract, contribution, keywords, submission file, and authors.
                 If ``False``, only validates title (for admin bypass).
             notify: If ``True``, sends a submission confirmation email to the
-                paper owner on transaction commit.
+                paper owner.
 
         Raises:
             Paper.DoesNotExist: If the paper, its conference, or its track has been
@@ -408,7 +408,7 @@ class PaperService:
                 )
                 rendered = cls.paper_submit_email_template.render(context)
                 email_message = rendered.build_message(to=paper.owner.email)
-                transaction.on_commit(email_message.send)
+                email_message.send()
 
             return paper
 

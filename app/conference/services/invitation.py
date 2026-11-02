@@ -459,7 +459,7 @@ class InvitationService:
                 ]
             )
 
-            transaction.on_commit(email_message.send)
+            email_message.send()
 
             return True, invitation.invitee_email
 

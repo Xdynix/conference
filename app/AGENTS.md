@@ -446,6 +446,18 @@ models in foundational packages (`app/core/`) to avoid circular dependencies; pa
 - **Docstrings**: Begin with a clear prose description aimed at API consumers and omit
   Google-style sections so the text renders cleanly in the documentation.
 
+## Email
+
+Send mail through Django's mail API (templated mail through `app/utils/email.py`).
+The default mailer only queues the message and a scheduler job delivers it later, so a
+successful send means queued, not delivered, and `send()` returns 0; never branch on
+its return value. Call `send()` inside the transaction that records the send: the queue
+is the same database, so a rejected enqueue rolls the record back. Send last when the
+message carries attachments: their files are written at enqueue and survive a later
+rollback. Time-sensitive mail passes `URGENT_MAIL_HEADERS` as `headers=` and is
+delivered ahead of the rest. Application code never names the queue package; ruff bans
+its import outside `app/infra/`, where the queue backend and its wiring live.
+
 ## Background Jobs
 
 The project uses APScheduler (`BackgroundScheduler`) for periodic tasks. The shared

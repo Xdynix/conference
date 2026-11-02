@@ -34,6 +34,11 @@ Conventions for the pytest suite under `tests/`.
   actually yields `pytest_django.Settings`. Only the former gives typed access to
   individual settings, including project-specific ones; the latter resolves every
   attribute to `Any`.
+- Under test Django swaps every `MAILERS` alias to the in-memory backend, so
+  `mailoutbox` receives messages as the app built them and nothing is queued. The
+  `queue` fixture in `tests/conftest.py` routes a test through the real queue backend,
+  with `send_queued()` delivering into `mailoutbox`; the backend itself is tested in
+  `tests/infra/test_mail.py`.
 
 ## Test Organization and Best Practices
 

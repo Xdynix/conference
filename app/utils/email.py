@@ -34,12 +34,16 @@ Example usage::
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from email.utils import formataddr, parseaddr
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Self
 
+from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.mail import EmailMultiAlternatives
+from django.core.validators import validate_email
 from jinja2 import StrictUndefined, TemplateError, TemplateSyntaxError
 from jinja2.sandbox import SandboxedEnvironment
 from pydantic import AnyUrl, BaseModel, ConfigDict, ValidationInfo, field_validator
@@ -139,17 +143,57 @@ EMAIL_FORMATS: dict[EmailFormatName, type[EmailFormat]] = {
 
 MAX_RENDERED_BODY_LENGTH = 100_000
 
+# Header limits; the queue's subject and from_email columns are at least this wide.
+MAX_SUBJECT_LENGTH = 989
+MAX_FROM_EMAIL_LENGTH = 254
+
+# The queue delivers messages carrying this standard header ahead of the rest.
+URGENT_MAIL_HEADERS = {"Importance": "high"}
+
+
+def require_valid_address(email: str) -> str:
+    """Accept only addresses Django's ``validate_email`` accepts.
+
+    The queue validates addresses with it when a message is stored, so anything it
+    rejects has to be rejected at input.
+    """
+    try:
+        validate_email(email)
+    except DjangoValidationError as exc:
+        raise ValueError("Enter a valid email address.") from exc
+    return email
+
+
+def format_from_email(from_name: str) -> str:
+    """Return ``DEFAULT_FROM_EMAIL`` with ``from_name`` as its display name."""
+    return formataddr((from_name, parseaddr(settings.DEFAULT_FROM_EMAIL)[1]))
+
+
+def validate_from_name(from_name: str) -> str:
+    # The queue's From-header parser takes the first angle-bracket pair as the address,
+    # so brackets in a display name break it.
+    if "<" in from_name or ">" in from_name:
+        raise ValueError("From name must not contain angle brackets.")
+    if len(format_from_email(from_name)) > MAX_FROM_EMAIL_LENGTH:
+        raise ValueError("From name is too long.")
+    return from_name
+
 
 class EmailRenderError(ValueError):
     """Raised when a template cannot be rendered with the given context.
 
     The message describes the template problem (an undefined variable, a sandbox
-    violation, an oversized body) and is safe to show to the template's author.
+    violation, an oversized body or subject) and is safe to show to the template's
+    author.
     """
 
 
 class RenderedBodyTooLongError(EmailRenderError):
     """Raised when a rendered email body exceeds ``MAX_RENDERED_BODY_LENGTH``."""
+
+
+class RenderedSubjectTooLongError(EmailRenderError):
+    """Raised when a rendered email subject exceeds ``MAX_SUBJECT_LENGTH``."""
 
 
 class EmailContext(BaseModel):
@@ -180,6 +224,7 @@ class RenderedEmail(BaseModel):
         bcc: str | Sequence[str] = (),
         reply_to: str | Sequence[str] = (),
         from_email: str | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> EmailMultiAlternatives:
         """Build a Django email message, with the HTML body as an alternative part."""
         if isinstance(to, str):
@@ -198,6 +243,7 @@ class RenderedEmail(BaseModel):
             cc=cc,
             bcc=bcc,
             reply_to=reply_to,
+            headers=dict(headers) if headers else None,
         )
         if self.html is not None:
             message.attach_alternative(self.html, "text/html")
@@ -274,8 +320,9 @@ class EmailTemplate(BaseModel):
         """Render the template with the given context.
 
         Raises ``EmailRenderError`` when the template fails at render time, including
-        ``RenderedBodyTooLongError`` when the rendered body exceeds
-        ``MAX_RENDERED_BODY_LENGTH``; a template can expand far beyond its own size.
+        ``RenderedBodyTooLongError`` and ``RenderedSubjectTooLongError`` when the
+        rendered body or subject exceeds its limit; a template can expand far beyond
+        its own size.
         """
         format_cls = EMAIL_FORMATS[self.format]
         context_dict = context.model_dump()
@@ -286,6 +333,10 @@ class EmailTemplate(BaseModel):
                     f"Rendered body exceeds {MAX_RENDERED_BODY_LENGTH} characters."
                 )
             subject = format_cls.render(self.subject, context_dict)
+            if len(subject) > MAX_SUBJECT_LENGTH:
+                raise RenderedSubjectTooLongError(
+                    f"Rendered subject exceeds {MAX_SUBJECT_LENGTH} characters."
+                )
             html = format_cls.render_html(self.body, context_dict)
         except (TemplateError, OverflowError) as exc:
             # The sandbox reports an oversized range as a plain OverflowError.

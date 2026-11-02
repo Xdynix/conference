@@ -1,5 +1,6 @@
 import base64
 from http import HTTPStatus
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -9,6 +10,7 @@ from django.core.mail import EmailMessage
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
+from post_office.mail import send_queued
 from ulid import ULID
 
 from app.conference.models import (
@@ -25,6 +27,7 @@ from app.conference.models import (
     Track,
 )
 from app.core.models import User
+from app.utils.email import MAX_SUBJECT_LENGTH, format_from_email
 from tests.helpers import approx_now, update_object
 
 FAKE_PDF = b"%PDF-fake-content"
@@ -165,6 +168,46 @@ class TestSendEmail:
         [sent_email] = mailoutbox
         assert sent_email.content_subtype == "html"
         assert sent_email.body == "<p>Hello</p>"
+
+    def test_subject_over_limit_rejected(
+        self,
+        mailoutbox: list[EmailMessage],
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=make_payload(subject="a" * (MAX_SUBJECT_LENGTH + 1)),
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert mailoutbox == []
+
+    @pytest.mark.parametrize(
+        "from_name",
+        [
+            pytest.param("Conference <Team>", id="angle_brackets"),
+            pytest.param("会" * 100, id="too_long_once_encoded"),
+        ],
+    )
+    def test_from_name_rejected(
+        self,
+        mailoutbox: list[EmailMessage],
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        from_name: str,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=make_payload(from_name=from_name),
+        )
+        assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
+        assert mailoutbox == []
 
     def test_cc_bcc_reply_to(
         self,
@@ -351,6 +394,60 @@ class TestSendEmail:
 
         [sent_email] = mailoutbox
         assert len(sent_email.attachments) == 1
+
+    def test_round_trip_through_queue(
+        self,
+        queue: Path,  # noqa: ARG002
+        mailoutbox: list[EmailMessage],
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+    ) -> None:
+        api_client.force_login(conference_chair)
+
+        response = api_client.post(
+            self.path(conference.name),
+            data=make_payload(
+                from_name="Conférence Team",
+                format="html",
+                body="<p>Hello</p>",
+                cc=["cc@example.com"],
+                bcc=["bcc@example.com"],
+                reply_to="reply@example.com",
+                attachments=[
+                    {
+                        "type": "inline",
+                        "filename": "final.pdf",
+                        "content": base64.b64encode(FAKE_PDF).decode(),
+                    },
+                    {
+                        "type": "inline",
+                        "filename": "notes.txt",
+                        "content": base64.b64encode(b"hello").decode(),
+                    },
+                ],
+            ),
+        )
+        assert response.status_code == HTTPStatus.OK
+        assert mailoutbox == []
+
+        send_queued()
+
+        [sent_email] = mailoutbox
+        assert sent_email.from_email == format_from_email("Conférence Team")
+        assert sent_email.to == ["alice@example.com"]
+        assert sent_email.cc == ["cc@example.com"]
+        assert sent_email.bcc == ["bcc@example.com"]
+        assert sent_email.extra_headers["Reply-To"] == "reply@example.com"
+        assert sent_email.content_subtype == "html"
+        assert sent_email.body == "<p>Hello</p>"
+        assert sorted(sent_email.attachments, key=repr) == sorted(
+            [
+                ("final.pdf", FAKE_PDF, "application/pdf"),
+                ("notes.txt", "hello", "text/plain"),
+            ],
+            key=repr,
+        )
 
     def test_inline_attachment(
         self,

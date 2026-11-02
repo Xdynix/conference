@@ -9,8 +9,8 @@ Conventions and coupling rules for the production stack: `Dockerfile`,
 |-------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `Dockerfile`                        | App image: installs deps, collects static, sets healthcheck and entrypoint.                                                                                                                        |
 | `docker-compose.yml`                | Core services (`app`, `nginx`) and optional backup sidecars (`litestream`, `rclone`) gated behind the `backup` Compose profile.                                                                    |
-| `docker/entrypoint.sh`              | Runs migrations before starting the CMD process.                                                                                                                                                   |
-| `docker/supervisord.conf`           | Process manager config: app server (granian) and background workers.                                                                                                                               |
+| `docker/entrypoint.sh`              | Runs deployment checks and migrations before starting the CMD process.                                                                                                                             |
+| `docker/supervisord.conf`           | Process manager config: app server (granian) and the scheduler worker.                                                                                                                             |
 | `docker/nginx.conf.template`        | Sidecar nginx: strips subpath, serves media via X-Accel-Redirect, proxies to app. Uses `envsubst` variables (`$APP_PORT`, `$SUBPATH`).                                                             |
 | `docker/litestream.yml`             | Litestream config for continuous SQLite replication to Cloudflare R2. Uses env var placeholders expanded at runtime.                                                                               |
 | `docker/10-normalize-subpath.envsh` | Nginx entrypoint hook: strips trailing slash from `$SUBPATH` before `envsubst` runs. Mounted into `/docker-entrypoint.d/`.                                                                         |
@@ -51,9 +51,20 @@ Conventions and coupling rules for the production stack: `Dockerfile`,
 
 ## Updating
 
-1. Pull latest code and rebuild: `docker compose up -d --build`. The entrypoint runs
-   `migrate --noinput` automatically on every start.
-2. Verify healthchecks: `docker compose ps` (both services healthy).
+1. Pull latest code and build the image: `docker compose build`.
+2. Run the deployment checks against the new image before switching:
+
+   ```sh
+   docker compose run --rm --no-deps --entrypoint python app manage.py check --deploy
+   ```
+
+   A failing check names the setting to fix. Fix it before switching: `up -d` replaces
+   the old container as it starts the new one, so a check failing in the entrypoint
+   leaves nothing serving.
+3. Switch: `docker compose up -d`. The entrypoint runs `check --deploy` and
+   `migrate --noinput` on every start; a failed check stops the container before it
+   serves.
+4. Verify healthchecks: `docker compose ps` (both services healthy).
 
 ## Coupling Rules
 
@@ -89,15 +100,20 @@ template.
 
 ### Shutdown Timing Chain
 
-Three timeout values must satisfy a strict ordering:
+supervisord stops process groups one at a time, highest `priority` first, and moves on
+only when the previous group has exited. The timeouts must therefore satisfy:
 
 ```text
-granian --workers-kill-timeout  <  supervisord stopwaitsecs (app program)  <  docker stop_grace_period
+granian --workers-kill-timeout  <  stopwaitsecs (app program)
+stopwaitsecs (scheduler program)  +  stopwaitsecs (app program)  <  docker stop_grace_period
 ```
 
-Each layer must finish before the next force-kills it. These live in `supervisord.conf`
-(granian command args and `stopwaitsecs`), and `docker-compose.yml`
-(`stop_grace_period`).
+Each layer must finish before the next force-kills it, and supervisord notices an exit
+only on its next poll, so the sum needs a few seconds of slack. The scheduler's budget
+is sized for the delivery job's slice (`DELIVERY_BUDGET` in `app/infra/jobs.py`) plus
+one mail batch (`BATCH_SIZE` in `app/settings.py`) against a responsive relay. These
+live in `supervisord.conf` (granian command args and `stopwaitsecs`), and
+`docker-compose.yml` (`stop_grace_period`).
 
 ### Upstream Hostname
 
@@ -144,6 +160,10 @@ The rclone volume mount (`/media:ro`) must point at the media subdirectory insid
 
 If the data directory layout or database filename changes, update both the Litestream
 config and the rclone volume mount accordingly.
+
+The queued-mail attachment store, `DATA_DIR/post-office`, sits deliberately outside
+both backups. It holds transient copies, so after a restore onto a fresh host a
+still-queued message with attachments fails every retry and has to be sent again.
 
 On the destination side, the sidecars write to the same R2 bucket under three prefixes.
 Litestream owns `db/` (the `path` key in `docker/litestream.yml`), rclone mirrors the
@@ -303,6 +323,14 @@ Programs start in ascending `priority` order. The app server should have the low
 priority number so it starts first and passes healthchecks before workers begin. The
 `exit-on-fatal` event listener causes the container to exit if any program enters FATAL
 state, preventing silent degraded operation.
+
+### Mail Delivery
+
+Outgoing mail is queued in the database, and the scheduler program is its only sender:
+it delivers in small batches for a bounded slice of each tick (see the shutdown timing
+chain) through the transport named by `EMAIL_BACKEND`, and the entrypoint's deployment
+checks refuse a development transport there. Handling failed or stuck mail is in
+`docs/operations.md`.
 
 ### Static Files
 

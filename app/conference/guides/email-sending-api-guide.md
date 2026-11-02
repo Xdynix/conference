@@ -150,14 +150,16 @@ Sends a single email with optional attachments.
   `"acceptance-letter:{paper_code}"` or `"receipt:{registration_uid}"` to make IDs
   meaningful and unique per logical operation.
 - `force` (boolean) -- When `false` (default), a request with a previously used
-  `correlation_id` returns `200` with `sent: false` instead of dispatching the email
+  `correlation_id` returns `200` with `sent: false` instead of queueing the email
   again. Set to `true` to force a resend.
 - `to` (array of emails, **required**) -- 1 to 100 recipients.
-- `subject` (string, **required**) -- Max 998 characters.
+- `subject` (string, **required**) -- Max 989 characters.
 - `body` (string, **required**) -- Max 100,000 characters.
 - `format` (`"text"` or `"html"`) -- Default: `"text"`.
 - `from_name` (string) -- Display name for the sender. The sending address is always the
-  system's configured address; only the display name can be customized.
+  system's configured address; only the display name can be customized. It must not
+  contain angle brackets, and the From header built from it (the encoded name plus the
+  address) must fit in 254 characters, which non-ASCII names use up faster.
 - `cc` (array of emails) -- Default: `[]`.
 - `bcc` (array of emails) -- Default: `[]`.
 - `reply_to` (email or null) -- Default: `null`.
@@ -173,10 +175,10 @@ Sends a single email with optional attachments.
 }
 ```
 
-- `sent` (boolean) -- `true` if the email was dispatched, `false` if skipped due to
-  idempotency (same `correlation_id` without `force`).
+- `sent` (boolean) -- `true` if the email was queued for delivery, `false` if skipped
+  due to idempotency (same `correlation_id` without `force`).
 - `correlation_id` (string) -- Echoed back for log correlation.
-- `send_time` (datetime) -- When the email was last sent.
+- `send_time` (datetime) -- When the email was last queued.
 
 ### 6.1. Attachment Types
 
@@ -531,7 +533,7 @@ if __name__ == "__main__":
 - **Idempotency:** The `correlation_id` is set to `"acceptance-letter:{paper_code}"`, so
   running the script again skips papers that were already emailed (the server returns
   `sent: false` with a 200 response). This means you do not need to maintain a local
-  "sent log"; the server tracks what has already been dispatched. However, the
+  "sent log"; the server tracks what has already been queued. However, the
   `correlation_id` format must remain stable across runs. If you change the pattern (
   e.g., from `"acceptance-letter:..."` to `"acceptance_letter:..."`) the server treats
   it as a new email. This also applies when multiple admins run scripts independently;

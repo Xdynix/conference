@@ -37,9 +37,10 @@ The project follows Django's app-based architecture.
 - **`app/conference/`** - The conference domain: papers, reviews and decisions,
   registrations, payments, proofs, tracks, user profiles, scoped roles, and invitations.
 - **`app/verikit/`** - User identity verification toolkit (email verification).
-- **`app/infra/`** - Infrastructure services (background jobs, scheduling, mutex locks).
+- **`app/infra/`** - Infrastructure services (background jobs, scheduling, mutex locks,
+  the mail queue).
 - **`app/misc/`** - Health endpoint, favicon, and housekeeping jobs (e.g. session
-  cleanup, mail retries, disk checks).
+  cleanup, disk checks).
 - **`app/admin/`** - Custom admin site (login, headers, permissions). Model-specific
   `ModelAdmin` registrations live in each app's own `admin.py` or `admin/` package.
 - **`app/audit/`** - Structured audit logging. All mutation API endpoints must call
@@ -114,6 +115,9 @@ Docs under `docs/` are not loaded automatically; read one when its situation app
   happy paths. Read it before implementing, modifying, or designing features that
   involve states, multistep user flows, or behavior spanning backend and frontend. New
   workflows follow its conventions and structure.
+- **`docs/operations.md`** - Operator runbook for the running deployment, starting with
+  failed or stuck mail. Read it when a mail-queue log line or the Django admin's Email
+  list needs action.
 - **`docs/authoring-agent-docs.md`** - Where a fact for agents belongs and what earns a
   place. Read it before editing an `AGENTS.md` or a doc under `docs/`.
 

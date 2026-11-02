@@ -8,10 +8,12 @@ from uuid import uuid4
 import pytest
 from django.apps import apps
 from django.conf import LazySettings
+from django.core.files.storage import FileSystemStorage
 from django.db import models
 from django.test import Client
 from django.utils import timezone
 from loguru import logger
+from post_office.models import Attachment
 from pytest_mock import MockerFixture
 
 from app.ninja.core import AppNinjaAPI
@@ -144,3 +146,18 @@ def fail_on_audit_errors(request: pytest.FixtureRequest) -> Iterator[None]:
     logger.remove(sink_id)
     if not request.node.get_closest_marker("expect_audit_error"):
         assert not errors, f"Unexpected audit error logged: {errors[0]}"
+
+
+@pytest.fixture
+def queue(settings: LazySettings, tmp_path: Path, mocker: MockerFixture) -> Path:
+    """Route the default mailer through the queue and deliver into ``mailoutbox``."""
+    settings.MAILERS = {
+        "default": {"BACKEND": "app.infra.mail.EmailBackend"},
+        "delivery": {"BACKEND": "django.core.mail.backends.locmem.EmailBackend"},
+    }
+    mocker.patch.object(
+        Attachment._meta.get_field("file"),
+        "storage",
+        FileSystemStorage(location=tmp_path),
+    )
+    return tmp_path

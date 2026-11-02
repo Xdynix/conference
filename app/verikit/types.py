@@ -10,6 +10,7 @@ from django.utils.translation import gettext as _
 from pydantic import AfterValidator, StringConstraints, TypeAdapter
 from pydantic import EmailStr as DefaultEmailStr
 
+from app.utils.email import require_valid_address
 from app.utils.sanitization import require_ascii_local_part
 from app.verikit.services import EmailVerificationService
 
@@ -17,6 +18,7 @@ EmailStr = Annotated[
     DefaultEmailStr,
     AfterValidator(require_ascii_local_part),
     AfterValidator(get_user_model().objects.normalize_email),
+    AfterValidator(require_valid_address),
 ]
 
 email_str_adapter = TypeAdapter(EmailStr)

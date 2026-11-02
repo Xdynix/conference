@@ -273,8 +273,8 @@ dependencies = [
     { name = "django-cleanup" },
     { name = "django-extensions" },
     { name = "django-ipware" },
-    { name = "django-mailer" },
     { name = "django-ninja" },
+    { name = "django-post-office" },
     { name = "django-stubs-ext" },
     { name = "httpx" },
     { name = "ipython" },
@@ -335,8 +335,8 @@ requires-dist = [
     { name = "django-cleanup", specifier = ">=9.0.0" },
     { name = "django-extensions", specifier = ">=4.1" },
     { name = "django-ipware", specifier = ">=8.0.0" },
-    { name = "django-mailer", specifier = ">=2.3.2" },
     { name = "django-ninja", specifier = ">=1.6.3" },
+    { name = "django-post-office", specifier = ">=3.12" },
     { name = "django-stubs-ext", specifier = "~=6.1.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "ipython", specifier = ">=9.16.1" },
@@ -559,19 +559,6 @@ wheels = [
 ]
 
 [[package]]
-name = "django-mailer"
-version = "2.3.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-    { name = "lockfile" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/83/36/47e879aa64502624278dec22dae04505c3463126529bd944628c17f7a849/django-mailer-2.3.2.tar.gz", hash = "sha256:6ea0cbec09f57eb91376780a5f20ab7a834b942435a575e92e8e021f7838d78f", size = 36308, upload-time = "2024-05-22T19:38:53.797Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/6f/df/65d30943246e2895f084075ab35811571e1bfe6933c8ab8d2eb4a9c4869c/django_mailer-2.3.2-py3-none-any.whl", hash = "sha256:c7ef5ad63d5484246908bd1ce583c22837c66c1a7b593c9b816f4ead2421c995", size = 25803, upload-time = "2024-05-22T19:38:52.253Z" },
-]
-
-[[package]]
 name = "django-ninja"
 version = "1.7.3"
 source = { registry = "https://pypi.org/simple" }
@@ -582,6 +569,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1c/8e/8c12dd873d76762e61fa7225bbab5d2b87dce358a8f7d764508b1363c17c/django_ninja-1.7.3.tar.gz", hash = "sha256:8a73ecccaa86639202427e81667b8fca6dfc250d2b6e5108369688029a4cb593", size = 2342134, upload-time = "2026-10-29T10:21:03.197Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/49/7d/7df99529f54178c67282d25983aad66bc0593ffbf5c1d420bb2840389c90/django_ninja-1.7.3-py3-none-any.whl", hash = "sha256:5e3c2dcead83a2512ea772dbc435ca51632cf46bf3be1523bac41e5bb394891c", size = 2376577, upload-time = "2026-10-29T10:21:01.199Z" },
+]
+
+[[package]]
+name = "django-post-office"
+version = "3.12.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "nh3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/2b/83/699e0763a9bef10ee0b0bedc9926f4b1a6b95b4fa0908ddd584dc8a1312f/django_post_office-3.12.0.tar.gz", hash = "sha256:9529437daac5602939bb18bf0e807fb0b4e7a4a5f0b6827204b51624276dff96", size = 113473, upload-time = "2026-10-08T06:29:54.377Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/78/b8ba274b1893900b78638f5d6c31bef8186cabefa50bba3685d76bdd1a93/django_post_office-3.12.0-py3-none-any.whl", hash = "sha256:b75d90d2553b5c735e329b7577f4d4e522190a99174fff0a441d2f08b7052f66", size = 90727, upload-time = "2026-10-08T06:29:56.223Z" },
 ]
 
 [[package]]
@@ -920,15 +920,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/45/98/7a1a5f31fd5c7ba93e963b168e244b8e3dd705b3d2a718e3c3307583bf57/linkify_it_py-2.2.0.tar.gz", hash = "sha256:907acd2d17ac1fbb9ddb62c8957ccbd6158cac602231a15c3b0cd1e215f03cee", size = 32939, upload-time = "2026-08-29T07:07:08.305Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/13/d4/1152d1c7ab42d8b908be64fd200ddc870dc9d4925e951198702084aa1a7d/linkify_it_py-2.2.0-py3-none-any.whl", hash = "sha256:3adc40eb5af300b2605fcfdb968c24e1d780a90f1f2221af7c15e5111e94d443", size = 21971, upload-time = "2026-08-29T07:07:07.164Z" },
-]
-
-[[package]]
-name = "lockfile"
-version = "0.12.2"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/17/47/72cb04a58a35ec495f96984dddb48232b551aafb95bde614605b754fe6f7/lockfile-0.12.2.tar.gz", hash = "sha256:6aed02de03cba24efabcd600b30540140634fc06cfa603822d508d5361e9f799", size = 20874, upload-time = "2015-11-25T18:29:58.279Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/c8/22/9460e311f340cb62d26a38c419b1381b8593b0bb6b5d1f056938b086d362/lockfile-0.12.2-py2.py3-none-any.whl", hash = "sha256:6c3cb24f344923d30b2785d5ad75182c8ea7ac1b6171b08657258ec7429d50fa", size = 13564, upload-time = "2015-11-25T18:29:51.462Z" },
 ]
 
 [[package]]

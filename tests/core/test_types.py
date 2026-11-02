@@ -26,3 +26,7 @@ class TestEmailStr:
     def test_rejects_non_ascii_local_part(self, email: str) -> None:
         with pytest.raises(ValidationError, match="must contain only ASCII"):
             TypeAdapter(EmailStr).validate_python(email)
+
+    def test_rejects_what_django_rejects(self) -> None:
+        with pytest.raises(ValidationError, match="Enter a valid email address"):
+            TypeAdapter(EmailStr).validate_python("user@example.c0m")

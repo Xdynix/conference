@@ -9,6 +9,7 @@ __all__ = (
     "ConferenceName",
     "ConferenceUser",
     "FamilyName",
+    "FromName",
     "GivenName",
     "IEEEeCopyrightConfig",
     "IEEEeCopyrightConfigArticleSource",
@@ -62,6 +63,7 @@ from typing import Annotated, Literal
 from django.utils.translation import gettext as _
 from ninja import Field, Schema
 from pydantic import (
+    AfterValidator,
     AwareDatetime,
     BeforeValidator,
     HttpUrl,
@@ -100,6 +102,7 @@ from app.conference.models import Track as TrackModel
 from app.conference.models import UserConferenceProfile as UserConferenceProfileModel
 from app.conference.models.review import MAX_SCORE, MIN_SCORE, ReviewState
 from app.core.types import EmailStr
+from app.utils.email import validate_from_name
 from app.utils.enums import Region
 from app.utils.sanitization import sanitize_formatted_text, sanitize_text
 
@@ -282,6 +285,11 @@ Affiliation = Annotated[
         strip_whitespace=True,
     ),
     Field(examples=["Department of Physics, University of Oxford"]),
+]
+FromName = Annotated[
+    str,
+    BeforeValidator(sanitize_text),
+    AfterValidator(validate_from_name),
 ]
 RegionCode = StrEnum("RegionCode", {region.name: region.name for region in Region})  # type: ignore[misc]
 

@@ -1,7 +1,4 @@
 from django.apps import AppConfig
-from django.core.checks import register
-
-from app.infra.checks import check_sqlite_transaction_mode
 
 
 class InfraConfig(AppConfig):
@@ -9,4 +6,4 @@ class InfraConfig(AppConfig):
     name = "app.infra"
 
     def ready(self) -> None:
-        register(check_sqlite_transaction_mode, "infra")
+        from app.infra import checks  # noqa: F401

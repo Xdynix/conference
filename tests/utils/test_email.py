@@ -10,6 +10,7 @@ from pytest_mock import MockerFixture
 from app.utils.email import (
     EMAIL_FORMATS,
     MAX_RENDERED_BODY_LENGTH,
+    MAX_SUBJECT_LENGTH,
     EmailContext,
     EmailFormatName,
     EmailRenderError,
@@ -17,6 +18,7 @@ from app.utils.email import (
     MarkdownFormat,
     RenderedBodyTooLongError,
     RenderedEmail,
+    RenderedSubjectTooLongError,
     TextFormat,
 )
 
@@ -176,6 +178,21 @@ class TestEmailTemplate:
             with pytest.raises(RenderedBodyTooLongError):
                 template.render(EmailContext())
 
+    @pytest.mark.parametrize(
+        ("length", "ok"),
+        [
+            pytest.param(MAX_SUBJECT_LENGTH, True, id="at_limit"),
+            pytest.param(MAX_SUBJECT_LENGTH + 1, False, id="over_limit"),
+        ],
+    )
+    def test_render_subject_length_limit(self, length: int, ok: bool) -> None:
+        template = EmailTemplate(subject=f"{{{{ 'a' * {length} }}}}", body="Body")
+        if ok:
+            assert len(template.render(EmailContext()).subject) == length
+        else:
+            with pytest.raises(RenderedSubjectTooLongError):
+                template.render(EmailContext())
+
     def test_from_files(self, tmp_path: Path) -> None:
         subject_file = tmp_path / "subject.txt"
         body_file = tmp_path / "body.txt"
@@ -225,6 +242,17 @@ class TestRenderedEmail:
         assert msg.body == "Body"
         assert msg.content_subtype == "plain"
         assert msg.alternatives == []
+
+    def test_build_message_headers(self) -> None:
+        rendered = RenderedEmail(
+            format=EmailFormatName.TEXT,
+            subject="Subject",
+            body="Body",
+        )
+        headers = {"Importance": "high"}
+        msg = rendered.build_message(to="user@example.com", headers=headers)
+        assert msg.extra_headers == headers
+        assert msg.extra_headers is not headers
 
     def test_build_message_html_alternative(self) -> None:
         rendered = RenderedEmail(

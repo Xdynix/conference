@@ -369,6 +369,6 @@ class ProofService:
         proof.notification_time = timezone.now()
         proof.save(update_fields=["notification_time", "update_time"])
 
-        transaction.on_commit(email_message.send)
+        email_message.send()
 
         return True, proof.recipient_email

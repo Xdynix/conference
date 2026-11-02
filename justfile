@@ -52,15 +52,11 @@ seed-staging:
 
 # start development services
 [parallel]
-dev: dev-app dev-mailer dev-scheduler
+dev: dev-app dev-scheduler
 
 # start Django server
 dev-app:
     uv run manage.py runserver_plus localhost:8000 --cert-file=var/dev-server.crt --nostatic
-
-# start mailer worker
-dev-mailer:
-    uv run hupper --shutdown-interval=5 -m manage runmailer
 
 # start scheduler worker
 dev-scheduler:

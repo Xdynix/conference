@@ -3,7 +3,6 @@ from enum import StrEnum
 from typing import Literal, Self
 
 from django.conf import settings
-from django.db import transaction
 from django.db.models import Count, Q, QuerySet
 from django.utils import timezone
 from django.utils.translation import gettext as _
@@ -626,7 +625,7 @@ class ReviewerNotificationService:
                     last_notification_time=now,
                 )
 
-            transaction.on_commit(email_message.send)
+            email_message.send()
 
             return True, reviewer.email
 

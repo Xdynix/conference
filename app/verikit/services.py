@@ -1,16 +1,19 @@
 import secrets
 import string
-from functools import partial
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.signing import BadSignature, SignatureExpired, Signer, TimestampSigner
-from django.db import transaction
 from django.db.models import QuerySet
 from django.db.models.functions import Now
 
 from app.infra.models import Mutex
-from app.utils.email import EmailContext, EmailFormatName, EmailTemplate
+from app.utils.email import (
+    URGENT_MAIL_HEADERS,
+    EmailContext,
+    EmailFormatName,
+    EmailTemplate,
+)
 from app.verikit.models import EmailVerification
 
 normalize_email = get_user_model().objects.normalize_email
@@ -68,12 +71,9 @@ class EmailVerificationService:
                 expire_time=Now() + settings.VERIKIT_EMAIL_CODE_EXPIRY,
             )
             # Refresh to load database-generated fields (create_time, expire_time with
-            # database functions) before passing to the on_commit callback.
+            # database functions).
             email_verification.refresh_from_db()
-            # Defer email sending until after transaction commits. If the transaction
-            # rolls back, we don't want to send emails for data that was never
-            # persisted.
-            transaction.on_commit(partial(cls.send_verification_email, email, code))
+            cls.send_verification_email(email, code)
             return email_verification
 
     @classmethod
@@ -164,7 +164,7 @@ class EmailVerificationService:
             code=code,
         )
         rendered = cls.verification_email_template.render(context)
-        rendered.build_message(to=email).send()
+        rendered.build_message(to=email, headers=URGENT_MAIL_HEADERS).send()
 
     @classmethod
     def issue_token(cls, email: str) -> str:

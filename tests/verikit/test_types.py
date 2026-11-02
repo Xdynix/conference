@@ -18,6 +18,10 @@ class TestEmailStr:
         with pytest.raises(ValidationError, match="must contain only ASCII"):
             TypeAdapter(EmailStr).validate_python("jöhn@example.com")
 
+    def test_rejects_what_django_rejects(self) -> None:
+        with pytest.raises(ValidationError, match="Enter a valid email address"):
+            TypeAdapter(EmailStr).validate_python("user@example.c0m")
+
 
 class TestVerifiedEmailStr:
     @pytest.fixture

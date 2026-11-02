@@ -32,7 +32,12 @@ from app.core.auth import has_any_roles
 from app.core.models import GlobalRole
 from app.core.types import AuthedHttpRequest, EmailStr
 from app.ninja.errors import ErrorResponse, make_validation_error
-from app.utils.email import EmailRenderError, EmailTemplate, RenderedEmail
+from app.utils.email import (
+    MAX_SUBJECT_LENGTH,
+    EmailRenderError,
+    EmailTemplate,
+    RenderedEmail,
+)
 from app.utils.files import UploadValidationError, build_file_download_response
 from app.utils.sanitization import sanitize_formatted_text
 
@@ -245,7 +250,7 @@ async def upload_proof_file(
 
 
 class EmailTemplateRequest(EmailTemplate, Schema):
-    subject: str = Field(min_length=1, max_length=998)
+    subject: str = Field(min_length=1, max_length=MAX_SUBJECT_LENGTH)
     body: str = Field(min_length=1, max_length=100_000)
 
 

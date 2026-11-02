@@ -1,11 +1,9 @@
-from email.utils import formataddr
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.core.mail import EmailMessage
-from django.db import transaction
 from django.db.models.fields.files import FieldFile
 from django.shortcuts import aget_object_or_404
 from django.utils import timezone
@@ -26,10 +24,12 @@ from app.conference.models import (
     RegistrationState,
 )
 from app.conference.models.email import EmailSendLog
+from app.conference.types import FromName
 from app.core.auth import has_any_roles
 from app.core.models import GlobalRole, User
 from app.core.types import AuthedHttpRequest, EmailStr
 from app.infra.models import Mutex
+from app.utils.email import MAX_SUBJECT_LENGTH, format_from_email
 from app.utils.sanitization import sanitize_email_subject, sanitize_filename
 
 router = Router(tags=["Email"], exclude_none=True)
@@ -156,10 +156,10 @@ class SendEmailRequest(Schema):
     )
     force: bool = False
     to: list[EmailStr] = Field(min_length=1, max_length=100)
-    subject: str = Field(min_length=1, max_length=998)
+    subject: str = Field(min_length=1, max_length=MAX_SUBJECT_LENGTH)
     body: str = Field(min_length=1, max_length=100_000)
     format: Literal["text", "html"] = "text"
-    from_name: str = Field(default="", max_length=255)
+    from_name: FromName = ""
     cc: list[EmailStr] = Field(default_factory=list, max_length=100)
     bcc: list[EmailStr] = Field(default_factory=list, max_length=100)
     reply_to: EmailStr | None = None
@@ -207,7 +207,7 @@ async def build_email_message(
     payload: SendEmailRequest,
     conference: Conference,
 ) -> EmailMessage:
-    """Build a Django ``EmailMessage`` from the request payload.
+    """Build the email message from the request payload.
 
     Resolves attachment references and validates them before composing. Raises
     ``ValidationError`` if any attachment reference is invalid.
@@ -215,10 +215,7 @@ async def build_email_message(
     subject = sanitize_email_subject(payload.subject)
     reply_to = [payload.reply_to] if payload.reply_to else []
 
-    if payload.from_name:
-        from_email = formataddr((payload.from_name, settings.DEFAULT_FROM_EMAIL))
-    else:
-        from_email = None
+    from_email = format_from_email(payload.from_name) if payload.from_name else None
 
     resolved = await resolve_attachments(conference, payload.attachments)
 
@@ -264,21 +261,21 @@ def send_and_log(
         if existing and not payload.force:
             return existing, False
 
-        transaction.on_commit(message.send)
-
         now = timezone.now()
 
         if existing:
             existing.send_time = now
             existing.sender = sender
             existing.save(update_fields=["send_time", "sender", "update_time"])
-            return existing, True
+            log_entry = existing
+        else:
+            log_entry = conference.email_send_logs.create(
+                correlation_id=payload.correlation_id,
+                send_time=now,
+                sender=sender,
+            )
 
-        log_entry = conference.email_send_logs.create(
-            correlation_id=payload.correlation_id,
-            send_time=now,
-            sender=sender,
-        )
+        message.send()
         return log_entry, True
 
 

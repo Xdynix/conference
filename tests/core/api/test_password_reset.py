@@ -16,7 +16,7 @@ from ulid import ULID
 from app.core.models import PasswordResetToken, User
 from app.core.services import PasswordResetService
 from app.core.types import Password
-from app.utils.email import EmailFormatName, EmailTemplate
+from app.utils.email import URGENT_MAIL_HEADERS, EmailFormatName, EmailTemplate
 from tests.helpers import any_str, update_object
 
 
@@ -367,6 +367,7 @@ class TestPasswordResetE2E:
 
         [sent_email] = mailoutbox
         assert sent_email.to == [email]
+        assert sent_email.extra_headers == URGENT_MAIL_HEADERS
 
         email_body = sent_email.body
         fragment = email_body.split("#")[-1]

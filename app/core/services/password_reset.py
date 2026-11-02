@@ -1,16 +1,19 @@
 import secrets
-from functools import partial
 from hashlib import sha256
 
 from django.conf import settings
-from django.db import transaction
 from django.db.models.functions import Now
 from pydantic import HttpUrl, SecretStr
 
 from app.core.models import PasswordResetToken, User
 from app.core.types import Password
 from app.infra.models import Mutex
-from app.utils.email import EmailContext, EmailFormatName, EmailTemplate
+from app.utils.email import (
+    URGENT_MAIL_HEADERS,
+    EmailContext,
+    EmailFormatName,
+    EmailTemplate,
+)
 
 normalize_email = User.objects.normalize_email
 
@@ -68,18 +71,12 @@ class PasswordResetService:
                 expire_time=Now() + settings.PASSWORD_RESET_TOKEN_EXPIRY,
             )
             # Refresh to load database-generated fields (create_time, expire_time with
-            # database functions) before passing to the on_commit callback.
+            # database functions).
             password_reset_token.refresh_from_db()
-            # Defer email sending until after transaction commits. If the transaction
-            # rolls back, we don't want to send emails for data that was never
-            # persisted.
-            transaction.on_commit(
-                partial(
-                    cls.send_password_reset_email,
-                    user,
-                    token,
-                    password_reset_page_url=password_reset_page_url,
-                )
+            cls.send_password_reset_email(
+                user,
+                token,
+                password_reset_page_url=password_reset_page_url,
             )
             return password_reset_token
 
@@ -147,4 +144,4 @@ class PasswordResetService:
             username=user.get_username(),
         )
         rendered = cls.password_reset_email_template.render(context)
-        rendered.build_message(to=user.email).send()
+        rendered.build_message(to=user.email, headers=URGENT_MAIL_HEADERS).send()

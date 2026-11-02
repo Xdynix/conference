@@ -1,5 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -9,9 +10,11 @@ from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 from faker import Faker
+from post_office.mail import send_queued
+from post_office.models import PRIORITY, Email
 from pytest_mock import MockerFixture
 
-from app.utils.email import EmailFormatName, EmailTemplate
+from app.utils.email import URGENT_MAIL_HEADERS, EmailFormatName, EmailTemplate
 from app.verikit.models import EmailVerification
 from app.verikit.services import EmailVerificationService
 
@@ -215,6 +218,7 @@ class TestEmailVerificationE2E:
 
         [sent_email] = mailoutbox
         assert sent_email.to == [email]
+        assert sent_email.extra_headers == URGENT_MAIL_HEADERS
 
         email_body = sent_email.body
         code = email_body.removeprefix("Code: ").strip()
@@ -232,6 +236,27 @@ class TestEmailVerificationE2E:
         verified_email = EmailVerificationService.verify_token(token)
         assert verified_email
         assert verified_email.lower() == email.lower()
+
+    def test_code_is_queued_urgent(
+        self,
+        queue: Path,  # noqa: ARG002
+        faker: Faker,
+        mailoutbox: list[EmailMessage],
+        api_client: Client,
+    ) -> None:
+        email = faker.email()
+
+        response = api_client.post(self.create_path, data={"email": email})
+        assert response.status_code == HTTPStatus.CREATED
+
+        queued = Email.objects.get()
+        assert queued.to == [email]
+        assert queued.priority == PRIORITY.high
+
+        send_queued()
+
+        [sent_email] = mailoutbox
+        assert sent_email.extra_headers["Importance"] == "high"
 
     def test_complete_flow_case_insensitive_email(
         self,

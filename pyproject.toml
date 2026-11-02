@@ -7,11 +7,9 @@ dependencies = [
     "django-cleanup>=9.0.0",
     "django-extensions>=4.1",
     "django-ipware>=8.0.0",
-    "django-mailer>=2.3.2",
     "django-ninja>=1.6.3",
+    "django-post-office>=3.12",
     "django-stubs-ext~=6.1.0",
-    # TODO: replace django-mailer and the EMAIL_* settings with MAILERS before Django
-    # 7.0 removes them.
     "django[argon2]~=6.1.0",
     "httpx>=0.28.1",
     "ipython>=9.16.1",
@@ -100,6 +98,7 @@ select = [
     "PTH", # flake8-use-pathlib
     "FURB", # refurb
     "RUF", # Ruff-specific rules
+    "TID251", # banned-api
 ]
 ignore = [
     # Docstrings are optional; AGENTS.md says to omit them when the name says it all.
@@ -110,6 +109,9 @@ ignore = [
     "E114", # indentation-with-invalid-multiple-comment
     "E117", # over-indented
 ]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"post_office".msg = "Application code stays unaware of the mail queue; send through Django's mail API (app/AGENTS.md, Email)."
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -126,6 +128,10 @@ ignore-var-parameters = true
 "tests/**/*.py" = [
     "S101", # assert
     "S105", # hardcoded-password-string
+    "TID251", # banned-api
+]
+"app/infra/**/*.py" = [
+    "TID251", # banned-api
 ]
 "**/migrations/*.py" = [
     "E501", # line-too-long
@@ -145,7 +151,7 @@ plugins = [
 ]
 
 [[tool.mypy.overrides]]
-module = ["mailer.*"]
+module = ["post_office.*"]
 ignore_missing_imports = true
 
 [tool.django-stubs]
@@ -170,8 +176,6 @@ max_warnings = "0"
 filterwarnings = [
     # Python hides ResourceWarning by default; show it so unclosed files fail the run.
     "default::ResourceWarning",
-    # Goes away with the django-mailer TODO under [project] dependencies.
-    "ignore:The EMAIL_\\w+ setting is deprecated:django.utils.deprecation.RemovedInDjango70Warning",
 ]
 markers = [
     "expect_audit_error: test intentionally triggers audit error logging",

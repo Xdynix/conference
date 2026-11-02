@@ -1,7 +1,9 @@
 import secrets
 import string
+from datetime import timedelta
+from email.utils import parseaddr
 from pathlib import Path
-from typing import Literal, cast
+from typing import Any, Literal, cast
 
 import django_stubs_ext
 from decouple import Choices, Csv, config
@@ -92,7 +94,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django_extensions",
-    "mailer",
+    "post_office",
     "ninja",
     "app.admin",
     "app.audit",
@@ -203,6 +205,12 @@ STORAGES = {
     "staticfiles": {
         "BACKEND": "servestatic.storage.CompressedManifestStaticFilesStorage",
     },
+    # Outside MEDIA_ROOT: queued attachments are transient copies that cleanup_mail
+    # removes, so the media backup skips them.
+    "post_office": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+        "OPTIONS": {"location": DATA_DIR / "post-office"},
+    },
 }
 
 MEDIA_ROOT: Path = config("MEDIA_ROOT", default=DATA_DIR / "media", cast=Path)
@@ -211,42 +219,58 @@ MEDIA_URL = f"{FORCE_SCRIPT_NAME}/media/" if FORCE_SCRIPT_NAME else "/media/"
 
 # Email
 
-# TODO: Add prod check for the settings.
-
-EMAIL_BACKEND = "mailer.backend.DbBackend"
-
-MAILER_EMAIL_BACKEND: str = config(
+_email_delivery_backend: str = config(
     "EMAIL_BACKEND",
     default="django.core.mail.backends.smtp.EmailBackend",
 )
 
-MAILER_EMPTY_QUEUE_SLEEP = 5
+# Keyed by backend because unknown OPTIONS keys raise InvalidMailer.
+_email_delivery_options: dict[str, dict[str, Any]] = {
+    "django.core.mail.backends.smtp.EmailBackend": {
+        "host": config("EMAIL_HOST", default="localhost"),
+        # None lets Django pick the port from use_tls/use_ssl.
+        "port": config("EMAIL_PORT", default=0, cast=int) or None,
+        "username": config("EMAIL_HOST_USER", default=""),
+        "password": config("EMAIL_HOST_PASSWORD", default=""),
+        "use_tls": config("EMAIL_USE_TLS", default=False, cast=bool),
+        "use_ssl": config("EMAIL_USE_SSL", default=False, cast=bool),
+        # Short enough that BATCH_SIZE connection timeouts in a row fit inside
+        # post_office's BATCH_DELIVERY_TIMEOUT, left at its default.
+        "timeout": config("EMAIL_TIMEOUT", default=20, cast=int),
+    },
+    "django.core.mail.backends.filebased.EmailBackend": {
+        "file_path": config("EMAIL_FILE_PATH", default=DATA_DIR / "emails", cast=Path),
+    },
+}
 
-# The mailer holds a write transaction across each SMTP send, and back-to-back sends
-# starve other SQLite writers. The pause between messages gives them a window.
-MAILER_EMAIL_THROTTLE = 0.5
-
-EMAIL_FILE_PATH = config("EMAIL_FILE_PATH", default=DATA_DIR / "emails", cast=str)
-
-EMAIL_HOST = config("EMAIL_HOST", default="localhost")
-
-EMAIL_PORT = config("EMAIL_PORT", default=25, cast=int)
-
-EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
-
-EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
-
-EMAIL_USE_TLS = config("EMAIL_USE_TLS", default=False, cast=bool)
-
-EMAIL_USE_SSL = config("EMAIL_USE_SSL", default=False, cast=bool)
-
-EMAIL_TIMEOUT = config("EMAIL_TIMEOUT", default=60, cast=int)
-
-EMAIL_SUBJECT_PREFIX = config("EMAIL_SUBJECT_PREFIX", default="[Django] ")
-
-SERVER_EMAIL = config("SERVER_EMAIL", default="no-reply@localhost")
+MAILERS = {
+    "default": {"BACKEND": "app.infra.mail.EmailBackend"},
+    "delivery": {
+        "BACKEND": _email_delivery_backend,
+        "OPTIONS": _email_delivery_options.get(_email_delivery_backend, {}),
+    },
+}
 
 DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="no-reply@localhost")
+
+POST_OFFICE = {
+    "DEFAULT_MAILER": "delivery",
+    # Fixed interval, no backoff; sized to ride out a relay outage of a day.
+    "MAX_RETRIES": 96,
+    "RETRY_INTERVAL": timedelta(minutes=15),
+    # Delivered on one thread to stay within relay connection limits; a small batch
+    # lets the delivery job stop close to its budget and bounds what a killed run
+    # resends.
+    "BATCH_SIZE": 5,
+    "THREADS_PER_PROCESS": 1,
+    "SENDING_ORDER": ["-priority", "created"],
+    # Failures only; the Email row already records a successful delivery.
+    "LOG_LEVEL": 1,
+    # Minted at enqueue, so every retry of a message carries the same Message-ID.
+    "MESSAGE_ID_ENABLED": True,
+    "MESSAGE_ID_FQDN": parseaddr(DEFAULT_FROM_EMAIL)[1].rpartition("@")[2],
+    "FILE_STORAGE": "post_office",
+}
 
 # Logging
 
@@ -318,6 +342,12 @@ REVERSE_PROXY_COUNT: int = config("REVERSE_PROXY_COUNT", default=0, cast=int)
 # server holds its own certificate, so its connection scheme is already accurate.
 SECURE_PROXY_SSL_HEADER: tuple[str, str] | None = (
     ("HTTP_X_FORWARDED_PROTO", "https") if TRUSTED_PROXY else None
+)
+
+# Behind a TLS-terminating proxy the HTTPS redirect and HSTS belong to the proxy, so
+# Django's deployment checks for them do not apply.
+SILENCED_SYSTEM_CHECKS: list[str] = (
+    ["security.W004", "security.W008"] if TRUSTED_PROXY else []
 )
 
 REVERSE_PROXY_REQUEST_ID_HEADER: str = config(

@@ -1,11 +1,14 @@
 from datetime import timedelta
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
 from django.conf import LazySettings
+from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
 from django.utils import timezone
 from faker import Faker
+from post_office.models import Email
 from pytest_mock import MockerFixture
 from ulid import ULID
 
@@ -142,6 +145,28 @@ class TestInvitationServiceSendInvitation:
         assert invitee_email == invitation.invitee_email
 
         mock_send.assert_not_called()
+
+    def test_rejected_enqueue_rolls_back_tracking(
+        self,
+        queue: Path,  # noqa: ARG002
+        invitation: Invitation,
+        template: EmailTemplate,
+    ) -> None:
+        # Django's address validator rejects a digit in the TLD; the queue runs it.
+        update_object(invitation, invitee_email="user@example.c0m")
+
+        with pytest.raises(ValidationError):
+            InvitationService.send_invitation(
+                invitation.uid,
+                template=template,
+                invitation_accept_page_url="https://example.com/accept",
+                invitation_reject_page_url="https://example.com/reject",
+            )
+
+        invitation.refresh_from_db()
+        assert invitation.last_email_send_time is None
+        assert invitation.email_send_count == 0
+        assert not Email.objects.exists()
 
     def test_force_send_to_recent(
         self,
