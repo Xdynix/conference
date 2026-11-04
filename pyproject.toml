@@ -7,6 +7,8 @@ dependencies = [
     "django-cleanup>=9.0.0",
     "django-extensions>=4.1",
     "django-ipware>=8.0.0",
+    # TODO: Drop monkeypatch_django_ninja_openapi_examples in app/patches.py once
+    # vitalik/django-ninja#1637 ships; raise this floor to that release.
     "django-ninja>=1.6.3",
     "django-post-office>=3.12",
     "django-stubs-ext~=6.1.0",
