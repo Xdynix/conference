@@ -43,10 +43,11 @@ def patch_asyncio_self_pipe_for_codex_sandbox() -> Iterator[None]:
         try:
             writer.send(b"\0")
         except PermissionError:
-            # Codex sandbox can reject socketpair.send(), which breaks asyncio
-            # selector-loop wakeups and makes valid async test paths hang.
-            # TODO: Remove this workaround once Codex sandbox handles the self-pipe
-            #  wakeup correctly. See: https://github.com/openai/codex/pull/10109
+            # The Codex sandbox denies sendto() even on AF_UNIX socketpairs, so
+            # socketpair.send() raises PermissionError, asyncio selector-loop
+            # wakeups never fire, and valid async tests hang. os.write() is not
+            # denied. TODO: Remove this workaround once the sandbox is fixed, see
+            # https://github.com/openai/codex/issues/24933
             def patched_write_to_self(self):  # type: ignore[no-untyped-def]
                 csock = self._csock
                 if csock is None:
