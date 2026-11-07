@@ -259,6 +259,14 @@ class TestDuplicateServiceScan:
         second = DuplicateService.scan()
         assert second is not None
 
+    def test_no_skip_after_new_final(self, paper_a: Paper) -> None:
+        first = DuplicateService.scan()
+        assert first is not None
+
+        paper_a.finals.create(revision=1, source_file="source.zip", source_sha256="new")
+        second = DuplicateService.scan()
+        assert second is not None
+
     def test_skip_when_no_active_papers(self, paper_a: Paper) -> None:
         first = DuplicateService.scan()
         assert first is not None

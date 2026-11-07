@@ -139,8 +139,8 @@ class DuplicateService:
         """Check whether anything changed since the last successful report.
 
         Compares the latest successful report's timestamp against the most recent
-        ``Paper.update_time`` and ``PaperSubmission.create_time``. Returns ``True``
-        if no data has changed.
+        ``Paper.update_time``, ``PaperSubmission.create_time``, and
+        ``PaperFinal.create_time``. Returns ``True`` if no data has changed.
         """
         last_report: datetime | None = (
             DuplicateReport.objects.filter(state=DuplicateReportState.SUCCESS)
@@ -154,12 +154,10 @@ class DuplicateService:
         changes = Paper.objects.active().aggregate(
             latest_paper_change=Max("update_time"),
             latest_submission=Max("submission__create_time"),
+            latest_final=Max("final__create_time"),
         )
         last_change: datetime | None = max(
-            filter(
-                None,
-                [changes["latest_paper_change"], changes["latest_submission"]],
-            ),
+            filter(None, changes.values()),
             default=None,
         )
         if last_change is None:
