@@ -18,6 +18,7 @@
 /.env.*
 !/.env.example
 /.git
+/.github
 /.gitattributes
 /.pre-commit-config.yaml
 /Dockerfile

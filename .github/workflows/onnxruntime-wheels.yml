@@ -1,0 +1,167 @@
+# onnxruntime has no CPython 3.15 wheels yet (microsoft/onnxruntime#33271) and
+# magika needs onnxruntime, so this builds them from the upstream tag and
+# publishes them as a GitHub release for uv.lock to reference by URL. Delete
+# the workflow once upstream ships the wheels or magika drops onnxruntime.
+#
+# Build parameters follow upstream's packaging pipelines (azure-pipelines:
+# py-linux, py-win-cpu, py-macos), minus Microsoft's internal vcpkg cache
+# (dependencies come from cmake/deps.txt), the unused Azure provider, and the
+# test suite, which a magika smoke test replaces.
+name: Build onnxruntime wheels
+
+on:
+  workflow_dispatch:
+    inputs:
+      onnxruntime:
+        description: onnxruntime release to build, without the leading v.
+        type: string
+        required: true
+        default: "1.31.1"
+      python:
+        description: CPython minor version to build for.
+        type: string
+        required: true
+        default: "3.15"
+      publish:
+        description: Attach the wheels to a release instead of keeping them as run artifacts.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  wheel:
+    name: ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Matches upstream's AlmaLinux 8 / GCC 14 build images and keeps the
+          # wheel loadable on Debian stable's older glibc.
+          - platform: manylinux_2_28_x86_64
+            runner: ubuntu-24.04
+            image: quay.io/pypa/manylinux_2_28_x86_64
+          - platform: manylinux_2_28_aarch64
+            runner: ubuntu-24.04-arm
+            image: quay.io/pypa/manylinux_2_28_aarch64
+          - platform: win_amd64
+            runner: windows-2022
+          - platform: macosx_14_0_arm64
+            runner: macos-15
+            # Upstream's pin; the runner's default Xcode is older.
+            xcode: "26.3"
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.image }}
+    timeout-minutes: 240
+    env:
+      ONNXRUNTIME_VERSION: ${{ inputs.onnxruntime }}
+      PYTHON_VERSION: ${{ inputs.python }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: microsoft/onnxruntime
+          ref: v${{ env.ONNXRUNTIME_VERSION }}
+          submodules: recursive
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        if: ${{ !matrix.image }}
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Select the manylinux interpreter
+        if: ${{ matrix.image }}
+        run: |
+          tag="cp${PYTHON_VERSION//./}"
+          echo "/opt/python/${tag}-${tag}/bin" >> "$GITHUB_PATH"
+      - name: Select Xcode
+        if: ${{ matrix.xcode }}
+        run: sudo xcode-select --switch "/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer"
+      - name: Install build dependencies
+        run: python -m pip install -r requirements.txt setuptools wheel cmake ninja
+      - name: Build the wheel
+        run: |
+          config=Release
+          extra=()
+          case "$RUNNER_OS" in
+            Linux) extra=(--enable_lto --allow_running_as_root) ;;
+            Windows)
+              config=RelWithDebInfo
+              extra=(--enable_lto --cmake_generator "Visual Studio 17 2022")
+              ;;
+            macOS)
+              export MACOSX_DEPLOYMENT_TARGET=14.0 _PYTHON_HOST_PLATFORM=macosx-14.0-arm64
+              extra=(--use_coreml --osx_arch arm64 --apple_deploy_target 14.0)
+              ;;
+          esac
+          # Warnings are not errors on upstream's Azure agents either: build.py
+          # turns its dev mode off whenever SYSTEM_COLLECTIONURI is set, and the
+          # release sources do not compile warning-free outside that mode.
+          # Unit tests are not run here and roughly double the compile time.
+          # psimd (reached through CoreML's fp16 dependency) still declares a
+          # pre-3.5 CMake minimum, which CMake 4 refuses without the policy floor.
+          python tools/ci_build/build.py \
+            --build_dir build --config "$config" --update --build --build_wheel \
+            --skip_tests --skip_submodule_sync --skip_pip_install --parallel \
+            --compile_no_warning_as_error --use_binskim_compliant_compile_flags "${extra[@]}" \
+            --cmake_extra_defines onnxruntime_BUILD_UNIT_TESTS=OFF CMAKE_POLICY_VERSION_MINIMUM=3.5
+      - name: Collect the wheel
+        run: |
+          mkdir dist
+          find build -path '*/dist/*.whl' -exec cp {} dist/ \;
+          ls -l dist
+          test "$(find dist -name '*.whl' | wc -l)" -eq 1
+      - name: Smoke-test the wheel with magika
+        run: |
+          python -m venv smoke
+          smoke=smoke/bin/python
+          if [ "$RUNNER_OS" = Windows ]; then smoke=smoke/Scripts/python; fi
+          "$smoke" -m pip install --only-binary :all: dist/*.whl magika
+          # Isolated mode keeps the checkout's onnxruntime/ source tree off sys.path.
+          "$smoke" -I - <<'PY'
+          import onnxruntime
+          from magika import Magika
+
+          print(onnxruntime.__version__, onnxruntime.get_available_providers())
+          result = Magika().identify_path("setup.py")
+          print(result.output.label)
+          assert result.output.label.value == "python"
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: onnxruntime-${{ env.ONNXRUNTIME_VERSION }}-${{ matrix.platform }}
+          path: dist/*.whl
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    if: ${{ inputs.publish }}
+    needs: wheel
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      ONNXRUNTIME_VERSION: ${{ inputs.onnxruntime }}
+      PYTHON_VERSION: ${{ inputs.python }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Create the release
+        working-directory: dist
+        run: |
+          tag="onnxruntime-wheels-${ONNXRUNTIME_VERSION}"
+          {
+            echo "onnxruntime v${ONNXRUNTIME_VERSION} for CPython ${PYTHON_VERSION}, built from the upstream tag by"
+            echo "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}."
+            echo
+            echo '```'
+            sha256sum ./*.whl
+            echo '```'
+          } > notes.md
+          # Not an application release, so it must not become the repository's "latest".
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "$tag" --notes-file notes.md --latest=false ./*.whl
