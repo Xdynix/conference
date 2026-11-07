@@ -7,12 +7,12 @@ from inspect import iscoroutinefunction
 from typing import Any, cast, overload
 from uuid import uuid4
 
-import httpx
 from asgiref.sync import async_to_sync
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils.translation import gettext_lazy as _
 from loguru import logger
+lazy import httpx
 
 from app.utils.cf_turnstile.types import CFTurnstileMode
 from app.utils.cf_turnstile.verify import verify_cf_turnstile_response

@@ -15,9 +15,9 @@ from pathlib import Path
 from typing import Any, Literal, overload
 from uuid import UUID
 
-import typst
 from pydantic import HttpUrl
 from ulid import ULID
+lazy import typst
 
 
 def typst_json_default(obj: Any) -> Any:

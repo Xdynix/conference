@@ -16,6 +16,7 @@ from loguru import logger
 from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.loguru import LoguruIntegration
 from sentry_sdk.types import Event, Hint
+lazy from django.conf import settings
 
 # Library logs route through stdlib into Loguru, so setting their level here drops
 # records at the source; the mute then applies to every sink, local and Sentry alike.
@@ -69,8 +70,6 @@ def sentry_before_send(event: Event, hint: Hint) -> Event | None:  # pragma: no 
 
 def traces_sampler(sampling_context: dict[str, object]) -> float:  # pragma: no cover
     """Drop traces for health checks and static file serving."""
-    from django.conf import settings
-
     asgi_scope = sampling_context.get("asgi_scope")
     wsgi_environ = sampling_context.get("wsgi_environ")
     if isinstance(asgi_scope, dict):

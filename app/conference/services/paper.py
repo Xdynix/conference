@@ -27,6 +27,7 @@ from app.infra.models import Mutex
 from app.utils.email import EmailContext, EmailFormatName, EmailTemplate
 
 from .access import ConferenceAccessService
+lazy from .claim import ClaimService
 
 
 class AuthorData(TypedDict, total=False):
@@ -706,8 +707,6 @@ class PaperService:
     @classmethod
     def _invalidate_claim(cls, paper: Paper) -> None:
         """Delete the paper's claim if the corresponding author situation changed."""
-        from app.conference.services.claim import ClaimService
-
         try:
             claim = PaperClaim.objects.get(paper=paper)
         except PaperClaim.DoesNotExist:

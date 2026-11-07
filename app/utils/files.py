@@ -12,7 +12,7 @@ from django.db.models.fields.files import FieldFile
 from django.http import FileResponse, HttpResponse, StreamingHttpResponse
 from django.utils.translation import gettext as _
 from loguru import logger
-from magika import Magika
+lazy from magika import Magika
 
 # Max size for in-memory file type detection. Files larger than this should be
 # `TemporaryUploadedFile` with a path. If an in-memory file exceeds this, something

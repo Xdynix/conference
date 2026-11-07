@@ -84,9 +84,7 @@ class ConferenceService:
                 raise
             raise ConferenceNameConflict from exc
 
-        assigned_keywords: set[Keyword] = set(keywords)
-        for keyword_set in keyword_sets:
-            assigned_keywords.update(keyword_set.keywords.all())
+        assigned_keywords = set(keywords) | {*ks.keywords.all() for ks in keyword_sets}
         if assigned_keywords:
             conference.keywords.set(assigned_keywords)
 
@@ -173,10 +171,9 @@ class ConferenceService:
             keyword_sets_provided = keyword_sets is not None
             keywords_updated = keywords_provided or keyword_sets_provided
             if keywords_updated:
-                assigned_keywords: set[Keyword] = set()
-                assigned_keywords.update(keywords or [])
-                for keyword_set in keyword_sets or []:
-                    assigned_keywords.update(keyword_set.keywords.all())
+                assigned_keywords = set(keywords or []) | {
+                    *ks.keywords.all() for ks in keyword_sets or []
+                }
                 conference.keywords.set(assigned_keywords)
 
             if update_fields or keywords_updated:

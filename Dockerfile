@@ -25,7 +25,6 @@ COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /bin/uv
 # $HOME/.cache/uv, which the BuildKit cache mount below would then miss,
 # baking the whole cache into the layer.
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONUTF8=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_CACHE_DIR=/root/.cache/uv

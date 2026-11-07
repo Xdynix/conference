@@ -9,7 +9,7 @@ from app.utils.commands import BaseYAMLCommand
 
 
 def write_yaml(path: Path, content: str) -> None:
-    path.write_text(dedent(content).strip() + "\n", encoding="utf-8")
+    path.write_text(dedent(content).strip() + "\n")
 
 
 class SimpleSchema(BaseModel):

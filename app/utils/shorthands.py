@@ -76,7 +76,7 @@ def parse_durations(s: str) -> timedelta:
      ...
     ValueError: Invalid unit: month
     """
-    match = DURATION_PATTERN.match(s)
+    match = DURATION_PATTERN.prefixmatch(s)
     if not match:
         raise ValueError(f"Invalid duration format: {s}")
 

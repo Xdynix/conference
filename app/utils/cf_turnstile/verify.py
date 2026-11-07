@@ -3,8 +3,8 @@ __all__ = ("verify_cf_turnstile_response",)
 from typing import Any
 from uuid import UUID
 
-import httpx
 from django.conf import settings
+lazy import httpx
 
 
 async def verify_cf_turnstile_response(

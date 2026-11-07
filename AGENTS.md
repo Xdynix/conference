@@ -171,7 +171,7 @@ Challenger principles:
 
 ## Writing and Code Style
 
-- **Modern syntax only**: Target Python 3.14+ and the Django version pinned in
+- **Modern syntax only**: Target the Python and Django versions pinned in
   `pyproject.toml`, with no concern for backward compatibility. Use built-in generics
   (`list[str]`, `dict[str, int]`), union syntax (`str | None`), and modern type hints.
   Never use `from __future__ import`, `typing.List`, `typing.Dict`, `typing.Optional`,

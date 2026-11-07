@@ -14,14 +14,10 @@ class AdminSite(DefaultAdminSite):
 
     @property
     def site_header(self) -> str:  # type: ignore[override]
-        from django.conf import settings
-
         return _("{site_name} Administration").format(site_name=settings.SITE_NAME)
 
     @property
     def site_title(self) -> str:  # type: ignore[override]
-        from django.conf import settings
-
         return _("{site_name} Admin").format(site_name=settings.SITE_NAME)
 
     @override

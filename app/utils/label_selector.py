@@ -401,7 +401,7 @@ Requirement = Annotated[
     Field(discriminator="operator"),
 ]
 
-_NOT_SET = object()
+_NOT_SET = sentinel("_NOT_SET")
 _requirement_adapter = TypeAdapter[Requirement](Requirement)
 
 

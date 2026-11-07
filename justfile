@@ -5,14 +5,13 @@ set dotenv-load
 [windows]
 set shell := ["powershell.exe", "-NoLogo", "-Command"]
 
-export PYTHONUTF8 := "1"
 export LOGURU_COLORIZE := "1"
 
 default: ruff
 
 # set up development environment
 dev-setup:
-    uv python upgrade 3.14
+    uv python upgrade 3.15
     uv sync
     uv run pre-commit install
     uv run scripts/dev-setup.py

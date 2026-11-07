@@ -33,7 +33,7 @@ class TestGetDoc:
 
         file_path = settings.BASE_DIR / relative_path
         assert file_path.is_file()
-        assert response.content.decode() == file_path.read_text(encoding="utf-8")
+        assert response.content.decode() == file_path.read_text()
 
     def test_unknown_doc_returns_404(
         self,

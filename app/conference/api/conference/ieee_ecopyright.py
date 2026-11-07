@@ -1,7 +1,6 @@
 import json
 from http import HTTPStatus
 
-import httpx
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from loguru import logger
@@ -9,6 +8,7 @@ from ninja import PatchDict, Schema
 from ninja.errors import HttpError
 from pydantic import Field
 from ulid import ULID
+lazy import httpx
 
 from app.audit.services import audit
 from app.audit.types import AuditAction

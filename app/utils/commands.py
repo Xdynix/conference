@@ -48,7 +48,7 @@ class BaseYAMLCommand(BaseCommand):
             YAMLError: If YAML is malformed.
             ValidationError: If data does not match schema.
         """
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data = yaml.safe_load(path.read_text())
         return schema.model_validate(data or {})
 
     @classmethod

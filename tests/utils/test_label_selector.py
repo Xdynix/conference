@@ -180,7 +180,7 @@ class TestLabelValue:
             jsonschema.validate(s, schema)
 
 
-_NOT_SET = object()
+_NOT_SET = sentinel("_NOT_SET")
 
 
 class TestRequirement:

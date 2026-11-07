@@ -40,6 +40,6 @@ async def get_doc(
         raise Http404
 
     file_path = settings.BASE_DIR / relative_path
-    content = file_path.read_text(encoding="utf-8")
+    content = file_path.read_text()
 
     return HttpResponse(content, content_type="text/markdown; charset=utf-8")
