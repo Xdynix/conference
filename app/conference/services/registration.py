@@ -1,14 +1,20 @@
 from typing import Literal
 
+from django.db import IntegrityError, transaction
 from django.utils.translation import gettext as _
+from loguru import logger
 from ulid import ULID
 
 from app.conference.models import (
     AttendanceType,
+    Conference,
+    Paper,
     Registration,
     RegistrationState,
     RegistrationTitle,
 )
+from app.conference.models.registration import generate_reference_code
+from app.core.models import User
 from app.infra.models import Mutex
 
 
@@ -21,6 +27,67 @@ class AttendanceTypeIncompatibleError(Exception):
 
 
 class RegistrationService:
+    max_code_retries = 5
+
+    @classmethod
+    def create_registration(
+        cls,
+        *,
+        conference: Conference,
+        user: User,
+        paper: Paper | None,
+        attendance_type: AttendanceType,
+        receipt_title: str,
+        title: RegistrationTitle | Literal[""],
+        given_name: str,
+        family_name: str,
+        affiliation: str,
+        region_code: str,
+        email: str,
+        phone: str,
+        self_introduction: str,
+    ) -> Registration:
+        """Create a pending registration, retrying on a reference code collision."""
+        for attempt in range(cls.max_code_retries):
+            reference_code = generate_reference_code()
+            try:
+                with transaction.atomic():
+                    return Registration.objects.create(
+                        conference=conference,
+                        state=RegistrationState.PENDING,
+                        user=user,
+                        paper=paper,
+                        attendance_type=attendance_type,
+                        reference_code=reference_code,
+                        receipt_title=receipt_title,
+                        title=title,
+                        given_name=given_name,
+                        family_name=family_name,
+                        affiliation=affiliation,
+                        region_code=region_code,
+                        email=email,
+                        phone=phone,
+                        self_introduction=self_introduction,
+                    )
+            except IntegrityError:
+                is_last_attempt = attempt >= cls.max_code_retries - 1
+                is_code_collision = Registration.objects.filter(
+                    conference=conference,
+                    reference_code=reference_code,
+                ).exists()
+                if is_last_attempt or not is_code_collision:
+                    raise
+                logger.warning(
+                    "Registration reference code collision detected, retrying.",
+                    reference_code=reference_code,
+                    conference_id=conference.pk,
+                    attempt=attempt + 1,
+                )
+
+        raise AssertionError(
+            "Unreachable: loop always returns or raises."
+        )  # pragma: no cover
+
     @classmethod
     def update_registration(
         cls,

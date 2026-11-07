@@ -1,6 +1,7 @@
 from http import HTTPStatus
 from typing import Annotated, Literal
 
+from asgiref.sync import sync_to_async
 from django.shortcuts import aget_object_or_404
 from django.utils.translation import gettext as _
 from ninja import Schema, Status
@@ -14,10 +15,9 @@ from app.conference.models import (
     AttendanceType,
     Paper,
     Registration,
-    RegistrationState,
     RegistrationTitle,
 )
-from app.conference.services import ConferenceService
+from app.conference.services import ConferenceService, RegistrationService
 from app.conference.types import (
     Affiliation,
     FamilyName,
@@ -139,9 +139,8 @@ async def create_my_registration(
             message=_("This attendance type requires a paper selection."),
         )
 
-    registration = await Registration.objects.acreate(
+    registration = await sync_to_async(RegistrationService.create_registration)(
         conference=conference,
-        state=RegistrationState.PENDING,
         user=user,
         paper=paper,
         attendance_type=attendance_type,
