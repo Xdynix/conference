@@ -199,6 +199,10 @@ async def with_paper_prefetch(
     request: HttpRequest,
 ) -> QuerySet[Paper]:
     """Prefetch related data for paper queries."""
+    visible_reviews = await ReviewService.visible_reviews(
+        conference=conference,
+        user=user,
+    )
     return (
         queryset.select_related(
             "conference",
@@ -208,12 +212,16 @@ async def with_paper_prefetch(
         .annotate(
             submitted_average=Avg(
                 "review__recommendation",
-                filter=Q(review__state=ReviewState.SUBMITTED),
+                filter=Q(
+                    review__state=ReviewState.SUBMITTED,
+                    review__in=visible_reviews,
+                ),
             ),
             submitted_and_draft_average=Avg(
                 "review__recommendation",
                 filter=Q(
-                    review__state__in=[ReviewState.ACCEPTED, ReviewState.SUBMITTED]
+                    review__state__in=[ReviewState.ACCEPTED, ReviewState.SUBMITTED],
+                    review__in=visible_reviews,
                 ),
             ),
             claim_email=F("claim__email"),
@@ -246,12 +254,7 @@ async def with_paper_prefetch(
             PaperFinal.prefetch_latest(),
             Prefetch(
                 "reviews",
-                queryset=(
-                    await ReviewService.visible_reviews(
-                        conference=conference,
-                        user=user,
-                    )
-                ).only("paper_id", "state"),
+                queryset=visible_reviews.only("paper_id", "state"),
                 to_attr="visible_review_states",
             ),
         )

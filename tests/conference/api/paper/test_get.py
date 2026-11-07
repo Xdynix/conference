@@ -1056,6 +1056,38 @@ class TestGetPaper:
             "submitted_and_draft_average": 5.0,
         }
 
+    def test_recommendation_summary_only_averages_visible_reviews(
+        self,
+        api_client: Client,
+        conference: Conference,
+        conference_chair: User,
+        paper: Paper,
+        mock_visible_papers: AsyncMock,
+        mock_visible_reviews: AsyncMock,
+    ) -> None:
+        visible_review = Review.objects.create(
+            paper=paper,
+            state=ReviewState.SUBMITTED,
+            recommendation=4,
+        )
+        Review.objects.create(
+            paper=paper,
+            state=ReviewState.SUBMITTED,
+            recommendation=2,
+        )
+        mock_visible_papers.return_value = Paper.objects.filter(pk=paper.pk)
+        mock_visible_reviews.return_value = Review.objects.filter(pk=visible_review.pk)
+        api_client.force_login(conference_chair)
+
+        response = api_client.get(self.path(conference.name, paper.code))
+        assert response.status_code == HTTPStatus.OK
+
+        data = response.json()
+        assert data["recommendation_summary"] == {
+            "submitted_average": 4.0,
+            "submitted_and_draft_average": 4.0,
+        }
+
     def test_labels_serialized(
         self,
         api_client: Client,
