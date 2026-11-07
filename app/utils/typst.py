@@ -182,6 +182,10 @@ def compile_template(
     it with ``json(bytes(sys.inputs.at("data")))``. Pass *json_default* to handle types
     that ``json.dumps`` cannot serialize natively (e.g., ``Decimal``, ``ULID``).
 
+    Keep caller data out of the template source itself: anything spliced into it is
+    parsed as live markup and code (e.g. ``$...$``, ``#read(...)``) and typst has no
+    markup-escape function, so ``sys_inputs`` is the only safe channel.
+
     Pass *font_paths* to make additional font directories available to the compiler.
     Custom fonts are discovered regardless of ``ignore_system_fonts``; the flag only
     controls system font scanning.

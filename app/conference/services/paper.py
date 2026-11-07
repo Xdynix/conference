@@ -513,6 +513,9 @@ class PaperService:
         All existing reviews are promoted to CONFERENCE assignment level to prevent the
         new track admin from cancelling pre-existing reviews.
 
+        The paper keeps its code even when the target track uses a different code pool;
+        codes are cited outside the system and are unique per conference, not per pool.
+
         Raises:
             Paper.DoesNotExist: If the paper has been deleted or deactivated.
             ValueError: If the target track is in a different conference or is the same

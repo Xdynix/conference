@@ -86,10 +86,10 @@ class Invitation(
         verbose_name = _("invitation")
         verbose_name_plural = _("invitations")
         constraints = (
-            # Enforce uniqueness only for pending invitations. This allows the same
-            # email to receive multiple invitations over time (e.g., accepting one
-            # invitation, then later receiving another for additional roles), while
-            # preventing duplicate pending invitations that would confuse recipients.
+            # Enforce uniqueness for unaccepted invitations, rejected ones included. The
+            # same email can be invited again after accepting (e.g. for additional
+            # roles), while a pending or rejected invitation blocks a duplicate that
+            # would confuse recipients.
             models.UniqueConstraint(
                 "conference",
                 Lower("invitee_email"),

@@ -50,6 +50,10 @@ def api_key_auth_middleware[F: Callable[..., Any]](get_response: F) -> F:
     Ninja API endpoints. Non-API routes (e.g., the admin site) still enforce their own
     authorization checks (``is_staff``, ``is_superuser``). CSRF enforcement is skipped
     for bearer-authenticated requests because they are not browser-initiated.
+
+    Failed bearer attempts are neither audited nor throttled on purpose: a key carries
+    256 bits of entropy, so guessing is infeasible, and each attempt costs one SHA-256
+    plus one unique-index lookup.
     """
     if iscoroutinefunction(get_response):
 
