@@ -25,6 +25,10 @@ certificates); `just --list` shows the shortcuts humans use.
 - **Python with Django loaded**: `uv run manage.py shell -c "<code>"`. Never use
   `python -c` directly; Django apps require initialization.
 - **Linters**: `just lint` (ruff, mypy, via pre-commit; also runs on commit).
+- **CI**: none. The one workflow under `.github/workflows/` builds the onnxruntime
+  wheels Python 3.15 needs and warrants no attention unless the Python version is the
+  task; its header and the onnxruntime note under `[tool.uv]` in `pyproject.toml` say
+  how.
 
 ## Project Structure
 

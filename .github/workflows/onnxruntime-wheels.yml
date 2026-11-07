@@ -1,10 +1,10 @@
 # onnxruntime has no CPython 3.15 wheels yet (microsoft/onnxruntime#33271) and
 # magika needs onnxruntime, so this builds them from the upstream tag and
-# publishes them as a GitHub release for uv.lock to reference by URL. Delete
-# the workflow once upstream ships the wheels or magika drops onnxruntime.
+# publishes them as a GitHub release that the onnxruntime override in
+# pyproject.toml points at.
 #
-# Build parameters follow upstream's packaging pipelines (azure-pipelines:
-# py-linux, py-win-cpu, py-macos), minus Microsoft's internal vcpkg cache
+# Build parameters follow upstream's packaging pipelines under
+# tools/ci_build/github/azure-pipelines, minus Microsoft's internal vcpkg cache
 # (dependencies come from cmake/deps.txt), the unused Azure provider, and the
 # test suite, which a magika smoke test replaces.
 name: Build onnxruntime wheels
@@ -37,8 +37,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Matches upstream's AlmaLinux 8 / GCC 14 build images and keeps the
-          # wheel loadable on Debian stable's older glibc.
+          # Building inside manylinux keeps the wheel's glibc floor at 2.28 instead
+          # of the runner's, and matches upstream's AlmaLinux 8 / GCC 14 images.
           - platform: manylinux_2_28_x86_64
             runner: ubuntu-24.04
             image: quay.io/pypa/manylinux_2_28_x86_64
@@ -95,10 +95,10 @@ jobs:
               extra=(--use_coreml --osx_arch arm64 --apple_deploy_target 14.0)
               ;;
           esac
-          # Warnings are not errors on upstream's Azure agents either: build.py
-          # turns its dev mode off whenever SYSTEM_COLLECTIONURI is set, and the
-          # release sources do not compile warning-free outside that mode.
-          # Unit tests are not run here and roughly double the compile time.
+          # Warnings are not errors on upstream's Azure agents either (build.py
+          # turns its dev mode off whenever SYSTEM_COLLECTIONURI is set), and the
+          # sources do not compile warning-free everywhere outside that mode.
+          # --skip_tests only skips running the unit tests; this skips building them.
           # psimd (reached through CoreML's fp16 dependency) still declares a
           # pre-3.5 CMake minimum, which CMake 4 refuses without the policy floor.
           python tools/ci_build/build.py \
@@ -162,6 +162,7 @@ jobs:
             sha256sum ./*.whl
             echo '```'
           } > notes.md
-          # Not an application release, so it must not become the repository's "latest".
+          # A prerelease never counts as the repository's "latest" release, which an
+          # onnxruntime build must not be.
           gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "$tag" --notes-file notes.md --latest=false ./*.whl
+            --title "$tag" --notes-file notes.md --prerelease ./*.whl

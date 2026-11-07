@@ -71,6 +71,30 @@ required-version = ">=0.13.6"
 default-groups = "all"
 preview-features = ["audit-command"]
 
+# Python 3.15 needs onnxruntime (via magika), which ships no cp315 wheels yet
+# (microsoft/onnxruntime#33271); the release below holds our own, built by
+# .github/workflows/onnxruntime-wheels.yml. To move to 3.15: set
+# requires-python to "==3.15.*", uncomment this block, run `uv lock`. Once
+# upstream publishes cp315 wheels or magika stops depending on onnxruntime,
+# return to the normal install: delete this block and the workflow.
+
+# override-dependencies = ["onnxruntime==1.31.1"]
+# # uv resolves only these; the other platforms have no wheel.
+# environments = [
+#     "sys_platform == 'win32'",
+#     "sys_platform == 'darwin'",
+#     "sys_platform == 'linux' and platform_machine == 'x86_64'",
+#     "sys_platform == 'linux' and platform_machine == 'aarch64'",
+# ]
+#
+# [tool.uv.sources]
+# onnxruntime = [
+#     { url = "https://github.com/Xdynix/conference/releases/download/onnxruntime-wheels-1.31.1/onnxruntime-1.31.1-cp315-cp315-win_amd64.whl", marker = "sys_platform == 'win32'" },
+#     { url = "https://github.com/Xdynix/conference/releases/download/onnxruntime-wheels-1.31.1/onnxruntime-1.31.1-cp315-cp315-macosx_14_0_arm64.whl", marker = "sys_platform == 'darwin'" },
+#     { url = "https://github.com/Xdynix/conference/releases/download/onnxruntime-wheels-1.31.1/onnxruntime-1.31.1-cp315-cp315-manylinux_2_28_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+#     { url = "https://github.com/Xdynix/conference/releases/download/onnxruntime-wheels-1.31.1/onnxruntime-1.31.1-cp315-cp315-manylinux_2_28_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+# ]
+
 [tool.ruff]
 cache-dir = ".cache/ruff"
 extend-exclude = ["scratch"]
