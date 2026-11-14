@@ -3,9 +3,8 @@
 snapshot:
   retention: 2160h
 
-# These fire on wall-clock timers regardless of write volume, and every tick costs an
-# R2 Class A operation; the upstream defaults (30s, 15s) are far more aggressive than
-# this backup needs.
+# Each runs on its own timer and bills R2 requests on top of `sync-interval`; the
+# upstream defaults (30s, 15s) are far more aggressive than this backup needs.
 levels:
   - interval: 30m
   - interval: 6h
@@ -24,4 +23,5 @@ dbs:
       region: auto
       access-key-id: ${LITESTREAM_S3_ACCESS_KEY_ID}
       secret-access-key: ${LITESTREAM_S3_SECRET_ACCESS_KEY}
+      # Worst-case data loss window.
       sync-interval: 5m

@@ -7,9 +7,7 @@ dependencies = [
     "django-cleanup>=9.0.0",
     "django-extensions>=4.1",
     "django-ipware>=8.0.0",
-    # TODO: Drop monkeypatch_django_ninja_openapi_examples in app/patches.py once
-    # vitalik/django-ninja#1637 ships; raise this floor to that release.
-    "django-ninja>=1.6.3",
+    "django-ninja>=1.8.0",
     "django-post-office>=3.12",
     "django-stubs-ext~=6.1.0",
     "django[argon2]~=6.1.0",
@@ -54,7 +52,7 @@ test = [
     "faker>=40.36.0",
     "jsonschema>=4.26.0",
     "pypdf>=6.15.0",
-    "pytest>=9.1.1,<10",
+    "pytest>=9.2.0,<10",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "pytest-django>=4.13.0",
@@ -67,7 +65,7 @@ test = [
 
 [tool.uv]
 # Floor matches the uv image tag in the Dockerfile; raise both together.
-required-version = ">=0.13.6"
+required-version = ">=0.13.8"
 default-groups = "all"
 preview-features = ["audit-command"]
 
@@ -200,8 +198,7 @@ addopts = [
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-# Quoted because pytest declares this option as a string.
-max_warnings = "0"
+max_warnings = 0
 filterwarnings = [
     # Python hides ResourceWarning by default; show it so unclosed files fail the run.
     "default::ResourceWarning",

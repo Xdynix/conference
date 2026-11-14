@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM debian:trixie-slim
+FROM debian:trixie-20261104-slim
 
 ARG APP_USER=main
 ARG APP_UID=900
@@ -20,14 +20,15 @@ ENV PATH="${HOME}/.venv/bin:$PATH"
 ENV PYTHONPATH="${HOME}"
 
 # Also the required-version floor under [tool.uv] in pyproject.toml.
-COPY --from=ghcr.io/astral-sh/uv:0.13.6 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /bin/uv
 # UV_CACHE_DIR is required: ENV HOME above moves uv's default cache to
 # $HOME/.cache/uv, which the BuildKit cache mount below would then miss,
 # baking the whole cache into the layer.
 ENV PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_CACHE_DIR=/root/.cache/uv
+    UV_CACHE_DIR=/root/.cache/uv \
+    UV_PYTHON_CACHE_DIR=/root/.cache/uv/python
 
 # Runs as root intentionally: the BuildKit cache mount defaults to root:root,
 # and the resulting .venv is read-only at runtime (UV_COMPILE_BYTECODE

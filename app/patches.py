@@ -16,30 +16,6 @@ def monkeypatch_django_ninja_openapi_csrf() -> None:
     ninja.openapi.docs._csrf_needed = _csrf_needed
 
 
-def monkeypatch_django_ninja_openapi_examples() -> None:
-    # TODO: Remove after vitalik/django-ninja#1637 released.
-    # Django Ninja copies `examples` from JSON Schema (where arrays are valid) to the
-    # OpenAPI Parameter Object level (where it must be a map of Example Objects). This
-    # causes Swagger UI to fail with "TypeError: i.get is not a function" when rendering
-    # parameters with examples. This patch converts the array format to the map format.
-    from typing import Any
-
-    from ninja.openapi.schema import OpenAPISchema
-
-    original = OpenAPISchema._extract_parameters
-
-    def _extract_parameters(self: OpenAPISchema, model: Any) -> list[dict[str, Any]]:
-        result = original(self, model)
-        for param in result:
-            if isinstance(param.get("examples"), list):
-                param["examples"] = {
-                    f"example{i}": {"value": v} for i, v in enumerate(param["examples"])
-                }
-        return result
-
-    OpenAPISchema._extract_parameters = _extract_parameters  # type: ignore[method-assign]
-
-
 def monkeypatch_django_ninja_patch_dict() -> None:
     # TODO: Remove after vitalik/django-ninja#1592 released.
     # Django Ninja's `PatchDict` rebuilds each field from the class annotation and a

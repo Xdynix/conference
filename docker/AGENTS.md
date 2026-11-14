@@ -383,11 +383,6 @@ shell variables. Edits to the entrypoint script must preserve it.
 Litestream applies R2's required signed-payload and concurrency settings automatically
 from the endpoint hostname, so they are deliberately absent from the config.
 
-`sync-interval` in `docker/litestream.yml` sets the worst-case data loss window. It is
-not the only driver of billed request volume: L0 retention checks and L1 compaction run
-on their own timers (`l0-retention-check-interval` and `levels`) regardless of write
-rate.
-
 rclone's request volume is set by its comparison mode more than by
 `BACKUP_MEDIA_INTERVAL`. With `--fast-list --checksum` a run costs about one list per
 1,000 objects plus two Class A operations per changed file; without them it costs one
