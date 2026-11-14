@@ -4,6 +4,7 @@ import warnings
 from abc import ABC, abstractmethod
 from typing import Any, Literal, assert_never
 
+from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Model, QuerySet
 from django.http import HttpRequest
 from ninja import Field, Schema
@@ -41,8 +42,9 @@ def cursor_pagination(
         position in the result set. The next page starts from the last item's cursor
         value, making pagination resilient to insertions and deletions.
 
-        The ``cursor_field`` must be unique and sortable. Non-unique fields will cause
-        undefined behavior, potentially skipping or duplicating items.
+        The ``cursor_field`` must be unique, non-nullable, and sortable. Any other field
+        could skip or duplicate items, so paginating by one raises
+        ``ImproperlyConfigured``.
 
         For predictable behavior when items are added during pagination, the cursor
         field should be monotonic (strictly increasing, e.g., auto-incrementing primary
@@ -112,6 +114,12 @@ def cursor_pagination(
                         )
                 case _ as unreachable:
                     assert_never(unreachable)
+
+            if not queryset.totally_ordered:
+                raise ImproperlyConfigured(
+                    f"{type(self).__name__} needs a unique, non-nullable cursor field; "
+                    f"{cursor_field!r} does not give a total ordering."
+                )
 
             return queryset
 

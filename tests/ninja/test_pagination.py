@@ -1,6 +1,7 @@
 from typing import Any
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 from django.http import HttpRequest
 from django.test import Client, RequestFactory
 from django.urls import path
@@ -140,6 +141,20 @@ class TestCursorPagination:
         with pytest.warns(UserWarning, match="ignores existing queryset ordering"):
             await paginator.apaginate_queryset(
                 queryset,
+                pagination,
+                req,
+            )
+
+    async def test_rejects_cursor_field_without_total_ordering(
+        self,
+        req: HttpRequest,
+    ) -> None:
+        paginator = cursor_pagination(cursor_field="date_joined")()
+        pagination = paginator.Input(page_size=1, order="asc")
+
+        with pytest.raises(ImproperlyConfigured, match="date_joined"):
+            await paginator.apaginate_queryset(
+                User.objects.all(),
                 pagination,
                 req,
             )
