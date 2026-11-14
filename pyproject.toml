@@ -139,6 +139,9 @@ ignore = [
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "post_office".msg = "Application code stays unaware of the mail queue; send through Django's mail API (app/AGENTS.md, Email)."
+"__future__".msg = "Code targets the pinned Python version only (AGENTS.md, Writing and Code Style)."
+"unittest.mock.patch".msg = "Patch through pytest-mock's mocker fixture (tests/AGENTS.md, Framework and Database Testing)."
+"pytest.mark.asyncio".msg = "pytest-asyncio runs in auto mode, so async tests need no marker (tests/AGENTS.md, Framework and Database Testing)."
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -155,7 +158,6 @@ ignore-var-parameters = true
 "tests/**/*.py" = [
     "S101", # assert
     "S105", # hardcoded-password-string
-    "TID251", # banned-api
 ]
 "app/infra/**/*.py" = [
     "TID251", # banned-api

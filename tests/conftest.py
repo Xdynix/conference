@@ -13,7 +13,7 @@ from django.db import models
 from django.test import Client
 from django.utils import timezone
 from loguru import logger
-from post_office.models import Attachment
+from post_office.models import Attachment  # noqa: TID251
 from pytest_mock import MockerFixture
 
 from app.ninja.core import AppNinjaAPI

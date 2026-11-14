@@ -10,7 +10,7 @@ from django.core.mail import EmailMessage
 from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
-from post_office.mail import send_queued
+from post_office.mail import send_queued  # noqa: TID251
 from ulid import ULID
 
 from app.conference.models import (

@@ -8,7 +8,7 @@ from django.core.exceptions import ValidationError
 from django.core.mail import EmailMessage
 from django.utils import timezone
 from faker import Faker
-from post_office.models import Email
+from post_office.models import Email  # noqa: TID251
 from pytest_mock import MockerFixture
 from ulid import ULID
 

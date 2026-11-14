@@ -10,8 +10,8 @@ from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
 from faker import Faker
-from post_office.mail import send_queued
-from post_office.models import PRIORITY, Email
+from post_office.mail import send_queued  # noqa: TID251
+from post_office.models import PRIORITY, Email  # noqa: TID251
 from pytest_mock import MockerFixture
 
 from app.utils.email import URGENT_MAIL_HEADERS, EmailFormatName, EmailTemplate

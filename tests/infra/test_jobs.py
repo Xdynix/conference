@@ -7,8 +7,8 @@ import pytest
 from django.conf import LazySettings
 from django.utils import timezone
 from faker import Faker
-from post_office.management.commands.cleanup_mail import Command as CleanupMailCommand
-from post_office.models import STATUS, Email
+from post_office.management.commands.cleanup_mail import Command as CleanupMailCommand  # noqa: TID251
+from post_office.models import STATUS, Email  # noqa: TID251
 from pytest_mock import MockerFixture
 
 from app.infra import jobs

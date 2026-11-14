@@ -6,8 +6,8 @@ import pytest
 from django.conf import LazySettings
 from django.core.mail import EmailMessage, EmailMultiAlternatives, mailers
 from django.db import transaction
-from post_office.mail import send_queued
-from post_office.models import PRIORITY, Attachment, Email
+from post_office.mail import send_queued  # noqa: TID251
+from post_office.models import PRIORITY, Attachment, Email  # noqa: TID251
 from pytest_mock import MockerFixture
 
 from app.utils.email import (
