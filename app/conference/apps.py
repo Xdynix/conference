@@ -8,7 +8,6 @@ from app.ninja.errors import make_validation_error
 
 
 class ConferenceConfig(AppConfig):
-    default_auto_field = "django.db.models.BigAutoField"
     name = "app.conference"
 
     def ready(self) -> None:
