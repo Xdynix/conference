@@ -659,6 +659,7 @@ class TestGetReceipt:
         response = api_client.get(self.path(registration.uid))
         assert response.status_code == HTTPStatus.OK
         assert response["Content-Type"] == "application/pdf"
+        assert response["Cache-Control"] == "no-cache"
         assert b"".join(response.streaming_content) == FAKE_PDF  # type: ignore[attr-defined]
 
     def test_not_found(self, api_client: Client) -> None:

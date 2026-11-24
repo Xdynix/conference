@@ -388,6 +388,7 @@ class TestBuildFileDownloadResponse:
         assert not isinstance(response, FileResponse)
         assert response["X-Accel-Redirect"] == "/internal-media/uploads/test_file.pdf"
         assert response["Content-Type"] == "application/octet-stream"
+        assert response["Cache-Control"] == "private, no-cache"
         mock_field_file.open.assert_not_called()
 
     def test_nginx_mode_encodes_special_characters_in_path(
@@ -464,6 +465,16 @@ class TestBuildFileDownloadResponse:
         )
 
         assert response["Content-Disposition"] == 'attachment; filename="test_file.pdf"'
+
+    def test_private_cache_is_default(self, mock_field_file: MagicMock) -> None:
+        response = build_file_download_response(mock_field_file)
+
+        assert response["Cache-Control"] == "private, no-cache"
+
+    def test_shared_cache(self, mock_field_file: MagicMock) -> None:
+        response = build_file_download_response(mock_field_file, shared_cache=True)
+
+        assert response["Cache-Control"] == "no-cache"
 
     def test_custom_content_type(self, mock_field_file: MagicMock) -> None:
         response = build_file_download_response(

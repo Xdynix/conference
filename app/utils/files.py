@@ -130,10 +130,13 @@ def build_file_download_response(
     filename: str | None = None,
     content_type: str = "application/octet-stream",
     disposition: Literal["inline", "attachment"] = "inline",
+    shared_cache: bool = False,
 ) -> HttpResponse | StreamingHttpResponse:
     """Build a response for serving a stored file.
 
     Uses ``filename`` for the response filename, falling back to the file's basename.
+    ``shared_cache`` lets shared caches such as a CDN store the response; enable it only
+    on routes that require no authentication.
 
     In Django mode, returns a ``FileResponse`` serving the file directly. In nginx mode,
     returns a response with ``X-Accel-Redirect`` header for nginx to serve the file.
@@ -211,4 +214,7 @@ def build_file_download_response(
         response = FileResponse(file.open("rb"), content_type=content_type)
 
     response["Content-Disposition"] = content_disposition
+    # Without an explicit policy, CDNs and browsers apply their own defaults and keep
+    # serving a file after it has been replaced.
+    response["Cache-Control"] = "no-cache" if shared_cache else "private, no-cache"
     return response

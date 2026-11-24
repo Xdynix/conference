@@ -291,6 +291,7 @@ async def get_acceptance_letter(
             letter.rendered_pdf,
             filename="acceptance-letter.pdf",
             content_type="application/pdf",
+            shared_cache=True,
         )
     except (ValueError, FileNotFoundError) as exc:
         raise Http404 from exc

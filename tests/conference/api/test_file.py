@@ -229,6 +229,7 @@ class TestDownloadConferenceFile:
         assert response.status_code == HTTPStatus.OK
         assert b"".join(response.streaming_content) == FAKE_PDF  # type: ignore[attr-defined]
         assert 'filename="Payment Form.pdf"' in response["Content-Disposition"]
+        assert response["Cache-Control"] == "private, no-cache"
 
     def test_not_found(
         self,

@@ -59,6 +59,7 @@ class TestDownloadSubmission:
         assert response.status_code == HTTPStatus.OK
 
         assert response["Content-Type"] == "application/pdf"
+        assert response["Cache-Control"] == "private, no-cache"
         assert (
             response["Content-Disposition"]
             == f'inline; filename="{submission.display_name}"'

@@ -539,6 +539,7 @@ async def download_proof_file(
             proof.file,
             filename=proof.display_name,
             content_type="application/pdf",
+            shared_cache=True,
         )
     except (ValueError, FileNotFoundError) as exc:
         raise Http404 from exc

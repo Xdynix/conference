@@ -305,6 +305,7 @@ async def get_receipt(
             receipt.rendered_pdf,
             filename="receipt.pdf",
             content_type="application/pdf",
+            shared_cache=True,
         )
     except (ValueError, FileNotFoundError) as exc:
         raise Http404 from exc
