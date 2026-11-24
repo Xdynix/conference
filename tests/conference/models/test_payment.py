@@ -170,7 +170,7 @@ class TestPayment:
             currency=PaymentCurrency.USD,
             type=PaymentType.PAYMENT,
         )
-        assert payment.formatted_amount == "1,234.56 USD"
+        assert payment.formatted_amount == "USD 1,234.56"
 
     def test_formatted_amount_jpy(self, conference: Conference) -> None:
         payment = Payment(
@@ -179,7 +179,7 @@ class TestPayment:
             currency=PaymentCurrency.JPY,
             type=PaymentType.PAYMENT,
         )
-        assert payment.formatted_amount == "12,345 JPY"
+        assert payment.formatted_amount == "JPY 12,345"
 
 
 @pytest.mark.django_db
@@ -326,7 +326,7 @@ class TestPaymentItem:
             registration=registration,
             amount=Decimal("100.00"),
         )
-        assert item.formatted_amount == "100.00 USD"
+        assert item.formatted_amount == "USD 100.00"
 
     def test_formatted_amount_jpy(
         self,
@@ -345,4 +345,4 @@ class TestPaymentItem:
             registration=registration,
             amount=Decimal(5000),
         )
-        assert item.formatted_amount == "5,000 JPY"
+        assert item.formatted_amount == "JPY 5,000"

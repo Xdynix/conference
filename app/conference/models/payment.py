@@ -22,25 +22,25 @@ def format_amount(amount: Decimal, currency: str) -> str:
     All others are formatted with 2 decimal places. Thousands separators are used.
 
     >>> format_amount(Decimal("1234.56"), "USD")
-    '1,234.56 USD'
+    'USD 1,234.56'
     >>> format_amount(Decimal("1000.00"), "USD")
-    '1,000.00 USD'
+    'USD 1,000.00'
     >>> format_amount(Decimal("12345"), "JPY")
-    '12,345 JPY'
+    'JPY 12,345'
     >>> format_amount(Decimal("12345.67"), "JPY")
-    '12,345 JPY'
+    'JPY 12,345'
     >>> format_amount(Decimal("9999.99"), "CNY")
-    '9,999.99 CNY'
+    'CNY 9,999.99'
     >>> format_amount(Decimal("1234567.89"), "EUR")
-    '1,234,567.89 EUR'
+    'EUR 1,234,567.89'
     >>> format_amount(Decimal("0.00"), "USD")
-    '0.00 USD'
+    'USD 0.00'
     >>> format_amount(Decimal("0"), "JPY")
-    '0 JPY'
+    'JPY 0'
     """
     if currency in NON_DECIMAL_CURRENCIES:
-        return f"{int(amount):,} {currency}"
-    return f"{amount:,.2f} {currency}"
+        return f"{currency} {int(amount):,}"
+    return f"{currency} {amount:,.2f}"
 
 
 class PaymentCurrency(models.TextChoices):
